@@ -16,7 +16,7 @@ LOG *LogCreate(char *filename, unsigned long int size)
 
 	space = (size+1)*sizeof(EVENT) + sizeof(LOG);
 
-	mio = MIOOpen(filename,"rw",space);
+	mio = MIOOpen(filename,"w+",space);
 	if(mio == NULL) {
 		return(NULL);
 	}
@@ -132,7 +132,7 @@ PENDING *PendingCreate(char *filename, unsigned long psize)
 	EVENT *ev_array;
 
 	space = psize*sizeof(EVENT) + sizeof(PENDING);
-	mio = MIOOpen(filename,"rw",space);
+	mio = MIOOpen(filename,"w+",space);
 	if(mio == NULL) {
 		return(NULL);
 	}
@@ -341,7 +341,7 @@ GLOG *GLogCreate(char *filename, unsigned long size)
 
 	space = sizeof(GLOG);
 
-	mio = MIOOpen(filename,"rw",space);
+	mio = MIOOpen(filename,"w+",space);
 	if(mio == NULL) {
 		return(NULL);
 	}

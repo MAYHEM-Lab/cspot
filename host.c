@@ -12,7 +12,7 @@ HOSTLIST *HostListCreate(char *filename)
 	HOSTLIST *hl;
 	MIO *mio;
 
-	mio = MIOOpen(filename,"rw",HOSTSIZE);
+	mio = MIOOpen(filename,"w+",HOSTSIZE);
 	if(mio == NULL) {
 		return(NULL);
 	}

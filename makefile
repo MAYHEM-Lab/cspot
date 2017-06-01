@@ -23,4 +23,6 @@ event.o: event.c event.h
 host.o: host.c host.h event.h
 	${CC} ${CFLAGS} -c host.c
 
+clean:
+	rm -f *.o log-test
 
