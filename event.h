@@ -27,5 +27,5 @@ int EventSetReason(EVENT *ev, unsigned long reason_host,
 double EventIndex(unsigned long host, unsigned long long seq_no);
 
 
-endif
+#endif
 

@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-
+#include <string.h>
 #include <pthread.h>
+
 #include "event.h"
 #include "mio.h"
 #include "log.h"
@@ -72,10 +73,6 @@ unsigned long long LogEvent(LOG *log, EVENT *event)
 		return(0);
 	}
 
-	if(log->filename == NULL) {
-		return(0);
-	}
-
 	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
 
 //	pthread_mutex_lock(&log->lock);
@@ -112,7 +109,7 @@ void LogPrint(FILE *fd, LOG *log)
 	curr = log->head;
 	while(curr != log->tail) {
 		fprintf(fd,
-		"\thost: %lu seq_no: %lu r_host: %lu r_seq_no: %lu\n",
+		"\thost: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
 			ev_array[curr].host,	
 			ev_array[curr].seq_no,	
 			ev_array[curr].reason_host,	
@@ -201,7 +198,7 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 	 */
 	local_event = PendingFindEvent(pending,event->host,event->seq_no);
 	if(local_event != NULL) {
-		fprintf(stderr,"found %lu %lu pending while adding\n",
+		fprintf(stderr,"found %lu %llu pending while adding\n",
 			event->host, event->seq_no);
 		fflush(stderr);
 		return(-1);
@@ -220,7 +217,7 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 
 	if(fail == 1) {
 		fprintf(stderr,
-			"couldn't find free space for pending %lu %lu\n",
+			"couldn't find free space for pending %lu %llu\n",
 				event->host,
 				event->seq_no);
 		fflush(stderr);
@@ -247,7 +244,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	rb = RBFindD(pending->alive,ndx);
 	if(rb == NULL) {
 		fprintf(stderr,
-		"couldn't find %lu %lu pending alive\n",
+		"couldn't find %lu %llu pending alive\n",
 			event->host,
 			event->seq_no);
 		fflush(stderr);
@@ -255,13 +252,13 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	}
 	local_event = (EVENT *)rb->value.v;
 	local_event->seq_no = 0; /* marks MIO space as free */
-	RBDeleteD(rb);
+	RBDeleteD(pending->alive,rb);
 
 	ndx = EventIndex(event->reason_host,event->reason_seq_no);
 	rb = RBFindD(pending->reasons,ndx);
 	if(rb == NULL) {
 		fprintf(stderr,
-		"couldn't find %lu %lu pending reason\n",
+		"couldn't find %lu %llu pending reason\n",
 			event->host,
 			event->seq_no);
 		fflush(stderr);
@@ -323,7 +320,7 @@ void PendingPrint(FILE *fd, PENDING *pending)
 	RB_FORWARD(pending->alive,rb) {
 		ev = (EVENT *)rb->value.v;
 		fprintf(fd,
-		 "\thost: %lu seq_no: %lu r_host: %lu r_seq_no: %lu\n",
+		 "\thost: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
 			ev->host,
 			ev->seq_no,
 			ev->reason_host,
@@ -344,7 +341,7 @@ GLOG *GLogCreate(char *filename, unsigned long size)
 
 	space = sizeof(GLOG);
 
-	mio = MIOOpen(filename,"rw");
+	mio = MIOOpen(filename,"rw",space);
 	if(mio == NULL) {
 		return(NULL);
 	}
@@ -414,6 +411,8 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 	EVENT *reason_event;
 	HOST *reason_host;
 	EVENT *local_event;
+	EVENT *this_event;
+	int done;
 
 	if(gl == NULL) {
 		return(-1);
@@ -433,7 +432,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 	 * record seq no
 	 */
 	if(host == NULL) {
-		err = HostListAdd(event->reason_host);
+		err = HostListAdd(gl->host_list,event->reason_host);
 		if(err < 0) {
 			fprintf(stderr,"couldn't add new reason host %lu\n",
 				event->reason_host);
@@ -459,7 +458,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 	 * if this is the first event, log it
 	 */
 	if(host == NULL) {
-		err = HostListAdd(event->host);
+		err = HostListAdd(gl->host_list,event->host);
 		if(err < 0) {
 			fprintf(stderr,"couldn't add new reason host %lu\n",
 				event->host);
@@ -496,7 +495,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 	this_event = event;
 	while(done == 0) {
 		reason_event =
-			PendingFindEvent(this_event->reason_host,this_event->reason_seq_no);
+			PendingFindEvent(gl->pending,this_event->reason_host,this_event->reason_seq_no);
 
 		/*
 		 * if we don't find the reason on the pending list, check to
@@ -520,7 +519,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 					err = PendingRemoveEvent(gl->pending,this_event);
 					if(err < 0) {
 						fprintf(stderr,
-			"couldn't remove event %lu, %lu from pending\n",
+			"couldn't remove event %lu, %llu from pending\n",
 							this_event->host,
 							local_event->seq_no);
 						fflush(stderr);
@@ -530,7 +529,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 				g_seq_no = LogEvent(gl->log,this_event);
 				if(g_seq_no == 0) {
 					fprintf(stderr,
-					"log with committed reason failed %lu, %lu\n",
+					"log with committed reason failed %lu, %llu\n",
 						event->host,event->seq_no);
 					fflush(stderr);
 					return(-1);
@@ -547,7 +546,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 				 */
 				if(host->max_seen > this_event->seq_no) {
 						fprintf(stderr,
-						"max seen from %lu is %lu but event is %lu\n",
+						"max seen from %lu is %llu but event is %llu\n",
 							this_event->host,
 							host->max_seen,
 							this_event->seq_no);
@@ -576,10 +575,10 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 		 	 * if it is already on the pending list then there is
 		 	 * an error
 		 	 */
-			local_event = PendingFindEvent(event->host,event->seq_no);
+			local_event = PendingFindEvent(gl->pending,event->host,event->seq_no);
 			if(local_event != NULL) {
 				fprintf(stderr,
-				"unlogged reason for host %lu event %lu\n",
+				"unlogged reason for host %lu event %llu\n",
 					event->host,event->seq_no);
 				fflush(stderr);
 				return(-1);
@@ -594,17 +593,17 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 			 *
 			 * if it is there already then there is a problem
 			 */
-			local_event = PendingFindEvent(this_event->host,event->seq_no);
+			local_event = PendingFindEvent(gl->pending,this_event->host,event->seq_no);
 			if(local_event != NULL) {
 				fprintf(stderr,
-				"already pending reason for host %lu event %lu\n",
+				"already pending reason for host %lu event %llu\n",
 					this_event->host,this_event->seq_no);
 				fflush(stderr);
 				return(-1);
 			}
 			PendingAddEvent(gl->pending,this_event);
 			done = 1;
-			break
+			break;
 		}
 	} /* end of while loop */
 
@@ -612,7 +611,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 }
 
 	
-XXX logic is
-
+/* 
 FireEvent logs event to local log and to global log
 ProcessEventRecord puts record in global log
+*/

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "log.h"
 
@@ -8,7 +9,7 @@
 char *Usage = "log-test -f filename\n\
 \t-s size (in events)\n";
 
-char Fname[4096]
+char Fname[4096];
 
 int main(int argc, char **argv)
 {

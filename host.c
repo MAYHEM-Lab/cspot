@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-
+#include <string.h>
 #include <pthread.h>
+
 #include "host.h"
 #include "redblack.h"
 
@@ -22,12 +23,12 @@ HOSTLIST *HostListCreate(char *filename)
 	hl = (HOSTLIST *)MIOAddr(mio);
 	hl->h_mio = mio;
 	memset(hl->filename,0,sizeof(hl->filename));
-	strcpy(hl->filename,filename,strlen(filename));
+	strcpy(hl->filename,filename);
 
 	hl->count = 0;
 	hl->hash_size = HASHCOUNT;
 	hl->hash = (HOST *)(MIOAddr(mio) + sizeof(HOSTLIST));
-	memset(hl->hash,0,HASHCOUNT*sizeof(host));
+	memset(hl->hash,0,HASHCOUNT*sizeof(HOST));
 
 	pthread_mutex_init(&hl->lock,NULL);
 

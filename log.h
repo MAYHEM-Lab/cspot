@@ -1,9 +1,12 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include "event.h"
+#include <stdio.h>
+
 #include "mio.h"
+#include "event.h"
 #include "host.h"
+#include "redblack.h"
 
 #include <pthread.h>
 
@@ -18,7 +21,7 @@ struct log_stc
 	unsigned long int tail;
 };
 
-typedef log_stc LOG;
+typedef struct log_stc LOG;
 
 struct pending_stc
 {
@@ -48,12 +51,18 @@ LOG *LogCreate(char *filename, unsigned long int size);
 void LogFree(LOG *log);
 int LogFull(LOG *log);
 unsigned long long LogEvent(LOG *log, EVENT *event);
+void LogPrint(FILE *fd, LOG *log);
 
 PENDING *PendingCreate(char *filename, unsigned long psize);
 void PendingFree(PENDING *pending);
+EVENT *PendingFindEvent(PENDING *pending, 
+	unsigned long host, unsigned long long seq_no);
+EVENT *PendingFindReason(PENDING *pending, 
+	unsigned long host, unsigned long long seq_no);
+void PendingPrint(FILE *fd, PENDING *pending);
 
 
-PENDING *PendingCreate(char *filename, unsigned long psize);
+GLOG *GLogCreate(char *filename, unsigned long size);
 void GLogFree(GLOG *gl);
 
 	

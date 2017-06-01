@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
+#include <math.h>
 
 #include "event.h"
 
@@ -43,7 +45,7 @@ double EventIndex(unsigned long host, unsigned long long seq_no)
 {
 	double ndx;
 
-	ndx = (double)((host << 64) + seq_no);
+	ndx = (double)(((double)host * pow(2,64)) + (double)seq_no);
 
 	return(ndx);
 }
