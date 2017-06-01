@@ -12,8 +12,9 @@ struct event_stc
 
 typedef struct event_stc EVENT;
 
-#define FUNC (1)
-#define TRIGGER (2)
+#define UNKNOWN (1)
+#define FUNC (2)
+#define TRIGGER (3)
 
 EVENT *EventCreate(unsigned char type, unsigned long host,
                    unsigned long long seq_no);
@@ -22,6 +23,8 @@ void EventFree(EVENT *ev);
 
 int EventSetReason(EVENT *ev, unsigned long reason_host, 
                                 unsigned long long reason_seq_no);
+
+double EventIndex(unsigned long host, unsigned long long seq_no);
 
 
 endif
