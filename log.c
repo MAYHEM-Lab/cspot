@@ -22,8 +22,9 @@ LOG *LogCreate(char *filename, unsigned long int size)
 	}
 
 	log = (LOG *)MIOAddr(mio);
-	log->m_buf = mio;
 	memset(log,0,sizeof(LOG));
+
+	log->m_buf = mio;
 	strcpy(log->filename,filename);
 
 	log->size = size+1;
@@ -86,6 +87,7 @@ unsigned long long LogEvent(LOG *log, EVENT *event)
 	next = (log->head + 1) % log->size;
 	
 	memcpy(&ev_array[next],event,sizeof(EVENT));
+	ev_array[next].seq_no = log->seq_no;
 	log->head = next;
 	log->seq_no++;
 	seq_no = log->seq_no;
@@ -115,7 +117,7 @@ void LogPrint(FILE *fd, LOG *log)
 			ev_array[curr].reason_host,	
 			ev_array[curr].reason_seq_no);	
 		fflush(fd);
-		curr = log->head - 1;
+		curr = curr - 1;
 		if(curr >= log->size) {
 			curr = log->size - 1;
 		}

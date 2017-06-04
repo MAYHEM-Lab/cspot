@@ -6,8 +6,7 @@
 
 #include "event.h"
 
-EVENT *EventCreate(unsigned char type, unsigned long host, 
-		   unsigned long long seq_no)
+EVENT *EventCreate(unsigned char type, unsigned long host)
 {
 	EVENT *ev;
 
@@ -19,7 +18,6 @@ EVENT *EventCreate(unsigned char type, unsigned long host,
 
 	ev->type = type;
 	ev->host = host;
-	ev->seq_no = seq_no;
 
 	return(ev);
 }

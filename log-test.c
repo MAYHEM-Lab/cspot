@@ -17,6 +17,9 @@ int main(int argc, char **argv)
 	int size;
 	LOG *llog;
 	GLOG *glog;
+	EVENT *ev;
+	unsigned long long seq_no;
+	int i;
 
 	size = 5;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -42,6 +45,19 @@ int main(int argc, char **argv)
 	}
 
 	llog = LogCreate(Fname,size);
+	ev = EventCreate(FUNC,1);
+	seq_no = LogEvent(llog,ev);
+	EventFree(ev);
+
+	for(i=0; i < size + 2; i++) {
+		ev = EventCreate(FUNC,1);
+		ev->reason_host = 1;
+		ev->reason_seq_no = seq_no;
+		seq_no = LogEvent(llog,ev);
+		LogPrint(stdout,llog);
+		EventFree(ev);
+	}
+	LogFree(llog);
 
 	return(0);
 }

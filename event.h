@@ -16,8 +16,7 @@ typedef struct event_stc EVENT;
 #define FUNC (2)
 #define TRIGGER (3)
 
-EVENT *EventCreate(unsigned char type, unsigned long host,
-                   unsigned long long seq_no);
+EVENT *EventCreate(unsigned char type, unsigned long host);
 
 void EventFree(EVENT *ev);
 
