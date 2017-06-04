@@ -64,14 +64,14 @@ int LogFull(LOG *log)
 	}
 }
 
-unsigned long long LogEvent(LOG *log, EVENT *event)
+int LogAdd(LOG *log, EVENT *event)
 {
 	EVENT *ev_array;
 	unsigned long int next;
 	unsigned long long seq_no;
 
 	if(log == NULL) {
-		return(0);
+		return(1);
 	}
 
 	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
@@ -87,12 +87,26 @@ unsigned long long LogEvent(LOG *log, EVENT *event)
 	next = (log->head + 1) % log->size;
 	
 	memcpy(&ev_array[next],event,sizeof(EVENT));
-	ev_array[next].seq_no = log->seq_no;
 	log->head = next;
-	log->seq_no++;
-	seq_no = log->seq_no;
 //	pthread_mutex_unlock(&log->lock);
 
+	return(1);
+}
+
+unsigned long long LogEvent(LOG *log, EVENT *event)
+{
+	int err;
+	unsigned long long seq_no;
+
+	if(log == NULL) {
+		return(0);
+	}
+
+	seq_no = log->seq_no;
+	event->seq_no = seq_no;
+	log->seq_no++;
+	err = LogAdd(log,event);
+	
 	return(seq_no);
 }
 
@@ -398,18 +412,15 @@ void GLogFree(GLOG *gl)
 		PendingFree(gl->pending);
 	}
 
-	MIOClose((MIO *)gl);
-
 	return;
 }
 
-unsigned long long GLogEvent(GLOG *gl, EVENT *event)
+int GLogEvent(GLOG *gl, EVENT *event)
 {
 	double ndx;
 	RB *rb;
 	HOST *host;
 	int err;
-	unsigned long long g_seq_no;
 	EVENT *reason_event;
 	HOST *reason_host;
 	EVENT *local_event;
@@ -476,14 +487,14 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 		}
 		host->max_seen = event->seq_no;
 
-		g_seq_no = LogEvent(gl->log,event);
-		if(g_seq_no == 0) {
+		err = LogAdd(gl->log,event);
+		if(err < 0) {
 			fprintf(stderr,"couldn't log after add of new host %lu\n",
 				event->host);
 			fflush(stderr);
 			return(-1);
 		}
-		return(g_seq_no);
+		return(err);
 	}
 
 	/*
@@ -493,7 +504,6 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 	 * walk the dependency list
 	 */
 	done = 0;
-	g_seq_no = 0;
 	this_event = event;
 	while(done == 0) {
 		reason_event =
@@ -528,8 +538,8 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 						return(-1);
 					}
 				}
-				g_seq_no = LogEvent(gl->log,this_event);
-				if(g_seq_no == 0) {
+				err = LogAdd(gl->log,this_event);
+				if(err < 0) {
 					fprintf(stderr,
 					"log with committed reason failed %lu, %llu\n",
 						event->host,event->seq_no);
@@ -609,7 +619,7 @@ unsigned long long GLogEvent(GLOG *gl, EVENT *event)
 		}
 	} /* end of while loop */
 
-	return(g_seq_no);
+	return(err);
 }
 
 	

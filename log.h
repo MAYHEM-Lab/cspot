@@ -63,6 +63,7 @@ void PendingPrint(FILE *fd, PENDING *pending);
 
 
 GLOG *GLogCreate(char *filename, unsigned long size);
+int GLogEvent(GLOG *gl, EVENT *event);
 void GLogFree(GLOG *gl);
 
 	
