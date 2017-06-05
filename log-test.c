@@ -193,6 +193,7 @@ int main(int argc, char **argv)
 	 * later TRIGGER arrives from host 1 -- should create dependency
 	 */
 	GLogEvent(glog_r,t_ev);
+	GLogPrint(stdout,glog_r);
 	
 
 
