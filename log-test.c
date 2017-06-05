@@ -128,6 +128,11 @@ int main(int argc, char **argv)
 	ev->reason_seq_no = seq_no;
 	trigger_reason_seq_no = seq_no;
 	seq_no = LogEvent(llog,ev);
+	err = GLogEvent(glog,ev);
+	if(err < 0) {
+		fprintf(stderr,"couldn't log trigger on host 1\n");
+		exit(1);
+	}
 	EventFree(ev);
 
 	trigger_seq_no = seq_no;
@@ -171,13 +176,21 @@ int main(int argc, char **argv)
 	ev->reason_seq_no = trigger_seq_no;
 	seq_no = LogEvent(llog,ev);
 	f_ev = ev;
-	GLogEvent(glog,ev);
+	err = GLogEvent(glog,ev);
+	if(err < 0) {
+		fprintf(stderr,"couldn't create second dep on host 1\n");
+		exit(1);
+	}
 	ev = EventCreate(TRIGGER,1);
 	ev->reason_host = 1;
 	ev->reason_seq_no = seq_no;
 	seq_no = LogEvent(llog,ev);
 	t_ev = ev;
-	GLogEvent(glog,ev);
+	err = GLogEvent(glog,ev);
+	if(err < 0) {
+		fprintf(stderr,"couldn't log second trigger on host 1\n");
+		exit(1);
+	}
 
 	/*
 	 * fire on host 2
@@ -186,15 +199,35 @@ int main(int argc, char **argv)
 	ev->reason_host = 1;
 	ev->reason_seq_no = seq_no;
 	seq_no = LogEvent(llog_r,ev);
-	GLogEvent(glog_r,ev);
+	err = GLogEvent(glog_r,ev);
+	if(err < 0) {
+		fprintf(stderr,"error logging triggerd function on host 2\n");
+		exit(1);
+	}
 	EventFree(ev);
 
 	/*
 	 * later TRIGGER arrives from host 1 -- should create dependency
 	 */
-	GLogEvent(glog_r,t_ev);
+	err = GLogEvent(glog_r,t_ev);
 	GLogPrint(stdout,glog_r);
-	
+	if(err < 0) {
+		fprintf(stderr,"error logging later trigger arrival\n");
+		exit(1);
+	}
+		
+
+	/*
+	 * and then the dependency for the trigger arrives.  This should 
+	 * clear the dependencies on host 2
+	 */
+	err = GLogEvent(glog_r,f_ev);
+	if(err < 0) {
+		fprintf(stderr,
+			"error logging second function arrival at host 2\n");
+		exit(1);
+	}
+	GLogPrint(stdout,glog_r);
 
 
 	EventFree(t_ev);

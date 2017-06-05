@@ -418,6 +418,8 @@ void GLogFree(GLOG *gl)
 int GLogEvent(GLOG *gl, EVENT *event)
 {
 	double ndx;
+	unsigned long host_id;
+	unsigned long long seq_no;
 	RB *rb;
 	HOST *reason_host;
 	HOST *host;
@@ -546,19 +548,6 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			 * haven't logged this event, log it
 			 */
 			if(reason_host->max_seen >= this_event->reason_seq_no) {
-				local_event = PendingFindEvent(gl->pending,
-							this_event->host,event->seq_no);
-				if(local_event != NULL) {
-					err = PendingRemoveEvent(gl->pending,this_event);
-					if(err < 0) {
-						fprintf(stderr,
-			"couldn't remove event %lu, %llu from pending\n",
-							this_event->host,
-							local_event->seq_no);
-						fflush(stderr);
-						return(-1);
-					}
-				}
 				err = LogAdd(gl->log,this_event);
 				if(err < 0) {
 					fprintf(stderr,
@@ -567,6 +556,12 @@ int GLogEvent(GLOG *gl, EVENT *event)
 					fflush(stderr);
 					return(-1);
 				}
+
+
+				/*
+				 * now remove from pending list if it was
+				 * there
+				 */
 				host = HostListFind(gl->host_list,this_event->host);
 				if(host == NULL) {
 					fprintf(stderr,"cleared pending reason but no host %lu\n",
@@ -591,10 +586,30 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				/*
 			 	 * now find the next pending event
 			 	 * that depends on this event
+				 *
+				 * must save off seq_no and host num because
+				 * remove resets host ID
 			 	 */
+				seq_no = this_event->seq_no;
+				host_id = this_event->host;
+				local_event = PendingFindEvent(gl->pending,
+						this_event->host,
+						this_event->seq_no);
+				if(local_event != NULL) {
+					err = PendingRemoveEvent(gl->pending,
+						local_event);
+					if(err < 0) {
+						fprintf(stderr,
+					"couldn't remove pending %lu %llu\n",
+							local_event->host,
+							local_event->seq_no);
+						done = 1;
+						continue;
+					}
+				}
 				this_event = PendingFindReason(gl->pending,
-							this_event->host,
-							this_event->seq_no);
+							host_id,
+							seq_no);
 				if(this_event == NULL) {
 					done = 1;
 				}
