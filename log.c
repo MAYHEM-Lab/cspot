@@ -419,10 +419,11 @@ int GLogEvent(GLOG *gl, EVENT *event)
 {
 	double ndx;
 	RB *rb;
+	HOST *reason_host;
 	HOST *host;
 	int err;
 	EVENT *reason_event;
-	HOST *reason_host;
+	EVENT *first_ev;
 	EVENT *local_event;
 	EVENT *this_event;
 	int done;
@@ -438,13 +439,13 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	/*
 	 * see if the reason has already been logged
 	 */
-	host = HostListFind(gl->host_list,event->reason_host);
+	reason_host = HostListFind(gl->host_list,event->reason_host);
 
 	/*
 	 * if this is our first message from this host, add the host and
 	 * record seq no
 	 */
-	if(host == NULL) {
+	if(reason_host == NULL) {
 		err = HostListAdd(gl->host_list,event->reason_host);
 		if(err < 0) {
 			fprintf(stderr,"couldn't add new reason host %lu\n",
@@ -452,15 +453,30 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			fflush(stderr);
 			return(-1);
 		}
-		host = HostListFind(gl->host_list,event->reason_host);
-		if(host == NULL) {
+		reason_host = HostListFind(gl->host_list,event->reason_host);
+		if(reason_host == NULL) {
 			fprintf(stderr,"couldn't find after add of new reason host %lu\n",
 				event->reason_host);
 			fflush(stderr);
 			return(-1);
 		}
-		host->max_seen = event->reason_seq_no;
-	}
+		/*
+		 * make a first event
+		 */
+		first_ev = EventCreate(UNKNOWN,event->reason_host);
+		if(first_ev == NULL) {
+			fprintf(stderr,"couldn't make first event\n");
+			return(-1);
+		}
+		first_ev->seq_no = event->reason_seq_no;
+		err = LogAdd(gl->log,first_ev);
+		EventFree(first_ev);
+		if(err < 0) {
+			fprintf(stderr,"couldn't add first event\n");
+			return(-1);
+		}
+		reason_host->max_seen = event->reason_seq_no;
+	} 
 
 	/*
 	 * now check to see if the event host is present
@@ -495,6 +511,10 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			return(-1);
 		}
 		return(err);
+	} else { /* we have seen the host, have we seen enough events? */
+		if(host->max_seen >= event->seq_no) {
+			return(1);
+		}
 	}
 
 	/*
@@ -514,17 +534,18 @@ int GLogEvent(GLOG *gl, EVENT *event)
 		 * see if it is already logged
 		 */
 		if(reason_event == NULL) {
-			host = HostListFind(gl->host_list,this_event->reason_host);
-			if(host == NULL) {
+			reason_host = HostListFind(gl->host_list,this_event->reason_host);
+			if(reason_host == NULL) {
 				fprintf(stderr,"no pending reason but no host %lu\n",
 						this_event->reason_host);
 				fflush(stderr);
 				return(-1);
 			}
 			/*
-			 * if we have logged the reason already, log this event
+			 * if we have logged the reason already, but we
+			 * haven't logged this event, log it
 			 */
-			if(host->max_seen >= this_event->reason_seq_no) {
+			if(reason_host->max_seen >= this_event->reason_seq_no) {
 				local_event = PendingFindEvent(gl->pending,
 							this_event->host,event->seq_no);
 				if(local_event != NULL) {
@@ -581,12 +602,23 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			}
 
 			/*
+			 * are we current with the event's host?
+			 *
+			 * if so, bail out
+			 */
+			if(host->max_seen >= this_event->seq_no) {
+				done = 1;
+				continue;
+			}
+
+			/*
 		 	 * otherwise, add the event to the pending list so we
 		 	 * can wait for the reason to arrive
 		 	 *
 		 	 * if it is already on the pending list then there is
 		 	 * an error
 		 	 */
+
 			local_event = PendingFindEvent(gl->pending,event->host,event->seq_no);
 			if(local_event != NULL) {
 				fprintf(stderr,
@@ -595,7 +627,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				fflush(stderr);
 				return(-1);
 			}
-			PendingAddEvent(gl->pending,event);
+			err = PendingAddEvent(gl->pending,event);
 			done = 1;
 			break;
 		} else { /* reason is found on pending list */
@@ -613,13 +645,20 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				fflush(stderr);
 				return(-1);
 			}
-			PendingAddEvent(gl->pending,this_event);
+			err = PendingAddEvent(gl->pending,this_event);
 			done = 1;
 			break;
 		}
 	} /* end of while loop */
 
 	return(err);
+}
+
+void GLogPrint(FILE *fd, GLOG *gl)
+{
+	LogPrint(fd,gl->log);
+	PendingPrint(fd,gl->pending);
+	return;
 }
 
 	

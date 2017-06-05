@@ -12,16 +12,25 @@ char *Usage = "log-test -f filename\n\
 char Fname[4096];
 char Gname[4096];
 
+char RFname[4096];
+char RGname[4096];
+
 int main(int argc, char **argv)
 {
 	int c;
 	int size;
 	LOG *llog;
+	LOG *llog_r;
 	GLOG *glog;
+	GLOG *glog_r;
 	EVENT *ev;
+	EVENT *t_ev;
+	EVENT *f_ev;
 	unsigned long long seq_no;
 	int err;
 	int i;
+	unsigned long long trigger_seq_no;
+	unsigned long long trigger_reason_seq_no;
 
 	size = 5;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -76,6 +85,9 @@ int main(int argc, char **argv)
 	}
 	EventFree(ev);
 
+	/*
+	 * log some local events
+	 */
 	for(i=0; i < size + 2; i++) {
 		ev = EventCreate(FUNC,1);
 		ev->reason_host = 1;
@@ -90,7 +102,105 @@ int main(int argc, char **argv)
 		LogPrint(stdout,glog->log);
 		EventFree(ev);
 	}
+
+	/*
+	 * now simulate a remote event == trigger local, event remote
+	 */
+	strcpy(RFname,"remote.");
+	strcat(RFname,Fname);
+	strcpy(RGname,"remoteglobal.");
+	strcat(RGname,Fname);
+
+	llog_r = LogCreate(RFname,size);
+	if(llog_r == NULL) {
+		fprintf(stderr,"couldn't create remote local log\n");
+		exit(1);
+	}
+
+	glog_r = GLogCreate(RGname,size*3);
+	if(glog_r == NULL) {
+		fprintf(stderr,"couldn't create remote glog\n");
+		exit(1);
+	}
+
+	ev = EventCreate(TRIGGER,1);
+	ev->reason_host = 1;
+	ev->reason_seq_no = seq_no;
+	trigger_reason_seq_no = seq_no;
+	seq_no = LogEvent(llog,ev);
+	EventFree(ev);
+
+	trigger_seq_no = seq_no;
+
+	/*
+	 * now trigger remote event on host 2
+	 */
+	ev = EventCreate(FUNC,2);
+	ev->reason_host = 1;
+	ev->reason_seq_no = seq_no;
+	seq_no = LogEvent(llog_r,ev);
+	err = GLogEvent(glog_r,ev);	/* resolve immediately */
+					/* first time */
+	if(err < 0) {
+		fprintf(stderr,"first dependency event failed\n");
+		exit(1);
+	}
+	EventFree(ev);
+	GLogPrint(stdout,glog_r);
+
+	/*
+	 * now, later, TRIGGER event arrives from host 1
+	 */
+	ev = EventCreate(TRIGGER,1);
+	ev->seq_no = trigger_seq_no;
+	ev->reason_seq_no = trigger_reason_seq_no;
+	ev->reason_host = 1;
+	err = GLogEvent(glog_r,ev);		/* should do nothing */
+	if(err < 0) {
+		fprintf(stderr,"clear dependency failed on host 2\n");
+		exit(1);
+	}
+	EventFree(ev);
+	GLogPrint(stdout,glog_r);
+
+	/*
+	 * now create real dependency
+	 */
+	ev = EventCreate(FUNC,1);
+	ev->reason_host = 1;
+	ev->reason_seq_no = trigger_seq_no;
+	seq_no = LogEvent(llog,ev);
+	f_ev = ev;
+	GLogEvent(glog,ev);
+	ev = EventCreate(TRIGGER,1);
+	ev->reason_host = 1;
+	ev->reason_seq_no = seq_no;
+	seq_no = LogEvent(llog,ev);
+	t_ev = ev;
+	GLogEvent(glog,ev);
+
+	/*
+	 * fire on host 2
+	 */
+	ev = EventCreate(FUNC,2);
+	ev->reason_host = 1;
+	ev->reason_seq_no = seq_no;
+	seq_no = LogEvent(llog_r,ev);
+	GLogEvent(glog_r,ev);
+	EventFree(ev);
+
+	/*
+	 * later TRIGGER arrives from host 1 -- should create dependency
+	 */
+	GLogEvent(glog_r,t_ev);
+	
+
+
+	EventFree(t_ev);
+	EventFree(f_ev);
+	LogFree(llog_r);
 	LogFree(llog);
+	GLogFree(glog_r);
 	GLogFree(glog);
 
 	return(0);
