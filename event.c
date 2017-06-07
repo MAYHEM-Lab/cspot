@@ -28,14 +28,14 @@ void EventFree(EVENT *ev)
 	return;
 }
 
-int EventSetReason(EVENT *ev, unsigned long reason_host, 
-				unsigned long long reason_seq_no)
+int EventSetCause(EVENT *ev, unsigned long cause_host, 
+				unsigned long long cause_seq_no)
 {
 	if(ev == NULL) {
 		return(-1);
 	}
-	ev->reason_host = reason_host;
-	ev->reason_seq_no = reason_seq_no;
+	ev->cause_host = cause_host;
+	ev->cause_seq_no = cause_seq_no;
 	return(1);
 }
 

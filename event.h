@@ -6,8 +6,8 @@ struct event_stc
 	unsigned char type;
 	unsigned long host;
 	unsigned long long seq_no;
-	unsigned long reason_host;
-	unsigned long long reason_seq_no;
+	unsigned long cause_host;
+	unsigned long long cause_seq_no;
 };
 
 typedef struct event_stc EVENT;
@@ -20,8 +20,8 @@ EVENT *EventCreate(unsigned char type, unsigned long host);
 
 void EventFree(EVENT *ev);
 
-int EventSetReason(EVENT *ev, unsigned long reason_host, 
-                                unsigned long long reason_seq_no);
+int EventSetCause(EVENT *ev, unsigned long cause_host, 
+                                unsigned long long cause_seq_no);
 
 double EventIndex(unsigned long host, unsigned long long seq_no);
 

@@ -16,10 +16,16 @@ LOG *LogCreate(char *filename, unsigned long int size)
 
 	space = (size+1)*sizeof(EVENT) + sizeof(LOG);
 
-	mio = MIOOpen(filename,"w+",space);
+	if(filename != NULL) {
+		mio = MIOOpen(filename,"w+",space);
+	} else {
+		mio = MIOMalloc(space);
+	}
+
 	if(mio == NULL) {
 		return(NULL);
 	}
+
 
 	log = (LOG *)MIOAddr(mio);
 	memset(log,0,sizeof(LOG));
@@ -110,6 +116,48 @@ unsigned long long LogEvent(LOG *log, EVENT *event)
 	return(seq_no);
 }
 
+LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
+{
+	LOG *log_tail;
+	unsigned long curr;
+	EVENT *ev_array;
+	unsigned long count;
+
+	if(log->head == log->tail) { /* log is empty */
+		return(NULL);
+	}
+
+	log_tail = LogCreate(NULL,max_size);
+	if(log_tail == NULL) {
+		return(NULL);
+	}
+
+	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
+
+	/*
+	 * put events in the tail log in reverse order to save a scan
+	 */
+	count = 0;
+	curr = log->head;
+	while(ev_array[curr].seq_no >= earliest) {
+		LogAdd(log_tail,&ev_array[curr]);
+		count++;
+		if(count >= max_size) {
+			break;
+		}
+		if(curr == log->tail) { /* this was the last valid record */
+			break;
+		}
+		curr = log->head - 1;
+		if(curr >= log->size) {
+			curr = (log->size-1);
+		}
+	}
+
+	return(log_tail);
+}
+		
+	
 void LogPrint(FILE *fd, LOG *log)
 {
 	unsigned long curr;
@@ -128,8 +176,8 @@ void LogPrint(FILE *fd, LOG *log)
 		"\thost: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
 			ev_array[curr].host,	
 			ev_array[curr].seq_no,	
-			ev_array[curr].reason_host,	
-			ev_array[curr].reason_seq_no);	
+			ev_array[curr].cause_host,	
+			ev_array[curr].cause_seq_no);	
 		fflush(fd);
 		curr = curr - 1;
 		if(curr >= log->size) {
@@ -162,8 +210,8 @@ PENDING *PendingCreate(char *filename, unsigned long psize)
 		return(NULL);
 	}
 
-	pending->reasons = RBInitD();
-	if(pending->reasons == NULL) {
+	pending->causes = RBInitD();
+	if(pending->causes == NULL) {
 		RBDestroyD(pending->alive);
 		MIOClose(mio);
 		return(NULL);
@@ -190,8 +238,8 @@ void PendingFree(PENDING *pending)
 		RBDestroyD(pending->alive);
 	}
 
-	if(pending->reasons != NULL) {
-		RBDestroyD(pending->reasons);
+	if(pending->causes != NULL) {
+		RBDestroyD(pending->causes);
 	}
 
 	if(pending->p_mio != NULL) {
@@ -243,8 +291,8 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 	ndx = EventIndex(event->host,event->seq_no);
 	RBInsertD(pending->alive,ndx,
 		  (Hval)(void *)(&ev_array[pending->next_free]));
-	ndx = EventIndex(event->reason_host,event->reason_seq_no);
-	RBInsertD(pending->reasons,ndx,
+	ndx = EventIndex(event->cause_host,event->cause_seq_no);
+	RBInsertD(pending->causes,ndx,
 		(Hval)(void *)(&ev_array[pending->next_free]));
 
 	return(1);
@@ -270,18 +318,18 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	local_event->seq_no = 0; /* marks MIO space as free */
 	RBDeleteD(pending->alive,rb);
 
-	ndx = EventIndex(event->reason_host,event->reason_seq_no);
-	rb = RBFindD(pending->reasons,ndx);
+	ndx = EventIndex(event->cause_host,event->cause_seq_no);
+	rb = RBFindD(pending->causes,ndx);
 	if(rb == NULL) {
 		fprintf(stderr,
-		"couldn't find %lu %llu pending reason\n",
+		"couldn't find %lu %llu pending cause\n",
 			event->host,
 			event->seq_no);
 		fflush(stderr);
 		return(1);
 	}
 
-	RBDeleteD(pending->reasons,rb);
+	RBDeleteD(pending->causes,rb);
 
 	return(1);
 }
@@ -307,13 +355,13 @@ EVENT *PendingFindEvent(PENDING *pending, unsigned long host, unsigned long long
 	return(ev);
 }
 
-EVENT *PendingFindReason(PENDING *pending, unsigned long host, unsigned long long seq_no)
+EVENT *PendingFindCause(PENDING *pending, unsigned long host, unsigned long long seq_no)
 {
 	double ndx = EventIndex(host,seq_no);
 	RB *rb;
 	EVENT *ev;
 
-	rb = RBFindD(pending->reasons,ndx);
+	rb = RBFindD(pending->causes,ndx);
 	if(rb == NULL) {
 		return(NULL);
 	}
@@ -339,8 +387,8 @@ void PendingPrint(FILE *fd, PENDING *pending)
 		 "\thost: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
 			ev->host,
 			ev->seq_no,
-			ev->reason_host,
-			ev->reason_seq_no);
+			ev->cause_host,
+			ev->cause_seq_no);
 		fflush(fd);
 	}
 
@@ -421,10 +469,10 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	unsigned long host_id;
 	unsigned long long seq_no;
 	RB *rb;
-	HOST *reason_host;
+	HOST *cause_host;
 	HOST *host;
 	int err;
-	EVENT *reason_event;
+	EVENT *cause_event;
 	EVENT *first_ev;
 	EVENT *local_event;
 	EVENT *this_event;
@@ -439,45 +487,45 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	}
 
 	/*
-	 * see if the reason has already been logged
+	 * see if the cause has already been logged
 	 */
-	reason_host = HostListFind(gl->host_list,event->reason_host);
+	cause_host = HostListFind(gl->host_list,event->cause_host);
 
 	/*
 	 * if this is our first message from this host, add the host and
 	 * record seq no
 	 */
-	if(reason_host == NULL) {
-		err = HostListAdd(gl->host_list,event->reason_host);
+	if(cause_host == NULL) {
+		err = HostListAdd(gl->host_list,event->cause_host);
 		if(err < 0) {
-			fprintf(stderr,"couldn't add new reason host %lu\n",
-				event->reason_host);
+			fprintf(stderr,"couldn't add new cause host %lu\n",
+				event->cause_host);
 			fflush(stderr);
 			return(-1);
 		}
-		reason_host = HostListFind(gl->host_list,event->reason_host);
-		if(reason_host == NULL) {
-			fprintf(stderr,"couldn't find after add of new reason host %lu\n",
-				event->reason_host);
+		cause_host = HostListFind(gl->host_list,event->cause_host);
+		if(cause_host == NULL) {
+			fprintf(stderr,"couldn't find after add of new cause host %lu\n",
+				event->cause_host);
 			fflush(stderr);
 			return(-1);
 		}
 		/*
 		 * make a first event
 		 */
-		first_ev = EventCreate(UNKNOWN,event->reason_host);
+		first_ev = EventCreate(UNKNOWN,event->cause_host);
 		if(first_ev == NULL) {
 			fprintf(stderr,"couldn't make first event\n");
 			return(-1);
 		}
-		first_ev->seq_no = event->reason_seq_no;
+		first_ev->seq_no = event->cause_seq_no;
 		err = LogAdd(gl->log,first_ev);
 		EventFree(first_ev);
 		if(err < 0) {
 			fprintf(stderr,"couldn't add first event\n");
 			return(-1);
 		}
-		reason_host->max_seen = event->reason_seq_no;
+		cause_host->max_seen = event->cause_seq_no;
 	} 
 
 	/*
@@ -491,14 +539,14 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	if(host == NULL) {
 		err = HostListAdd(gl->host_list,event->host);
 		if(err < 0) {
-			fprintf(stderr,"couldn't add new reason host %lu\n",
+			fprintf(stderr,"couldn't add new cause host %lu\n",
 				event->host);
 			fflush(stderr);
 			return(-1);
 		}
 		host = HostListFind(gl->host_list,event->host);
 		if(host == NULL) {
-			fprintf(stderr,"couldn't find after add of new reason host %lu\n",
+			fprintf(stderr,"couldn't find after add of new cause host %lu\n",
 				event->host);
 			fflush(stderr);
 			return(-1);
@@ -528,30 +576,30 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	done = 0;
 	this_event = event;
 	while(done == 0) {
-		reason_event =
-			PendingFindEvent(gl->pending,this_event->reason_host,this_event->reason_seq_no);
+		cause_event =
+			PendingFindEvent(gl->pending,this_event->cause_host,this_event->cause_seq_no);
 
 		/*
-		 * if we don't find the reason on the pending list, check to
+		 * if we don't find the cause on the pending list, check to
 		 * see if it is already logged
 		 */
-		if(reason_event == NULL) {
-			reason_host = HostListFind(gl->host_list,this_event->reason_host);
-			if(reason_host == NULL) {
-				fprintf(stderr,"no pending reason but no host %lu\n",
-						this_event->reason_host);
+		if(cause_event == NULL) {
+			cause_host = HostListFind(gl->host_list,this_event->cause_host);
+			if(cause_host == NULL) {
+				fprintf(stderr,"no pending cause but no host %lu\n",
+						this_event->cause_host);
 				fflush(stderr);
 				return(-1);
 			}
 			/*
-			 * if we have logged the reason already, but we
+			 * if we have logged the cause already, but we
 			 * haven't logged this event, log it
 			 */
-			if(reason_host->max_seen >= this_event->reason_seq_no) {
+			if(cause_host->max_seen >= this_event->cause_seq_no) {
 				err = LogAdd(gl->log,this_event);
 				if(err < 0) {
 					fprintf(stderr,
-					"log with committed reason failed %lu, %llu\n",
+					"log with committed cause failed %lu, %llu\n",
 						event->host,event->seq_no);
 					fflush(stderr);
 					return(-1);
@@ -564,7 +612,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				 */
 				host = HostListFind(gl->host_list,this_event->host);
 				if(host == NULL) {
-					fprintf(stderr,"cleared pending reason but no host %lu\n",
+					fprintf(stderr,"cleared pending cause but no host %lu\n",
 						this_event->host);
 					fflush(stderr);
 					return(-1);
@@ -607,7 +655,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 						continue;
 					}
 				}
-				this_event = PendingFindReason(gl->pending,
+				this_event = PendingFindCause(gl->pending,
 							host_id,
 							seq_no);
 				if(this_event == NULL) {
@@ -628,7 +676,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 
 			/*
 		 	 * otherwise, add the event to the pending list so we
-		 	 * can wait for the reason to arrive
+		 	 * can wait for the cause to arrive
 		 	 *
 		 	 * if it is already on the pending list then there is
 		 	 * an error
@@ -637,7 +685,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			local_event = PendingFindEvent(gl->pending,event->host,event->seq_no);
 			if(local_event != NULL) {
 				fprintf(stderr,
-				"unlogged reason for host %lu event %llu\n",
+				"unlogged cause for host %lu event %llu\n",
 					event->host,event->seq_no);
 				fflush(stderr);
 				return(-1);
@@ -645,9 +693,9 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			err = PendingAddEvent(gl->pending,event);
 			done = 1;
 			break;
-		} else { /* reason is found on pending list */
+		} else { /* cause is found on pending list */
 			/*
-			 * here the reason is on the pending list so this
+			 * here the cause is on the pending list so this
 			 * event needs to go on the list
 			 *
 			 * if it is there already then there is a problem
@@ -655,7 +703,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			local_event = PendingFindEvent(gl->pending,this_event->host,event->seq_no);
 			if(local_event != NULL) {
 				fprintf(stderr,
-				"already pending reason for host %lu event %llu\n",
+				"already pending cause for host %lu event %llu\n",
 					this_event->host,this_event->seq_no);
 				fflush(stderr);
 				return(-1);
@@ -676,8 +724,12 @@ void GLogPrint(FILE *fd, GLOG *gl)
 	return;
 }
 
+
+
 	
 /* 
 FireEvent logs event to local log and to global log
 ProcessEventRecord puts record in global log
+
+fetch deps function: max seen, max pending
 */

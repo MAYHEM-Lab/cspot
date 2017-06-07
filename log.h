@@ -28,7 +28,7 @@ struct pending_stc
 	MIO *p_mio;
 	char filename[4096];
 	RB *alive;
-	RB *reasons;
+	RB *causes;
 	unsigned long int size;
 	unsigned long next_free;
 };
@@ -51,13 +51,14 @@ LOG *LogCreate(char *filename, unsigned long int size);
 void LogFree(LOG *log);
 int LogFull(LOG *log);
 unsigned long long LogEvent(LOG *log, EVENT *event);
+LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size);
 void LogPrint(FILE *fd, LOG *log);
 
 PENDING *PendingCreate(char *filename, unsigned long psize);
 void PendingFree(PENDING *pending);
 EVENT *PendingFindEvent(PENDING *pending, 
 	unsigned long host, unsigned long long seq_no);
-EVENT *PendingFindReason(PENDING *pending, 
+EVENT *PendingFindCause(PENDING *pending, 
 	unsigned long host, unsigned long long seq_no);
 void PendingPrint(FILE *fd, PENDING *pending);
 
