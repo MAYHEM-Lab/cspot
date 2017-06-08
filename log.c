@@ -31,7 +31,10 @@ LOG *LogCreate(char *filename, unsigned long int size)
 	memset(log,0,sizeof(LOG));
 
 	log->m_buf = mio;
-	strcpy(log->filename,filename);
+	if(filename != NULL) {
+		strcpy(log->filename,filename);
+	}
+
 
 	log->size = size+1;
 	log->seq_no = 1;
@@ -140,15 +143,20 @@ LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
 	count = 0;
 	curr = log->head;
 	while(ev_array[curr].seq_no >= earliest) {
-		LogAdd(log_tail,&ev_array[curr]);
-		count++;
-		if(count >= max_size) {
-			break;
+		/*
+		 * allow for ealiest to overlap
+		 */
+		if(ev_array[curr].seq_no > earliest) {
+			LogAdd(log_tail,&ev_array[curr]);
+			count++;
+			if(count >= max_size) {
+				break;
+			}
 		}
 		if(curr == log->tail) { /* this was the last valid record */
 			break;
 		}
-		curr = log->head - 1;
+		curr = curr - 1;
 		if(curr >= log->size) {
 			curr = (log->size-1);
 		}
@@ -678,19 +686,17 @@ int GLogEvent(GLOG *gl, EVENT *event)
 		 	 * otherwise, add the event to the pending list so we
 		 	 * can wait for the cause to arrive
 		 	 *
-		 	 * if it is already on the pending list then there is
+		 	 * if it is already on the pending list then it is
+			 * okay since it may have come from a log import
 		 	 * an error
 		 	 */
 
 			local_event = PendingFindEvent(gl->pending,event->host,event->seq_no);
-			if(local_event != NULL) {
-				fprintf(stderr,
-				"unlogged cause for host %lu event %llu\n",
-					event->host,event->seq_no);
-				fflush(stderr);
-				return(-1);
+			if(local_event == NULL) {
+				err = PendingAddEvent(gl->pending,event);
+			} else {
+				err = 1;
 			}
-			err = PendingAddEvent(gl->pending,event);
 			done = 1;
 			break;
 		} else { /* cause is found on pending list */

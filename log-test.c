@@ -63,7 +63,7 @@ int ImportLogTail(GLOG *gl, LOG *ll, unsigned long remote_host)
 		if(curr == lt->tail) {
 			break;
 		}
-		curr = lt->head - 1;
+		curr = curr - 1;
 		if(curr >= lt->size) {
 			curr = (lt->size-1);
 		}
@@ -336,9 +336,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	GLogPrint(stdout,glog_r);
-
-
-
 
 
 	LogFree(llog_r);
