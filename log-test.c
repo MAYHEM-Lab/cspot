@@ -12,8 +12,11 @@ char *Usage = "log-test -f filename\n\
 char Fname[4096];
 char Gname[4096];
 
-char RFname[4096];
-char RGname[4096];
+char Name2[4096];
+char GName2[4096];
+
+char Name3[4096];
+char GName3[4096];
 
 /*
  * add events to GLOG from log tail extracted from some local log
@@ -32,12 +35,11 @@ int ImportLogTail(GLOG *gl, LOG *ll, unsigned long remote_host)
 	 */
 	host = HostListFind(gl->host_list,remote_host);
 	if(host == NULL) {
-		fprintf(stderr,"couldn't find host %lu\n",remote_host);
-		fflush(stderr);
-		return(0);
+		earliest = 0;
+	} else {
+		earliest = host->max_seen;
 	}
 
-	earliest = host->max_seen;
 
 	lt = LogTail(ll,earliest,100);
 	if(lt == NULL) {
@@ -80,9 +82,11 @@ int main(int argc, char **argv)
 	int c;
 	int size;
 	LOG *llog;
-	LOG *llog_r;
+	LOG *llog_2;
+	LOG *llog_3;
 	GLOG *glog;
-	GLOG *glog_r;
+	GLOG *glog_2;
+	GLOG *glog_3;
 	EVENT *ev;
 	EVENT *t_ev;
 	EVENT *f_ev;
@@ -92,6 +96,8 @@ int main(int argc, char **argv)
 	unsigned long long trigger_seq_no;
 	unsigned long long trigger_cause_seq_no;
 	unsigned long long last_host_1;
+	unsigned long long last_host_2;
+	unsigned long long last_host_3;
 
 	size = 20;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -118,6 +124,14 @@ int main(int argc, char **argv)
 
 	strcpy(Gname,"global.");
 	strcat(Gname,Fname);
+	strcpy(Name2,"remote.");
+	strcat(Name2,Fname);
+	strcpy(GName2,"remoteglobal.");
+	strcat(GName2,Fname);
+	strcpy(Name3,"third.");
+	strcat(Name3,Fname);
+	strcpy(GName3,"thirdglobal.");
+	strcat(GName3,Fname);
 
 	llog = LogCreate(Fname,size);
 	if(llog == NULL) {
@@ -167,19 +181,15 @@ int main(int argc, char **argv)
 	/*
 	 * now simulate a remote event == trigger local, event remote
 	 */
-	strcpy(RFname,"remote.");
-	strcat(RFname,Fname);
-	strcpy(RGname,"remoteglobal.");
-	strcat(RGname,Fname);
 
-	llog_r = LogCreate(RFname,size);
-	if(llog_r == NULL) {
+	llog_2 = LogCreate(Name2,size);
+	if(llog_2 == NULL) {
 		fprintf(stderr,"couldn't create remote local log\n");
 		exit(1);
 	}
 
-	glog_r = GLogCreate(RGname,size);
-	if(glog_r == NULL) {
+	glog_2 = GLogCreate(GName2,size);
+	if(glog_2 == NULL) {
 		fprintf(stderr,"couldn't create remote glog\n");
 		exit(1);
 	}
@@ -204,15 +214,15 @@ int main(int argc, char **argv)
 	ev = EventCreate(FUNC,2);
 	ev->cause_host = 1;
 	ev->cause_seq_no = seq_no;
-	seq_no = LogEvent(llog_r,ev);
-	err = GLogEvent(glog_r,ev);	/* resolve immediately */
+	seq_no = LogEvent(llog_2,ev);
+	err = GLogEvent(glog_2,ev);	/* resolve immediately */
 					/* first time */
 	if(err < 0) {
 		fprintf(stderr,"first dependency event failed\n");
 		exit(1);
 	}
 	EventFree(ev);
-	GLogPrint(stdout,glog_r);
+	GLogPrint(stdout,glog_2);
 
 	/*
 	 * now, later, TRIGGER event arrives from host 1
@@ -221,13 +231,13 @@ int main(int argc, char **argv)
 	ev->seq_no = trigger_seq_no;
 	ev->cause_seq_no = trigger_cause_seq_no;
 	ev->cause_host = 1;
-	err = GLogEvent(glog_r,ev);		/* should do nothing */
+	err = GLogEvent(glog_2,ev);		/* should do nothing */
 	if(err < 0) {
 		fprintf(stderr,"clear dependency failed on host 2\n");
 		exit(1);
 	}
 	EventFree(ev);
-	GLogPrint(stdout,glog_r);
+	GLogPrint(stdout,glog_2);
 
 	/*
 	 * now create real dependency
@@ -260,8 +270,8 @@ int main(int argc, char **argv)
 	ev = EventCreate(FUNC,2);
 	ev->cause_host = 1;
 	ev->cause_seq_no = seq_no;
-	seq_no = LogEvent(llog_r,ev);
-	err = GLogEvent(glog_r,ev);
+	seq_no = LogEvent(llog_2,ev);
+	err = GLogEvent(glog_2,ev);
 	if(err < 0) {
 		fprintf(stderr,"error logging triggerd function on host 2\n");
 		exit(1);
@@ -271,8 +281,8 @@ int main(int argc, char **argv)
 	/*
 	 * later TRIGGER arrives from host 1 -- should create dependency
 	 */
-	err = GLogEvent(glog_r,t_ev);
-	GLogPrint(stdout,glog_r);
+	err = GLogEvent(glog_2,t_ev);
+	GLogPrint(stdout,glog_2);
 	if(err < 0) {
 		fprintf(stderr,"error logging later trigger arrival\n");
 		exit(1);
@@ -283,13 +293,13 @@ int main(int argc, char **argv)
 	 * and then the dependency for the trigger arrives.  This should 
 	 * clear the dependencies on host 2
 	 */
-	err = GLogEvent(glog_r,f_ev);
+	err = GLogEvent(glog_2,f_ev);
 	if(err < 0) {
 		fprintf(stderr,
 			"error logging second function arrival at host 2\n");
 		exit(1);
 	}
-	GLogPrint(stdout,glog_r);
+	GLogPrint(stdout,glog_2);
 
 	EventFree(t_ev);
 	EventFree(f_ev);
@@ -307,6 +317,7 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+	EventFree(ev);
 	ev = EventCreate(FUNC,1);
 	ev->cause_host = 1;
 	ev->cause_seq_no = last_host_1;
@@ -316,6 +327,7 @@ int main(int argc, char **argv)
 		fprintf(stderr,"could log second unrelated event on host 1\n");
 		fflush(stderr);
 	}
+	EventFree(ev);
 	ev = EventCreate(FUNC,1);
 	ev->cause_host = 1;
 	ev->cause_seq_no = last_host_1;
@@ -326,22 +338,338 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+	EventFree(ev);
 
 	/*
 	 * now try to import host 1 log on host 2
 	 */
-	err = ImportLogTail(glog_r,llog,1);
+	err = ImportLogTail(glog_2,llog,1);
 	if(err < 0) {
 		fprintf(stderr,"first host 2 import failed\n");
 		exit(1);
 	}
-	GLogPrint(stdout,glog_r);
+	GLogPrint(stdout,glog_2);
 
+	/*
+	 * now try and introduce a new host and a have it participate in a
+	 * chain of events
+	 */
+	llog_3 = LogCreate(Name3,size);
+	if(llog_3 == NULL) {
+		fprintf(stderr,"couldn't create third log\n");
+		fflush(stderr);
+		exit(1);
+	}
+	glog_3 = GLogCreate(GName3,size);
+	if(glog_3 == NULL) {
+		fprintf(stderr,"couldn't create third global log\n");
+		fflush(stderr);
+		exit(1);
+	}
+	/*
+	 * on host 1
+	 */
+	ev = EventCreate(FUNC,1);
+	ev->cause_host = 1;
+	ev->cause_seq_no = last_host_1;
+	last_host_1 = seq_no = LogEvent(llog,ev);
+	GLogEvent(glog,ev);
+	EventFree(ev);
+	ev = EventCreate(TRIGGER,1);
+	ev->cause_host = 1;
+	ev->cause_seq_no = last_host_1;
+	last_host_1 = seq_no = LogEvent(llog,ev);
+	GLogEvent(glog,ev);
+	EventFree(ev);
+	/*
+	 * fires on host 2
+	 */
+	ev = EventCreate(TRIGGER,2);
+	ev->cause_host = 1;
+	ev->cause_seq_no = seq_no;
+	last_host_2 = seq_no = LogEvent(llog_2,ev);
+	GLogEvent(glog_2,ev);
+	EventFree(ev);
+	ev = EventCreate(FUNC,2);
+	ev->cause_host = 2;
+	ev->cause_seq_no = last_host_2;
+	last_host_2 = seq_no = LogEvent(llog_2,ev);
+	GLogEvent(glog_2,ev);
+	EventFree(ev);
+	ev = EventCreate(TRIGGER,2);
+	ev->cause_host = 2;
+	ev->cause_seq_no = last_host_2;
+	last_host_2 = seq_no = LogEvent(llog_2,ev);
+	GLogEvent(glog_2,ev);
+	EventFree(ev);
+	/*
+	 * fires on host 3
+	 */
+	ev = EventCreate(TRIGGER,3);
+	ev->cause_host = 2;
+	ev->cause_seq_no = seq_no;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	GLogEvent(glog_3,ev);
+	EventFree(ev);
+	ev = EventCreate(FUNC,3);
+	ev->cause_host = 3;
+	ev->cause_seq_no = last_host_3;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	GLogEvent(glog_3,ev);
+	EventFree(ev);
+	ev = EventCreate(TRIGGER,3);
+	ev->cause_host = 3;
+	ev->cause_seq_no = last_host_3;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	GLogEvent(glog_3,ev);
+	EventFree(ev);
+	/*
+	 * fires on host 1
+	 */
+	ev = EventCreate(TRIGGER,1);
+	ev->cause_host = 3;
+	ev->cause_seq_no = seq_no;
+	last_host_1 = seq_no = LogEvent(llog,ev);
+	GLogEvent(glog,ev);
+	EventFree(ev);
+	ev = EventCreate(FUNC,1);
+	ev->cause_host = 1;
+	ev->cause_seq_no = last_host_1;
+	last_host_1 = seq_no = LogEvent(llog,ev);
+	GLogEvent(glog,ev);
+	EventFree(ev);
 
-	LogFree(llog_r);
+	printf("LOG 1\n");
+	GLogPrint(stdout,glog);
+	printf("LOG 2\n");
+	GLogPrint(stdout,glog_2);
+	printf("LOG 3\n");
+	GLogPrint(stdout,glog_3);
+
+	/*
+	 * now import host 2's entries to host 1
+	 */
+	err = ImportLogTail(glog,llog_2,2);
+	if(err < 0) {
+		fprintf(stderr,
+			"trouble importing host 2 local log to host 1\n");
+		fflush(stderr);
+		exit(1);
+	}
+	printf("LOG 1 after import from 2\n");
+	GLogPrint(stdout,glog);
+
+	/*
+	 * and vice versa
+	 */
+	err = ImportLogTail(glog_2,llog,1);
+	if(err < 0) {
+		fprintf(stderr,
+			"trouble importing host 1 local log to host 2\n");
+		fflush(stderr);
+		exit(1);
+	}
+	printf("LOG 2 after import from 1\n");
+	GLogPrint(stdout,glog_2);
+
+	/*
+	 * now merge host 2 with host 3
+	 */
+	err = ImportLogTail(glog_3,llog_2,2);
+	if(err < 0) {
+		fprintf(stderr,
+			"trouble importing host 2 local log to host 3\n");
+		fflush(stderr);
+		exit(1);
+	}
+	printf("LOG 3 after import from 2\n");
+	GLogPrint(stdout,glog_3);
+
+	err = ImportLogTail(glog_2,llog_3,3);
+	if(err < 0) {
+		fprintf(stderr,
+			"trouble importing host 3 local log to host 2\n");
+		fflush(stderr);
+		exit(1);
+	}
+	printf("LOG 2 after import from 3\n");
+	GLogPrint(stdout,glog_2);
+	
+
+	LogFree(llog_2);
 	LogFree(llog);
-	GLogFree(glog_r);
+	GLogFree(glog_2);
 	GLogFree(glog);
+
+	/*
+	 * now try for a total order
+	 */
+	llog = LogCreate(Fname,size);
+	if(llog == NULL) {
+		fprintf(stderr,"couldn't recreate host 1 log\n");
+		exit(1);
+	}
+	glog = GLogCreate(Gname,size);
+	if(glog == NULL) {
+		fprintf(stderr,"couldn't create global log 1\n");
+		exit(1);
+	}
+
+	llog_2 = LogCreate(Name2,size);
+	if(llog_2 == NULL) {
+		fprintf(stderr,"couldn't recreate host 2 log\n");
+		exit(1);
+	}
+	glog_2 = GLogCreate(GName2,size);
+	if(glog_2 == NULL) {
+		fprintf(stderr,"couldn't create global log 2\n");
+		exit(1);
+	}
+
+	llog_3 = LogCreate(Name3,size);
+	if(llog_3 == NULL) {
+		fprintf(stderr,"couldn't recreate host 3 log\n");
+		exit(1);
+	}
+	glog_3 = GLogCreate(GName3,size);
+	if(glog_2 == NULL) {
+		fprintf(stderr,"couldn't create global log 3\n");
+		exit(1);
+	}
+	
+	/*
+	 * prime the pump with one function on each
+	 */
+	ev = EventCreate(FUNC,1);
+	ev->cause_host = 1;
+	ev->cause_seq_no = 0;
+	last_host_1 = seq_no = LogEvent(llog,ev);
+	EventFree(ev);
+
+	ev = EventCreate(FUNC,2);
+	ev->cause_host = 2;
+	ev->cause_seq_no = 0;
+	last_host_2 = seq_no = LogEvent(llog_2,ev);
+	EventFree(ev);
+
+	ev = EventCreate(FUNC,3);
+	ev->cause_host = 3;
+	ev->cause_seq_no = 0;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	EventFree(ev);
+
+	/*
+	 * merge them all on host 1
+	 */
+	ImportLogTail(glog,llog,1);
+	ImportLogTail(glog,llog_2,2);
+	ImportLogTail(glog,llog_3,3);
+	GLogPrint(stdout,glog);
+
+	/*
+	 * now make up some events on various hosts
+	 */
+	ev = EventCreate(FUNC,3);
+	ev->cause_host = 3;
+	ev->cause_seq_no = last_host_3;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	EventFree(ev);
+	ev = EventCreate(FUNC,3);
+	ev->cause_host = 3;
+	ev->cause_seq_no = last_host_3;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	EventFree(ev);
+	ev = EventCreate(FUNC,3);
+	ev->cause_host = 3;
+	ev->cause_seq_no = last_host_3;
+	last_host_3 = seq_no = LogEvent(llog_3,ev);
+	EventFree(ev);
+
+	/*
+	 * fire on 2
+	 */
+	ev = EventCreate(FUNC,2);
+	ev->cause_host = 3;
+	ev->cause_seq_no = last_host_3;
+	seq_no = LogEvent(llog_2,ev);
+	EventFree(ev);
+
+	/*
+	 * unrealted to host 3
+	 */
+	ev = EventCreate(FUNC,2);
+	ev->cause_host = 2;
+	ev->cause_seq_no = last_host_2;
+	last_host_2 = seq_no  = LogEvent(llog_2,ev);
+	EventFree(ev);
+
+	ev = EventCreate(FUNC,2);
+	ev->cause_host = 2;
+	ev->cause_seq_no = last_host_2;
+	last_host_2 = seq_no  = LogEvent(llog_2,ev);
+	EventFree(ev);
+
+	ev = EventCreate(FUNC,2);
+	ev->cause_host = 2;
+	ev->cause_seq_no = last_host_2;
+	seq_no  = LogEvent(llog_2,ev);
+	EventFree(ev);
+
+	/*
+	 * and on host 1
+	 */
+	ev = EventCreate(FUNC,1);
+	ev->cause_host = 2;
+	ev->cause_seq_no = last_host_2;
+	seq_no  = LogEvent(llog,ev);
+	EventFree(ev);
+
+	/*
+	 * unrelated to host 2
+	 */
+	ev = EventCreate(FUNC,1);
+	ev->cause_host = 1;
+	ev->cause_seq_no = last_host_1;
+	last_host_1 = seq_no  = LogEvent(llog,ev);
+	EventFree(ev);
+
+	ev = EventCreate(FUNC,1);
+	ev->cause_host = 1;
+	ev->cause_seq_no = last_host_1;
+	last_host_1 = seq_no  = LogEvent(llog,ev);
+	EventFree(ev);
+
+	/*
+	 * merge all on host 1
+	 */
+	ImportLogTail(glog,llog,1);
+	ImportLogTail(glog,llog_2,2);
+	ImportLogTail(glog,llog_3,3);
+	GLogPrint(stdout,glog);
+
+	/*
+	 * now do the same merge on host 2 in different order
+	 */
+	ImportLogTail(glog_2,llog_2,2);
+	ImportLogTail(glog_2,llog,1);
+	ImportLogTail(glog_2,llog_3,3);
+	GLogPrint(stdout,glog_2);
+
+	/*
+	 * and on host 3
+	 */
+	ImportLogTail(glog_3,llog,1);
+	ImportLogTail(glog_3,llog_3,3);
+	ImportLogTail(glog_3,llog_2,2);
+	GLogPrint(stdout,glog_3);
+
+	LogFree(llog);
+	LogFree(llog_2);
+	LogFree(llog_3);
+	GLogFree(glog);
+	GLogFree(glog_2);
+	GLogFree(glog_3);
+
 
 	return(0);
 }

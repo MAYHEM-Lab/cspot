@@ -90,7 +90,7 @@ int LogAdd(LOG *log, EVENT *event)
 	 * FIX ME: need to implement a cleaner that moves the tail
 	 */
 	if(LogFull(log)) {
-		log->tail = log->tail + 1 % log->size;
+		log->tail = (log->tail + 1) % log->size;
 	}
 
 	next = (log->head + 1) % log->size;
@@ -614,10 +614,6 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				}
 
 
-				/*
-				 * now remove from pending list if it was
-				 * there
-				 */
 				host = HostListFind(gl->host_list,this_event->host);
 				if(host == NULL) {
 					fprintf(stderr,"cleared pending cause but no host %lu\n",
@@ -628,20 +624,12 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				/*
 				 * record seq_no if it is valid
 				 */
-				if(host->max_seen > this_event->seq_no) {
-						fprintf(stderr,
-						"max seen from %lu is %llu but event is %llu\n",
-							this_event->host,
-							host->max_seen,
-							this_event->seq_no);
-						fflush(stderr);
-						return(-1);
+				if(host->max_seen < this_event->seq_no) {
+					host->max_seen = this_event->seq_no;
 				}
-				host->max_seen = this_event->seq_no;
-				
 				/*
-			 	 * now find the next pending event
-			 	 * that depends on this event
+				 * now remove from pending list if it was
+				 * there
 				 *
 				 * must save off seq_no and host num because
 				 * remove resets host ID
@@ -663,12 +651,30 @@ int GLogEvent(GLOG *gl, EVENT *event)
 						continue;
 					}
 				}
+				/*
+			 	 * now find the next pending event
+			 	 * that depends on this event
+				 */
 				this_event = PendingFindCause(gl->pending,
 							host_id,
 							seq_no);
 				if(this_event == NULL) {
 					done = 1;
+				} 
+
+#if 0
+else {
+					/*
+					 * is this event already logged?
+					 */
+					host = HostListFind(gl->host_list,this_event->host);
+					if((host != NULL) && 
+						(host->max_seen >= this_event->seq_no)){ 
+							PendingRemoveEvent(gl->pending,this_event);
+						done = 1;
+					}
 				}
+#endif
 				continue;
 			}
 
