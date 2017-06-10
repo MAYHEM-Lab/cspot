@@ -442,6 +442,25 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
+
+	/*
+	 * now that the threads are all done, sync one last time
+	 */
+	for(i=0; i < Threads; i++) {
+		err = SyncLogs(glogs,llogs,
+			i,
+			Threads+1);
+		if(err < 0) {
+			fprintf(stderr,
+		"final log sync failed\n");
+			exit(1);
+		}
+	}
+
+	for(i=0; i < Threads; i++) {
+		GLogPrint(stdout,glogs[i]);
+		fflush(stdout);
+	}
 	
 	for(i=0; i < Threads; i++) {
 		if(llogs[i] != NULL) {
@@ -458,10 +477,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	for(i=0; i < Threads; i++) {
-		GLogPrint(stdout,glogs[i]);
-		fflush(stdout);
-	}
 	free(llogs);
 	free(glogs);
 	free(lnames);
