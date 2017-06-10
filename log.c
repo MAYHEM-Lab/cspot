@@ -39,7 +39,7 @@ LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 	log->host_id = host_id;
 	log->size = size+1;
 	log->seq_no = 1;
-	pthread_mutex_init(&log->lock,NULL);
+	InitSem(&log->mutex,1);
 
 	return(log);
 }
@@ -112,14 +112,19 @@ unsigned long long LogEvent(LOG *log, EVENT *event)
 		return(0);
 	}
 
+	P(&log->mutex);		/* single thread for now */
 	seq_no = log->seq_no;
 	event->seq_no = seq_no;
 	log->seq_no++;
 	err = LogAdd(log,event);
+	V(&log->mutex);
 	
 	return(seq_no);
 }
 
+/*
+ * not thread safe
+ */
 LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
 {
 	LOG *log_tail;
@@ -450,7 +455,7 @@ GLOG *GLogCreate(char *filename, unsigned long size)
 		return(NULL);
 	}
 
-	pthread_mutex_init(&gl->lock,NULL);
+	InitSem(&gl->mutex,1);
 
 	return(gl);
 }
@@ -495,6 +500,8 @@ int GLogEvent(GLOG *gl, EVENT *event)
 		return(-1);
 	}
 
+	P(&gl->mutex);	/* single thread for now */
+
 	/*
 	 * see if the cause has already been logged
 	 */
@@ -510,6 +517,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			fprintf(stderr,"couldn't add new cause host %lu\n",
 				event->cause_host);
 			fflush(stderr);
+			V(&gl->mutex);
 			return(-1);
 		}
 		cause_host = HostListFind(gl->host_list,event->cause_host);
@@ -517,6 +525,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			fprintf(stderr,"couldn't find after add of new cause host %lu\n",
 				event->cause_host);
 			fflush(stderr);
+			V(&gl->mutex);
 			return(-1);
 		}
 		/*
@@ -525,6 +534,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 		first_ev = EventCreate(UNKNOWN,event->cause_host);
 		if(first_ev == NULL) {
 			fprintf(stderr,"couldn't make first event\n");
+			V(&gl->mutex);
 			return(-1);
 		}
 		first_ev->seq_no = event->cause_seq_no;
@@ -532,6 +542,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 		EventFree(first_ev);
 		if(err < 0) {
 			fprintf(stderr,"couldn't add first event\n");
+			V(&gl->mutex);
 			return(-1);
 		}
 		cause_host->max_seen = event->cause_seq_no;
@@ -551,6 +562,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			fprintf(stderr,"couldn't add new cause host %lu\n",
 				event->host);
 			fflush(stderr);
+			V(&gl->mutex);
 			return(-1);
 		}
 		host = HostListFind(gl->host_list,event->host);
@@ -558,6 +570,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			fprintf(stderr,"couldn't find after add of new cause host %lu\n",
 				event->host);
 			fflush(stderr);
+			V(&gl->mutex);
 			return(-1);
 		}
 		host->max_seen = event->seq_no;
@@ -567,11 +580,14 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			fprintf(stderr,"couldn't log after add of new host %lu\n",
 				event->host);
 			fflush(stderr);
+			V(&gl->mutex);
 			return(-1);
 		}
+		V(&gl->mutex);
 		return(err);
 	} else { /* we have seen the host, have we seen enough events? */
 		if(host->max_seen >= event->seq_no) {
+			V(&gl->mutex);
 			return(1);
 		}
 	}
@@ -598,6 +614,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				fprintf(stderr,"no pending cause but no host %lu\n",
 						this_event->cause_host);
 				fflush(stderr);
+				V(&gl->mutex);
 				return(-1);
 			}
 			/*
@@ -611,6 +628,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 					"log with committed cause failed %lu, %llu\n",
 						event->host,event->seq_no);
 					fflush(stderr);
+					V(&gl->mutex);
 					return(-1);
 				}
 
@@ -620,6 +638,7 @@ int GLogEvent(GLOG *gl, EVENT *event)
 					fprintf(stderr,"cleared pending cause but no host %lu\n",
 						this_event->host);
 					fflush(stderr);
+					V(&gl->mutex);
 					return(-1);
 				}
 				/*
@@ -662,20 +681,6 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				if(this_event == NULL) {
 					done = 1;
 				} 
-
-#if 0
-else {
-					/*
-					 * is this event already logged?
-					 */
-					host = HostListFind(gl->host_list,this_event->host);
-					if((host != NULL) && 
-						(host->max_seen >= this_event->seq_no)){ 
-							PendingRemoveEvent(gl->pending,this_event);
-						done = 1;
-					}
-				}
-#endif
 				continue;
 			}
 
@@ -694,8 +699,7 @@ else {
 		 	 * can wait for the cause to arrive
 		 	 *
 		 	 * if it is already on the pending list then it is
-			 * okay since it may have come from a log import
-		 	 * an error
+			 * okay since it may have come from a previous log import
 		 	 */
 
 			local_event = PendingFindEvent(gl->pending,event->host,event->seq_no);
@@ -719,6 +723,7 @@ else {
 				"already pending cause for host %lu event %llu\n",
 					this_event->host,this_event->seq_no);
 				fflush(stderr);
+				V(&gl->mutex);
 				return(-1);
 			}
 			err = PendingAddEvent(gl->pending,this_event);
@@ -727,6 +732,7 @@ else {
 		}
 	} /* end of while loop */
 
+	V(&gl->mutex);
 	return(err);
 }
 
@@ -772,12 +778,18 @@ int ImportLogTail(GLOG *gl, LOG *ll)
 	}
 
 
+	/*
+	 * lock the local log while we extract the tail
+	 */
+	P(&ll->mutex);
 	lt = LogTail(ll,earliest,100);
 	if(lt == NULL) {
 		fprintf(stderr,"couldn't get log tail from local log\n");
 		fflush(stderr);
+		V(&ll->mutex);
 		return(0);
 	}
+	V(&ll->mutex);
 
 	/*
 	 * do the import

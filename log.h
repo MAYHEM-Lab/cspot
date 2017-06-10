@@ -9,10 +9,11 @@
 #include "redblack.h"
 
 #include <pthread.h>
+#include "sema.h"
 
 struct log_stc
 {
-	pthread_mutex_t lock;
+	sema mutex;
 	unsigned long host_id;
 	unsigned long long seq_no;
 	MIO *m_buf;
@@ -38,7 +39,7 @@ typedef struct pending_stc PENDING;
 
 struct global_log_stc
 {
-	pthread_mutex_t lock;
+	sema mutex;
 	char filename[4096];
 	LOG *log;
 	HOSTLIST *host_list;
