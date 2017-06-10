@@ -503,7 +503,7 @@ int main(int argc, char **argv)
 	 */
 	for(i=0; i < Threads; i++) {
 		err = SyncLogs(glogs,llogs,
-			i,
+			i+1,
 			Threads+1);
 		if(err < 0) {
 			fprintf(stderr,
