@@ -18,65 +18,6 @@ char GName2[4096];
 char Name3[4096];
 char GName3[4096];
 
-/*
- * add events to GLOG from log tail extracted from some local log
- */
-int ImportLogTail(GLOG *gl, LOG *ll, unsigned long remote_host)
-{
-	LOG *lt;
-	unsigned long earliest;
-	HOST *host;
-	unsigned long curr;
-	EVENT *ev;
-	int err;
-
-	/*
-	 * find the max seq_no from the remote gost that the GLOG has seen
-	 */
-	host = HostListFind(gl->host_list,remote_host);
-	if(host == NULL) {
-		earliest = 0;
-	} else {
-		earliest = host->max_seen;
-	}
-
-
-	lt = LogTail(ll,earliest,100);
-	if(lt == NULL) {
-		fprintf(stderr,"couldn't get log tail from local log\n");
-		fflush(stderr);
-		return(0);
-	}
-
-	/*
-	 * do the import
-	 */
-	curr = lt->head;
-	ev = (EVENT *)(MIOAddr(lt->m_buf) + sizeof(LOG));
-	while(ev[curr].seq_no > earliest) {
-		err = GLogEvent(gl,&ev[curr]);
-		if(err < 0) {
-			fprintf(stderr,"couldn't add seq_no %llu\n",
-				ev[curr].seq_no);
-			fflush(stderr);
-			LogFree(lt);
-			return(0);
-		}
-		if(curr == lt->tail) {
-			break;
-		}
-		curr = curr - 1;
-		if(curr >= lt->size) {
-			curr = (lt->size-1);
-		}
-	}
-
-	LogFree(lt);
-
-	return(1);
-}
-	
-
 int main(int argc, char **argv)
 {
 	int c;
@@ -133,7 +74,7 @@ int main(int argc, char **argv)
 	strcpy(GName3,"thirdglobal.");
 	strcat(GName3,Fname);
 
-	llog = LogCreate(Fname,size);
+	llog = LogCreate(Fname,1,size);
 	if(llog == NULL) {
 		fprintf(stderr,"couldn't create local log %s\n",
 			Fname);
@@ -182,7 +123,7 @@ int main(int argc, char **argv)
 	 * now simulate a remote event == trigger local, event remote
 	 */
 
-	llog_2 = LogCreate(Name2,size);
+	llog_2 = LogCreate(Name2,2,size);
 	if(llog_2 == NULL) {
 		fprintf(stderr,"couldn't create remote local log\n");
 		exit(1);
@@ -343,7 +284,7 @@ int main(int argc, char **argv)
 	/*
 	 * now try to import host 1 log on host 2
 	 */
-	err = ImportLogTail(glog_2,llog,1);
+	err = ImportLogTail(glog_2,llog);
 	if(err < 0) {
 		fprintf(stderr,"first host 2 import failed\n");
 		exit(1);
@@ -354,7 +295,7 @@ int main(int argc, char **argv)
 	 * now try and introduce a new host and a have it participate in a
 	 * chain of events
 	 */
-	llog_3 = LogCreate(Name3,size);
+	llog_3 = LogCreate(Name3,3,size);
 	if(llog_3 == NULL) {
 		fprintf(stderr,"couldn't create third log\n");
 		fflush(stderr);
@@ -449,7 +390,7 @@ int main(int argc, char **argv)
 	/*
 	 * now import host 2's entries to host 1
 	 */
-	err = ImportLogTail(glog,llog_2,2);
+	err = ImportLogTail(glog,llog_2);
 	if(err < 0) {
 		fprintf(stderr,
 			"trouble importing host 2 local log to host 1\n");
@@ -462,7 +403,7 @@ int main(int argc, char **argv)
 	/*
 	 * and vice versa
 	 */
-	err = ImportLogTail(glog_2,llog,1);
+	err = ImportLogTail(glog_2,llog);
 	if(err < 0) {
 		fprintf(stderr,
 			"trouble importing host 1 local log to host 2\n");
@@ -475,7 +416,7 @@ int main(int argc, char **argv)
 	/*
 	 * now merge host 2 with host 3
 	 */
-	err = ImportLogTail(glog_3,llog_2,2);
+	err = ImportLogTail(glog_3,llog_2);
 	if(err < 0) {
 		fprintf(stderr,
 			"trouble importing host 2 local log to host 3\n");
@@ -485,7 +426,7 @@ int main(int argc, char **argv)
 	printf("LOG 3 after import from 2\n");
 	GLogPrint(stdout,glog_3);
 
-	err = ImportLogTail(glog_2,llog_3,3);
+	err = ImportLogTail(glog_2,llog_3);
 	if(err < 0) {
 		fprintf(stderr,
 			"trouble importing host 3 local log to host 2\n");
@@ -504,7 +445,7 @@ int main(int argc, char **argv)
 	/*
 	 * now try for a total order
 	 */
-	llog = LogCreate(Fname,size);
+	llog = LogCreate(Fname,1,size);
 	if(llog == NULL) {
 		fprintf(stderr,"couldn't recreate host 1 log\n");
 		exit(1);
@@ -515,7 +456,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	llog_2 = LogCreate(Name2,size);
+	llog_2 = LogCreate(Name2,2,size);
 	if(llog_2 == NULL) {
 		fprintf(stderr,"couldn't recreate host 2 log\n");
 		exit(1);
@@ -526,7 +467,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	llog_3 = LogCreate(Name3,size);
+	llog_3 = LogCreate(Name3,3,size);
 	if(llog_3 == NULL) {
 		fprintf(stderr,"couldn't recreate host 3 log\n");
 		exit(1);
@@ -561,9 +502,9 @@ int main(int argc, char **argv)
 	/*
 	 * merge them all on host 1
 	 */
-	ImportLogTail(glog,llog,1);
-	ImportLogTail(glog,llog_2,2);
-	ImportLogTail(glog,llog_3,3);
+	ImportLogTail(glog,llog);
+	ImportLogTail(glog,llog_2);
+	ImportLogTail(glog,llog_3);
 	GLogPrint(stdout,glog);
 
 	/*
@@ -642,25 +583,25 @@ int main(int argc, char **argv)
 	/*
 	 * merge all on host 1
 	 */
-	ImportLogTail(glog,llog,1);
-	ImportLogTail(glog,llog_2,2);
-	ImportLogTail(glog,llog_3,3);
+	ImportLogTail(glog,llog);
+	ImportLogTail(glog,llog_2);
+	ImportLogTail(glog,llog_3);
 	GLogPrint(stdout,glog);
 
 	/*
 	 * now do the same merge on host 2 in different order
 	 */
-	ImportLogTail(glog_2,llog_2,2);
-	ImportLogTail(glog_2,llog,1);
-	ImportLogTail(glog_2,llog_3,3);
+	ImportLogTail(glog_2,llog_2);
+	ImportLogTail(glog_2,llog);
+	ImportLogTail(glog_2,llog_3);
 	GLogPrint(stdout,glog_2);
 
 	/*
 	 * and on host 3
 	 */
-	ImportLogTail(glog_3,llog,1);
-	ImportLogTail(glog_3,llog_3,3);
-	ImportLogTail(glog_3,llog_2,2);
+	ImportLogTail(glog_3,llog);
+	ImportLogTail(glog_3,llog_3);
+	ImportLogTail(glog_3,llog_2);
 	GLogPrint(stdout,glog_3);
 
 	LogFree(llog);

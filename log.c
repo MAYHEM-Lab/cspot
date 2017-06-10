@@ -8,7 +8,7 @@
 #include "mio.h"
 #include "log.h"
 
-LOG *LogCreate(char *filename, unsigned long int size)
+LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 {
 	LOG *log;
 	unsigned long int space;
@@ -36,6 +36,7 @@ LOG *LogCreate(char *filename, unsigned long int size)
 	}
 
 
+	log->host_id = host_id;
 	log->size = size+1;
 	log->seq_no = 1;
 	pthread_mutex_init(&log->lock,NULL);
@@ -130,7 +131,7 @@ LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
 		return(NULL);
 	}
 
-	log_tail = LogCreate(NULL,max_size);
+	log_tail = LogCreate(NULL,0,max_size);
 	if(log_tail == NULL) {
 		return(NULL);
 	}
@@ -434,7 +435,7 @@ GLOG *GLogCreate(char *filename, unsigned long size)
 	memset(subfilename,0,sizeof(subfilename));
 	strcpy(subfilename,filename);
 	strcat(subfilename,".log");
-	gl->log = LogCreate(subfilename,size);
+	gl->log = LogCreate(subfilename,0,size);
 	if(gl->log == NULL) {
 		GLogFree(gl);
 		return(NULL);
@@ -737,6 +738,75 @@ void GLogPrint(FILE *fd, GLOG *gl)
 }
 
 
+/*
+ * add events to GLOG from log tail extracted from some local log
+ */
+int ImportLogTail(GLOG *gl, LOG *ll) 
+{
+	LOG *lt;
+	unsigned long earliest;
+	HOST *host;
+	unsigned long curr;
+	EVENT *ev;
+	int err;
+	unsigned long remote_host;
+
+	if(ll == NULL) {
+		return(-1);
+	}
+
+	if(gl == NULL) {
+		return(-1);
+	}
+
+	remote_host = ll->host_id;
+
+	/*
+	 * find the max seq_no from the remote gost that the GLOG has seen
+	 */
+	host = HostListFind(gl->host_list,remote_host);
+	if(host == NULL) {
+		earliest = 0;
+	} else {
+		earliest = host->max_seen;
+	}
+
+
+	lt = LogTail(ll,earliest,100);
+	if(lt == NULL) {
+		fprintf(stderr,"couldn't get log tail from local log\n");
+		fflush(stderr);
+		return(0);
+	}
+
+	/*
+	 * do the import
+	 */
+	curr = lt->head;
+	ev = (EVENT *)(MIOAddr(lt->m_buf) + sizeof(LOG));
+	while(ev[curr].seq_no > earliest) {
+		err = GLogEvent(gl,&ev[curr]);
+		if(err < 0) {
+			fprintf(stderr,"couldn't add seq_no %llu\n",
+				ev[curr].seq_no);
+			fflush(stderr);
+			LogFree(lt);
+			return(0);
+		}
+		if(curr == lt->tail) {
+			break;
+		}
+		curr = curr - 1;
+		if(curr >= lt->size) {
+			curr = (lt->size-1);
+		}
+	}
+
+	LogFree(lt);
+
+	return(1);
+}
+	
 
 	
 /* 

@@ -13,6 +13,7 @@
 struct log_stc
 {
 	pthread_mutex_t lock;
+	unsigned long host_id;
 	unsigned long long seq_no;
 	MIO *m_buf;
 	char filename[4096];
@@ -47,7 +48,7 @@ struct global_log_stc
 typedef struct global_log_stc GLOG;
 	
 
-LOG *LogCreate(char *filename, unsigned long int size);
+LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size);
 void LogFree(LOG *log);
 int LogFull(LOG *log);
 unsigned long long LogEvent(LOG *log, EVENT *event);
@@ -67,6 +68,8 @@ GLOG *GLogCreate(char *filename, unsigned long size);
 int GLogEvent(GLOG *gl, EVENT *event);
 void GLogFree(GLOG *gl);
 void GLogPrint(FILE *fd, GLOG *gl);
+
+int ImportLogTail(GLOG *gl, LOG *ll);
 
 	
 
