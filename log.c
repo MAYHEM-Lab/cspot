@@ -103,6 +103,22 @@ int LogAdd(LOG *log, EVENT *event)
 	return(1);
 }
 
+int LogEventEqual(LOG *l1, LOG *l2, unsigned long ndx)
+{
+	EVENT *e1;
+	EVENT *e2;
+
+	e1 = (EVENT *)(MIOAddr(l1->m_buf) + sizeof(LOG));
+	e2 = (EVENT *)(MIOAddr(l2->m_buf) + sizeof(LOG));
+
+	if(memcmp(&e1[ndx],&e2[ndx],sizeof(EVENT)) != 0) {
+		return(0);
+	} else {
+		return(1);
+	}
+}
+
+
 unsigned long long LogEvent(LOG *log, EVENT *event)
 {
 	int err;
@@ -187,7 +203,8 @@ void LogPrint(FILE *fd, LOG *log)
 	curr = log->head;
 	while(curr != log->tail) {
 		fprintf(fd,
-		"\thost: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
+		"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
+			curr,
 			ev_array[curr].host,	
 			ev_array[curr].seq_no,	
 			ev_array[curr].cause_host,	

@@ -284,6 +284,61 @@ void *WorkerThread(void *arg)
 	pthread_exit(NULL);
 	return(NULL);
 }
+
+
+void PrintGLogDiffs(GLOG **glogs, int log_count)
+{
+	int i;
+	int j;
+	unsigned long curr;
+	LOG *l1;
+	LOG *l2;
+
+	for(i=0; i < log_count; i++) {
+		l1 = glogs[i]->log;
+		for(j=i+1; j < log_count; j++) {
+			l2 = glogs[j]->log;
+			if(l1->head != l2->head) {
+				printf("%d head %lu %d head %lu\n",
+					i+1,
+					l1->head,
+					j+1,
+					l2->head);
+				fflush(stdout);
+				continue;
+			}
+			curr = l1->head;
+			while(curr != l1->tail) {
+				if(curr == l2->tail) {
+	printf("%d at %lu but %d has tail %lu\n",
+					i+1,
+					curr,
+					j+1,
+					l2->tail);
+					fflush(stdout);
+					break;
+				}
+				if(!LogEventEqual(l1,l2,curr)) {
+	printf("%d and %d differ at index %lu\n",
+					i+1,
+					j+1,
+					curr);
+					fflush(stdout);
+					break;
+				}
+				curr = curr - 1;
+				if(curr >= l1->size) {
+					curr = l1->size - 1;
+				}
+			}
+		}
+	}
+
+	return;
+}
+
+	
+	
 	
 
 int main(int argc, char **argv)
@@ -461,6 +516,8 @@ int main(int argc, char **argv)
 		GLogPrint(stdout,glogs[i]);
 		fflush(stdout);
 	}
+
+	PrintGLogDiffs(glogs,Threads);
 	
 	for(i=0; i < Threads; i++) {
 		if(llogs[i] != NULL) {

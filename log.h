@@ -54,6 +54,7 @@ void LogFree(LOG *log);
 int LogFull(LOG *log);
 unsigned long long LogEvent(LOG *log, EVENT *event);
 LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size);
+int LogEventEqual(LOG *l1, LOG *l2, unsigned long ndx);
 void LogPrint(FILE *fd, LOG *log);
 
 PENDING *PendingCreate(char *filename, unsigned long psize);
