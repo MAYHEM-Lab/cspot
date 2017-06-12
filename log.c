@@ -86,7 +86,6 @@ int LogAdd(LOG *log, EVENT *event)
 
 	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
 
-//	pthread_mutex_lock(&log->lock);
 	/*
 	 * FIX ME: need to implement a cleaner that moves the tail
 	 */
@@ -98,7 +97,6 @@ int LogAdd(LOG *log, EVENT *event)
 	
 	memcpy(&ev_array[next],event,sizeof(EVENT));
 	log->head = next;
-//	pthread_mutex_unlock(&log->lock);
 
 	return(1);
 }
@@ -466,7 +464,7 @@ GLOG *GLogCreate(char *filename, unsigned long size)
 	memset(subfilename,0,sizeof(subfilename));
 	strcpy(subfilename,filename);
 	strcat(subfilename,".pending");
-	gl->pending = PendingCreate(subfilename,size);
+	gl->pending = PendingCreate(subfilename,size*3);
 	if(gl->pending == NULL) {
 		GLogFree(gl);
 		return(NULL);
@@ -518,6 +516,8 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	}
 
 	P(&gl->mutex);	/* single thread for now */
+printf("\tattempting %lu %llu\n",event->host,event->seq_no);
+fflush(stdout);
 
 	/*
 	 * see if the cause has already been logged
@@ -640,6 +640,8 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			 */
 			if(cause_host->max_seen >= this_event->cause_seq_no) {
 				err = LogAdd(gl->log,this_event);
+printf("\tadding %lu %llu\n",this_event->host,this_event->seq_no);
+fflush(stdout);
 				if(err < 0) {
 					fprintf(stderr,
 					"log with committed cause failed %lu, %llu\n",
@@ -696,8 +698,13 @@ int GLogEvent(GLOG *gl, EVENT *event)
 							host_id,
 							seq_no);
 				if(this_event == NULL) {
+printf("\tnot found %lu %llu\n",host_id,seq_no);
+fflush(stdout);
 					done = 1;
-				} 
+				} else {
+printf("\tfound %lu %llu\n",this_event->host,this_event->seq_no);
+fflush(stdout);
+				}
 				continue;
 			}
 
@@ -733,8 +740,11 @@ int GLogEvent(GLOG *gl, EVENT *event)
 			 * event needs to go on the list
 			 *
 			 * if it is there already then there is a problem
+			 * 
+			 * XXX check this when we are merging with all
 			 */
 			local_event = PendingFindEvent(gl->pending,this_event->host,event->seq_no);
+#if 0
 			if(local_event != NULL) {
 				fprintf(stderr,
 				"already pending cause for host %lu event %llu\n",
@@ -743,7 +753,16 @@ int GLogEvent(GLOG *gl, EVENT *event)
 				V(&gl->mutex);
 				return(-1);
 			}
-			err = PendingAddEvent(gl->pending,this_event);
+#endif
+			/*
+			 * if a prevous import didn't make this pending
+			 * add it to the list
+			 */
+			if(local_event == NULL) {
+				err = PendingAddEvent(gl->pending,this_event);
+			} else {
+				err = 1;
+			}
 			done = 1;
 			break;
 		}
@@ -799,7 +818,7 @@ int ImportLogTail(GLOG *gl, LOG *ll)
 	 * lock the local log while we extract the tail
 	 */
 	P(&ll->mutex);
-	lt = LogTail(ll,earliest,100);
+	lt = LogTail(ll,earliest,ll->size);
 	if(lt == NULL) {
 		fprintf(stderr,"couldn't get log tail from local log\n");
 		fflush(stderr);
@@ -836,7 +855,6 @@ int ImportLogTail(GLOG *gl, LOG *ll)
 	return(1);
 }
 	
-
 	
 /* 
 FireEvent logs event to local log and to global log

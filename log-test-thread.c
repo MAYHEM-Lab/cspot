@@ -88,22 +88,54 @@ int SyncLogs(GLOG **glogs, LOG **llogs, unsigned long host_id, unsigned long max
 		return(-1);
 	}
 
+#if 0
+	/*
+	 * UGLY -- take all the locks
+	 */
 	for(i=0; i < max_host-1; i++) {
 		ll = llogs[i];
+		P(&ll->mutex);
+	}
+#endif
+
+	for(i=0; i < max_host; i++) {
+		ll = llogs[i];
 		if(ll == NULL) {
-			return(-1);
+			goto errout;
 		}
 		err = ImportLogTail(gl,ll);
+printf("host %lu importing ", host_id);
+fflush(stdout);
 		if(err < 0) {
 		fprintf(stderr, "thread %lu failed to sync log for host %d\n",
 			host_id,
 			i+1);
 			fflush(stderr);
-			return(-1);
+			goto errout;
 		}
 	}
 
+#if 0
+	/*
+	 * release the hold
+	 */
+	for(i=max_host-2; i >= 0; i--) {
+		ll = llogs[i];
+		V(&ll->mutex);
+	}
+#endif
+
 	return(1);
+
+errout:
+#if 0
+	for(i=max_host-2; i >= 0; i--) {
+		ll = llogs[i];
+		V(&ll->mutex);
+	}
+#endif
+	return(-1);
+	
 }
 
 struct worker_stc
@@ -130,10 +162,12 @@ void *WorkerThread(void *arg)
 	unsigned long long last_seq_no;
 	int remote_host;
 	int err;
+	int count;
 
 	until_sync = warg->sync;
 	last_seq_no = 0;
-	for(i=0; i < warg->count; i++) {
+	count = 0;
+	while(count < warg->count) {
 		/*
 		 * is this a remote event?
 		 */
@@ -167,6 +201,7 @@ void *WorkerThread(void *arg)
 			}
 			last_seq_no = seq_no;
 			EventFree(ev);
+			count++;
 		} else { /* this is a remote event */
 			/*
 			 * choose a remote host at random
@@ -195,6 +230,7 @@ void *WorkerThread(void *arg)
 			}
 			last_seq_no = seq_no;
 			EventFree(ev);
+			count++;
 			/*
 			 * now fire event on remote host
 			 */
@@ -217,6 +253,7 @@ void *WorkerThread(void *arg)
 				exit(1);
 			}
 			EventFree(ev);
+			count++;
 		}
 
 		/*
@@ -235,6 +272,7 @@ void *WorkerThread(void *arg)
 			}
 			last_seq_no = seq_no;
 			EventFree(ev);
+			count++;
 		}
 		/*
 		 * now see if it is sync time
@@ -271,7 +309,9 @@ void *WorkerThread(void *arg)
 		}
 		last_seq_no = seq_no;
 		EventFree(ev);
+		count++;
 	}
+#if 0
 	err = SyncLogs(warg->glogs, warg->llogs, warg->host_id, warg->max_host_id);
 	if(err < 0) {
 		fprintf(stderr,
@@ -279,6 +319,7 @@ void *WorkerThread(void *arg)
 			warg->host_id,i);
 		exit(1);
 	}
+#endif
 	free(warg);
 
 	pthread_exit(NULL);
@@ -481,7 +522,7 @@ int main(int argc, char **argv)
 		warg->glogs = glogs;
 		warg->prob = Prob;
 		warg->count = Count;
-		warg->max_host_id = Threads+1;
+		warg->max_host_id = Threads;
 		warg->sync = Sync_count;
 		err = pthread_create(&tids[i],NULL,WorkerThread,(void *)warg);
 		if(err < 0) {
@@ -504,7 +545,7 @@ int main(int argc, char **argv)
 	for(i=0; i < Threads; i++) {
 		err = SyncLogs(glogs,llogs,
 			i+1,
-			Threads+1);
+			Threads);
 		if(err < 0) {
 			fprintf(stderr,
 		"final log sync failed\n");
@@ -513,6 +554,9 @@ int main(int argc, char **argv)
 	}
 
 	for(i=0; i < Threads; i++) {
+		printf("Local LOG %d\n",i+1);
+		LogPrint(stdout,llogs[i]);
+		printf("Global LOG %d\n",i+1);
 		GLogPrint(stdout,glogs[i]);
 		fflush(stdout);
 	}

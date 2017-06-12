@@ -72,7 +72,6 @@ void GLogFree(GLOG *gl);
 void GLogPrint(FILE *fd, GLOG *gl);
 
 int ImportLogTail(GLOG *gl, LOG *ll);
-
 	
 
 #endif

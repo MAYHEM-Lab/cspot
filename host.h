@@ -8,7 +8,7 @@ struct host_stc
 {
 	unsigned long host_id;
 	unsigned long long max_seen;
-	unsigned long long next_dep;
+	unsigned long long max_pending;
 };
 
 typedef struct host_stc HOST;
