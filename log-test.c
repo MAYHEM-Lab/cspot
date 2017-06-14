@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	glog = GLogCreate(Gname,size);
+	glog = GLogCreate(Gname,1,size);
 	if(glog == NULL) {
 		fprintf(stderr,"couldn't create global log %s\n",
 			Gname);
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	glog_2 = GLogCreate(GName2,size);
+	glog_2 = GLogCreate(GName2,2,size);
 	if(glog_2 == NULL) {
 		fprintf(stderr,"couldn't create remote glog\n");
 		exit(1);
@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
-	glog_3 = GLogCreate(GName3,size);
+	glog_3 = GLogCreate(GName3,3,size);
 	if(glog_3 == NULL) {
 		fprintf(stderr,"couldn't create third global log\n");
 		fflush(stderr);
@@ -450,7 +450,7 @@ int main(int argc, char **argv)
 		fprintf(stderr,"couldn't recreate host 1 log\n");
 		exit(1);
 	}
-	glog = GLogCreate(Gname,size);
+	glog = GLogCreate(Gname,1,size);
 	if(glog == NULL) {
 		fprintf(stderr,"couldn't create global log 1\n");
 		exit(1);
@@ -461,7 +461,7 @@ int main(int argc, char **argv)
 		fprintf(stderr,"couldn't recreate host 2 log\n");
 		exit(1);
 	}
-	glog_2 = GLogCreate(GName2,size);
+	glog_2 = GLogCreate(GName2,2,size);
 	if(glog_2 == NULL) {
 		fprintf(stderr,"couldn't create global log 2\n");
 		exit(1);
@@ -472,7 +472,7 @@ int main(int argc, char **argv)
 		fprintf(stderr,"couldn't recreate host 3 log\n");
 		exit(1);
 	}
-	glog_3 = GLogCreate(GName3,size);
+	glog_3 = GLogCreate(GName3,3,size);
 	if(glog_2 == NULL) {
 		fprintf(stderr,"couldn't create global log 3\n");
 		exit(1);

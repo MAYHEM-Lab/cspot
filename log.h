@@ -39,6 +39,7 @@ typedef struct pending_stc PENDING;
 
 struct global_log_stc
 {
+	unsigned long host_id;
 	sema mutex;
 	char filename[4096];
 	LOG *log;
@@ -66,7 +67,7 @@ EVENT *PendingFindCause(PENDING *pending,
 void PendingPrint(FILE *fd, PENDING *pending);
 
 
-GLOG *GLogCreate(char *filename, unsigned long size);
+GLOG *GLogCreate(char *filename, unsigned long host_id, unsigned long size);
 int GLogEvent(GLOG *gl, EVENT *event);
 void GLogFree(GLOG *gl);
 void GLogPrint(FILE *fd, GLOG *gl);

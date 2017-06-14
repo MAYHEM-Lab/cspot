@@ -8,6 +8,11 @@
 #include "mio.h"
 #include "log.h"
 
+int yan()
+{
+return(1);
+}
+
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 {
 	LOG *log;
@@ -166,19 +171,19 @@ LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
 		/*
 		 * allow for ealiest to overlap
 		 */
-		if(ev_array[curr].seq_no > earliest) {
+		if(ev_array[curr].seq_no >= earliest) {
 			LogAdd(log_tail,&ev_array[curr]);
 			count++;
 			if(count >= max_size) {
 				break;
 			}
 		}
-		if(curr == log->tail) { /* this was the last valid record */
-			break;
-		}
 		curr = curr - 1;
 		if(curr >= log->size) {
 			curr = (log->size-1);
+		}
+		if(curr == log->tail) { /* this behind the last valid */
+			break;
 		}
 	}
 
@@ -344,7 +349,6 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 		return(-1);
 	}
 	local_event = (EVENT *)rb->value.v;
-	local_event->seq_no = 0; /* marks MIO space as free */
 	RBDeleteD(pending->alive,rb);
 
 	ndx = EventIndex(event->cause_host,event->cause_seq_no);
@@ -359,6 +363,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	}
 
 	RBDeleteD(pending->causes,rb);
+	local_event->seq_no = 0; /* marks MIO space as free */
 
 	return(1);
 }
@@ -425,7 +430,7 @@ void PendingPrint(FILE *fd, PENDING *pending)
 }
 
 
-GLOG *GLogCreate(char *filename, unsigned long size)
+GLOG *GLogCreate(char *filename, unsigned long host_id, unsigned long size)
 {
 	GLOG *gl;
 	MIO *mio;
@@ -464,13 +469,15 @@ GLOG *GLogCreate(char *filename, unsigned long size)
 	memset(subfilename,0,sizeof(subfilename));
 	strcpy(subfilename,filename);
 	strcat(subfilename,".pending");
-	gl->pending = PendingCreate(subfilename,size*3);
+	gl->pending = PendingCreate(subfilename,size*5);
 	if(gl->pending == NULL) {
 		GLogFree(gl);
 		return(NULL);
 	}
 
 	InitSem(&gl->mutex,1);
+
+	gl->host_id = host_id;
 
 	return(gl);
 }
@@ -490,6 +497,240 @@ void GLogFree(GLOG *gl)
 	}
 
 	return;
+}
+
+/*
+ * pull pending events from dependency chain headed at #event#
+ * and commit them to the log
+ */
+int LogResolveHorizon(GLOG *gl, EVENT *event)
+{
+	double ndx;
+	unsigned long host_id;
+	unsigned long cause_host_id;
+	unsigned long long seq_no;
+	unsigned long long cause_seq_no;
+	RB *rb;
+	HOST *host;
+	HOST *cause_host;
+	int err;
+	EVENT *dep_event;
+	EVENT *local_event;
+	EVENT *this_event;
+	int done;
+	int status; /* -1 => fail, 0 => delete, 1 => ok */
+
+
+	if(gl == NULL) {
+		return(-1);
+	}
+
+	if(event == NULL) {
+		return(-1);
+	}
+
+	cause_host = HostListFind(gl->host_list,event->cause_host);
+	/*
+	 * if we haven't seen this host then there isn't an event horizon yet
+	 */
+	if(cause_host == NULL) {
+		return(1);
+	}
+
+	host = HostListFind(gl->host_list,event->host);
+	if(host == NULL) {
+		return(1);
+	}
+
+	status = 1;
+	/*
+	 * check to see if we need to handle this event's cause
+	 * -- probably do
+	 */
+	this_event = PendingFindEvent(gl->pending,
+			event->cause_host,
+			event->cause_seq_no);
+
+	/*
+	 * if the cause is missing, start at this event
+	 */
+	if(this_event == NULL) {
+		this_event = PendingFindEvent(gl->pending,
+			event->host,
+			event->seq_no);
+	} else {
+		host = cause_host;
+	}
+
+	/*
+	 * if this event is on the pending list and it is earlier than the
+	 * event horizon, log it
+	 */
+	if((this_event != NULL) && 
+	   (this_event->seq_no < host->event_horizon)) {
+		host_id = this_event->host;
+		seq_no = this_event->seq_no;
+		err = LogAdd(gl->log,this_event);
+
+printf("on %lu update host: %lu seq_no: %llu max: %llu horizon: %llu\n",
+		gl->host_id,
+		host->host_id,
+		this_event->seq_no,
+		host->max_seen,
+		host->event_horizon);
+fflush(stdout);
+
+		if(err < 0) {
+			fprintf(stderr,
+	"couldn't add first event %lu %llu with max %llu and horizon %llu\n",
+				this_event->host,
+				this_event->seq_no,
+				host->max_seen,
+				host->event_horizon);
+			fflush(stderr);
+		}
+		err = PendingRemoveEvent(gl->pending,this_event);
+		if(err < 0) {
+			fprintf(stderr,
+"couldn't remove pending event %lu %llu with max %llu and horizon %llu\n",
+				this_event->host,
+				this_event->seq_no,
+				host->max_seen,
+				host->event_horizon);
+			fflush(stderr);
+		} else { /* signal a remove has happened */
+			if(host->max_seen < seq_no) {
+printf("on host %lu updating host %lu max %llu eh %llu to %llu\n",
+gl->host_id, host->host_id,
+host->max_seen,host->event_horizon,
+seq_no);
+fflush(stdout);
+				host->max_seen = seq_no;
+			}
+			status = 0;
+		}
+	} else {
+		/*
+		 * the event has not been committed so no dependincies
+		 * can be commited.  bail out
+		 */
+if(this_event != NULL) {
+printf("Resolve bailing: gl host: %lu ev host: %lu seq_no: %llu ",
+gl->host_id,this_event->host,this_event->seq_no);   
+printf("cause_host: %lu cause_eh: %llu\n",
+this_event->cause_host, cause_host->event_horizon);   
+fflush(stdout);
+GLogPrint(stdout,gl);
+}
+		return(status);
+	}
+
+
+	/*
+	 * otherwise  walk the dependency list forward to commit events
+	 * depending on event that was just committed
+	 */
+	done = 0;
+	while(done == 0) {
+		/*
+		 * find event dependent on this one
+		 */
+		dep_event = PendingFindCause(gl->pending,host_id,
+			seq_no);
+
+		if(dep_event == NULL) {
+			err = 1;
+			done = 1;
+			continue;
+		}
+
+		/*
+		 * this is anchor event -- won't find it on the pending list
+		 */
+		host = HostListFind(gl->host_list,dep_event->host);
+		if(host == NULL) {
+			err = HostListAdd(gl->host_list,dep_event->host);
+			if(err < 0) {
+				fprintf(stderr,
+	"couldn't add new dep host in fast forward\n");
+				fflush(stderr);
+				return(-1);
+			}
+		}
+
+		/*
+		 * save off seq_nos
+		 */
+		cause_host_id = dep_event->cause_host;
+		cause_seq_no = dep_event->cause_seq_no;
+		host_id = dep_event->host;
+		seq_no = dep_event->seq_no;
+	       /* 
+		* check to see if its seq_no is smaller than
+		* event horizon and log it, if so
+		*/
+		if(dep_event->seq_no <= host->event_horizon) {
+			err = LogAdd(gl->log,dep_event);
+			if(err < 0) {
+				fprintf(stderr,
+"couldn't add event %lu %llu with max %llu and horizon %llu\n",
+					dep_event->host,
+					dep_event->seq_no,
+					host->max_seen,
+					host->event_horizon);
+				fflush(stderr);
+				done = 1;
+				continue;
+			}
+printf("on %lu dep update host: %lu seq_no: %llu max: %llu horizon: %llu\n",
+	gl->host_id,
+	host->host_id,
+	dep_event->seq_no,
+	host->max_seen,
+	host->event_horizon);
+fflush(stdout);
+			/*
+			 * if this an anchor event, we are done
+			 */
+			if(dep_event->seq_no == 0) {
+				status = 0;
+				err = 1;
+				continue;
+			}
+			err = PendingRemoveEvent(gl->pending,dep_event);
+			if(err < 0) {
+				fprintf(stderr,
+"couldn't remove pending event %lu %llu with max %llu and horizon %llu\n",
+					dep_event->host,
+					dep_event->seq_no,
+					host->max_seen,
+					host->event_horizon);
+				fflush(stderr);
+				done = 1;
+				continue;
+			} else {
+				if(host->max_seen < seq_no) {
+printf("on dep host %lu updating host %lu max %llu eh %llu to %llu\n",
+gl->host_id, host->host_id,
+host->max_seen,host->event_horizon,
+seq_no);
+fflush(stdout);
+					host->max_seen = seq_no;
+				}
+				status = 0;
+			}
+		} else { /* dep_event->seq_no >= event horizon */
+			/* we are done */
+			err = 1;
+			done = 1;
+		} 
+			
+	} /* end of while loop */
+
+	if(err < 0) {
+		status = -1;
+	}
+	return(status);
 }
 
 int GLogEvent(GLOG *gl, EVENT *event)
@@ -516,8 +757,6 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	}
 
 	P(&gl->mutex);	/* single thread for now */
-printf("\tattempting %lu %llu\n",event->host,event->seq_no);
-fflush(stdout);
 
 	/*
 	 * see if the cause has already been logged
@@ -638,10 +877,9 @@ fflush(stdout);
 			 * if we have logged the cause already, but we
 			 * haven't logged this event, log it
 			 */
-			if(cause_host->max_seen >= this_event->cause_seq_no) {
+			if((cause_host->max_seen >= this_event->cause_seq_no) 
+			|| (cause_host->event_horizon >= this_event->cause_seq_no)){
 				err = LogAdd(gl->log,this_event);
-printf("\tadding %lu %llu\n",this_event->host,this_event->seq_no);
-fflush(stdout);
 				if(err < 0) {
 					fprintf(stderr,
 					"log with committed cause failed %lu, %llu\n",
@@ -698,12 +936,8 @@ fflush(stdout);
 							host_id,
 							seq_no);
 				if(this_event == NULL) {
-printf("\tnot found %lu %llu\n",host_id,seq_no);
-fflush(stdout);
 					done = 1;
 				} else {
-printf("\tfound %lu %llu\n",this_event->host,this_event->seq_no);
-fflush(stdout);
 				}
 				continue;
 			}
@@ -779,6 +1013,92 @@ void GLogPrint(FILE *fd, GLOG *gl)
 	return;
 }
 
+/*
+ * bring clear pending list of events earlier than event horizon
+ */
+int GLogFastForward(GLOG *gl, unsigned long remote_host_id)
+{
+	RB *rb;
+	EVENT *event;
+	int err;
+	HOST *remote_host;
+
+	remote_host = HostListFind(gl->host_list,remote_host_id);
+	if(remote_host == NULL) {
+		/*
+		 * no remote host yet means no event horizon
+		 */
+		return(1);
+	}
+
+#if 0
+	if(remote_host->max_seen >= remote_host->event_horizon) { 
+		/* we are good */
+		return(1);
+	}
+#endif
+
+	/*
+	 * clean out the list.  Find events that depend on events
+	 * from this host.  Note that RB code is destructive on delete
+	 * so must scan until there are no more to do
+	 */
+	P(&gl->mutex);
+	rb = RB_FIRST(gl->pending->causes);
+	
+	if(rb == NULL) {
+		/*
+		 * nothing on the pending list
+		 */
+		V(&gl->mutex);
+		return(1);
+	} 
+	while(rb != NULL) {
+		event = (EVENT *)rb->value.v;
+		if(event->cause_host != remote_host->host_id) {
+			rb = rb->next;
+			continue;
+		}
+		/*
+		 * if we are past the event horzon, then
+		 * we are done fast forwarding
+		 */
+		if((event->cause_seq_no >= remote_host->event_horizon) &&
+		  (event->seq_no >= remote_host->event_horizon)) {
+			break;
+		}
+		err = LogResolveHorizon(gl,event);
+		if(err < 0) {
+			fprintf(stderr,"fast forward of %lu %llu failed\n",
+				event->host,
+				event->seq_no);
+			V(&gl->mutex);
+			return(-1);
+		}
+		/*
+		 * 0 indicates that pending was reordered by a delete
+		 */
+		if(err == 0) {
+			rb = RB_FIRST(gl->pending->causes);
+		} else {
+			rb = rb->next;
+		}
+	}
+
+	V(&gl->mutex);
+printf("end FF\n");
+GLogPrint(stdout,gl);
+	return(1);
+
+}
+		
+		
+
+
+	
+
+	
+
 
 /*
  * add events to GLOG from log tail extracted from some local log
@@ -786,9 +1106,12 @@ void GLogPrint(FILE *fd, GLOG *gl)
 int ImportLogTail(GLOG *gl, LOG *ll) 
 {
 	LOG *lt;
-	unsigned long earliest;
+	unsigned long long earliest;
+	unsigned long long event_horizon;
 	HOST *host;
 	unsigned long curr;
+	unsigned long last;
+	unsigned long first;
 	EVENT *ev;
 	int err;
 	unsigned long remote_host;
@@ -814,24 +1137,75 @@ int ImportLogTail(GLOG *gl, LOG *ll)
 	}
 
 
+
 	/*
 	 * lock the local log while we extract the tail
 	 */
 	P(&ll->mutex);
+printf("importing to %lu from %lu, earliest %llu\n",
+	gl->host_id,
+	ll->host_id,
+	earliest);
+fflush(stdout);
 	lt = LogTail(ll,earliest,ll->size);
 	if(lt == NULL) {
-		fprintf(stderr,"couldn't get log tail from local log\n");
-		fflush(stderr);
+		/*
+		 * there is no local log tail we haven't seen
+		 */
+printf("importing to %lu from %lu, earliest %llu no tail\n",
+	gl->host_id,
+	ll->host_id,
+	earliest);
+fflush(stdout);
 		V(&ll->mutex);
 		return(0);
 	}
 	V(&ll->mutex);
 
-	/*
-	 * do the import
-	 */
-	curr = lt->head;
+	if(lt->head == lt->tail) {
+		return(0);
+	}
+
 	ev = (EVENT *)(MIOAddr(lt->m_buf) + sizeof(LOG));
+
+	/*
+	 * set the event horizon
+	 */
+	first = lt->head;
+	if(host != NULL) {
+printf("importing to %lu from %lu, earliest %llu setting eh to %llu\n",
+	gl->host_id,
+	ll->host_id,
+	earliest,
+	ev[first].seq_no);
+fflush(stdout);
+		if(ev[first].seq_no > host->event_horizon) {
+			host->event_horizon = ev[first].seq_no;
+		}
+		err = GLogFastForward(gl,remote_host);
+		if(err < 0) {
+			fprintf(stderr,
+			"couldn't fast forward from host %lu\n",
+				remote_host);
+			fflush(stderr);
+			LogFree(lt);
+			return(-1);
+		}
+	}
+
+#if 0
+	if(ev[first].seq_no <= earliest) {
+printf("early end Import\n");
+GLogPrint(stdout,gl);
+		LogFree(lt);
+		return(1);
+	}
+#endif
+
+	/*
+	 * now do the import if there is something to import
+	 */
+	last = curr = lt->head;
 	while(ev[curr].seq_no > earliest) {
 		err = GLogEvent(gl,&ev[curr]);
 		if(err < 0) {
@@ -841,14 +1215,18 @@ int ImportLogTail(GLOG *gl, LOG *ll)
 			LogFree(lt);
 			return(0);
 		}
-		if(curr == lt->tail) {
-			break;
-		}
+		last = curr;
 		curr = curr - 1;
 		if(curr >= lt->size) {
 			curr = (lt->size-1);
 		}
+		if(curr == lt->tail) {
+			break;
+		}
 	}
+printf("end Import\n");
+GLogPrint(stdout,gl);
+
 
 	LogFree(lt);
 

@@ -104,8 +104,6 @@ int SyncLogs(GLOG **glogs, LOG **llogs, unsigned long host_id, unsigned long max
 			goto errout;
 		}
 		err = ImportLogTail(gl,ll);
-printf("host %lu importing ", host_id);
-fflush(stdout);
 		if(err < 0) {
 		fprintf(stderr, "thread %lu failed to sync log for host %d\n",
 			host_id,
@@ -504,7 +502,7 @@ int main(int argc, char **argv)
 			fflush(stderr);
 			exit(1);
 		}
-		glogs[i] = GLogCreate(gnames[i],size);
+		glogs[i] = GLogCreate(gnames[i],i+1,size);
 		if(glogs[i] == NULL) {
 			fprintf(stderr,"couldn't create glog %d\n",i);
 			fflush(stderr);
