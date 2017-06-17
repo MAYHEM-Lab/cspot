@@ -8,10 +8,7 @@
 #include "mio.h"
 #include "log.h"
 
-int yan()
-{
-return(1);
-}
+#define DEBUG
 
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 {
@@ -617,6 +614,33 @@ EVENT *GLogPendingSatisfied(GLOG *gl)
 	EVENT *ev;
 	HOST *cause_host;
 
+	/*
+	 * check the cause list
+	 */
+	RB_FORWARD(gl->pending->causes,rb) {
+		ev = (EVENT *)rb->value.v;
+		cause_host = HostListFind(gl->host_list,ev->cause_host);
+		if(cause_host == NULL) {
+			continue;
+		}
+		if(cause_host->max_seen >= ev->cause_seq_no) {
+#ifdef DEBUG
+printf("pendsatisfied %lu: causes ev %lu %llu cause %lu %llu cause max: %llu\n",
+		gl->host_id,
+		ev->host,
+		ev->seq_no,
+		ev->cause_host,
+		ev->cause_seq_no,
+		cause_host->max_seen);
+		fflush(stdout);
+#endif
+			return(ev);
+		}
+	}
+
+	/*
+	 * otherwise check current events
+	 */
 	RB_FORWARD(gl->pending->alive,rb) {
 		ev = (EVENT *)rb->value.v;
 		cause_host = HostListFind(gl->host_list,ev->cause_host);
@@ -624,11 +648,30 @@ EVENT *GLogPendingSatisfied(GLOG *gl)
 			continue;
 		}
 		if(cause_host->max_seen >= ev->cause_seq_no) {
+#ifdef DEBUG
+printf("pendsatisfied %lu: ev %lu %llu cause %lu %llu cause max: %llu\n",
+		gl->host_id,
+		ev->host,
+		ev->seq_no,
+		ev->cause_host,
+		ev->cause_seq_no,
+		cause_host->max_seen);
+		fflush(stdout);
+#endif
 			return(ev);
 		}
 	}
 
 	return(NULL);
+}
+
+int IsAnchor(EVENT *ev) {
+	if((ev->host == ev->cause_host) && 
+	   (ev->seq_no == ev->cause_seq_no)) {
+		return(1);
+	} else {
+		return(0);
+	}
 }
 
 /*
@@ -984,14 +1027,6 @@ void GLogPrint(FILE *fd, GLOG *gl)
 	return;
 }
 
-int IsAnchor(EVENT *ev) {
-	if((ev->host == ev->cause_host) && 
-	   (ev->seq_no == ev->cause_seq_no)) {
-		return(1);
-	} else {
-		return(0);
-	}
-}
 
 /*
  * bring clear pending list of events earlier than event horizon
@@ -1144,11 +1179,13 @@ printf("import %lu: from %lu, earliest %llu\n",
 		/*
 		 * there is no local log tail we haven't seen
 		 */
-printf("importing to %lu from %lu, earliest %llu no tail\n",
-	gl->host_id,
-	ll->host_id,
-	earliest);
-fflush(stdout);
+#ifdef DEBUG
+printf("import %lu: from %lu, earliest %llu no tail\n",
+		gl->host_id,
+		ll->host_id,
+		earliest);
+		fflush(stdout);
+#endif
 		V(&ll->mutex);
 		return(0);
 	}
@@ -1169,19 +1206,19 @@ fflush(stdout);
 		last = 0;
 	}
 	if(host != NULL) {
-printf("importing to %lu from %lu, earliest %llu setting eh to %llu\n",
-	gl->host_id,
-	ll->host_id,
-	earliest,
-	ev[first].seq_no);
-printf("importing to %lu from %lu, first %llu last %llu\n",
-	gl->host_id,
-	ll->host_id,
-	ev[first].seq_no,
-	ev[last].seq_no);
-
-
-fflush(stdout);
+#ifdef DEBUG
+printf("import %lu: from %lu, earliest %llu setting eh to %llu\n",
+		gl->host_id,
+		ll->host_id,
+		earliest,
+		ev[first].seq_no);
+printf("import %lu: from %lu, first %llu last %llu\n",
+		gl->host_id,
+		ll->host_id,
+		ev[first].seq_no,
+		ev[last].seq_no);
+		fflush(stdout);
+#endif
 		if(ev[first].seq_no > host->event_horizon) {
 			host->event_horizon = ev[first].seq_no;
 		}
@@ -1196,24 +1233,20 @@ fflush(stdout);
 		}
 	}
 
-#if 0
-	if(ev[first].seq_no <= earliest) {
-printf("early end Import\n");
-GLogPrint(stdout,gl);
-		LogFree(lt);
-		return(1);
-	}
-#endif
-
 	/*
 	 * now do the import if there is something to import
 	 */
 	last = curr = lt->head;
 	P(&gl->mutex);
 	while(ev[curr].seq_no >= earliest) {
-printf("logging to %lu from %lu: host: %lu seq_no %llu\n",
-gl->host_id, ll->host_id, ev[curr].host,ev[curr].seq_no);
-fflush(stdout);
+#ifdef DEBUG
+printf("import %lu: logging from %lu: host: %lu seq_no %llu\n",
+		gl->host_id, 
+		ll->host_id, 
+		ev[curr].host,
+		ev[curr].seq_no);
+		fflush(stdout);
+#endif
 		err = GLogEvent(gl,&ev[curr]);
 		if(err < 0) {
 			fprintf(stderr,"couldn't add seq_no %llu\n",
