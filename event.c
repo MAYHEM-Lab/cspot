@@ -43,7 +43,7 @@ double EventIndex(unsigned long host, unsigned long long seq_no)
 {
 	double ndx;
 
-	ndx = (double)(((double)host * pow(2,48)) + (double)seq_no);
+	ndx = (double)(((double)host * pow(2,32)) + (double)seq_no);
 
 	return(ndx);
 }

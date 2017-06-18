@@ -8,7 +8,9 @@
 #include "mio.h"
 #include "log.h"
 
-#define DEBUG
+int yan()
+{return(1);}
+
 
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 {
@@ -332,8 +334,11 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 int PendingRemoveEvent(PENDING *pending, EVENT *event)
 {
 	RB *rb;
+	RB *start;
 	EVENT *local_event;
+	EVENT *this_event;
 	double ndx;
+	int found = 0;
 
 	ndx = EventIndex(event->host,event->seq_no);
 	rb = RBFindD(pending->alive,ndx);
@@ -348,21 +353,42 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	local_event = (EVENT *)rb->value.v;
 	RBDeleteD(pending->alive,rb);
 
+	/*
+	 * there could be multiple events with the same cause event
+	 *
+	 * find the one that matches the #event#
+	 */
 	ndx = EventIndex(event->cause_host,event->cause_seq_no);
-	rb = RBFindD(pending->causes,ndx);
-	if(rb == NULL) {
+
+	start = RBFindD(pending->causes,ndx);
+	if(start == NULL) {
 		fprintf(stderr,
 		"couldn't find %lu %llu pending cause\n",
 			event->host,
 			event->seq_no);
 		fflush(stderr);
-		return(1);
+		return(-1);
+	}
+	rb = start;
+	while((rb != NULL) && (rb->key.key.d == ndx)) {
+		if(rb->value.v == local_event) {
+			RBDeleteD(pending->causes,rb);
+			local_event->seq_no = 0; /* marks MIO space as free */
+			return(1);
+		}
+		rb = rb->next;
+	}
+	rb = start;
+	while((rb != NULL) && (rb->key.key.d == ndx)) {
+		if(rb->value.v == local_event) {
+			RBDeleteD(pending->causes,rb);
+			local_event->seq_no = 0; /* marks MIO space as free */
+			return(1);
+		}
+		rb = rb->prev;
 	}
 
-	RBDeleteD(pending->causes,rb);
-	local_event->seq_no = 0; /* marks MIO space as free */
-
-	return(1);
+	return(-1);
 }
 
 
@@ -381,6 +407,11 @@ EVENT *PendingFindEvent(PENDING *pending, unsigned long host, unsigned long long
 	/*
 	 * careful here since we are not making a copy => can't wrap the log
 	 * before this gets used
+	 */
+
+	/*
+	 * fix this => multiple cause records can point to the same
+	 * event record
 	 */
 
 	return(ev);
@@ -523,7 +554,7 @@ int LogResolveHorizon(GLOG *gl, EVENT *event)
 		return(-1);
 	}
 
-	host = HostListFind(gl->host_list,event->host);
+	host = HostListFind(gl->host_list,event->cause_host);
 	if(host == NULL) {
 		return(1);
 	}
@@ -548,7 +579,7 @@ int LogResolveHorizon(GLOG *gl, EVENT *event)
 	 * event horizon, make the event horizon the cause_seq_no and log
 	 * it
 	 */
-	if(this_event->seq_no < host->event_horizon) {
+	if(this_event->cause_seq_no < host->event_horizon) {
 		/*
 		 * save these off so we can remove it from pending
 		 * list
@@ -560,12 +591,23 @@ int LogResolveHorizon(GLOG *gl, EVENT *event)
 			fflush(stderr);
 			return(-1);
 		}
+#ifdef DEBUG
+printf("logresolve %lu: terminating ev %lu %llu cause %lu %llu max: %llu eh: %llu\n",
+		gl->host_id,
+		this_event->host,
+		this_event->seq_no,
+		this_event->cause_host,
+		this_event->cause_seq_no,
+		host->max_seen,
+		host->event_horizon);
+		fflush(stdout);
+#endif
 		/*
 		 * make the event self enabling
 		 */
 		new_ev->seq_no = this_event->seq_no;
-		new_ev->cause_host = new_ev->host;
-		new_ev->cause_seq_no = this_event->seq_no;
+		new_ev->cause_host = host->host_id;
+		new_ev->cause_seq_no = host->event_horizon;
 		/*
 		 * pull it form the pending list (which is destructive)
 		 */
@@ -604,6 +646,36 @@ int LogResolveHorizon(GLOG *gl, EVENT *event)
 	return(1);
 }
 
+void GLogPrintPending(GLOG *gl)
+{
+	RB *rb;
+	EVENT *ev;
+	HOST *cause_host;
+	HOST *host;
+
+
+	/*
+	 * otherwise check current events
+	 */
+	RB_FORWARD(gl->pending->alive,rb) {
+		host = HostListFind(gl->host_list,ev->host);
+		cause_host = HostListFind(gl->host_list,ev->cause_host);
+		ev = (EVENT *)rb->value.v;
+		printf("glog %lu: psat %lu %llu (max: %llu eh: %llu) %lu %llu (max: %llu eh: %llu)\n",
+			gl->host_id,
+			ev->host,
+			ev->seq_no,
+			host->max_seen,
+			host->event_horizon,
+			ev->cause_host,
+			ev->cause_seq_no,
+			cause_host->max_seen,
+			cause_host->event_horizon);
+		fflush(stdout);
+	}
+
+	return;
+}
 /*
  * multiple events with the same cause leave events with cause_seq_no
  * <= max_seen
@@ -613,30 +685,8 @@ EVENT *GLogPendingSatisfied(GLOG *gl)
 	RB *rb;
 	EVENT *ev;
 	HOST *cause_host;
+	HOST *host;
 
-	/*
-	 * check the cause list
-	 */
-	RB_FORWARD(gl->pending->causes,rb) {
-		ev = (EVENT *)rb->value.v;
-		cause_host = HostListFind(gl->host_list,ev->cause_host);
-		if(cause_host == NULL) {
-			continue;
-		}
-		if(cause_host->max_seen >= ev->cause_seq_no) {
-#ifdef DEBUG
-printf("pendsatisfied %lu: causes ev %lu %llu cause %lu %llu cause max: %llu\n",
-		gl->host_id,
-		ev->host,
-		ev->seq_no,
-		ev->cause_host,
-		ev->cause_seq_no,
-		cause_host->max_seen);
-		fflush(stdout);
-#endif
-			return(ev);
-		}
-	}
 
 	/*
 	 * otherwise check current events
@@ -649,7 +699,7 @@ printf("pendsatisfied %lu: causes ev %lu %llu cause %lu %llu cause max: %llu\n",
 		}
 		if(cause_host->max_seen >= ev->cause_seq_no) {
 #ifdef DEBUG
-printf("pendsatisfied %lu: ev %lu %llu cause %lu %llu cause max: %llu\n",
+printf("pendsatisfied %lu: ev with cause %lu %llu cause %lu %llu cause max: %llu\n",
 		gl->host_id,
 		ev->host,
 		ev->seq_no,
@@ -660,6 +710,7 @@ printf("pendsatisfied %lu: ev %lu %llu cause %lu %llu cause max: %llu\n",
 #endif
 			return(ev);
 		}
+
 	}
 
 	return(NULL);
@@ -674,14 +725,12 @@ int IsAnchor(EVENT *ev) {
 	}
 }
 
-/*
- * not thread safe
- */
 int GLogEvent(GLOG *gl, EVENT *event)
 {
 	double ndx;
 	unsigned long host_id;
 	unsigned long long seq_no;
+	unsigned long long cause_seq_no;
 	RB *rb;
 	HOST *cause_host;
 	HOST *host;
@@ -692,6 +741,8 @@ int GLogEvent(GLOG *gl, EVENT *event)
 	EVENT *this_event;
 	int done;
 	EVENT *ev;
+	int added;
+	int event_logged = 0;
 
 	if(gl == NULL) {
 		return(-1);
@@ -801,125 +852,94 @@ printf("glog %lu: ev: %lu %llu, max: %llu eh: %llu is up to date\n",
 		}
 	}
 
-	/*
-	 * here we have an event that is not the first event we've seen from
-	 * this host
-	 *
-	 * walk the dependency list
-	 */
-	done = 0;
-	this_event = event;
-	while(done == 0) {
-		cause_event =
-			PendingFindEvent(gl->pending,this_event->cause_host,this_event->cause_seq_no);
 
-		/*
-		 * if we don't find the cause on the pending list, check to
-		 * see if it is already logged
-		 */
-		if(cause_event == NULL) {
-			cause_host = HostListFind(gl->host_list,this_event->cause_host);
-			if(cause_host == NULL) {
-				fprintf(stderr,"no pending cause but no host %lu\n",
-						this_event->cause_host);
-				fflush(stderr);
-				return(-1);
-			}
-			/*
-			 * if we have logged the cause already, but we
-			 * haven't logged this event, log it
-			 */
+	/*
+	 * there a pending cause?
+	 */
+	cause_event = PendingFindEvent(gl->pending,event->cause_host,
+			event->cause_seq_no);
+
+	if((cause_event != NULL) && IsAnchor(event)) {
+		err = PendingRemoveEvent(gl->pending,cause_event);
+		if(err < 0) {
+			fprintf(stderr,"couldn't remove anchor cause\n");
+			fflush(stderr);
+			return(-1);
+		}
+		cause_event = NULL;
+	}
+	if(cause_event != NULL) {
 #ifdef DEBUG
-printf("glog %lu: ev %lu %llu ",
+printf("glog %lu: pending add %lu %llu because of pending cause %lu %llu\n",
 		gl->host_id,
-		this_event->host,
-		this_event->seq_no);
-printf("cause_host %lu cause_no: %llu case max: %llu eh: %llu\n", 
-		cause_host->host_id, 
-		this_event->cause_seq_no,
-		cause_host->max_seen, 
+		event->host,
+		event->seq_no,
+		event->cause_host,
+		event->cause_seq_no);
+
+		fflush(stdout);
+#endif
+		err = PendingAddEvent(gl->pending,event);
+		return(err);
+	}
+
+	cause_host = HostListFind(gl->host_list,event->cause_host);
+
+	/*
+	 * if cause host is not up to date, put this event on the pending
+	 * list
+	 */
+	if((cause_host->max_seen < event->cause_seq_no) && 
+	   (cause_host->event_horizon < event->cause_seq_no) &&
+			!IsAnchor(event)) {
+#ifdef DEBUG
+printf("glog %lu: pending %lu %llu because of waiting cause %lu %llu ",
+		gl->host_id,
+		event->host,
+		event->seq_no,
+		event->cause_host,
+		event->cause_seq_no);
+printf("max: %llu eh: %llu\n",
+		cause_host->max_seen,
 		cause_host->event_horizon);
 		fflush(stdout);
 #endif
-			if((cause_host->max_seen >= this_event->cause_seq_no) 
-			|| (cause_host->event_horizon 
-					>= this_event->cause_seq_no) ||
-				IsAnchor(this_event)){
+		err = PendingAddEvent(gl->pending,event);
+		return(err);
+	}
+
+	/*
+	 * otherwise, log this event
+	 */
 #ifdef DEBUG
-printf("glog %lu: adding %lu %llu on cause\n",
-		gl->host_id, 
-		this_event->host,
-		this_event->seq_no);
+printf("glog %lu: adding %lu %llu with cause %lu %llu\n",
+		gl->host_id,
+		event->host,
+		event->seq_no,
+		event->cause_host,
+		event->cause_seq_no);
 		fflush(stdout);
 #endif
-				err = LogAdd(gl->log,this_event);
-				if(err < 0) {
-					fprintf(stderr,
-				"log with committed cause failed %lu, %llu\n",
-						event->host,event->seq_no);
-					fflush(stderr);
-					return(-1);
-				}
+	err = LogAdd(gl->log,event);
+	if(err < 0) {
+		fprintf(stderr,"glog %lu couldn't add event %lu %llu\n",
+				gl->host_id,
+				event->host,
+				event->seq_no);
+		fflush(stderr);
+		return(-1);
+	} 
+	event_logged = 1;
 
+	if((host->max_seen < event->seq_no) || IsAnchor(event)) {
+		host->max_seen = event->seq_no;
+	}
 
-				host = HostListFind(gl->host_list,
-							this_event->host);
-				if(host == NULL) {
-					fprintf(stderr,
-				"cleared pending cause but no host %lu\n",
-						this_event->host);
-					fflush(stderr);
-					return(-1);
-				}
-				/*
-				 * record seq_no if it is valid
-				 */
-				if(host->max_seen < this_event->seq_no) {
-					host->max_seen = this_event->seq_no;
-				}
-				/*
-				 * now remove from pending list if it was
-				 * there
-				 *
-				 * must save off seq_no and host num because
-				 * remove resets host ID
-			 	 */
-				seq_no = this_event->seq_no;
-				host_id = this_event->host;
-				local_event = PendingFindEvent(gl->pending,
-						this_event->host,
-						this_event->seq_no);
-				if(local_event != NULL) {
-					err = PendingRemoveEvent(gl->pending,
-						local_event);
-					if(err < 0) {
-						fprintf(stderr,
-					"couldn't remove pending %lu %llu\n",
-							local_event->host,
-							local_event->seq_no);
-						done = 1;
-						continue;
-					}
-				}
-
-				/*
-			 	 * now find the next pending event
-			 	 * that depends on this event
-				 */
-				this_event = PendingFindCause(gl->pending,
-							host_id,
-							seq_no);
-				if(this_event == NULL) {
-					/*
-					 * check to see if there are
-					 * cause events corresponding
-					 * to forks
-					 */
-					this_event = GLogPendingSatisfied(gl);
-					if(this_event == NULL) {
-						done = 1;
-					}
-				} else {
+	/*
+	 * walk forward logging events that have been enabled
+	 */
+	this_event = PendingFindCause(gl->pending,event->host,event->seq_no);
+	while(this_event != NULL) {
 #ifdef DEBUG
 printf("glog %lu: next event considered: %lu %llu\n",
 		gl->host_id,
@@ -927,99 +947,121 @@ printf("glog %lu: next event considered: %lu %llu\n",
 		this_event->seq_no);
 		fflush(stdout);
 #endif
-				}
-				continue;
+		cause_host = HostListFind(gl->host_list,
+				this_event->cause_host);
+		if(cause_host == NULL) {
+			err = HostListAdd(gl->host_list,event->cause_host);
+			if(err < 0) {
+				fprintf(stderr,
+					"couldn't add cause host %lu\n",
+					this_event->cause_host);
+				fflush(stderr);
+				return(-1);
 			}
-
-			/*
-			 * are we current with the event's host?
-			 *
-			 * if so, bail out
-			 */
-			if(host->max_seen >= this_event->seq_no) {
-				done = 1;
-				continue;
-			}
-
-			/*
-		 	 * otherwise, add the event to the pending list so we
-		 	 * can wait for the cause to arrive
-		 	 *
-		 	 * if it is already on the pending list then it is
-			 * okay since it may have come from a previous log import
-		 	 */
-
-			local_event = PendingFindEvent(gl->pending,
-						event->host,event->seq_no);
-			if(local_event == NULL) {
+			cause_host = HostListFind(gl->host_list,
+						this_event->cause_host);
 #ifdef DEBUG
-		cause_host = HostListFind(gl->host_list,event->cause_host);
-printf("glog %lu: pending add %lu %llu ",
+printf("glog %lu: adding cause_host ev %lu %llu with cause %lu %llu\n",
 		gl->host_id,
-		event->host,
-		event->seq_no);
-printf("max: %llu eh: %llu ", 
-		host->max_seen, 
-		host->event_horizon);
-printf("cause: %lu %llu max: %llu eh: %llu\n",
-		event->cause_host,
-		event->cause_seq_no,
-		cause_host->max_seen,
-		cause_host->event_horizon);
+		this_event->host,
+		this_event->seq_no,
+		this_event->cause_host,
+		this_event->cause_seq_no);
 		fflush(stdout);
 #endif
-
-				err = PendingAddEvent(gl->pending,event);
-			} else {
-				err = 1;
+			err = LogAdd(gl->log,this_event);
+			if(err < 0) {
+				fprintf(stderr,
+		"glog %lu couldn't add new pending cause event %lu %llu\n",
+						gl->host_id,
+						this_event->host,
+						this_event->seq_no);
+				fflush(stderr);
+				return(-1);
+			} 
+			host_id = this_event->host;
+			seq_no = this_event->seq_no;
+			cause_seq_no = this_event->cause_seq_no;
+			err = PendingRemoveEvent(gl->pending,this_event);
+			if(err < 0) {
+				fprintf(stderr,
+		"glog %lu couldn't remove pending cause event %lu %llu\n",
+						gl->host_id,
+						this_event->host,
+						this_event->seq_no);
+				fflush(stderr);
+				return(-1);
 			}
-			done = 1;
-			break;
-		} else { /* cause is found on pending list */
-			/*
-			 * here the cause is on the pending list so this
-			 * event needs to go on the list
-			 *
-			 * if it is there already then there is a problem
-			 * 
-			 * XXX check this when we are merging with all
-			 */
-			local_event =
-				PendingFindEvent(gl->pending,
-						 this_event->host,
-						 this_event->seq_no);
-			/*
-			 * if a prevous import didn't make this pending
-			 * add it to the list
-			 */
-			if(local_event == NULL) {
-#ifdef DEBUG
-		cause_host = HostListFind(gl->host_list,event->cause_host);
-printf("glog %lu: pending add with cause pending %lu %llu ",
-		gl->host_id,event->host,
-		event->seq_no);
-printf("max: %llu eh: %llu ", 
-		host->max_seen, 
-		host->event_horizon);
-printf("cause: %lu %llu max: %llu eh: %llu\n",
-		event->cause_host,
-		event->cause_seq_no,
-		cause_host->max_seen,
-		cause_host->event_horizon);
-		fflush(stdout);
-#endif
-				err = PendingAddEvent(gl->pending,this_event);
-			} else {
-				err = 1;
-			}
-			done = 1;
-			break;
+			cause_host->max_seen = cause_seq_no;
+			this_event = PendingFindCause(gl->pending,
+					host_id,seq_no);
+			continue;
 		}
-	} /* end of while loop */
+		/*
+		 * otherwise, there is a cause host
+		 *
+		 * check to see if this event is now enabled and add it
+		 * if it is
+		 */
+		if(cause_host->max_seen >= this_event->cause_seq_no) {
+#ifdef DEBUG
+printf("glog %lu: adding now enabled pending %lu %llu with cause %lu %llu\n",
+		gl->host_id,
+		this_event->host,
+		this_event->seq_no,
+		this_event->cause_host,
+		this_event->cause_seq_no);
+		fflush(stdout);
+#endif
+			err = LogAdd(gl->log,this_event);
+			if(err < 0) {
+				fprintf(stderr,
+		"glog %lu couldn't add new enabled cause event %lu %llu\n",
+						gl->host_id,
+						this_event->host,
+						this_event->seq_no);
+				fflush(stderr);
+				return(-1);
+			}
+			host_id = this_event->host;
+			seq_no = this_event->seq_no;
+			err = PendingRemoveEvent(gl->pending,this_event);
+			if(err < 0) {
+				fprintf(stderr,
+		"glog %lu couldn't remove new pending cause event %lu %llu\n",
+						gl->host_id,
+						this_event->host,
+						this_event->seq_no);
+				fflush(stderr);
+				return(-1);
+			}
+			host = HostListFind(gl->host_list, host_id);
+			if(host->max_seen < seq_no) {
+				host->max_seen = seq_no;
+			}
+			this_event = PendingFindCause(gl->pending,
+					host_id,seq_no);
 
-	return(err);
+				/*
+		 		 * check to see if there are satisfied forks
+		 		 */
+			if(this_event == NULL) {
+				this_event = GLogPendingSatisfied(gl);
+			}
+			continue;
+		}
+
+		/*
+		 * otherwise we have reached the end of the enabled
+		 * chain
+		 */
+		break;
+	}
+
+	return(1);
 }
 
+	
 void GLogPrint(FILE *fd, GLOG *gl)
 {
 	LogPrint(fd,gl->log);
@@ -1071,12 +1113,36 @@ printf("glogfastforward %lu: host %lu max: %llu eh: %llu, good\n",
 		/*
 		 * nothing on the pending list
 		 */
+#ifdef DEBUG
+printf("glogfastforward %lu: host %lu max: %llu eh: %llu, nothing pending\n",
+		gl->host_id,
+		remote_host->host_id,
+		remote_host->max_seen,
+		remote_host->event_horizon);
+		fflush(stdout);
+#endif
 		V(&gl->mutex);
 		return(1);
 	} 
 	while(rb != NULL) {
 		event = (EVENT *)rb->value.v;
-		if(event->host != remote_host->host_id) {
+#ifdef DEBUG
+printf("glogfastforward %lu: pending %lu %llu cause %lu %llu max: %llu eh: %llu\n",
+		gl->host_id,
+		event->host,
+		event->seq_no,
+		event->cause_host,
+		event->cause_seq_no,
+		remote_host->max_seen,
+		remote_host->event_horizon);
+		fflush(stdout);
+#endif
+		if(event->cause_host != remote_host->host_id) {
+			rb = rb->next;
+			continue;
+		}
+
+		if(event->cause_seq_no >= remote_host->event_horizon) {
 			rb = rb->next;
 			continue;
 		}
@@ -1093,9 +1159,6 @@ printf("glogfastforward %lu: event %lu %llu rhost: %lu eh: %llu\n",
 		remote_host->event_horizon);
 		fflush(stdout);
 #endif
-		if(event->seq_no >= remote_host->event_horizon) {
-			break;
-		}
 		err = LogResolveHorizon(gl,event);
 		if(err < 0) {
 			fprintf(stderr,"fast forward of %lu %llu failed\n",
