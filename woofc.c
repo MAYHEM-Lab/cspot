@@ -34,11 +34,13 @@ WOOF *WooFCreate(char *name,
 
 	wf = (WOOF *)MIOAddr(mio);
 	memset(wf,0,sizeof(WOOF));
+	wf->mio = mio;
 
 	if(name != NULL) {
 		strcpy(wf->filename,name);
 	}
 
+	wf->handler = handler;
 	wf->history_size = history_size+1;
 	wf->element_size = element_size;
 	wf->seq_no = 1;
