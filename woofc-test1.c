@@ -5,7 +5,7 @@
 
 #include "woofc.h"
 
-#define ARGS "f:s:"
+#define ARGS "c:f:s:"
 char *Usage = "woofc-test1 -f filename\n\
 \t-s size (in events)\n";
 

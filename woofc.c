@@ -41,7 +41,7 @@ WOOF *WooFCreate(char *name,
 	}
 
 	wf->handler = handler;
-	wf->history_size = history_size+1;
+	wf->history_size = history_size;
 	wf->element_size = element_size;
 	wf->seq_no = 1;
 
@@ -77,6 +77,7 @@ void *WooFThread(void *arg)
 	unsigned long ndx;
 	unsigned char *el_buf;
 	unsigned long seq_no;
+	unsigned long next;
 	int err;
 
 	wf = (WOOF *)wa->wf;
@@ -103,10 +104,12 @@ void *WooFThread(void *arg)
 	 */
 	P(&wf->mutex);
 	el_id->busy = 0;
+
+	next = (wf->head + 1) % wf->history_size;
 	/*
 	 * if PUT is waiting for the tail available, signal
 	 */
-	if(wf->tail == ndx) {
+	if(next == ndx) {
 		V(&wf->tail_wait);
 	}
 	V(&wf->mutex);
@@ -132,6 +135,8 @@ int WooFPut(WOOF *wf, void *element)
 	 */
 	next = (wf->head + 1) % wf->history_size;
 
+	ndx = next;
+
 
 	/*
 	 * write the data and record the indices
@@ -145,13 +150,13 @@ int WooFPut(WOOF *wf, void *element)
 	 * check to see if it is allocated to a function that
 	 * has yet to complete
 	 */
-	while(next == wf->tail) {
-		if(el_id->busy == 1) { /* element in use */
-			V(&wf->mutex);
-			P(&wf->tail_wait);
-			P(&wf->mutex);
-			next = (wf->head + 1) % wf->history_size;
-		}
+	while((el_id->busy == 1) && (next == wf->tail)) {
+		V(&wf->mutex);
+		P(&wf->tail_wait);
+		P(&wf->mutex);
+		next = (wf->head + 1) % wf->history_size;
+		ptr = buf + (next * (wf->element_size + sizeof(ELID)));
+		el_id = (ELID *)(ptr+wf->element_size);
 	}
 
 	/*
