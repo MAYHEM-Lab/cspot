@@ -9,7 +9,7 @@
 #include "redblack.h"
 
 #include <pthread.h>
-#include "sema.h"
+#include "fsema.h"
 
 struct log_stc
 {

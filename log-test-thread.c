@@ -580,6 +580,7 @@ int main(int argc, char **argv)
 	free(glogs);
 	free(lnames);
 	free(gnames);
+	FreeSem(&NetworkSema);
 
 	return(0);
 }

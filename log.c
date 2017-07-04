@@ -54,6 +54,8 @@ void LogFree(LOG *log)
 		return;
 	}
 
+	FreeSem(&log->mutex);
+
 
 	if(log->m_buf != NULL) {
 		MIOClose(log->m_buf);
@@ -515,6 +517,8 @@ void GLogFree(GLOG *gl)
 	if(gl->host_list != NULL) {
 		HostListFree(gl->host_list);
 	}
+
+	FreeSem(&gl->mutex);
 
 	if(gl->log != NULL) {
 		LogFree(gl->log);
