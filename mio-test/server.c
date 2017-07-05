@@ -6,7 +6,7 @@
 
 #include "mio.h"
 #include "miotest.h"
-#include "fsema.h"
+#include "lsema.h"
 
 int main(int argc, char **argv)
 {

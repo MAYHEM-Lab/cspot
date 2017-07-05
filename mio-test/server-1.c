@@ -6,7 +6,7 @@
 
 #include "mio.h"
 #include "miotest.h"
-#include "fsema.h"
+#include "lsema.h"
 
 int main(int argc, char **argv)
 {
@@ -22,16 +22,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	ld = open("./linux/test.lock",O_RDWR|O_CREAT,0600);
-	if(ld < 0) {
-		perror("open:");
-		exit(1);
-	}
-
 	marg = (MARG *)MIOAddr(mio);
 	marg->counter = 0;
 
-	sem_init(&marg->l_sem,1,1);
+	InitSem(&marg->C,1);
 	MIOSync(mio);
 
 	if(fork() == 0) {
@@ -43,14 +37,14 @@ int main(int argc, char **argv)
 
 
 	while(marg->counter <= 100) {
-		sem_wait(&marg->l_sem);
+		P(&marg->C);
 		MIOSync(mio);
 		printf("server: counter %d -> ", marg->counter);
 		fflush(stdout);
 		marg->counter++;
 		printf("server %d\n", marg->counter);
 		fflush(stdout);
-		sem_post(&marg->l_sem);
+		V(&marg->C);
 		MIOSync(mio);
 //		sleep(1);
 	}

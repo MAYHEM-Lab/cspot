@@ -7,7 +7,7 @@
 
 #include "mio.h"
 #include "miotest.h"
-#include "fsema.h"
+#include "lsema.h"
 
 FILE *Fd;
 
@@ -44,22 +44,17 @@ int main(int argc, char **argv)
 	fprintf(fd,"client: initial counter value: %d\n",
 			marg->counter);
 	fflush(fd);
-
-	ld = open("/data/test.lock",O_RDWR|O_CREAT,0600);
-	if(ld < 0) {
-		perror("client open:");
-		exit(1);
-	}
+	MIOSync(mio);
 
 	while(marg->counter <= 100) {
-		sem_wait(&marg->l_sem);
+		P(&marg->C);
 		MIOSync(mio);
 		fprintf(fd,"client: counter %d -> ", marg->counter);
 		fflush(fd);
 		marg->counter++;
 		fprintf(fd,"client: %d\n", marg->counter);
 		fflush(fd);
-		sem_post(&marg->l_sem);
+		V(&marg->C);
 		MIOSync(mio);
 //		sleep(1);
 	}
