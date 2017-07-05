@@ -1,7 +1,10 @@
-all: client
+all: client client-1
 
 client: mio/mio.o mio/mio.h mio/mymalloc.o fsema.o fsema.h client.c miotest.h
 	gcc -g -Imio -o client client.c mio/mio.o mio/mymalloc.o fsema.o
+
+client-1: mio/mio.o mio/mio.h mio/mymalloc.o fsema.o fsema.h client-1.c miotest.h
+	gcc -g -Imio -o client-1 client-1.c mio/mio.o mio/mymalloc.o fsema.o
 
 sema.o: fsema.c fsema.h
 	gcc -c fsema.c
