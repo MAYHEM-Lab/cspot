@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/file.h>
+#include <semaphore.h>
 
 #include "mio.h"
 #include "miotest.h"
@@ -50,17 +51,17 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	while(marg->counter <= 1000) {
-		flock(ld,LOCK_EX);
+	while(marg->counter <= 100) {
+		sem_wait(&marg->l_sem);
 		MIOSync(mio);
 		fprintf(fd,"client: counter %d -> ", marg->counter);
 		fflush(fd);
 		marg->counter++;
 		fprintf(fd,"client: %d\n", marg->counter);
 		fflush(fd);
+		sem_post(&marg->l_sem);
 		MIOSync(mio);
-		flock(ld,LOCK_UN);
-		sleep(1);
+//		sleep(1);
 	}
 
 	fprintf(fd,"client exiting\n");

@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 			marg->counter);
 	fflush(fd);
 
-	while(marg->counter <= 1000) {
+	while(marg->counter <= 25) {
 		MIOSync(mio);
 		P(&marg->C);
 		fprintf(fd,"client: counter %d -> ", marg->counter);
@@ -53,6 +53,7 @@ int main(int argc, char **argv)
 		fflush(fd);
 		V(&marg->S);
 		MIOSync(mio);
+		sleep(1);
 	}
 
 	V(&marg->S);

@@ -30,26 +30,29 @@ int main(int argc, char **argv)
 
 	marg = (MARG *)MIOAddr(mio);
 	marg->counter = 0;
+
+	sem_init(&marg->l_sem,1,1);
 	MIOSync(mio);
 
 	if(fork() == 0) {
-	system("docker run -it -v /Users/rich/github/src/cspot/mio-test/linux:/data centos:7 /data/client-1");
+	system("docker run -it -v /root/src/cspot/mio-test/linux:/data centos:7 /data/client-1");
+//	system("docker run -it -v /Users/rich/github/src/cspot/mio-test/linux:/data centos:7 /data/client-1");
 //	system("cd osx; ./client");
 		exit(0);
 	}
 
 
-	while(marg->counter <= 1000) {
-		flock(ld,LOCK_EX);
+	while(marg->counter <= 100) {
+		sem_wait(&marg->l_sem);
 		MIOSync(mio);
 		printf("server: counter %d -> ", marg->counter);
 		fflush(stdout);
 		marg->counter++;
 		printf("server %d\n", marg->counter);
 		fflush(stdout);
+		sem_post(&marg->l_sem);
 		MIOSync(mio);
-		flock(ld,LOCK_UN);
-		sleep(1);
+//		sleep(1);
 	}
 
 	printf("server exiting\n");
