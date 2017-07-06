@@ -13,16 +13,13 @@ WOBJ=woofc.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: log-test log-test-thread woofc-test1
+all: log-test log-test-thread
 
 log-test: ${LOBJ} ${LINC} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
 
 log-test-thread: ${LOBJ} ${LINC} log-test-thread.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test-thread log-test-thread.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
-
-woofc-test1: woofc-test1.c ${WINC} ${WOBJ}
-	${CC} ${CFLAGS} -o woofc-test1 woofc-test1.c ${WOBJ} ${SLIB} ${MLIB} ${LIBS}
 
 log.o: log.c log.h host.h event.h
 	${CC} ${CFLAGS} -c log.c
