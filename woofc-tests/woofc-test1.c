@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "woofc.h"
+#include "woofc-thread.h"
 
 #define ARGS "c:f:s:"
 char *Usage = "woofc-test1 -f filename\n\
+\t-c max_counter\n\
 \t-s size (in events)\n";
 
 char Fname[4096];
@@ -133,6 +134,8 @@ int main(int argc, char **argv)
 	strcat(Wname1,".1");
 	strcpy(Wname2,Fname);
 	strcat(Wname2,".2");
+
+	WooFInit();
 
 
 	/*

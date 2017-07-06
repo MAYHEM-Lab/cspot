@@ -6,9 +6,11 @@
 
 struct woof_stc
 {
-	char filename[2048];
-	char handler_name[2048];
+	char filename[4096];
 	MIO *mio;
+	int (*handler)(struct woof_stc *woof, 
+		       unsigned long long seq_no,
+		       void *element);
 	sema mutex;
 	sema tail_wait;
 	unsigned long long seq_no;

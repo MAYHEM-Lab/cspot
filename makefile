@@ -13,7 +13,7 @@ WOBJ=woofc.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: log-test log-test-thread
+all: log-test log-test-thread woofc.o
 
 log-test: ${LOBJ} ${LINC} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}

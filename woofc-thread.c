@@ -23,12 +23,6 @@ int WooFInit()
 		WooF_dir = DEFAULT_WOOF_DIR;
 	}
 
-	if(strcmp(WooF_dir,"/") == 0) {
-		fprintf(stderr,"WooFInit: WOOFC_DIR can't be %s\n",
-				WooF_dir);
-		exit(1);
-	}
-
 	err = mkdir(WooF_dir,0600);
 	if((err < 0) && (errno == EEXIST)) {
 		return(1);
@@ -43,6 +37,7 @@ int WooFInit()
 }
 
 WOOF *WooFCreate(char *name,
+	       int (*handler)(WOOF *woof, unsigned long long seq_no, void *el),
 	       unsigned long element_size,
 	       unsigned long history_size)
 {
@@ -88,14 +83,10 @@ WOOF *WooFCreate(char *name,
 	wf->mio = mio;
 
 	if(name != NULL) {
-		strncpy(wf->filename,name,sizeof(wf->filename));
-	} else {
-		strncpy(wf->filename,fname,sizeof(wf->filename));
+		strcpy(wf->filename,name);
 	}
 
-	memset(wf->handler_name,0,sizeof(handler_name));
-	strncpy(wf->handler_name,name,sizeof(wf->handler_name));
-	strncat(wf->handler_name,".handler",sizeof(wf->handler_name)-strlen(wf->handler_name));
+	wf->handler = handler;
 	wf->history_size = history_size;
 	wf->element_size = element_size;
 	wf->seq_no = 1;
@@ -113,6 +104,64 @@ void WooFFree(WOOF *wf)
 	return;
 }
 
+struct woof_t_arg
+{
+	WOOF *wf;
+	unsigned long seq_no;
+	unsigned long ndx;
+};
+
+typedef struct woof_t_arg WOOFARG;
+
+void *WooFThread(void *arg)
+{
+	WOOFARG *wa = (WOOFARG *)arg;
+	WOOF *wf;
+	ELID *el_id;
+	unsigned char *buf;
+	unsigned char *ptr;
+	unsigned long ndx;
+	unsigned char *el_buf;
+	unsigned long seq_no;
+	unsigned long next;
+	int err;
+
+	wf = (WOOF *)wa->wf;
+	buf = (unsigned char *)(MIOAddr(wf->mio)+sizeof(WOOF));
+	ndx = wa->ndx;
+	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
+
+	el_id = (ELID *)(ptr+wf->element_size);
+
+	/*
+	 * invoke the function
+	 */
+	seq_no = wa->seq_no;
+	free(wa);
+	/* LOGGING
+	 * log event start here
+	 */
+	err = wf->handler(wf,seq_no,(void *)ptr);
+	/* LOGGING
+	 * log either event success or failure here
+	 */
+	/*
+	 * mark the element as consumed
+	 */
+	P(&wf->mutex);
+	el_id->busy = 0;
+
+	next = (wf->head + 1) % wf->history_size;
+	/*
+	 * if PUT is waiting for the tail available, signal
+	 */
+	if(next == ndx) {
+		V(&wf->tail_wait);
+	}
+	V(&wf->mutex);
+
+	pthread_exit(NULL);
+}
 		
 int WooFPut(WOOF *wf, void *element)
 {
@@ -125,8 +174,6 @@ int WooFPut(WOOF *wf, void *element)
 	unsigned long seq_no;
 	unsigned long ndx;
 	int err;
-	char woof_shepherd_dir[2048];
-	char launch_string[4096];
 
 	P(&wf->mutex);
 	/*
@@ -179,45 +226,20 @@ int WooFPut(WOOF *wf, void *element)
 	wf->seq_no++;
 	V(&wf->mutex);
 
-	 
-
 	/*
 	 * now launch the handler
 	 */
-
-	/*
-	 * find the last directory in the path
-	 */
-	pathp = strrchr(Woof_dir,"/");
-	if(pathp == NULL) {
-		fprintf(stderr,"couldn't find leaf dir in %s\n",
-			WooF_dir);
-		exit(1);
+	wa = (WOOFARG *)malloc(sizeof(WOOFARG));
+	if(wa == NULL) {
+		/* LOGGING
+		 * log malloc failure here
+		 */
+		return(-1);
 	}
 
-	strncpy(woof_shepherd_dir,pathp,sizeof(woof_shepherd_dir));
-
-	memset(launch_string,0,sizeof(launch_string));
-
-	sprintf(launch_string, "docker run -it\
-		 -e WOOF_SHEPHERD_DIR=%s\
-		 -e WOOF_SHEPHERD_NAME=%s\
-		 -e WOOF_SHEPHERD_SIZE=%lu\
-		 -e WOOF_SHEPHERD_NDX=%lu\
-		 -e WOOF_SHEPHERD_SEQNO=%lu\
-		 -v %s:%s\
-		 centos:7\
-		 %s",
-			woof_shepherd_dir,
-			wf->filename,
-			wf->mio->size,
-			ndx,
-			seq_no,
-			WooF_dir,pathp,
-			wf->handler_name);
-			
-
-XXX launch it here
+	wa->wf = wf;
+	wa->seq_no = seq_no;
+	wa->ndx = ndx;
 
 	err = pthread_create(&tid,NULL,WooFThread,(void *)wa);
 	if(err < 0) {
