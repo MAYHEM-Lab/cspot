@@ -9,11 +9,17 @@
 #include "woofc.h"
 
 static char *WooF_dir;
+static char Host_log_name[2048];
+static unsligned long Host_id;
+static int WooFDone;
 
-int WooFInit()
+int WooFInit(unsigned long host_id)
 {
 	struct timeval tm;
 	int err;
+	char log_name[2048];
+	char log_path[2048];
+	unsigned long host_id;
 
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec+tm.tv_usec);
@@ -30,16 +36,25 @@ int WooFInit()
 	}
 
 	err = mkdir(WooF_dir,0600);
-	if((err < 0) && (errno == EEXIST)) {
-		return(1);
+	if((err < 0) && (errno != EEXIST)) {
+		perror("WooFInit");
+		return(-1);
 	}
 
-	if(err >= 0) {
-		return(1);
+	sprintf(Host_log_name,"cspot-log.%10.0d",host_id);
+	memset(log_name,0,sizeof(log_name));
+	sprintf(log_name,"%s%s",Woof_dir,Host_log_name);
+
+	Host_log = LogCreate(log_name,host_id,DEFAULT_WOOF_LOG_SIZE);
+
+	if(Host_log == NULL) {
+		fprintf(stderr,"WooFInit: couldn't open log as %s, size %d\n",log_name,DEFAULT_WOOF_LOG_SIZE);
+		fflush(stderr);
+		exit(1);
 	}
 
-	perror("WooFInit");
-	return(-1);
+	Host_id = host_id;
+	return(1);
 }
 
 WOOF *WooFCreate(char *name,
@@ -127,7 +142,30 @@ int WooFPut(WOOF *wf, void *element)
 	int err;
 	char woof_shepherd_dir[2048];
 	char launch_string[4096];
+	char *host_log_seq_no;
+	unsigned long my_log_seq_no;
+	EVENT *ev;
+	unsigned long ls;
 
+	host_log_seq_no = getenv("WOOFC_LOG_SEQNO");
+	if(host_log_seq_no == NULL) {
+		my_log_seq_no = atol(host_log_seq_no);
+	} else {
+		my_log_seq_no = 1;
+	}
+
+	ev = EventCreate(Host_log,TRIGGER,Host_id);
+	if(ev == NULL) {
+		fprintf(stderr,"WooFPut: couldn't create log event\n");
+		exit(1);
+	}
+	ev->cause_host = Host_id;
+	ev->cause_seq_no = my_log_seq_no;
+	
+
+	/*
+	 * now drop the element in the object
+	 */
 	P(&wf->mutex);
 	/*
 	 * find the next spot
@@ -179,55 +217,129 @@ int WooFPut(WOOF *wf, void *element)
 	wf->seq_no++;
 	V(&wf->mutex);
 
-	 
+	ev->woofc_ndx = ndx;
+	ev->woofc_seq_no = seq_no;
 
+	/*
+	 * log the event so that it can be triggered
+	 */
+	ls = LogEvent(Host_log,ev);
+	if(ls == 0) {
+		fprintf(stderr,"WooFPut: couldn't log event\n");
+		exit(1);
+	}
+
+	EventFree(ev);
+	V(&Host_log->tail_wait);
+	return(1);
+}
+
+void *WooFLauncher(void *arg)
+{
+	unsigned long last_seq_no = 0;
+	unsigned long first;
+	LOG *log_tail;
+	EVENT *ev;
+	char *launch_string;
 	/*
 	 * now launch the handler
 	 */
 
-	/*
-	 * find the last directory in the path
-	 */
-	pathp = strrchr(Woof_dir,"/");
-	if(pathp == NULL) {
-		fprintf(stderr,"couldn't find leaf dir in %s\n",
-			WooF_dir);
-		exit(1);
-	}
+	while(WoofDone != 0) {
+		P(&Host_log->tail_wait);
 
-	strncpy(woof_shepherd_dir,pathp,sizeof(woof_shepherd_dir));
-
-	memset(launch_string,0,sizeof(launch_string));
-
-	sprintf(launch_string, "docker run -it\
-		 -e WOOF_SHEPHERD_DIR=%s\
-		 -e WOOF_SHEPHERD_NAME=%s\
-		 -e WOOF_SHEPHERD_SIZE=%lu\
-		 -e WOOF_SHEPHERD_NDX=%lu\
-		 -e WOOF_SHEPHERD_SEQNO=%lu\
-		 -v %s:%s\
-		 centos:7\
-		 %s",
-			woof_shepherd_dir,
-			wf->filename,
-			wf->mio->size,
-			ndx,
-			seq_no,
-			WooF_dir,pathp,
-			wf->handler_name);
-			
-
-XXX launch it here
-
-	err = pthread_create(&tid,NULL,WooFThread,(void *)wa);
-	if(err < 0) {
-		free(wa);
-		/* LOGGING
-		 * log thread create failure here
+		/*
+		 * must lock to extract tail
 		 */
-		return(-1);
+		P(&Host_log->mutex);
+		log_tail = LogTail(Host_log,last_seq_no,Host_log->size);
+		V(&Host_log->mutex);
+		if(log_tail == NULL) {
+			continue;
+		}
+		if(log_tail->head == log_tail->tail) {
+			continue;
+		}
+
+		ev = (EVENT *)(MIOAddr(lt->m_buf) + sizeof(LOG));
+
+		/*
+		 * find the first TRIGGER we havn't seen yet
+		 */
+		first = log_tail->head;
+		while(ev[first].type != TRIGGER) {
+			first++;
+			if(first == log_tail->tail) {
+				break;
+			}
+		}  
+
+		/*
+		 * if no TRIGGERS found
+		 */
+		if(log_tail->tail == first) {
+			continue;
+		}
+		/*
+		 * otherwise, fire this event
+		 */
+		last_seq_no = ev[first].seq_no;
+
+		/*
+		 * find the last directory in the path
+		 */
+		pathp = strrchr(Woof_dir,"/");
+		if(pathp == NULL) {
+			fprintf(stderr,"couldn't find leaf dir in %s\n",
+				WooF_dir);
+			exit(1);
+		}
+
+		strncpy(woof_shepherd_dir,pathp,sizeof(woof_shepherd_dir));
+
+		launch_string = (char *)malloc(2048);
+		if(launch_string == NULL) {
+			exit(1);
+		}
+
+XXX drop it in thread that runs docker
+
+		memset(launch_string,0,2048);
+
+		sprintf(launch_string, "docker run -it\
+			 -e WOOF_SHEPHERD_DIR=%s\
+			 -e WOOF_SHEPHERD_NAME=%s\
+			 -e WOOF_SHEPHERD_SIZE=%lu\
+			 -e WOOF_SHEPHERD_NDX=%lu\
+			 -e WOOF_SHEPHERD_SEQNO=%lu\
+			 -e WOOFC_LOG_SEQNO=%lu\n
+			 -v %s:%s\
+			 centos:7\
+			 %s",
+				woof_shepherd_dir,
+				wf->filename,
+				wf->mio->size,
+				ndx,
+				seq_no,
+				last_seq_no,
+				WooF_dir,pathp,
+				wf->handler_name);
+
+		
+				
+
+	XXX launch it here
+
+		err = pthread_create(&tid,NULL,WooFThread,(void *)wa);
+		if(err < 0) {
+			free(wa);
+			/* LOGGING
+			 * log thread create failure here
+			 */
+			return(-1);
+		}
+		pthread_detach(tid);
 	}
-	pthread_detach(tid);
 
 	return(1);
 }

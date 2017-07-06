@@ -3,6 +3,7 @@
 
 #include "mio.h"
 #include "lsema.h"
+#include "log.h"
 
 struct woof_stc
 {
@@ -36,6 +37,7 @@ WOOF *WooFCreate(char *name,
 int WooFPut(WOOF *wf, void *element);
 
 #define DEFAULT_WOOF_DIR "cspot"
+#define DEFAULT_WOOF_LOG_SIZE (10000)
 
 #endif
 

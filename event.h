@@ -8,6 +8,11 @@ struct event_stc
 	unsigned long long seq_no;
 	unsigned long cause_host;
 	unsigned long long cause_seq_no;
+	/*
+	 * woofc payload
+	 */
+	unsigned long woofc_seq_no;
+	unsigned long woofc_ndx;
 };
 
 typedef struct event_stc EVENT;
@@ -15,6 +20,7 @@ typedef struct event_stc EVENT;
 #define UNKNOWN (1)
 #define FUNC (2)
 #define TRIGGER (3)
+#define FIRED (4)
 
 EVENT *EventCreate(unsigned char type, unsigned long host);
 

@@ -44,6 +44,32 @@ LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 	log->size = size+1;
 	log->seq_no = 1;
 	InitSem(&log->mutex,1);
+	/*
+	 * for WooF launch synchronization
+	 */
+	InitSem(&log->tail_wait,0);
+
+	return(log);
+}
+
+LOG *LogOpen(char *filename,unsigned long size)
+{
+	LOG *log;
+	unsigned long int space;
+	MIO *mio;
+
+	if(filename == NULL) {
+		return(NULL);
+	}
+	space = (size+1)*sizeof(EVENT) + sizeof(LOG);
+	mio = MIOOpen(filename,"a+",space);
+
+	if(mio == NULL) {
+		return(NULL);
+	}
+
+
+	log = (LOG *)MIOAddr(mio);
 
 	return(log);
 }
