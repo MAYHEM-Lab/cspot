@@ -3,9 +3,26 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 
 #include "woofc.h"
 
+static char *WooF_dir;
+
+int WooFInit()
+{
+	struct timeval tm;
+
+	gettimeofday(&tm,NULL);
+	srand48(tm.tv_sec+tm.tv_usec);
+
+	WooF_dir = getenv("WOOFC_DIR");
+	if(WooF_dir == NULL) {
+		WooF_dir = DEFAULT_WOOF_DIR;
+	}
+
+	return(1);
+}
 
 WOOF *WooFCreate(char *name,
 	       int (*handler)(WOOF *woof, unsigned long long seq_no, void *el),
@@ -15,6 +32,8 @@ WOOF *WooFCreate(char *name,
 	WOOF *wf;
 	MIO *mio;
 	unsigned long space;
+	char local_name[4096];
+	char fname[20];
 
 	/*
 	 * each element gets a seq_no and log index so we can handle
@@ -23,11 +42,26 @@ WOOF *WooFCreate(char *name,
 	space = ((history_size+1) * (element_size +sizeof(ELID))) + 
 			sizeof(WOOF);
 
-	if(name != NULL) {
-		mio = MIOOpen(name,"w+",space);
-	} else {
-		mio = MIOMalloc(space);
+	if(WooF_dir == NULL) {
+		fprintf(stderr,"WooFCreate: must init system\n");
+		fflush(stderr);
+		exit(1);
 	}
+
+	memset(local_name,0,sizeof(local_name));
+	strncpy(local_name,WooF_dir,sizeof(local_name));
+	if(local_name[strlen(local_name)-1] != '/') {
+		strncat(local_name,"/",1);
+	}
+
+
+	if(name != NULL) {
+		strncat(local_name,name,sizeof(local_name));
+	} else {
+		sprintf(fname,"woof-%10.0",drand48()*399999999);
+		strncat(local_name,fname,sizeof(fname));
+	}
+	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
 		return(NULL);
 	}

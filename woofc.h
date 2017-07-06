@@ -37,5 +37,7 @@ WOOF *WooFCreate(char *name,
 
 int WooFPut(WOOF *wf, void *element);
 
+#define DEFAULT_WOOF_DIR "cspot"
+
 #endif
 
