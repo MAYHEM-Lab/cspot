@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	MIOSync(mio);
 
 	if(fork() == 0) {
-	system("docker run -it -v /root/src/cspot/mio-test/linux:/data centos:7 /data/client");
+	system("docker run -i -v /root/src/cspot/mio-test/linux:/data centos:7 /data/client");
 //	system("docker run -it -v /Users/rich/github/src/cspot/mio-test/linux:/data centos:7 /data/client");
 //	system("cd osx; ./client");
 		exit(0);
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 
 
 	while(marg->counter <= 25) {
-		MIOSync(mio);
+//		MIOSync(mio);
 		P(&marg->S);
 		printf("server: counter %d -> ", marg->counter);
 		fflush(stdout);
@@ -45,11 +45,10 @@ int main(int argc, char **argv)
 		printf("server %d\n", marg->counter);
 		fflush(stdout);
 		V(&marg->C);
-		MIOSync(mio);
-		sleep(1);
+//		MIOSync(mio);
+//		sleep(1);
 	}
-	V(&marg->C);
-	MIOSync(mio);
+//	MIOSync(mio);
 
 	printf("server exiting\n");
 	fflush(stdout);

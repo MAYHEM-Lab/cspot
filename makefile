@@ -4,7 +4,7 @@ MINC=../mio
 SINC=./
 ULIB=../euca-cutils/libutils.a
 MLIB=../mio/mio.o ../mio/mymalloc.o
-SLIB=./fsema.o
+SLIB=./lsema.o
 LIBS=-lpthread -lm
 LOBJ=log.o host.o event.o
 LINC=log.h host.h event.h
@@ -39,8 +39,8 @@ host.o: host.c host.h event.h
 sema.o: sema.c sema.h
 	${CC} ${CFLAGS} -c sema.c
 
-fsema.o: fsema.c fsema.h
-	${CC} ${CFLAGS} -c fsema.c
+lsema.o: lsema.c lsema.h
+	${CC} ${CFLAGS} -c lsema.c
 
 clean:
 	rm -f *.o log-test

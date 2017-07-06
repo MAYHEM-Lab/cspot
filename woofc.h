@@ -2,7 +2,7 @@
 #define WOOFC
 
 #include "mio.h"
-#include "sema.h"
+#include "lsema.h"
 
 struct woof_stc
 {

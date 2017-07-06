@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 	fflush(fd);
 
 	while(marg->counter <= 25) {
-		MIOSync(mio);
+//		MIOSync(mio);
 		P(&marg->C);
 		fprintf(fd,"client: counter %d -> ", marg->counter);
 		fflush(fd);
@@ -52,12 +52,11 @@ int main(int argc, char **argv)
 		fprintf(fd,"client: %d\n", marg->counter);
 		fflush(fd);
 		V(&marg->S);
-		MIOSync(mio);
+//		MIOSync(mio);
 		sleep(1);
 	}
 
-	V(&marg->S);
-	MIOSync(mio);
+//	MIOSync(mio);
 	fprintf(fd,"client exiting\n");
 	fflush(fd);
 	fclose(fd);
