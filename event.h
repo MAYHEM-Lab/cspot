@@ -13,6 +13,9 @@ struct event_stc
 	 */
 	unsigned long woofc_seq_no;
 	unsigned long woofc_ndx;
+	unsigned long woofc_element_size;
+	unsigned long woofc_history_size;
+	char woofc_name[128];
 };
 
 typedef struct event_stc EVENT;

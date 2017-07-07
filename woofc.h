@@ -30,11 +30,16 @@ struct element_stc
 typedef struct element_stc ELID;
 
 WOOF *WooFCreate(char *name,
-               int (*handler)(WOOF *woof, unsigned long long seq_no, void *el),
+               unsigned long element_size,
+               unsigned long history_size);
+
+WOOF *WooFOpen(char *name,
                unsigned long element_size,
                unsigned long history_size);
 
 int WooFPut(WOOF *wf, void *element);
+
+void WooFExit();
 
 #define DEFAULT_WOOF_DIR "cspot"
 #define DEFAULT_WOOF_LOG_SIZE (10000)

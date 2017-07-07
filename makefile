@@ -27,6 +27,9 @@ log.o: log.c log.h host.h event.h
 woofc.o: woofc.c woofc.h
 	${CC} ${CFLAGS} -c woofc.c
 
+woofc-thread.o: woofc-thread.c woofc-thread.h
+	${CC} ${CFLAGS} -c woofc-thread.c
+
 event.o: event.c event.h
 	${CC} ${CFLAGS} -c event.c
 
