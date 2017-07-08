@@ -216,7 +216,7 @@ void *WooFLauncher(void *arg)
 			exit(1);
 		}
 		pthread_detach(tid);
-		WoofClose(wf);	/* shepherd will repopen */
+		WooFFree(wf);	/* shepherd will repopen */
 	}
 
 	pthread_exit(NULL);

@@ -138,6 +138,12 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	EVENT *ev;
 	unsigned long ls;
 
+	/*
+	 * if called from within a handler, env variable carries cause seq_no
+	 * for logging
+	 *
+	 * when called for first time on host to start, should be NULL
+	 */
 	host_log_seq_no = getenv("WOOF_HOST_LOG_SEQNO");
 	if(host_log_seq_no == NULL) {
 		my_log_seq_no = atol(host_log_seq_no);

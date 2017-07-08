@@ -20,7 +20,9 @@ int main(int argc, char **argv, char **envp)
 	char *wf_ndx;
 	char *wf_seq_no;
 	char *host_log_name;
+	char *host_log_size_str;
 	char *host_log_seq_no;
+	char *host_id;
 	MIO *mio;
 	unsigned long mio_size;
 	char full_name[2048];
@@ -35,24 +37,23 @@ int main(int argc, char **argv, char **envp)
 	unsigned long next;
 	unsigned long my_log_seq_no; /* needed for logging cause */
 	unsigned long host_log_size;
-	unsigned long host_id;
 	int err;
 
-	wf_dir = getenv(WOOF_SHEPHERD_DIR);
+	wf_dir = getenv("WOOF_SHEPHERD_DIR");
 	if(wf_dir == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_DIR\n");
 		fflush(stderr);
 		exit(1);
 	}
 
-	wf_name = getenv(WOOF_SHEPHERD_NAME);
+	wf_name = getenv("WOOF_SHEPHERD_NAME");
 	if(wf_name == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_NAME\n");
 		fflush(stderr);
 		exit(1);
 	}
 
-	wf_ndx = getenv(WOOF_SHEPHERD_NDX);
+	wf_ndx = getenv("WOOF_SHEPHERD_NDX");
 	if(wf_ndx == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n",wf_name);
 		fflush(stderr);
@@ -60,7 +61,7 @@ int main(int argc, char **argv, char **envp)
 	}
 	ndx = atol(wf_ndx);
 
-	wf_seq_no = getenv(WOOF_SHEPHERD_SEQNO);
+	wf_seq_no = getenv("WOOF_SHEPHERD_SEQNO");
 	if(wf_seq_no == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n",wf_name);
 		fflush(stderr);
@@ -68,32 +69,32 @@ int main(int argc, char **argv, char **envp)
 	}
 	seq_no = atol(wf_seq_no);
 
-	host_log_name = getenv(WOOF_HOST_LOG_NAME);
+	host_log_name = getenv("WOOF_HOST_LOG_NAME");
 	if(host_log_name == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_LOG_NAME\n");
 		fflush(stderr);
 		exit(1);
 	}
 
-	host_log_size = getenv(WOOF_HOST_LOG_SIZE);
-	if(host_log_SIZE == NULL) {
+	host_log_size_str = getenv("WOOF_HOST_LOG_SIZE");
+	if(host_log_size_str == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_LOG_SIZE\n");
 		fflush(stderr);
 		exit(1);
 	}
-	log_size = atol(host_log_size);
+	host_log_size = atol(host_log_size_str);
 
-	host_log_seq_no = getenv(WOOF_HOST_LOG_SEQNO);
+	host_log_seq_no = getenv("WOOF_HOST_LOG_SEQNO");
 	if(host_log_seq_no == NULL) {
 		fprintf(stderr,
-	"WooFShepherd: couldn't find WOOF_HOST_LOG_SEQNO for log %s wf %s\n"
-			WOOF_HOST_LOG_NAME,wf_name);
+	"WooFShepherd: couldn't find WOOF_HOST_LOG_SEQNO for log %s wf %s\n",
+			host_log_name,wf_name);
 		fflush(stderr);
 		exit(1);
 	}
 	my_log_seq_no = atol(host_log_seq_no);
 
-	host_id = getenv(WOOF_HOST_ID);
+	host_id = getenv("WOOF_HOST_ID");
 	if(host_id == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_ID\n");
 		fflush(stderr);
@@ -115,18 +116,10 @@ int main(int argc, char **argv, char **envp)
 		exit(1);
 	}
 
-	Host_log = LogOpen(host_log_name,log_size);
+	Host_log = LogOpen(host_log_name,host_log_size);
 
 
 	wf = (WOOF *)MIOAddr(mio);
-
-	if(strcmp(wf->handler_name,WOOF_HANDLER_NAME) != 0) {
-		fprintf(stderr,"WooFShepherd: passed handler name %s doesn't match compiled name %s\n",
-				wf->handler_name,WOOF_HANDLER_NAME);
-		fflush(stderr);
-		MIOClose(mio);
-		exit(1);
-	}
 
 	buf = (unsigned char *)(MIOAddr(wf->mio)+sizeof(WOOF));
 	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
