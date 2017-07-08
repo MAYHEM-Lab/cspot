@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <time.h>
 
-#include "woofc.h"
+#include "woofc-thread.h"
 
 static char *WooF_dir;
 

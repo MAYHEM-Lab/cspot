@@ -10,10 +10,14 @@ LOBJ=log.o host.o event.o
 LINC=log.h host.h event.h
 WINC=woofc.h
 WOBJ=woofc.o
+WHOBJ=woofc-host.h
+WHOBJ=woofc-host.o
+TINC=woofc-thread.h
+TOBJ=woofc-thread.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: log-test log-test-thread woofc.o
+all: log-test log-test-thread woofc.o woofc-host.o
 
 log-test: ${LOBJ} ${LINC} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
@@ -26,6 +30,9 @@ log.o: log.c log.h host.h event.h
 
 woofc.o: woofc.c woofc.h
 	${CC} ${CFLAGS} -c woofc.c
+
+woofc-host.o: woofc-host.c woofc.h
+	${CC} ${CFLAGS} -c woofc-host.c
 
 woofc-thread.o: woofc-thread.c woofc-thread.h
 	${CC} ${CFLAGS} -c woofc-thread.c

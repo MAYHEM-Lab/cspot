@@ -52,14 +52,6 @@ int main(int argc, char **argv, char **envp)
 		exit(1);
 	}
 
-	wf_size = getenv(WOOF_SHEPHERD_SIZE);
-	if(wf_size == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_SIZE for %s\n",wf_name);
-		fflush(stderr);
-		exit(1);
-	}
-	mio_size = atol(wf_size);
-
 	wf_ndx = getenv(WOOF_SHEPHERD_NDX);
 	if(wf_ndx == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n",wf_name);
@@ -116,7 +108,7 @@ int main(int argc, char **argv, char **envp)
 	}
 	strncpy(full_name,wf_name,sizeof(full_name)-strlen(full_name));
 
-	mio = MIOOpen(full_name,"a+",mio_size);
+	mio = MIOReOpen(full_name);
 	if(mio == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't open %s with size %lu\n",full_name,mio_size);
 		fflush(stderr);
