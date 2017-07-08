@@ -116,6 +116,10 @@ void *WooFLauncher(void *arg)
 
 	while(WooFDone != 0) {
 		P(&Host_log->tail_wait);
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher awake\n");
+		fflush(stdout);
+#endif
 
 		/*
 		 * must lock to extract tail
@@ -124,10 +128,18 @@ void *WooFLauncher(void *arg)
 		log_tail = LogTail(Host_log,last_seq_no,Host_log->size);
 		V(&Host_log->mutex);
 		if(log_tail == NULL) {
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher no tail, continuing\n");
+		fflush(stdout);
+#endif
 			LogFree(log_tail);
 			continue;
 		}
 		if(log_tail->head == log_tail->tail) {
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher log tail empty, continuing\n");
+		fflush(stdout);
+#endif
 			LogFree(log_tail);
 			continue;
 		}
@@ -149,6 +161,10 @@ void *WooFLauncher(void *arg)
 		 * if no TRIGGERS found
 		 */
 		if(log_tail->tail == first) {
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher log tail empty, continuing\n");
+		fflush(stdout);
+#endif
 			LogFree(log_tail);
 			continue;
 		}
