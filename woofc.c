@@ -9,13 +9,13 @@
 #include "log.h"
 #include "woofc.h"
 
-static char *WooF_dir;
-static char Host_log_name[2048];
-static unsigned long Host_id;
-static LOG *Host_log;
+char *WooF_dir;
+char Host_log_name[2048];
+unsigned long Host_id;
+LOG *Host_log;
 
 
-WOOF *WooFCreate(char *name,
+int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
 {
@@ -53,7 +53,7 @@ WOOF *WooFCreate(char *name,
 	}
 	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
-		return(NULL);
+		return(-1);
 	}
 
 	wf = (WOOF *)MIOAddr(mio);
@@ -76,7 +76,9 @@ WOOF *WooFCreate(char *name,
 	InitSem(&wf->mutex,1);
 	InitSem(&wf->tail_wait,0);
 
-	return(wf);
+	MIOClose(wf->mio);
+
+	return(1);
 }
 
 WOOF *WooFOpen(char *name)
@@ -124,6 +126,7 @@ void WooFFree(WOOF *wf)
 int WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
+	char woof_name[2048];
 	pthread_t tid;
 	unsigned long next;
 	unsigned char *buf;
@@ -138,6 +141,23 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	EVENT *ev;
 	unsigned long ls;
 
+	if(WooF_dir == NULL) {
+		fprintf(stderr,"WooFPut: must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+
+	memset(woof_name,0,sizeof(woof_name));
+	strncpy(woof_name,WooF_dir,sizeof(woof_name));
+	strncat(woof_name,wf_name,sizeof(woof_name)-strlen(woof_name));
+
+	wf = WooFOpen(wf_name);
+	if(wf == NULL) {
+		fprintf(stderr,"WooFPut: couldn't open %s\n",woof_name);
+		fflush(stderr);
+		return(-1);
+	}
+
 	/*
 	 * if called from within a handler, env variable carries cause seq_no
 	 * for logging
@@ -145,7 +165,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	 * when called for first time on host to start, should be NULL
 	 */
 	host_log_seq_no = getenv("WOOF_HOST_LOG_SEQNO");
-	if(host_log_seq_no == NULL) {
+	if(host_log_seq_no != NULL) {
 		my_log_seq_no = atol(host_log_seq_no);
 	} else {
 		my_log_seq_no = 1;
@@ -232,6 +252,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 
 	EventFree(ev);
 	V(&Host_log->tail_wait);
+	WooFFree(wf);
 	return(1);
 }
 

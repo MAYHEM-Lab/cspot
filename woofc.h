@@ -29,7 +29,7 @@ struct element_stc
 
 typedef struct element_stc ELID;
 
-WOOF *WooFCreate(char *name,
+int WooFCreate(char *name,
                unsigned long element_size,
                unsigned long history_size);
 WOOF *WooFOpen(char *name);

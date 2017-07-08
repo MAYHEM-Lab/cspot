@@ -9,10 +9,10 @@
 #include "log.h"
 #include "woofc.h"
 
-static char *WooF_dir;
-static char Host_log_name[2048];
-static unsigned long Host_id;
-static LOG *Host_log;
+extern char *WooF_dir;
+extern char Host_log_name[2048];
+extern unsigned long Host_id;
+extern LOG *Host_log;
 
 static int WooFDone;
 
@@ -24,6 +24,7 @@ int WooFInit(unsigned long host_id)
 	int err;
 	char log_name[2048];
 	char log_path[2048];
+	char putbuf[25];
 	pthread_t tid;
 
 	gettimeofday(&tm,NULL);
@@ -32,6 +33,9 @@ int WooFInit(unsigned long host_id)
 	WooF_dir = getenv("WOOFC_DIR");
 	if(WooF_dir == NULL) {
 		WooF_dir = DEFAULT_WOOF_DIR;
+		memset(putbuf,0,sizeof(putbuf));
+		sprintf(putbuf,"WOOFC_DIR=%s",DEFAULT_WOOF_DIR);
+		putenv(putbuf);
 	}
 
 	if(strcmp(WooF_dir,"/") == 0) {
@@ -84,7 +88,10 @@ void *WooFDockerThread(void *arg)
 {
 	char *launch_string = (char *)arg;
 
-	system(launch_string);
+//	system(launch_string);
+	printf(stdout,"launch string: %s\n",launch_string);
+	fflush(stdout);
+
 	free(launch_string);
 
 	return(NULL);
@@ -181,7 +188,7 @@ void *WooFLauncher(void *arg)
 		memset(launch_string,0,2048);
 
 		sprintf(launch_string, "docker run -it\
-			 -e WOOF_SHEPHERD_DIR=%s\
+			 -e WOOFC_DIR=%s\
 			 -e WOOF_SHEPHERD_NAME=%s\
 			 -e WOOF_SHEPHERD_NDX=%lu\
 			 -e WOOF_SHEPHERD_SEQNO=%lu\

@@ -39,9 +39,9 @@ int main(int argc, char **argv, char **envp)
 	unsigned long host_log_size;
 	int err;
 
-	wf_dir = getenv("WOOF_SHEPHERD_DIR");
+	wf_dir = getenv("WOOFC_DIR");
 	if(wf_dir == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_DIR\n");
+		fprintf(stderr,"WooFShepherd: couldn't find WOOFC_DIR\n");
 		fflush(stderr);
 		exit(1);
 	}

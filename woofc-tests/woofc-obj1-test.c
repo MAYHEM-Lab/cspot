@@ -15,7 +15,6 @@ int main(int argc, char **argv)
 {
 	int c;
 	int size;
-	WOOF *wf_1;
 	int err;
 	OBJ1_EL el;
 
@@ -47,9 +46,9 @@ int main(int argc, char **argv)
 	WooFInit(1);
 
 
-	wf_1 = WooFCreate(Fname,sizeof(OBJ1_EL),size);
+	err = WooFCreate(Fname,sizeof(OBJ1_EL),size);
 
-	if(wf_1 == NULL) {
+	if(err < 0) {
 		fprintf(stderr,"couldn't create wf_1\n");
 		fflush(stderr);
 		exit(1);
@@ -66,7 +65,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	WooFFree(wf_1);
 	WooFExit();
 
 	return(0);
