@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <time.h>
 
+#define DEBUG
+
 #include "log.h"
 #include "woofc.h"
 
@@ -89,7 +91,7 @@ void *WooFDockerThread(void *arg)
 	char *launch_string = (char *)arg;
 
 //	system(launch_string);
-	printf(stdout,"launch string: %s\n",launch_string);
+	fprintf(stdout,"launch string: %s\n",launch_string);
 	fflush(stdout);
 
 	free(launch_string);
@@ -113,6 +115,10 @@ void *WooFLauncher(void *arg)
 	/*
 	 * wait for things to show up in the log
 	 */
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher started\n");
+		fflush(stdout);
+#endif
 
 	while(WooFDone != 0) {
 		P(&Host_log->tail_wait);
@@ -242,6 +248,10 @@ void *WooFLauncher(void *arg)
 		WooFFree(wf);	/* shepherd will repopen */
 	}
 
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher exiting\n");
+		fflush(stdout);
+#endif
 	pthread_exit(NULL);
 }
 
