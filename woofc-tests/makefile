@@ -26,7 +26,9 @@ woofc-test1: woofc-test1.c ${TINC} ${TOBJ}
 	${CC} ${CFLAGS} -o woofc-test1 woofc-test1.c ${TOBJ} ${SLIB} ${MLIB} ${LIBS}
 
 ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	${CC} ${CFLAGS} -DWOOF_HANDLER_NAME=${HAND1} -o ${HAND1} ${HAND1}.c ${SHEP_SRC} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
+	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -o ${HAND1}_shepherd.o
+	${CC} ${CFLAGS} -o ${HAND1} ${HAND1}.c ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	cp ${HAND1} ./cspot
 
 woofc-obj1-test: woofc-obj1-test.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}

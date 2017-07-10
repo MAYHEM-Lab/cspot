@@ -55,7 +55,27 @@ int WooFInit(unsigned long host_id)
 	if(str == NULL) {
 		str = DEFAULT_WOOF_DIR;
 	}
-	strncpy(WooF_dir,str,sizeof(WooF_dir));
+
+	if(strcmp(str,".") == 0) {
+		fprintf(stderr,"WOOFC_DIR cannot be .\n");
+		fflush(stderr);
+		exit(1);
+	}
+
+
+	if(str[0] != '/') { /* not an absolute path name */
+		getcwd(WooF_dir,sizeof(WooF_dir));
+		if(str[0] == '.') {
+			strncat(WooF_dir,&(str[1]),
+				sizeof(WooF_dir)-strlen(WooF_dir));
+		} else {
+			strncat(WooF_dir,"/",sizeof(WooF_dir)-strlen(WooF_dir));
+			strncat(WooF_dir,str,
+				sizeof(WooF_dir)-strlen(WooF_dir));
+		}
+	} else {
+		strncpy(WooF_dir,str,sizeof(WooF_dir));
+	}
 
 	if(strcmp(WooF_dir,"/") == 0) {
 		fprintf(stderr,"WooFInit: WOOFC_DIR can't be %s\n",
@@ -69,8 +89,8 @@ int WooFInit(unsigned long host_id)
 		exit(1);
 	}
 
-	if(str[strlen(str)-1] == '/') {
-		WooF_dir[strlen(str)-1] = 0;
+	if(WooF_dir[strlen(WooF_dir)-1] == '/') {
+		WooF_dir[strlen(WooF_dir)-1] = 0;
 	}
 
 	memset(putbuf,0,sizeof(putbuf));
@@ -124,9 +144,15 @@ void *WooFDockerThread(void *arg)
 {
 	char *launch_string = (char *)arg;
 
-//	system(launch_string);
-	fprintf(stdout,"launch string: %s\n",launch_string);
+#ifdef DEBUG
+	fprintf(stdout,"launching string: %s\n",launch_string);
 	fflush(stdout);
+#endif
+	system(launch_string);
+#ifdef DEBUG
+	fprintf(stdout,"string: %s launched\n",launch_string);
+	fflush(stdout);
+#endif
 
 	free(launch_string);
 
@@ -253,22 +279,22 @@ void *WooFLauncher(void *arg)
 			 -e WOOF_SHEPHERD_NDX=%lu\
 			 -e WOOF_SHEPHERD_SEQNO=%lu\
 			 -e WOOF_HOST_ID=%lu\
-			 -e WOOF_HOST_LOG_NAME=%s\
+			 -e WOOF_HOST_LOG_NAME=%s/%s\
 			 -e WOOF_HOST_LOG_SIZE=%lu\
 			 -e WOOF_HOST_LOG_SEQNO=%lu\
 			 -v %s:%s\
 			 centos:7\
-			 %s",
+			 %s/%s",
 				woof_shepherd_dir,
 				wf->filename,
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
 				Host_id,
-				Host_log->filename,
+				woof_shepherd_dir,Host_log_name,
 				Host_log->size,
 				ev[first].seq_no,
 				WooF_dir,pathp,
-				ev[first].woofc_handler);
+				woof_shepherd_dir,ev[first].woofc_handler);
 
 		/*
 		 * remember its sequence number for next time
