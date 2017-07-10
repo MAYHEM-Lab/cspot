@@ -190,6 +190,7 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: ptr assigned\n");
 	fflush(stdout);
 #endif
+	el_id = (ELID *)(ptr+wf->element_size);
 
 	/*
 	 * invoke the function
@@ -200,7 +201,6 @@ int main(int argc, char **argv, char **envp)
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: invoking %s\n",st);
 	fflush(stdout);
-sleep(1);
 #endif
 	err = WOOF_HANDLER_NAME(wf,seq_no,(void *)ptr);
 #ifdef DEBUG
@@ -216,6 +216,10 @@ sleep(1);
 	 */
 	P(&wf->mutex);
 	el_id->busy = 0;
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: marked el done\n");
+	fflush(stdout);
+#endif
 
 	next = (wf->head + 1) % wf->history_size;
 	/*
@@ -227,7 +231,10 @@ sleep(1);
 	V(&wf->mutex);
 
 	MIOClose(mio);
-	pthread_exit(NULL);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: exiting\n");
+	fflush(stdout);
+#endif
 	return(0);
 }
 		
