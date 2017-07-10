@@ -65,8 +65,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	WooFExit();
-
+	pthread_exit(NULL);
 	return(0);
 }
 

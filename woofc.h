@@ -35,7 +35,7 @@ int WooFCreate(char *name,
 WOOF *WooFOpen(char *name);
 int WooFPut(char *wf_name, char *wf_handler, void *element);
 
-#define DEFAULT_WOOF_DIR "cspot"
+#define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_WOOF_LOG_SIZE (10000)
 
 #endif

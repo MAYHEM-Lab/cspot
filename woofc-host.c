@@ -4,6 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+#include <signal.h>
 #include <time.h>
 
 #define DEBUG
@@ -11,12 +12,29 @@
 #include "log.h"
 #include "woofc.h"
 
-extern char *WooF_dir;
+extern char WooF_dir[2048];
 extern char Host_log_name[2048];
 extern unsigned long Host_id;
 extern LOG *Host_log;
 
 static int WooFDone;
+
+void WooFShutdown(int sig)
+{
+	int val;
+
+	WooFDone = 1;
+	while(sem_getvalue(&Host_log->tail_wait,&val) >= 0) {
+		if(val > 0) {
+			break;
+		}
+		V(&Host_log->tail_wait);
+	}
+
+	return;
+}
+
+	
 
 void *WooFLauncher(void *arg);
 
@@ -28,17 +46,16 @@ int WooFInit(unsigned long host_id)
 	char log_path[2048];
 	char putbuf[25];
 	pthread_t tid;
+	char *str;
 
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec+tm.tv_usec);
 
-	WooF_dir = getenv("WOOFC_DIR");
-	if(WooF_dir == NULL) {
-		WooF_dir = DEFAULT_WOOF_DIR;
-		memset(putbuf,0,sizeof(putbuf));
-		sprintf(putbuf,"WOOFC_DIR=%s",DEFAULT_WOOF_DIR);
-		putenv(putbuf);
+	str = getenv("WOOFC_DIR");
+	if(str == NULL) {
+		str = DEFAULT_WOOF_DIR;
 	}
+	strncpy(WooF_dir,str,sizeof(WooF_dir));
 
 	if(strcmp(WooF_dir,"/") == 0) {
 		fprintf(stderr,"WooFInit: WOOFC_DIR can't be %s\n",
@@ -46,15 +63,30 @@ int WooFInit(unsigned long host_id)
 		exit(1);
 	}
 
+	if(strlen(str) >= (sizeof(WooF_dir)-1)) {
+		fprintf(stderr,"WooFInit: %s too long for directory name\n",
+				str);
+		exit(1);
+	}
+
+	if(str[strlen(str)-1] == '/') {
+		WooF_dir[strlen(str)-1] = 0;
+	}
+
+	memset(putbuf,0,sizeof(putbuf));
+	sprintf(putbuf,"WOOFC_DIR=%s",WooF_dir);
+	putenv(putbuf);
+
+
 	err = mkdir(WooF_dir,0600);
 	if((err < 0) && (errno != EEXIST)) {
 		perror("WooFInit");
 		return(-1);
 	}
 
-	sprintf(Host_log_name,"cspot-log.%10.0d",host_id);
+	sprintf(Host_log_name,"cspot-log.%10.10d",host_id);
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s%s",WooF_dir,Host_log_name);
+	sprintf(log_name,"%s/%s",WooF_dir,Host_log_name);
 
 	Host_log = LogCreate(log_name,host_id,DEFAULT_WOOF_LOG_SIZE);
 
@@ -72,6 +104,8 @@ int WooFInit(unsigned long host_id)
 		exit(1);
 	}
 	pthread_detach(tid);
+
+	signal(SIGHUP, WooFShutdown);
 	return(1);
 }
 
@@ -120,12 +154,16 @@ void *WooFLauncher(void *arg)
 		fflush(stdout);
 #endif
 
-	while(WooFDone != 0) {
+	while(WooFDone == 0) {
 		P(&Host_log->tail_wait);
 #ifdef DEBUG
 		fprintf(stdout,"WooFLauncher awake\n");
 		fflush(stdout);
 #endif
+
+		if(WooFDone == 1) {
+			break;
+		}
 
 		/*
 		 * must lock to extract tail
@@ -230,13 +268,13 @@ void *WooFLauncher(void *arg)
 				Host_log->size,
 				ev[first].seq_no,
 				WooF_dir,pathp,
-				wf->handler_name);
+				ev[first].woofc_handler);
 
 		/*
 		 * remember its sequence number for next time
 		 */
 		last_seq_no = ev[first].seq_no; 		/* log seq_no */
-		LogFree(log_tail);
+		LogFree(log_tail); /* frees wf implicitly */
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {
 			/* LOGGING
@@ -245,7 +283,6 @@ void *WooFLauncher(void *arg)
 			exit(1);
 		}
 		pthread_detach(tid);
-		WooFFree(wf);	/* shepherd will repopen */
 	}
 
 #ifdef DEBUG

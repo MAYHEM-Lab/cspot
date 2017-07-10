@@ -9,7 +9,7 @@
 #include "log.h"
 #include "woofc.h"
 
-char *WooF_dir;
+char WooF_dir[2048];
 char Host_log_name[2048];
 unsigned long Host_id;
 LOG *Host_log;
