@@ -9,10 +9,12 @@
 #include "log.h"
 #include "woofc.h"
 
-char WooF_dir[2048];
-char Host_log_name[2048];
-unsigned long Host_id;
-LOG *Host_log;
+extern char WooF_dir[2048];
+extern char Host_log_name[2048];
+extern unsigned long Host_id;
+extern LOG *Host_log;
+
+#define DEBUG
 
 
 int WooFCreate(char *name,
@@ -55,6 +57,10 @@ int WooFCreate(char *name,
 	if(mio == NULL) {
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFCreate: opened %s\n",local_name);
+	fflush(stdout);
+#endif
 
 	wf = (WOOF *)MIOAddr(mio);
 	memset(wf,0,sizeof(WOOF));
@@ -105,10 +111,18 @@ WOOF *WooFOpen(char *name)
 
 
 	strncat(local_name,name,sizeof(local_name));
+#ifdef DEBUG
+	printf("WooFOpen: trying to open %s\n",local_name);
+	fflush(stdout);
+#endif
 	mio = MIOReOpen(local_name);
 	if(mio == NULL) {
 		return(NULL);
 	}
+#ifdef DEBUG
+	printf("WooFOpen: opened %s\n",local_name);
+	fflush(stdout);
+#endif
 
 	wf = (WOOF *)MIOAddr(mio);
 
@@ -125,8 +139,12 @@ void WooFFree(WOOF *wf)
 		
 int WooFPut(char *wf_name, char *hand_name, void *element)
 {
+	MIO *mio;
+	MIO *lmio;
+	LOG *host_log;
 	WOOF *wf;
 	char woof_name[2048];
+	char log_name[4096];
 	pthread_t tid;
 	unsigned long next;
 	unsigned char *buf;
@@ -140,23 +158,38 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	unsigned long my_log_seq_no;
 	EVENT *ev;
 	unsigned long ls;
+#ifdef DEBUG
+	printf("WooFPut: called\n");
+	fflush(stdout);
+#endif
 
-	if(WooF_dir == NULL) {
+	if(WooF_dir[0] == 0) {
 		fprintf(stderr,"WooFPut: must init system\n");
 		fflush(stderr);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFPut: WooF_dir: %s\n",WooF_dir);
+	fflush(stdout);
+#endif
 
 	memset(woof_name,0,sizeof(woof_name));
 	strncpy(woof_name,WooF_dir,sizeof(woof_name));
+	strncat(woof_name,"/",sizeof(woof_name)-strlen("/"));
 	strncat(woof_name,wf_name,sizeof(woof_name)-strlen(woof_name));
 
-	wf = WooFOpen(wf_name);
-	if(wf == NULL) {
+//	wf = WooFOpen(wf_name);
+	mio = MIOReOpen(woof_name);
+	if(mio == NULL) {
 		fprintf(stderr,"WooFPut: couldn't open %s\n",woof_name);
 		fflush(stderr);
 		return(-1);
 	}
+	wf = (WOOF *)MIOAddr(mio);
+#ifdef DEBUG
+	printf("WooFPut: WooF %s open\n",woof_name);
+	fflush(stdout);
+#endif
 
 	/*
 	 * if called from within a handler, env variable carries cause seq_no
@@ -180,10 +213,18 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	ev->cause_seq_no = my_log_seq_no;
 	
 
+#ifdef DEBUG
+	printf("WooFPut: adding element\n");
+	fflush(stdout);
+#endif
 	/*
 	 * now drop the element in the object
 	 */
 	P(&wf->mutex);
+#ifdef DEBUG
+	printf("WooFPut: in mutex\n");
+	fflush(stdout);
+#endif
 	/*
 	 * find the next spot
 	 */
@@ -193,7 +234,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	/*
 	 * write the data and record the indices
 	 */
-	buf = (unsigned char *)(MIOAddr(wf->mio)+sizeof(WOOF));
+	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
 	ptr = buf + (next * (wf->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr+wf->element_size);
 
@@ -202,6 +243,10 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	 * check to see if it is allocated to a function that
 	 * has yet to complete
 	 */
+#ifdef DEBUG
+	printf("WooFPut: element in\n");
+	fflush(stdout);
+#endif
 	while((el_id->busy == 1) && (next == wf->tail)) {
 		V(&wf->mutex);
 		P(&wf->tail_wait);
@@ -214,6 +259,10 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	/*
 	 * write the element
 	 */
+#ifdef DEBUG
+	printf("WooFPut: writing element\n");
+	fflush(stdout);
+#endif
 	memcpy(ptr,element,wf->element_size);
 	/*
 	 * and elemant meta data after it
@@ -231,28 +280,75 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	seq_no = wf->seq_no;
 	wf->seq_no++;
 	V(&wf->mutex);
+#ifdef DEBUG
+	printf("WooFPut: out of element mutex\n");
+	fflush(stdout);
+#endif
 
 	ev->woofc_ndx = ndx;
+#ifdef DEBUG
+	printf("WooFPut: ndx: %lu\n",ev->woofc_ndx);
+	fflush(stdout);
+#endif
 	ev->woofc_seq_no = seq_no;
+#ifdef DEBUG
+	printf("WooFPut: seq_no: %lu\n",ev->woofc_seq_no);
+	fflush(stdout);
+#endif
 	ev->woofc_element_size = wf->element_size;
+#ifdef DEBUG
+	printf("WooFPut: element_size %lu\n",ev->woofc_element_size);
+	fflush(stdout);
+#endif
 	ev->woofc_history_size = wf->history_size;
+#ifdef DEBUG
+	printf("WooFPut: history_size %lu\n",ev->woofc_history_size);
+	fflush(stdout);
+#endif
 	memset(ev->woofc_name,0,sizeof(ev->woofc_name));
 	strncpy(ev->woofc_name,wf->filename,sizeof(ev->woofc_name));
+#ifdef DEBUG
+	printf("WooFPut: name %s\n",ev->woofc_name);
+	fflush(stdout);
+#endif
 	memset(ev->woofc_handler,0,sizeof(ev->woofc_handler));
 	strncpy(ev->woofc_handler,hand_name,sizeof(ev->woofc_handler));
+#ifdef DEBUG
+	printf("WooFPut: handler %s\n",ev->woofc_handler);
+	fflush(stdout);
+#endif
 
 	/*
 	 * log the event so that it can be triggered
 	 */
-	ls = LogEvent(Host_log,ev);
+	memset(log_name,0,sizeof(log_name));
+	sprintf(log_name,"%s/%s",WooF_dir,Host_log_name);
+#ifdef DEBUG
+	printf("WooFPut: logging event to %s\n",log_name);
+	fflush(stdout);
+#endif
+	ls = LogEvent(log_name,ev);
 	if(ls == 0) {
-		fprintf(stderr,"WooFPut: couldn't log event\n");
-		exit(1);
+		fprintf(stderr,"WooFPut: couldn't log event to log %s\n",
+			Host_log_name);
+		fflush(stderr);
+		return(-1);
 	}
 
+#ifdef DEBUG
+	printf("WooFPut: logged %lu for woof %s %s\n",
+		ls,
+		ev->woofc_name,
+		ev->woofc_handler);
+	fflush(stdout);
+#endif
+
 	EventFree(ev);
-	V(&Host_log->tail_wait);
-	WooFFree(wf);
+	lmio = MIOReOpen(log_name);
+	host_log = (LOG *)MIOAddr(lmio);
+	V(&host_log->tail_wait);
+	MIOClose(mio);
+	MIOClose(lmio);
 	return(1);
 }
 

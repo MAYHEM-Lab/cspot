@@ -12,10 +12,10 @@
 #include "log.h"
 #include "woofc.h"
 
-extern char WooF_dir[2048];
-extern char Host_log_name[2048];
-extern unsigned long Host_id;
-extern LOG *Host_log;
+char WooF_dir[2048];
+char Host_log_name[2048];
+unsigned long Host_id;
+LOG *Host_log;
 
 static int WooFDone;
 
@@ -96,6 +96,10 @@ int WooFInit(unsigned long host_id)
 	memset(putbuf,0,sizeof(putbuf));
 	sprintf(putbuf,"WOOFC_DIR=%s",WooF_dir);
 	putenv(putbuf);
+#ifdef DEBUG
+	fprintf(stdout,"WooFInit: %s\n",putbuf);
+	fflush(stdout);
+#endif
 
 
 	err = mkdir(WooF_dir,0600);
@@ -279,7 +283,7 @@ void *WooFLauncher(void *arg)
 			 -e WOOF_SHEPHERD_NDX=%lu\
 			 -e WOOF_SHEPHERD_SEQNO=%lu\
 			 -e WOOF_HOST_ID=%lu\
-			 -e WOOF_HOST_LOG_NAME=%s/%s\
+			 -e WOOF_HOST_LOG_NAME=%s\
 			 -e WOOF_HOST_LOG_SIZE=%lu\
 			 -e WOOF_HOST_LOG_SEQNO=%lu\
 			 -v %s:%s\
@@ -290,7 +294,7 @@ void *WooFLauncher(void *arg)
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
 				Host_id,
-				woof_shepherd_dir,Host_log_name,
+				Host_log_name,
 				Host_log->size,
 				ev[first].seq_no,
 				WooF_dir,pathp,

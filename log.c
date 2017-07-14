@@ -11,6 +11,10 @@
 int yan()
 {return(1);}
 
+#define DEBUG
+
+void LogPrintMIO(FILE *fd, MIO *mio);
+
 
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 {
@@ -133,6 +137,39 @@ int LogAdd(LOG *log, EVENT *event)
 	return(1);
 }
 
+int LogAddMIO(MIO *mio, EVENT *event)
+{
+	EVENT *ev_array;
+	unsigned long int next;
+	unsigned long long seq_no;
+	LOG *log;
+
+	if(mio == NULL) {
+		return(-1);
+	}
+
+LogPrintMIO(stdout,mio);
+
+	log = (LOG *)MIOAddr(mio);
+
+	ev_array = (EVENT *)(MIOAddr(mio) + sizeof(LOG));
+
+	/*
+	 * FIX ME: need to implement a cleaner that moves the tail
+	 */
+	if(LogFull(log)) {
+		log->tail = (log->tail + 1) % log->size;
+	}
+
+	next = (log->head + 1) % log->size;
+	
+	memcpy(&ev_array[next],event,sizeof(EVENT));
+	log->head = next;
+
+LogPrintMIO(stdout,mio);
+	return(1);
+}
+
 int LogEventEqual(LOG *l1, LOG *l2, unsigned long ndx)
 {
 	EVENT *e1;
@@ -149,22 +186,45 @@ int LogEventEqual(LOG *l1, LOG *l2, unsigned long ndx)
 }
 
 
-unsigned long long LogEvent(LOG *log, EVENT *event)
+unsigned long long LogEvent(char *log_name, EVENT *event)
 {
+	LOG *log;
 	int err;
 	unsigned long long seq_no;
+	MIO *mio;
 
-	if(log == NULL) {
+	if(log_name == NULL) {
 		return(0);
 	}
+
+	mio = MIOReOpen(log_name);
+	if(mio == NULL) {
+		return(0);
+	}
+
+#ifdef DEBUG
+	printf("LogEvent: log_name reopened %s\n",log_name);
+	fflush(stdout);
+#endif
+
+	log = (LOG *)MIOAddr(mio);
 
 	P(&log->mutex);		/* single thread for now */
 	seq_no = log->seq_no;
 	event->seq_no = seq_no;
 	log->seq_no++;
-	err = LogAdd(log,event);
+#ifdef DEBUG
+	printf("LogEvent: calling LogAddMIO\n");
+	fflush(stdout);
+#endif
+	err = LogAddMIO(mio,event);
+#ifdef DEBUG
+	printf("LogEvent: added mio\n");
+	fflush(stdout);
+#endif
 	V(&log->mutex);
 	
+	MIOClose(mio);
 	return(seq_no);
 }
 
@@ -246,9 +306,42 @@ void LogPrint(FILE *fd, LOG *log)
 		}
 	}
 
+	fflush(fd);
 	return;
 }
 
+void LogPrintMIO(FILE *fd, MIO *mio)
+{
+	unsigned long curr;
+	EVENT *ev_array;
+	LOG *log = (LOG *)MIOAddr(mio);
+
+	ev_array = (EVENT *)(MIOAddr(mio) + sizeof(LOG));
+
+	fprintf(fd,"log filename: %s\n",log->filename);
+	fprintf(fd,"log size: %lu\n",log->size);
+	fprintf(fd,"log head: %lu\n",log->head);
+	fprintf(fd,"log tail: %lu\n",log->tail);
+
+	curr = log->head;
+	while(curr != log->tail) {
+		fprintf(fd,
+		"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
+			curr,
+			ev_array[curr].host,	
+			ev_array[curr].seq_no,	
+			ev_array[curr].cause_host,	
+			ev_array[curr].cause_seq_no);	
+		fflush(fd);
+		curr = curr - 1;
+		if(curr >= log->size) {
+			curr = log->size - 1;
+		}
+	}
+
+	fflush(fd);
+	return;
+}
 PENDING *PendingCreate(char *filename, unsigned long psize)
 {
 	MIO *mio;

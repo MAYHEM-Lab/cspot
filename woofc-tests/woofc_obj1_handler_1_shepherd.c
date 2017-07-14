@@ -11,8 +11,10 @@
 
 #include "woofc.h"
 
-static LOG *Host_log;
-static unsigned long Host_id;
+LOG *Host_log;
+unsigned long Host_id;
+char WooF_dir[2048];
+char Host_log_name[2048];
 
 int main(int argc, char **argv, char **envp)
 {
@@ -26,6 +28,7 @@ int main(int argc, char **argv, char **envp)
 	char *host_log_seq_no;
 	char *host_id;
 	MIO *mio;
+	MIO *lmio;
 	unsigned long mio_size;
 	char full_name[2048];
 
@@ -57,6 +60,8 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: WOOFC_DIR=%s\n",wf_dir);
 	fflush(stdout);
 #endif
+	strncpy(WooF_dir,wf_dir,sizeof(WooF_dir));
+
 	wf_name = getenv("WOOF_SHEPHERD_NAME");
 	if(wf_name == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOF_SHEPHERD_NAME\n");
@@ -164,7 +169,16 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
-	Host_log = LogOpen(host_log_name,host_log_size);
+//	Host_log = LogOpen(host_log_name,host_log_size);
+//	lmio = MIOReOpen(host_log_name);
+//	if(lmio == NULL) {
+//		fprintf(stderr,
+//		"WooFShepherd: couldn't open mio for log %s\n",host_log_name);
+//		fflush(stderr);
+//		exit(1);
+//	}
+//	Host_log = (LOG *)MIOAddr(lmio);
+	strncpy(Host_log_name,host_log_name,sizeof(Host_log_name));
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: log %s open\n",host_log_name);
 	fflush(stdout);
@@ -235,6 +249,7 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: exiting\n");
 	fflush(stdout);
 #endif
+	MIOClose(lmio);
 	return(0);
 }
 		

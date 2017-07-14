@@ -43,7 +43,7 @@ int main(int argc, char **argv, char **envp)
 	unsigned long my_log_seq_no; /* needed for logging cause */
 	unsigned long host_log_size;
 	int err;
-	char *st = "WOOF_HANDLER_NAME";
+	char *st = "woofc_obj2_handler_1";
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: for handler %s\n",st);
 	fflush(stdout);
@@ -216,7 +216,7 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: invoking %s\n",st);
 	fflush(stdout);
 #endif
-	err = WOOF_HANDLER_NAME(wf,seq_no,(void *)ptr);
+	err = woofc_obj2_handler_1(wf,seq_no,(void *)ptr);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: %s done with %d\n",
 		st,err);
