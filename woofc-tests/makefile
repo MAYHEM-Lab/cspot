@@ -18,10 +18,12 @@ SHEP_SRC=../woofc-shepherd.c
 
 HAND1=woofc_obj1_handler_1
 HAND2=woofc_obj2_handler_1
+HAND3=woofc_obj2_handler_2
+HAND4=woofc_obj2_handler_3
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: woofc-test1 ${HAND1} ${HAND2} woofc-obj1-test woofc-obj2-test
+all: woofc-test1 ${HAND1} ${HAND2} ${HAND3} ${HAND4} woofc-obj1-test woofc-obj2-test woofc-obj2-test-2
 
 woofc-test1: woofc-test1.c ${TINC} ${TOBJ}
 	${CC} ${CFLAGS} -o woofc-test1 woofc-test1.c ${TOBJ} ${SLIB} ${MLIB} ${LIBS}
@@ -38,6 +40,18 @@ ${HAND2}: ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	cp ${HAND2} ./cspot
 
+${HAND3}: ${HAND3}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/${HAND3}/g' ${SHEP_SRC} > ${HAND3}_shepherd.c
+	${CC} ${CFLAGS} -c ${HAND3}_shepherd.c -o ${HAND3}_shepherd.o
+	${CC} ${CFLAGS} -o ${HAND3} ${HAND3}.c ${HAND3}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	cp ${HAND3} ./cspot
+
+${HAND4}: ${HAND4}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/${HAND4}/g' ${SHEP_SRC} > ${HAND4}_shepherd.c
+	${CC} ${CFLAGS} -c ${HAND4}_shepherd.c -o ${HAND4}_shepherd.o
+	${CC} ${CFLAGS} -o ${HAND4} ${HAND4}.c ${HAND4}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	cp ${HAND4} ./cspot
+
 woofc-obj1-test: woofc-obj1-test.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o woofc-obj1-test woofc-obj1-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	cp woofc-obj1-test ./cspot
@@ -45,6 +59,10 @@ woofc-obj1-test: woofc-obj1-test.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WH
 woofc-obj2-test: woofc-obj2-test.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o woofc-obj2-test woofc-obj2-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	cp woofc-obj2-test ./cspot
+
+woofc-obj2-test-2: woofc-obj2-test-2.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}
+	${CC} ${CFLAGS} -o woofc-obj2-test-2 woofc-obj2-test-2.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	cp woofc-obj2-test-2 ./cspot
 
 clean:
 	rm -f woofc-test1

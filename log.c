@@ -11,7 +11,6 @@
 int yan()
 {return(1);}
 
-#define DEBUG
 
 
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)

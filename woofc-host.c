@@ -7,8 +7,6 @@
 #include <signal.h>
 #include <time.h>
 
-#define DEBUG
-
 #include "log.h"
 #include "woofc.h"
 

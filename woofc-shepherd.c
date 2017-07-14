@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define DEBUG
 
 #include "woofc.h"
 

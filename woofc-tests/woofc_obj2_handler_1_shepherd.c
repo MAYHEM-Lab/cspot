@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define DEBUG
 
 #include "woofc.h"
 
@@ -170,7 +169,6 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
-//	Host_log = LogOpen(host_log_name,host_log_size);
 	sprintf(log_name,"%s/%s",WooF_dir,host_log_name);
 	lmio = MIOReOpen(log_name);
 	if(lmio == NULL) {
@@ -198,8 +196,6 @@ int main(int argc, char **argv, char **envp)
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: buf assigned 0x%u\n",buf);
 	fflush(stdout);
-//	fprintf(stdout,"WooFShepherd: ptr will be 0x%u\n",buf + (ndx * (wf->element_size + sizeof(ELID))));
-//	fflush(stdout);
 #endif
 	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
 #ifdef DEBUG
@@ -215,7 +211,7 @@ int main(int argc, char **argv, char **envp)
 	 * log event start here
 	 */
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: invoking %s\n",st);
+	fprintf(stdout,"WooFShepherd: invoking %s, el_id: 0x%x\n",st,el_id);
 	fflush(stdout);
 #endif
 	err = woofc_obj2_handler_1(wf,seq_no,(void *)ptr);
@@ -233,7 +229,7 @@ int main(int argc, char **argv, char **envp)
 	P(&wf->mutex);
 	el_id->busy = 0;
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: marked el done\n");
+	fprintf(stdout,"WooFShepherd: marked el done at %lu\n",ndx);
 	fflush(stdout);
 #endif
 
