@@ -31,6 +31,7 @@ int main(int argc, char **argv, char **envp)
 	MIO *lmio;
 	unsigned long mio_size;
 	char full_name[2048];
+	char log_name[4096];
 
 	WOOF *wf;
 	ELID *el_id;
@@ -170,14 +171,15 @@ int main(int argc, char **argv, char **envp)
 #endif
 
 //	Host_log = LogOpen(host_log_name,host_log_size);
-//	lmio = MIOReOpen(host_log_name);
-//	if(lmio == NULL) {
-//		fprintf(stderr,
-//		"WooFShepherd: couldn't open mio for log %s\n",host_log_name);
-//		fflush(stderr);
-//		exit(1);
-//	}
-//	Host_log = (LOG *)MIOAddr(lmio);
+	sprintf(log_name,"%s/%s",WooF_dir,host_log_name);
+	lmio = MIOReOpen(log_name);
+	if(lmio == NULL) {
+		fprintf(stderr,
+		"WooFShepherd: couldn't open mio for log %s\n",host_log_name);
+		fflush(stderr);
+		exit(1);
+	}
+	Host_log = (LOG *)MIOAddr(lmio);
 	strncpy(Host_log_name,host_log_name,sizeof(Host_log_name));
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: log %s open\n",host_log_name);
@@ -245,11 +247,11 @@ int main(int argc, char **argv, char **envp)
 	V(&wf->mutex);
 
 	MIOClose(mio);
+	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting\n");
 	fflush(stdout);
 #endif
-	MIOClose(lmio);
 	return(0);
 }
 		
