@@ -147,13 +147,13 @@ void *WooFDockerThread(void *arg)
 	char *launch_string = (char *)arg;
 
 #ifdef DEBUG
-	fprintf(stdout,"launching string: %s\n",launch_string);
-	fflush(stdout);
+//	fprintf(stdout,"LAUNCH: %s\n",launch_string);
+//	fflush(stdout);
 #endif
 	system(launch_string);
 #ifdef DEBUG
-	fprintf(stdout,"string: %s launched\n",launch_string);
-	fflush(stdout);
+//	fprintf(stdout,"DONE: %s\n",launch_string);
+//	fflush(stdout);
 #endif
 
 	free(launch_string);
@@ -163,7 +163,7 @@ void *WooFDockerThread(void *arg)
 
 void *WooFLauncher(void *arg)
 {
-	unsigned long last_seq_no = 1;
+	unsigned long last_seq_no = 0;
 	unsigned long first;
 	LOG *log_tail;
 	EVENT *ev;
@@ -173,6 +173,7 @@ void *WooFLauncher(void *arg)
 	char woof_shepherd_dir[2048];
 	int err;
 	pthread_t tid;
+	int none;
 
 	/*
 	 * wait for things to show up in the log
@@ -217,14 +218,34 @@ void *WooFLauncher(void *arg)
 		}
 
 		ev = (EVENT *)(MIOAddr(log_tail->m_buf) + sizeof(LOG));
+#ifdef DEBUG
+	first = log_tail->head;
+	while(first != log_tail->tail) {
+	printf("WooFLauncher: log tail %lu, seq_no: %lu, last %lu\n",first, ev[first].seq_no, last_seq_no);
+	fflush(stdout);
+		if(ev[first].type == TRIGGER) {
+			break;
+		}
+		first = (first-1);
+		if(first >= log_tail->size) {
+			first = log_tail->size - 1;
+		}
+	}
+#endif
 
 		/*
 		 * find the first TRIGGER we havn't seen yet
 		 */
+		none = 0;
 		first = log_tail->head;
-		while(ev[first].type != TRIGGER) {
+		while((ev[first].type != TRIGGER) ||
+		      (ev[first].seq_no <= last_seq_no)) {
 			first = (first - 1);
+			if(first >= log_tail->size) {
+				first=log_tail->size - 1;
+			}
 			if(first == log_tail->tail) {
+				none = 1;
 				break;
 			}
 		}  
@@ -232,7 +253,7 @@ void *WooFLauncher(void *arg)
 		/*
 		 * if no TRIGGERS found
 		 */
-		if(log_tail->tail == first) {
+		if(none == 1) {
 #ifdef DEBUG
 		fprintf(stdout,"WooFLauncher log tail empty, continuing\n");
 		fflush(stdout);
@@ -303,7 +324,12 @@ void *WooFLauncher(void *arg)
 		 *
 		 * needs +1 because LogTail returns the earliest inclusively
 		 */
-		last_seq_no = ev[first].seq_no + 1; 		/* log seq_no */
+		last_seq_no = ev[first].seq_no; 		/* log seq_no */
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher: seq_no: %lu, handler: %s\n",
+			ev[first].seq_no, ev[first].woofc_handler);
+		fflush(stdout);
+#endif
 		LogFree(log_tail); /* frees wf implicitly */
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {
