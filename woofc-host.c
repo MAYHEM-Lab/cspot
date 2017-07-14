@@ -225,7 +225,7 @@ void *WooFLauncher(void *arg)
 		 */
 		first = log_tail->head;
 		while(ev[first].type != TRIGGER) {
-			first++;
+			first = (first - 1);
 			if(first == log_tail->tail) {
 				break;
 			}
@@ -302,8 +302,10 @@ void *WooFLauncher(void *arg)
 
 		/*
 		 * remember its sequence number for next time
+		 *
+		 * needs +1 because LogTail returns the earliest inclusively
 		 */
-		last_seq_no = ev[first].seq_no; 		/* log seq_no */
+		last_seq_no = ev[first].seq_no + 1; 		/* log seq_no */
 		LogFree(log_tail); /* frees wf implicitly */
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {

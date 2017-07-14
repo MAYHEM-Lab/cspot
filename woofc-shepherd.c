@@ -31,6 +31,7 @@ int main(int argc, char **argv, char **envp)
 	MIO *lmio;
 	unsigned long mio_size;
 	char full_name[2048];
+	char log_name[4096];
 
 	WOOF *wf;
 	ELID *el_id;
@@ -169,15 +170,15 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
-//	Host_log = LogOpen(host_log_name,host_log_size);
-//	lmio = MIOReOpen(host_log_name);
-//	if(lmio == NULL) {
-//		fprintf(stderr,
-//		"WooFShepherd: couldn't open mio for log %s\n",host_log_name);
-//		fflush(stderr);
-//		exit(1);
-//	}
-//	Host_log = (LOG *)MIOAddr(lmio);
+	sprintf(log_name,"%s/%s",WooF_dir,host_log_name);
+	lmio = MIOReOpen(log_name);
+	if(lmio == NULL) {
+		fprintf(stderr,
+		"WooFShepherd: couldn't open mio for log %s\n",host_log_name);
+		fflush(stderr);
+		exit(1);
+	}
+	Host_log = (LOG *)MIOAddr(lmio);
 	strncpy(Host_log_name,host_log_name,sizeof(Host_log_name));
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: log %s open\n",host_log_name);
@@ -196,8 +197,6 @@ int main(int argc, char **argv, char **envp)
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: buf assigned 0x%u\n",buf);
 	fflush(stdout);
-//	fprintf(stdout,"WooFShepherd: ptr will be 0x%u\n",buf + (ndx * (wf->element_size + sizeof(ELID))));
-//	fflush(stdout);
 #endif
 	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
 #ifdef DEBUG
@@ -213,7 +212,7 @@ int main(int argc, char **argv, char **envp)
 	 * log event start here
 	 */
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: invoking %s\n",st);
+	fprintf(stdout,"WooFShepherd: invoking %s, el_id: 0x%x\n",st,el_id);
 	fflush(stdout);
 #endif
 	err = WOOF_HANDLER_NAME(wf,seq_no,(void *)ptr);
@@ -231,7 +230,7 @@ int main(int argc, char **argv, char **envp)
 	P(&wf->mutex);
 	el_id->busy = 0;
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: marked el done\n");
+	fprintf(stdout,"WooFShepherd: marked el done at %lu\n",ndx);
 	fflush(stdout);
 #endif
 
@@ -245,11 +244,11 @@ int main(int argc, char **argv, char **envp)
 	V(&wf->mutex);
 
 	MIOClose(mio);
+	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting\n");
 	fflush(stdout);
 #endif
-	MIOClose(lmio);
 	return(0);
 }
 		

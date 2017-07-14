@@ -178,16 +178,16 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	strncat(woof_name,"/",sizeof(woof_name)-strlen("/"));
 	strncat(woof_name,wf_name,sizeof(woof_name)-strlen(woof_name));
 
-//	wf = WooFOpen(wf_name);
-	mio = MIOReOpen(woof_name);
-	if(mio == NULL) {
-		fprintf(stderr,"WooFPut: couldn't open %s\n",woof_name);
-		fflush(stderr);
-		return(-1);
-	}
-	wf = (WOOF *)MIOAddr(mio);
+	wf = WooFOpen(wf_name);
+//	mio = MIOReOpen(woof_name);
+//	if(mio == NULL) {
+//		fprintf(stderr,"WooFPut: couldn't open %s\n",woof_name);
+//		fflush(stderr);
+//		return(-1);
+//	}
+//	wf = (WOOF *)MIOAddr(mio);
 #ifdef DEBUG
-	printf("WooFPut: WooF %s open\n",woof_name);
+	printf("WooFPut: WooF %s open\n",wf_name);
 	fflush(stdout);
 #endif
 
@@ -234,9 +234,9 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	/*
 	 * write the data and record the indices
 	 */
-	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
+	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
 	ptr = buf + (next * (wf->element_size + sizeof(ELID)));
-	el_id = (ELID *)(ptr+wf->element_size);
+	el_id = (ELID *)(ptr + wf->element_size);
 
 	/*
 	 * tail is the last valid place where data could go
@@ -248,6 +248,10 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 	while((el_id->busy == 1) && (next == wf->tail)) {
+#ifdef DEBUG
+	printf("WooFPut: busy at %lu\n",next);
+	fflush(stdout);
+#endif
 		V(&wf->mutex);
 		P(&wf->tail_wait);
 		P(&wf->mutex);
@@ -260,7 +264,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	 * write the element
 	 */
 #ifdef DEBUG
-	printf("WooFPut: writing element\n");
+	printf("WooFPut: writing element 0x%x\n",el_id);
 	fflush(stdout);
 #endif
 	memcpy(ptr,element,wf->element_size);
@@ -327,10 +331,10 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: logging event to %s\n",log_name);
 	fflush(stdout);
 #endif
-	ls = LogEvent(log_name,ev);
+	ls = LogEvent(Host_log,ev);
 	if(ls == 0) {
 		fprintf(stderr,"WooFPut: couldn't log event to log %s\n",
-			Host_log_name);
+			log_name);
 		fflush(stderr);
 		return(-1);
 	}
@@ -344,11 +348,11 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 #endif
 
 	EventFree(ev);
-	lmio = MIOReOpen(log_name);
-	host_log = (LOG *)MIOAddr(lmio);
-	V(&host_log->tail_wait);
-	MIOClose(mio);
-	MIOClose(lmio);
+//	lmio = MIOReOpen(log_name);
+//	host_log = (LOG *)MIOAddr(lmio);
+	V(&Host_log->tail_wait);
+//	MIOClose(mio);
+//	MIOClose(lmio);
 	return(1);
 }
 
