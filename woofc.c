@@ -14,8 +14,6 @@ extern char Host_log_name[2048];
 extern unsigned long Host_id;
 extern LOG *Host_log;
 
-#define DEBUG
-
 
 
 int WooFCreate(char *name,
@@ -180,13 +178,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	strncat(woof_name,wf_name,sizeof(woof_name)-strlen(woof_name));
 
 	wf = WooFOpen(wf_name);
-//	mio = MIOReOpen(woof_name);
-//	if(mio == NULL) {
-//		fprintf(stderr,"WooFPut: couldn't open %s\n",woof_name);
-//		fflush(stderr);
-//		return(-1);
-//	}
-//	wf = (WOOF *)MIOAddr(mio);
+
 #ifdef DEBUG
 	printf("WooFPut: WooF %s open\n",wf_name);
 	fflush(stdout);

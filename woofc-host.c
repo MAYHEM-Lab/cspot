@@ -265,6 +265,15 @@ void *WooFLauncher(void *arg)
 		 * otherwise, fire this event
 		 */
 
+#ifdef DEBUG
+		fprintf(stdout,"WooFLauncher: firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %lu\n",
+			ev[first].woofc_name,
+			ev[first].woofc_handler,
+			ev[first].woofc_seq_no,
+			ev[first].seq_no);
+		fflush(stdout);
+#endif
+
 
 		wf = WooFOpen(ev[first].woofc_name);
 
