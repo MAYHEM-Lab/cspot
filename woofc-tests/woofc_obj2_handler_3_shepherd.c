@@ -213,13 +213,13 @@ int main(int argc, char **argv, char **envp)
 	 * log event start here
 	 */
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: invoking %s, el_id: 0x%x\n",st,el_id);
+	fprintf(stdout,"WooFShepherd: invoking %s, seq_no: %lu\n",st,seq_no);
 	fflush(stdout);
 #endif
 	err = woofc_obj2_handler_3(wf,seq_no,(void *)ptr);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: %s done with %d\n",
-		st,err);
+	fprintf(stdout,"WooFShepherd: %s done with seq_no: %lu\n",
+		st,seq_no);
 	fflush(stdout);
 #endif
 	/* LOGGING
