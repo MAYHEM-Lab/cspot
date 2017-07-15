@@ -37,6 +37,7 @@ int main(int argc, char **argv, char **envp)
 	ELID *el_id;
 	unsigned char *buf;
 	unsigned char *ptr;
+	unsigned char *farg;
 	unsigned long ndx;
 	unsigned char *el_buf;
 	unsigned long seq_no;
@@ -205,28 +206,20 @@ int main(int argc, char **argv, char **envp)
 #endif
 	el_id = (ELID *)(ptr+wf->element_size);
 
+	farg = (unsigned char *)malloc(wf->element_size);
+	if(farg == NULL) {
+		fprintf(stderr,"WooFShepherd: no space for farg of size %d\n",
+				wf->element_size);
+		fflush(stderr);
+		return(-1);
+	}
+
+	memcpy(farg,ptr,wf->element_size);
+
 	/*
-	 * invoke the function
+	 * now that we have the argument copied, free the slot in the woof
 	 */
-	/* LOGGING
-	 * log event start here
-	 */
-#ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: invoking %s, seq_no: %lu\n",st,seq_no);
-	fflush(stdout);
-#endif
-	err = WOOF_HANDLER_NAME(wf,seq_no,(void *)ptr);
-#ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: %s done with seq_no: %lu\n",
-		st,seq_no);
-	fflush(stdout);
-#endif
-	/* LOGGING
-	 * log either event success or failure here
-	 */
-	/*
-	 * mark the element as consumed
-	 */
+
 	P(&wf->mutex);
 	el_id->busy = 0;
 #ifdef DEBUG
@@ -242,6 +235,29 @@ int main(int argc, char **argv, char **envp)
 		V(&wf->tail_wait);
 	}
 	V(&wf->mutex);
+	/*
+	 * invoke the function
+	 */
+	/* LOGGING
+	 * log event start here
+	 */
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: invoking %s, seq_no: %lu\n",st,seq_no);
+	fflush(stdout);
+#endif
+	err = WOOF_HANDLER_NAME(wf,seq_no,(void *)farg);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: %s done with seq_no: %lu\n",
+		st,seq_no);
+	fflush(stdout);
+#endif
+	free(farg);
+	/* LOGGING
+	 * log either event success or failure here
+	 */
+	/*
+	 * mark the element as consumed
+	 */
 
 	MIOClose(mio);
 	MIOClose(lmio);

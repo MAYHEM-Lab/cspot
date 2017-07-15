@@ -25,7 +25,7 @@ int woofc_obj2_handler_2(WOOF *wf, unsigned long seq_no, void *ptr)
 	fflush(fd);
 
 
-	if(el.counter < 5) {
+	if(el.counter < 10) {
 		el.counter++;
 		fprintf(fd,"handler2, calling put counter: %lu, seq_no: %lu\n",el.counter, seq_no);
 		fflush(fd);
