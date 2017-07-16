@@ -21,7 +21,7 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 all: c-runstest
 
 c-runstest: c-runstest.c c-twist.o c-twist.h
-	${CC} ${CFLAGS} -o c-runstest c-runstest.c c-twist.o ${LIBS}
+	${CC} ${CFLAGS} -DSTANDALONE -o c-runstest c-runstest.c c-twist.o ${LIBS}
 
 c-twist.o: c-twist.c c-twist.h
 	${CC} ${CFLAGS} -c c-twist.c
