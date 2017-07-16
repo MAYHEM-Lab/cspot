@@ -18,10 +18,16 @@ SHEP_SRC=../woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: c-runstest
+all: c-runstest c-runstat
 
-c-runstest: c-runstest.c c-twist.o c-twist.h
+c-runstest: c-runstest.c c-runstest.h c-twist.o c-twist.h
 	${CC} ${CFLAGS} -DSTANDALONE -o c-runstest c-runstest.c c-twist.o ${LIBS}
+
+c-runstat: c-runstat.c c-runstest.o c-runstest.h c-twist.o c-twist.h
+	${CC} ${CFLAGS} -o c-runstat c-runstat.c c-runstest.o c-twist.o ${LIBS}
+
+c-runstest.o: c-runstest.c c-runstest.h
+	${CC} ${CFLAGS} -c c-runstest.c c-twist.o ${LIBS}
 
 c-twist.o: c-twist.c c-twist.h
 	${CC} ${CFLAGS} -c c-twist.c

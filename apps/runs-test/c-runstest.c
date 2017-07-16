@@ -79,12 +79,10 @@ double RunsStat(double *v, int N)
 
 #ifdef STANDALONE 
 
-#define ARGS "c:TS:"
+#define ARGS "c:S:"
 char *Usage = "usage: c-runstest -c count\n\
-\t-S seed\n\
-\t-T <use threads>\n";
+\t-S seed\n";
 
-int UseThread;
 uint32_t Seed;
 
 int main(int argc, char **argv)
@@ -98,16 +96,12 @@ int main(int argc, char **argv)
 	double stat;
 
 	count = 10;
-	UseThread = 0;
 	has_seed = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'c':
 				count = atoi(optarg);
-				break;
-			case 'T':
-				UseThread = 1;
 				break;
 			case 'S':
 				Seed = atoi(optarg);
