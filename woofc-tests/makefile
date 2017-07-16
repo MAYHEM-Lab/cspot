@@ -32,38 +32,38 @@ ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -o ${HAND1}_shepherd.o
 	${CC} ${CFLAGS} -o ${HAND1} ${HAND1}.c ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp ${HAND1} ./cspot
+	mkdir -p cspot; cp ${HAND1} ./cspot
 
 ${HAND2}: ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND2}/g' ${SHEP_SRC} > ${HAND2}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND2}_shepherd.c -o ${HAND2}_shepherd.o
 	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp ${HAND2} ./cspot
+	mkdir -p cspot; cp ${HAND2} ./cspot
 
 ${HAND3}: ${HAND3}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND3}/g' ${SHEP_SRC} > ${HAND3}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND3}_shepherd.c -o ${HAND3}_shepherd.o
 	${CC} ${CFLAGS} -o ${HAND3} ${HAND3}.c ${HAND3}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp ${HAND3} ./cspot
+	mkdir -p cspot; cp ${HAND3} ./cspot
 
 ${HAND4}: ${HAND4}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND4}/g' ${SHEP_SRC} > ${HAND4}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND4}_shepherd.c -o ${HAND4}_shepherd.o
 	${CC} ${CFLAGS} -o ${HAND4} ${HAND4}.c ${HAND4}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp ${HAND4} ./cspot
+	mkdir -p cspot; cp ${HAND4} ./cspot
 
 woofc-obj1-test: woofc-obj1-test.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o woofc-obj1-test woofc-obj1-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp woofc-obj1-test ./cspot
+	mkdir -p cspot; cp woofc-obj1-test ./cspot
 
 woofc-obj2-test: woofc-obj2-test.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o woofc-obj2-test woofc-obj2-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp woofc-obj2-test ./cspot
+	mkdir -p cspot; cp woofc-obj2-test ./cspot
 
 woofc-obj2-test-2: woofc-obj2-test-2.c ${WINC} ${WHINC} ${LINC} ${LOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o woofc-obj2-test-2 woofc-obj2-test-2.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	cp woofc-obj2-test-2 ./cspot
+	mkdir -p cspot; cp woofc-obj2-test-2 ./cspot
 
 clean:
-	rm -f woofc-test1
+	rm -f woofc-test1 woofc-obj2-test-2 ${HAND1} ${HAND2} ${HAND3} ${HAND4}
 
