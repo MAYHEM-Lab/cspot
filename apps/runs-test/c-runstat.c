@@ -11,9 +11,10 @@
 #include "c-runstest.h"
 
 
-#define ARGS "c:S:L:"
+#define ARGS "c:S:s:L:"
 char *Usage = "usage: c-runstat -L logfile\n\
 \t-c count\n\
+\t-s sample_size\n\
 \t-S seed\n";
 
 uint32_t Seed;
@@ -22,7 +23,9 @@ struct thread_arg_stc
 {
 	sem_t *mutex;
 	int i;
-	int N;
+	int j;
+	int count;
+	int sample_size;
 	double *r;
 	char *logfile;
 };
@@ -32,34 +35,54 @@ typedef struct thread_arg_stc TA;
 void *SThread(void *arg)
 {
 	TA *ta = (TA *)arg;
+	TA *next_r;
 	FILE *fd;
 	double stat;
+	pthread_t tid;
+	int err;
 
-
-	if(ta->i <= 5) {
+	if(ta->i >= ta->count) {
+		sem_destroy(ta->mutex);
+		free(ta->mutex);
+		free(ta->r);
 		free(ta);
 		pthread_exit(NULL);
 	}
 
-	stat = RunsStat(ta->r,(ta->i)-1);
-
-	if(ta->logfile != NULL) {
-		fd = fopen(ta->logfile,"a");
-	} else {
-		fd = stdout;
-	}
-	fprintf(fd,"i: %d, stat: %f\n",ta->i,stat);
-	if(ta->logfile != NULL) {
-		fclose(fd);
-	} else {
-		fflush(stdout);
+	next_r = (TA *)malloc(sizeof(TA));
+	if(next_r == NULL) {
+		perror("SThread no space\n");
+		exit(1);
 	}
 
-	if(ta->i >= ta->N) {
-		sem_destroy(ta->mutex);
-		free(ta->mutex);
+	memcpy(next_r,ta,sizeof(TA));
+
+	if(ta->j < ta->sample_size) {
+		next_r->j = ta->j + 1;
+	} else {
+		stat = RunsStat(ta->r,(ta->sample_size)-1);
+		if(ta->logfile != NULL) {
+			fd = fopen(ta->logfile,"a");
+		} else {
+			fd = stdout;
+		}
+		fprintf(fd,"i: %d stat: %f\n",ta->i,stat);
+		if(ta->logfile != NULL) {
+			fclose(fd);
+		} else {
+			fflush(stdout);
+		}
+		next_r->i = ta->i + 1;
+		next_r->j = 0;
 		free(ta->r);
 	}
+
+	err = pthread_create(&tid,NULL,Rthread,(void *)next_r);
+	if(err < 0) {
+		perror("SThread launching Rthread\n");
+		exit(1);
+	}
+	pthread_detach(tid);
 	free(ta);
 
 	pthread_exit(NULL);
@@ -74,48 +97,56 @@ void *RThread(void *arg)
 	pthread_t tid;
 	int err;
 
-
-	if(ta->i == ta->N) {
+	if(ta->i >= ta->count) {
 		free(ta);
 		pthread_exit(NULL);
 	}
 
-	ta->r[ta->i] = CTwistRandom();
+	if(ta->j == 0) {
+		ta->r = (double *)malloc(sizeof(double)*ta->sample_size);
+		if(ta->r == NULL) {
+			perror("Rthread: no space for r\n");
+			exit(1);
+		}
+	} else if(ta->j >= ta->sample_size) {
+		free(ta);
+		pthread_exit(NULL);
+	}
+
+	/*
+	 * CTwistRandom not thread safe
+	 */
+	sem_wait(ta->mutex);
+	ta->r[ta->j] = CTwistRandom();
 	sem_post(ta->mutex);
 
 	next_r = (TA *)malloc(sizeof(TA));
 	if(next_r == NULL) {
 		exit(1);
 	}
-	next_r->i = ta->i + 1;
-	next_r->N = ta->N;
-	next_r->mutex = ta->mutex;
-	next_r->r = ta->r;
-	next_r->logfile = ta->logfile;
 
+	memcpy(next_r,ta,sizeof(TA));
+	next_r->j = ta->j + 1;
 	err = pthread_create(&tid,NULL,RThread,(void *)next_r);
-	if(err < 0) {
-		perror("Rthread launching RThread");
-		exit(1);
-	}
-	pthread_detach(tid);
-
-	next_s = (TA *)malloc(sizeof(TA));
-	if(next_s == NULL) {
-		exit(1);
-	}
-	next_s->i = ta->i;
-	next_s->N = ta->N;
-	next_s->mutex = ta->mutex;
-	next_s->r = ta->r;
-	next_s->logfile = ta->logfile;
-
-	err = pthread_create(&tid,NULL,SThread,(void *)next_s);
 	if(err < 0) {
 		perror("Rthread launching SThread");
 		exit(1);
 	}
 	pthread_detach(tid);
+
+	if((ta->j-1) == ta->sample_size) {
+		next_s = (TA *)malloc(sizeof(TA));
+		if(next_s == NULL) {
+			exit(1);
+		}
+		memcpy(next_s,ta,sizeof(TA));
+		err = pthread_create(&tid,NULL,SThread,(void *)next_r);
+		if(err < 0) {
+			perror("Rthread launching SThread");
+			exit(1);
+		}
+		pthread_detach(tid);
+	}
 
 	free(ta);
 

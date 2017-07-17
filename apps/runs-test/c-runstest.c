@@ -79,8 +79,9 @@ double RunsStat(double *v, int N)
 
 #ifdef STANDALONE 
 
-#define ARGS "c:S:"
-char *Usage = "usage: c-runstest -c count\n\
+#define ARGS "c:S:s:"
+char *Usage = "usage: c-runstest -c count (iterations)\n\
+\t-s sample_size\n\
 \t-S seed\n";
 
 uint32_t Seed;
@@ -89,19 +90,25 @@ int main(int argc, char **argv)
 {
 	int c;
 	int count;
+	int sample_size;
 	int i;
+	int j;
 	int has_seed;
 	struct timeval tm;
 	double *r;
 	double stat;
 
-	count = 10;
+	count = 100;
+	sample_size = 30;
 	has_seed = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'c':
 				count = atoi(optarg);
+				break;
+			case 's':
+				sample_size = atoi(optarg);
 				break;
 			case 'S':
 				Seed = atoi(optarg);
@@ -121,12 +128,18 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if(sample_size <= 0) {
+		fprintf(stderr,"sample_size must be non-negative\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
+
 	if(has_seed == 0) {
 		gettimeofday(&tm,NULL);
 		Seed = (uint32_t)((tm.tv_sec + tm.tv_usec) % 0xFFFFFFFF);
 	}
 
-	r = (double *)malloc(count * sizeof(double));
+	r = (double *)malloc(sample_size * sizeof(double));
 	if(r == NULL) {
 		fprintf(stderr,"no space\n");
 		exit(1);
@@ -134,14 +147,16 @@ int main(int argc, char **argv)
 
 	CTwistInitialize(Seed);
 
-	for(i=0; i < count; i++) {
-		r[i] = CTwistRandom();
-//		printf("r: %f\n",r[i]);
-//		fflush(stdout);
+	for(j=0; j < count; j++) {
+		for(i=0; i < sample_size; i++) {
+			r[i] = CTwistRandom();
+	//		printf("r: %f\n",r[i]);
+	//		fflush(stdout);
+		}
+		stat = RunsStat(r,sample_size);
+		printf("iteration: %d stat: %f\n",j,stat);
 	}
 
-	stat = RunsStat(r,count);
-	printf("runs statistic: %f\n",stat);
 
 	return(0);
 }
