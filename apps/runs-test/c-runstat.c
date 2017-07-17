@@ -32,59 +32,52 @@ struct thread_arg_stc
 
 typedef struct thread_arg_stc TA;
 
+void *RThread(void *arg);
+void *SThread(void *arg);
+
 void *SThread(void *arg)
 {
 	TA *ta = (TA *)arg;
 	TA *next_r;
 	FILE *fd;
 	double stat;
-	pthread_t tid;
-	int err;
 
-	if(ta->i >= ta->count) {
-		sem_destroy(ta->mutex);
-		free(ta->mutex);
-		free(ta->r);
+	/*
+	 * sanity check
+	 */
+	if(ta->i > ta->count) {
 		free(ta);
 		pthread_exit(NULL);
 	}
 
-	next_r = (TA *)malloc(sizeof(TA));
-	if(next_r == NULL) {
-		perror("SThread no space\n");
-		exit(1);
+	/*
+	 * sanity check
+	 */
+	if(ta->j != (ta->sample_size - 1)) {
+		free(ta);
+		pthread_exit(NULL);
 	}
 
-	memcpy(next_r,ta,sizeof(TA));
-
-	if(ta->j < ta->sample_size) {
-		next_r->j = ta->j + 1;
+	stat = RunsStat(ta->r,ta->sample_size);
+	if(ta->logfile != NULL) {
+		fd = fopen(ta->logfile,"a");
 	} else {
-		stat = RunsStat(ta->r,(ta->sample_size)-1);
-		if(ta->logfile != NULL) {
-			fd = fopen(ta->logfile,"a");
-		} else {
-			fd = stdout;
-		}
-		fprintf(fd,"i: %d stat: %f\n",ta->i,stat);
-		if(ta->logfile != NULL) {
-			fclose(fd);
-		} else {
-			fflush(stdout);
-		}
-		next_r->i = ta->i + 1;
-		next_r->j = 0;
-		free(ta->r);
+		fd = stdout;
+	}
+	fprintf(fd,"i: %d stat: %f\n",ta->i,stat);
+	if(ta->logfile != NULL) {
+		fclose(fd);
+	} else {
+		fflush(stdout);
 	}
 
-	err = pthread_create(&tid,NULL,Rthread,(void *)next_r);
-	if(err < 0) {
-		perror("SThread launching Rthread\n");
-		exit(1);
+	free(ta->r);
+
+	if(ta->i == (ta->count - 1)) {
+		sem_destroy(ta->mutex);
+		free(ta->mutex);
 	}
-	pthread_detach(tid);
 	free(ta);
-
 	pthread_exit(NULL);
 }
 
@@ -126,7 +119,16 @@ void *RThread(void *arg)
 	}
 
 	memcpy(next_r,ta,sizeof(TA));
-	next_r->j = ta->j + 1;
+	/*
+	 * if the buffer is full, launch next Rthread on new iteration
+	 */
+	if(ta->j == (ta->sample_size - 1)) {
+		next_r->i = ta->i + 1;
+		next_r->j = 0;
+	} else {
+		next_r->j = ta->j + 1;
+	}
+
 	err = pthread_create(&tid,NULL,RThread,(void *)next_r);
 	if(err < 0) {
 		perror("Rthread launching SThread");
@@ -134,13 +136,16 @@ void *RThread(void *arg)
 	}
 	pthread_detach(tid);
 
-	if((ta->j-1) == ta->sample_size) {
+	/*
+	 * if the buffer is full, create an SThread
+	 */
+	if(ta->j == (ta->sample_size - 1)) {
 		next_s = (TA *)malloc(sizeof(TA));
 		if(next_s == NULL) {
 			exit(1);
 		}
 		memcpy(next_s,ta,sizeof(TA));
-		err = pthread_create(&tid,NULL,SThread,(void *)next_r);
+		err = pthread_create(&tid,NULL,SThread,(void *)next_s);
 		if(err < 0) {
 			perror("Rthread launching SThread");
 			exit(1);
@@ -160,6 +165,7 @@ int main(int argc, char **argv)
 {
 	int c;
 	int count;
+	int sample_size;
 	int i;
 	int has_seed;
 	struct timeval tm;
@@ -168,7 +174,8 @@ int main(int argc, char **argv)
 	int err;
 	TA *ta;
 
-	count = 10;
+	count = 100;
+	sample_size = 100;
 	has_seed = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -178,6 +185,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				count = atoi(optarg);
+				break;
+			case 's':
+				sample_size = atoi(optarg);
 				break;
 			case 'S':
 				Seed = atoi(optarg);
@@ -196,6 +206,13 @@ int main(int argc, char **argv)
 		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}
+
+	if(sample_size <= 0) {
+		fprintf(stderr,"sample_size must be non-negative\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
+
 
 	if(has_seed == 0) {
 		gettimeofday(&tm,NULL);
@@ -224,8 +241,11 @@ int main(int argc, char **argv)
 	sem_init(ta->mutex,1,1);
 
 	ta->i = 0;
-	ta->N = count;
-	ta->r = r;
+	ta->j = 0;
+	ta->count = count;
+	ta->sample_size = count;
+	ta->r = NULL; /* will be malloed by RThread */
+
 	if(LogFile[0] != 0) {
 		ta->logfile = LogFile;
 	} else {
@@ -240,7 +260,6 @@ int main(int argc, char **argv)
 
 	pthread_exit(NULL);
 
-	return(0);
 
 	return(0);
 }
