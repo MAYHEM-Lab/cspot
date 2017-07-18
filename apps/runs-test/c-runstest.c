@@ -98,6 +98,8 @@ int main(int argc, char **argv)
 	int has_seed;
 	struct timeval tm;
 	double *r;
+	double value;
+	double incr;
 	double stat;
 	double norm;
 	double kstat;
@@ -158,14 +160,20 @@ int main(int argc, char **argv)
 	InitDataSet(&d1,1);
 	InitDataSet(&d2,1);
 
+	value = 0.000000001;
+	incr = 1.0 / (double)count;
 	for(j=0; j < count; j++) {
 		for(i=0; i < sample_size; i++) {
 			r[i] = CTwistRandom();
 		}
 		stat = RunsStat(r,sample_size);
-		norm = InvNormal(drand48(),0.0,1.0);
+		norm = InvNormal(value,0.0,1.0);
 		WriteData(d1,1,&stat);
 		WriteData(d2,1,&norm);
+		value = value + incr;
+		if(value >= 1.0) {
+			value = 0.999999999999;
+		}
 	}
 
 	kstat = KS(d1,1,d2,1);
