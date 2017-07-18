@@ -81,8 +81,9 @@ double RunsStat(double *v, int N)
 
 #ifdef STANDALONE 
 
-#define ARGS "c:S:s:"
+#define ARGS "a:c:S:s:"
 char *Usage = "usage: c-runstest -c count (iterations)\n\
+\t-a alpha-level (default 0.05)\n\
 \t-s sample_size\n\
 \t-S seed\n";
 
@@ -103,6 +104,8 @@ int main(int argc, char **argv)
 	double stat;
 	double norm;
 	double kstat;
+	double alpha;
+	double critical;
 	void *d1;
 	void *d2;
 	
@@ -110,9 +113,13 @@ int main(int argc, char **argv)
 	count = 100;
 	sample_size = 30;
 	has_seed = 0;
+	alpha = 0.05;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
+			case 'a':
+				alpha = atof(optarg);
+				break;
 			case 'c':
 				count = atoi(optarg);
 				break;
@@ -139,6 +146,12 @@ int main(int argc, char **argv)
 
 	if(sample_size <= 0) {
 		fprintf(stderr,"sample_size must be non-negative\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
+
+	if((alpha <= 0.0) || (alpha >= 1.0)) {
+		fprintf(stderr,"alpha must be between 0.0 and 1.0\n");
 		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}
@@ -176,9 +189,13 @@ int main(int argc, char **argv)
 		}
 	}
 
+	critical = sqrt(-0.5 * log(alpha/2.0)) * 
+		sqrt((double)(count + count) / (double)(count*count));
+
 	kstat = KS(d1,1,d2,1);
 
-	printf("ks stat: %f\n",kstat);
+	printf("ks stat: %f alpha: %f critical value: %f\n",
+		kstat,alpha,critical);
 	fflush(stdout);
 
 	FreeDataSet(d1);
