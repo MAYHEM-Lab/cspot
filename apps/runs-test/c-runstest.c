@@ -189,8 +189,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	critical = sqrt(-0.5 * log(alpha/2.0)) * 
-		sqrt((double)(count + count) / (double)(count*count));
+	critical = KSCritical(alpha,(double)count,(double)count);
 
 	kstat = KS(d1,1,d2,1);
 

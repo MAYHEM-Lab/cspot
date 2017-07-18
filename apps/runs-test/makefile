@@ -26,7 +26,7 @@ c-runstest: c-runstest.c c-runstest.h c-twist.o c-twist.h normal.o ${KLIB}
 	${CC} ${CFLAGS} -DSTANDALONE -o c-runstest c-runstest.c c-twist.o ${KLIB} normal.o ${LIBS}
 
 c-runstat: c-runstat.c c-runstest.o c-runstest.h c-twist.o c-twist.h
-	${CC} ${CFLAGS} -o c-runstat c-runstat.c c-runstest.o c-twist.o ${LIBS}
+	${CC} ${CFLAGS} -o c-runstat c-runstat.c c-runstest.o c-twist.o ${KLIB} normal.o ${LIBS}
 
 c-runstest.o: c-runstest.c c-runstest.h
 	${CC} ${CFLAGS} -c c-runstest.c ${LIBS}

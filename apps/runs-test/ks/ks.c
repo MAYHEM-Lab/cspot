@@ -171,6 +171,16 @@ size2 = tsize;
 		
 }
 
+double KSCritical(double alpha, double m, double n)
+{
+	double critical;
+
+	critical = sqrt(-0.5 * log(alpha/2.0)) *
+                sqrt((n + m) / (n*m));
+
+	return(critical);
+}
+
 #ifdef STANDALONE
 
 #define ARGS "f:g:"
