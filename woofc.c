@@ -198,13 +198,15 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 		my_log_seq_no = 1;
 	}
 
-	ev = EventCreate(TRIGGER,Host_id);
-	if(ev == NULL) {
-		fprintf(stderr,"WooFPut: couldn't create log event\n");
-		exit(1);
+	if(hand_name != NULL) {
+		ev = EventCreate(TRIGGER,Host_id);
+		if(ev == NULL) {
+			fprintf(stderr,"WooFPut: couldn't create log event\n");
+			exit(1);
+		}
+		ev->cause_host = Host_id;
+		ev->cause_seq_no = my_log_seq_no;
 	}
-	ev->cause_host = Host_id;
-	ev->cause_seq_no = my_log_seq_no;
 	
 
 #ifdef DEBUG
@@ -283,6 +285,13 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 
+	/*
+	 * if there is no handler, we are done (no need to generate log record)
+	 */
+	if(hand_name == NULL) {
+		return(1);
+	}
+
 	ev->woofc_ndx = ndx;
 #ifdef DEBUG
 	printf("WooFPut: ndx: %lu\n",ev->woofc_ndx);
@@ -349,4 +358,35 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 //	MIOClose(lmio);
 	return(1);
 }
+
+int WooFGet(WOOF *wf, void *elements, int element_count)
+{
+	int i;
+	unsigned long ndx;
+	unsigned char *buf;
+	unsigned char *ptr;
+
+	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
+	
+	i = 0;
+	P(&wf->mutex);
+		ndx = wf->head;
+		while(i < element_count) {
+			ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
+			memcpy(&elements[i],ptr,wf->element_size);
+			i++;
+			ndx = ndx - 1;
+			if(ndx >= wf->history_size) {
+				ndx = 0;
+			}
+			if(ndx == wf->tail) {
+				break;
+			}
+		}
+	V(&wf->mutex);
+
+	return(i);
+
+}
+
 

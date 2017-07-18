@@ -9,6 +9,7 @@
 #include "normal.h"
 
 // from https://en.wikipedia.org/wiki/Wald–Wolfowitz_runs_test
+#ifndef WOOF
 double RunsStat(double *v, int N)
 {
 	int i;
@@ -78,6 +79,114 @@ double RunsStat(double *v, int N)
 
 	return(stat);
 }
+
+#else
+
+/*
+ * WooF version
+ */
+#include "woof.h"
+
+double RunsStat(char *data_woof, int N)
+{
+	WOOF *wf;
+	double *v;
+	int i;
+	double n_plus = 0;
+	double n_minus = 0;
+	double mu;
+	double sigma_sq;
+	double stat;
+	double runs;
+	int b1;
+	int b2;
+
+	if(N == 0) {
+		return(-1);
+	}
+
+	v = (double *)malloc(N * sizeof(double));
+	if(v == NULL) {
+		perror("SHandler: no space\n");
+		exit(1);
+	}
+
+	wf = WooFOpen(data_woof);
+	if(wf == NULL) {
+		fprintf(stderr,"RunStat couldn't open %s\n",
+			data_woof);
+		fflush(stderr);
+		exit(1);
+	}
+
+	err = WooFGet(wf,(void *)v,N);
+	if(err <= 0) {
+		fprintf(stderr,"WooFGet couldn't get random values from %s\n",
+			data_woof);
+		fflush(stderr);
+		exit(1);
+	}
+
+	WooFFree(wf);
+
+
+	for(i=0; i < N; i++) {
+		if(v[i] >= 0.5) {
+			n_plus++;
+		} else {
+			n_minus++;
+		}
+	}
+
+	mu = ((2*n_plus*n_minus) / (double)N) + 1.0;
+	sigma_sq = ((mu - 1) * (mu - 2)) / ((double)N-1.0);
+
+	runs = 1;
+
+	for(i=1; i < N; i++) {
+		if(v[i-1] >= 0.5) {
+			b1 = 1;
+		} else {
+			b1 = 0;
+		}
+		if(v[i] >= 0.5) {
+			b2 = 1;
+		} else {
+			b2 = 0;
+		}
+
+#ifdef DEBUG
+		if(b1 == 1) {
+			printf("+");
+		} else {
+			printf("-");
+		}
+#endif
+
+		if(b1 != b2) {
+			runs++;
+		}
+	}
+
+
+#ifdef DEBUG
+	if(b2 == 1) {
+		printf("+\n");
+	} else {
+		printf("-\n");
+	}
+	printf("runs: %f\n",runs);
+	fflush(stdout);
+#endif
+
+	stat = (runs - mu) / sqrt(sigma_sq);
+
+	free(v);
+
+	return(stat);
+}
+
+#endif
 
 #ifdef STANDALONE 
 
