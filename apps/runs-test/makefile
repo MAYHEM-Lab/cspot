@@ -14,23 +14,32 @@ WHINC=../woofc-host.h
 WHOBJ=../woofc-host.o
 TINC=../woofc-thread.h
 TOBJ=../woofc-thread.o
+KINC=ks
+KLIB=ks/kslib.a
 SHEP_SRC=../woofc-shepherd.c
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
+CFLAGS=-g -I${SINC} -I${KINC}
 
 all: c-runstest c-runstat
 
-c-runstest: c-runstest.c c-runstest.h c-twist.o c-twist.h
-	${CC} ${CFLAGS} -DSTANDALONE -o c-runstest c-runstest.c c-twist.o ${LIBS}
+c-runstest: c-runstest.c c-runstest.h c-twist.o c-twist.h normal.o ${KLIB}
+	${CC} ${CFLAGS} -DSTANDALONE -o c-runstest c-runstest.c c-twist.o ${KLIB} normal.o ${LIBS}
 
 c-runstat: c-runstat.c c-runstest.o c-runstest.h c-twist.o c-twist.h
 	${CC} ${CFLAGS} -o c-runstat c-runstat.c c-runstest.o c-twist.o ${LIBS}
 
 c-runstest.o: c-runstest.c c-runstest.h
-	${CC} ${CFLAGS} -c c-runstest.c c-twist.o ${LIBS}
+	${CC} ${CFLAGS} -c c-runstest.c ${LIBS}
 
 c-twist.o: c-twist.c c-twist.h
 	${CC} ${CFLAGS} -c c-twist.c
+
+normal.o: normal.c normal.h
+	${CC} ${CFLAGS} -c normal.c
+	
+
+${KLIB}:
+	cd ks; make
 
 clean:
 	rm -f *.o c-runstest

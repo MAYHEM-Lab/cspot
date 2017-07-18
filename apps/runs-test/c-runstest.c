@@ -5,6 +5,8 @@
 #include <math.h>
 
 #include "c-twist.h"
+#include "ks.h"
+#include "normal.h"
 
 // from https://en.wikipedia.org/wiki/Wald–Wolfowitz_runs_test
 double RunsStat(double *v, int N)
@@ -97,6 +99,11 @@ int main(int argc, char **argv)
 	struct timeval tm;
 	double *r;
 	double stat;
+	double norm;
+	double kstat;
+	void *d1;
+	void *d2;
+	
 
 	count = 100;
 	sample_size = 30;
@@ -146,17 +153,28 @@ int main(int argc, char **argv)
 	}
 
 	CTwistInitialize(Seed);
+	srand48(Seed);
+
+	InitDataSet(&d1,1);
+	InitDataSet(&d2,1);
 
 	for(j=0; j < count; j++) {
 		for(i=0; i < sample_size; i++) {
 			r[i] = CTwistRandom();
-	//		printf("r: %f\n",r[i]);
-	//		fflush(stdout);
 		}
 		stat = RunsStat(r,sample_size);
-		printf("iteration: %d stat: %f\n",j,stat);
+		norm = InvNormal(drand48(),0.0,1.0);
+		WriteData(d1,1,&stat);
+		WriteData(d2,1,&norm);
 	}
 
+	kstat = KS(d1,1,d2,1);
+
+	printf("ks stat: %f\n",kstat);
+	fflush(stdout);
+
+	FreeDataSet(d1);
+	FreeDataSet(d2);
 
 	return(0);
 }
