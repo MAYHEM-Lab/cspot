@@ -1,0 +1,109 @@
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
+
+#include "c-twist.h"
+#include "c-runstest.h"
+#include "normal.h"
+#include "ks.h"
+
+#include "woofc.h"
+#include "cspot-runstat.h"
+
+
+int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
+{
+	FA *fa = (FA *)ptr;
+	FILE *fd;
+	double kstat;
+	int i;
+	void *normal;
+	void *local;
+	int err;
+	double n;
+	double incr;
+	double value;
+	double critical;
+	double s;
+	WOOF *wf;
+	unsigned long ndx;
+
+	/*
+	 * sanity check
+	 */
+	if(fa->i > fa->count) {
+		pthread_exit(NULL);
+	}
+
+	/*
+	 * generate a Normal(0,1) to compare with
+	 */
+	err = InitDataSet(&normal,1);
+	if(err < 0) {
+		fprintf(stderr,"KHandler couldn't init normal data set\n");
+		exit(1);
+	}
+
+	err = InitDataSet(&local,1);	/* for KS routine */
+	if(err < 0) {
+		fprintf(stderr,"KHandler couldn't init local data set\n");
+		exit(1);
+	}
+
+	wf = WooFOpen(fa->stats);
+	if(wf == NULL) {
+		fprintf(stderr,"KHandler couldn't open stats woof %s\n",
+			fa->stats);
+		exit(1);
+	}
+
+	incr = 1.0 / (double)ta->count;
+	value = 0.0000000001;
+	for(i=0; i < fa->count; i++) {
+		n = InvNormal(value,0.0,1.0);
+		WriteData(normal,1,&n);
+		value += incr;
+		if(value >= 1.0) {
+			value = 0.9999999999;
+		}
+	}
+
+	for(ndx=WooFEarliest(wf); ndx != WooFLatest(wf); ndx = WooFNext(wf,ndx)) {
+		err = WooFGet(wf,&s,ndx);
+		if(err < 0) {
+			fprintf(stderr,"WooFGet failed at %lu for %s\n",
+					ndx,fa->stats);
+			exit(1);
+		}
+		WriteData(local,1,&s);
+	}
+
+
+	critical = KSCritical(fa->alpha,(double)fa->count,(double)fa->count);
+	kstat = KS(local,1,normal,1);
+
+	FreeDataSet(local);
+
+
+	if(ta->logfile != NULL) {
+		fd = fopen(ta->logfile,"a");
+	} else {
+		fd = stdout;
+	}
+	fprintf(fd,"ks stat: %f alpha: %f critical value: %f\n",
+		kstat, ta->alpha, critical);
+	if(ta->logfile != NULL) {
+		fclose(fd);
+	} else {
+		fflush(stdout);
+	}
+
+	WooFFree(wf);
+	pthread_exit(NULL);
+}
+
