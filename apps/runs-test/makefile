@@ -1,24 +1,24 @@
 CC=gcc
-UINC=../../euca-cutils
-MINC=../../mio
-SINC=../
-ULIB=../../euca-cutils/libutils.a
-MLIB=../../mio/mio.o ../../mio/mymalloc.o
-SLIB=../lsema.o
+UINC=../../../euca-cutils
+MINC=../../../mio
+SINC=../..
+ULIB=../../../euca-cutils/libutils.a
+MLIB=../../../mio/mio.o ../../mio/mymalloc.o
+SLIB=../../lsema.o
 LIBS=-lpthread -lm
-LOBJ=../log.o ../host.o ../event.o
-LINC=../log.h ../host.h ../event.h
-WINC=../woofc.h
-WOBJ=../woofc.o
-WHINC=../woofc-host.h
-WHOBJ=../woofc-host.o
-TINC=../woofc-thread.h
-TOBJ=../woofc-thread.o
+LOBJ=../../log.o ../host.o ../event.o
+LINC=../../log.h ../host.h ../event.h
+WINC=../..
+WOBJ=../../woofc.o
+WHINC=../..
+WHOBJ=../../woofc-host.o
+TINC=../..
+TOBJ=../../woofc-thread.o
 KINC=ks
 KLIB=ks/kslib.a
-SHEP_SRC=../woofc-shepherd.c
+SHEP_SRC=../../woofc-shepherd.c
 
-CFLAGS=-g -I${SINC} -I${KINC}
+CFLAGS=-g -I${SINC} -I${KINC} -I${MINC} -I${UINC}
 
 all: c-runstest c-runstat
 
@@ -30,6 +30,9 @@ c-runstat: c-runstat.c c-runstest.o c-runstest.h c-twist.o c-twist.h
 
 c-runstest.o: c-runstest.c c-runstest.h
 	${CC} ${CFLAGS} -c c-runstest.c ${LIBS}
+
+c-runstest-cspot.o: c-runstest.c c-runstest.h
+	${CC} ${CFLAGS} -DHAS_WOOF -c c-runstest.c -o c-runstest-cspot.o ${LIBS}
 
 c-twist.o: c-twist.c c-twist.h
 	${CC} ${CFLAGS} -c c-twist.c

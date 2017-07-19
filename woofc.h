@@ -34,7 +34,11 @@ int WooFCreate(char *name,
                unsigned long history_size);
 WOOF *WooFOpen(char *name);
 int WooFPut(char *wf_name, char *wf_handler, void *element);
-int WooFGet(WOOF *wf, void *elements, int element_count);
+int WooFGet(WOOF *wf, void *element, unsigned long ndx);
+int WooFGetTail(WOOF *wf, void *elements, int element_count);
+unsigned long WooFEarliest(WOOF *wf);
+unsigned long WooFLatest(WOOF *wf);
+unsigned long WooFNext(WOOF *wf, unsigned long ndx);
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_WOOF_LOG_SIZE (10000)

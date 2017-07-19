@@ -359,21 +359,24 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	return(1);
 }
 
-int WooFGet(WOOF *wf, void *elements, int element_count)
+int WooFGetTail(WOOF *wf, void *elements, int element_count)
 {
 	int i;
 	unsigned long ndx;
 	unsigned char *buf;
 	unsigned char *ptr;
+	unsigned char *lp;
 
 	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
 	
 	i = 0;
+	lp = (unsigned char *)elements;
 	P(&wf->mutex);
 		ndx = wf->head;
 		while(i < element_count) {
 			ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
-			memcpy(&elements[i],ptr,wf->element_size);
+			memcpy(lp,ptr,wf->element_size);
+			lp += wf->element_size;
 			i++;
 			ndx = ndx - 1;
 			if(ndx >= wf->history_size) {
@@ -387,6 +390,45 @@ int WooFGet(WOOF *wf, void *elements, int element_count)
 
 	return(i);
 
+}
+
+int WooFGet(WOOF *wf, void *element, unsigned long ndx)
+{
+	unsigned char *buf;
+	unsigned char *ptr;
+
+	/*
+	 * must be a valid index
+	 */
+	if(ndx >= wf->history_size) {
+		return(-1);
+	}
+	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
+	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
+	memcpy(element,ptr,sizeof(wf->element_size));
+	return(1);
+}
+
+unsigned long WooFEarliest(WOOF *wf)
+{
+	unsigned long earliest;
+
+	earliest = (wf->tail + 1) % wf->history_size;
+	return(earliest);
+}
+
+unsigned long WooFLatest(WOOF *wf)
+{
+	return(wf->head);
+}
+
+unsigned long WooFNext(WOOF *wf, unsigned long ndx)
+{
+	unsigned long next;
+
+	next = (ndx + 1) % wf->history_size;
+
+	return(next);
 }
 
 

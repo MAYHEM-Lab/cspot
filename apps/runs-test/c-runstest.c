@@ -9,7 +9,7 @@
 #include "normal.h"
 
 // from https://en.wikipedia.org/wiki/Wald–Wolfowitz_runs_test
-#ifndef WOOF
+#ifndef HAS_WOOF
 double RunsStat(double *v, int N)
 {
 	int i;
@@ -85,12 +85,13 @@ double RunsStat(double *v, int N)
 /*
  * WooF version
  */
-#include "woof.h"
+#include "woofc.h"
 
 double RunsStat(char *data_woof, int N)
 {
 	WOOF *wf;
-	double *v;
+	double v;
+	double v2;
 	int i;
 	double n_plus = 0;
 	double n_minus = 0;
@@ -100,15 +101,14 @@ double RunsStat(char *data_woof, int N)
 	double runs;
 	int b1;
 	int b2;
+	unsigned long latest;
+	unsigned long earliest;
+	unsigned long ndx;
+	int err;
+	
 
 	if(N == 0) {
 		return(-1);
-	}
-
-	v = (double *)malloc(N * sizeof(double));
-	if(v == NULL) {
-		perror("SHandler: no space\n");
-		exit(1);
 	}
 
 	wf = WooFOpen(data_woof);
@@ -119,37 +119,66 @@ double RunsStat(char *data_woof, int N)
 		exit(1);
 	}
 
-	err = WooFGet(wf,(void *)v,N);
-	if(err <= 0) {
-		fprintf(stderr,"WooFGet couldn't get random values from %s\n",
-			data_woof);
-		fflush(stderr);
-		exit(1);
-	}
+	earliest = WooFEarliest(wf);
+	latest = WooFLatest(wf);
 
-	WooFFree(wf);
-
-
-	for(i=0; i < N; i++) {
-		if(v[i] >= 0.5) {
+	i = 0;
+	for(ndx=earliest; ndx != latest; ndx = WooFNext(wf,ndx)) {
+		err = WooFGet(wf,(void *)&v,ndx);
+		if(err <= 0) {
+			fprintf(stderr,
+			"WooFGet couldn't get random values from %s at %lu\n",
+			data_woof,ndx);
+			fflush(stderr);
+			exit(1);
+		}
+		if(v >= 0.5) {
 			n_plus++;
 		} else {
 			n_minus++;
 		}
+		i++;
+		if(i >= N) {
+			break;
+		}
+	}
+
+	if(i != N) {
+		fprintf(stderr,"short history: i: %d, N: %d\n",
+			i,N);
+		fflush(stderr);
+		exit(1);
 	}
 
 	mu = ((2*n_plus*n_minus) / (double)N) + 1.0;
 	sigma_sq = ((mu - 1) * (mu - 2)) / ((double)N-1.0);
 
 	runs = 1;
+	err = WooFGet(wf,(void *)&v,earliest);
+	if(err <= 0) {
+		fprintf(stderr,
+		"WooFGet couldn't reget random values from %s at %lu\n",
+			data_woof,ndx);
+			fflush(stderr);
+			exit(1);
+	}
 
+	ndx = WooFNext(wf,earliest);
 	for(i=1; i < N; i++) {
-		if(v[i-1] >= 0.5) {
+		err = WooFGet(wf,(void *)&v2,ndx);
+		if(err <= 0) {
+			fprintf(stderr,
+		"WooFGet couldn't reget second random values from %s at %lu\n",
+			data_woof,ndx);
+			fflush(stderr);
+			exit(1);
+		}
+		if(v >= 0.5) {
 			b1 = 1;
 		} else {
 			b1 = 0;
 		}
-		if(v[i] >= 0.5) {
+		if(v2 >= 0.5) {
 			b2 = 1;
 		} else {
 			b2 = 0;
@@ -166,6 +195,8 @@ double RunsStat(char *data_woof, int N)
 		if(b1 != b2) {
 			runs++;
 		}
+		v = v2;
+		ndx = WooFNext(wf,ndx);
 	}
 
 
@@ -181,7 +212,7 @@ double RunsStat(char *data_woof, int N)
 
 	stat = (runs - mu) / sqrt(sigma_sq);
 
-	free(v);
+	WooFFree(wf);
 
 	return(stat);
 }
