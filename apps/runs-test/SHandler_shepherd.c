@@ -10,6 +10,7 @@
 
 #include "woofc.h"
 
+
 LOG *Host_log;
 unsigned long Host_id;
 char WooF_dir[2048];

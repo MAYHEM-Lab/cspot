@@ -8,6 +8,8 @@
 #include "ks.h"
 #include "normal.h"
 
+#define DEBUG
+
 // from https://en.wikipedia.org/wiki/Wald–Wolfowitz_runs_test
 #ifndef HAS_WOOF
 double RunsStat(double *v, int N)
@@ -119,11 +121,9 @@ double RunsStat(char *data_woof, int N)
 		exit(1);
 	}
 
-	earliest = WooFEarliest(wf);
-	latest = WooFLatest(wf);
 
 	i = 0;
-	for(ndx=earliest; ndx != latest; ndx = WooFNext(wf,ndx)) {
+	for(ndx=WooFLatest(wf); i < N; ndx = WooFBack(wf,i)) {
 		err = WooFGet(wf,(void *)&v,ndx);
 		if(err <= 0) {
 			fprintf(stderr,
@@ -132,15 +132,18 @@ double RunsStat(char *data_woof, int N)
 			fflush(stderr);
 			exit(1);
 		}
+
+#ifdef DEBUG
+		printf("data_woof: %s, ndx: %lu, v: %f\n",
+			data_woof,ndx,v);
+		fflush(stdout);
+#endif
 		if(v >= 0.5) {
 			n_plus++;
 		} else {
 			n_minus++;
 		}
 		i++;
-		if(i >= N) {
-			break;
-		}
 	}
 
 	if(i != N) {
@@ -153,8 +156,14 @@ double RunsStat(char *data_woof, int N)
 	mu = ((2*n_plus*n_minus) / (double)N) + 1.0;
 	sigma_sq = ((mu - 1) * (mu - 2)) / ((double)N-1.0);
 
+#ifdef DEBUG
+	printf("mu: %f, sigma_sq: %f\n",mu,sigma_sq);
+	fflush(stdout);
+#endif	
+
 	runs = 1;
-	err = WooFGet(wf,(void *)&v,earliest);
+	ndx = WooFBack(wf,N-1);
+	err = WooFGet(wf,(void *)&v,ndx);
 	if(err <= 0) {
 		fprintf(stderr,
 		"WooFGet couldn't reget random values from %s at %lu\n",
@@ -163,7 +172,7 @@ double RunsStat(char *data_woof, int N)
 			exit(1);
 	}
 
-	ndx = WooFNext(wf,earliest);
+	ndx = WooFBack(wf,N-2);
 	for(i=1; i < N; i++) {
 		err = WooFGet(wf,(void *)&v2,ndx);
 		if(err <= 0) {

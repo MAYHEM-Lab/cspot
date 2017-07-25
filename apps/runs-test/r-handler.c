@@ -15,6 +15,8 @@
 #include "woofc.h"
 #include "cspot-runstat.h"
 
+uint32_t Seed;
+
 
 int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 {
@@ -23,6 +25,7 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	FA next_s;
 	int err;
 	double r;
+	struct timeval tm;
 
 	/*
 	 * sanity checks
@@ -35,6 +38,9 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		pthread_exit(NULL);
 	}
 
+	gettimeofday(&tm,NULL);
+	Seed = (uint32_t)((tm.tv_sec + tm.tv_usec) % 0xFFFFFFFF);
+	CTwistInitialize(Seed);
 	/*
 	 * fix this to use woof for random state
 	 */
@@ -57,17 +63,17 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
+printf("putting %f to %s\n",r,fa->r);
+fflush(stdout);
 	/*
 	 * put put the random value with no handler
 	 */
-	err = WooFPut(wf,NULL,&r);
+	err = WooFPut(fa->r,NULL,&r);
 	if(err < 0) {
 		fprintf(stderr,"RHandler couldn't put random value\n");
 		exit(1);
 	}
 
-	
-	
 
 	/*
 	 * if the buffer is full, create an SThread

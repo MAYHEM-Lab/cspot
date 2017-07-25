@@ -14,7 +14,6 @@ extern char Host_log_name[2048];
 extern unsigned long Host_id;
 extern LOG *Host_log;
 
-#define DEBUG
 
 
 int WooFCreate(char *name,

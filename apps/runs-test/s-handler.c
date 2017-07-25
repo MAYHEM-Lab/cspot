@@ -22,6 +22,11 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	FA next_k;
 	double stat;
 	int err;
+	FILE *fd;
+
+printf("SHandler: i: %d, j: %d, ss: %d, count: %d\n",
+	fa->i,fa->j,fa->sample_size,fa->count);
+fflush(stdout);
 
 	/*
 	 * sanity check
@@ -48,7 +53,6 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-#if 0
 	if(fa->logfile != NULL) {
 		fd = fopen(fa->logfile,"a");
 	} else {
@@ -60,7 +64,6 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	} else {
 		fflush(stdout);
 	}
-#endif
 
 
 	if(fa->i == (fa->count - 1)) {

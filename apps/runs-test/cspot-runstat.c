@@ -86,21 +86,23 @@ int main(int argc, char **argv)
 		Seed = (uint32_t)((tm.tv_sec + tm.tv_usec) % 0xFFFFFFFF);
 	}
 
-	err = WooFCreate("Rargs",sizeof(FA),sample_size*3);
+	WooFInit(1);
+
+	err = WooFCreate("Rargs",sizeof(FA),sample_size*100);
 	if(err < 0) {
 		fprintf(stderr,"WooFCreate for Rargs failed\n");
 		fflush(stderr);
 		exit(1);
 	}
 
-	err = WooFCreate("Sargs",sizeof(FA),count*3);
+	err = WooFCreate("Sargs",sizeof(FA),count*100);
 	if(err < 0) {
 		fprintf(stderr,"WooFCreate for Sargs failed\n");
 		fflush(stderr);
 		exit(1);
 	}
 
-	err = WooFCreate("Kargs",sizeof(FA),count*3);
+	err = WooFCreate("Kargs",sizeof(FA),count*100);
 	if(err < 0) {
 		fprintf(stderr,"WooFCreate for Kargs failed\n");
 		fflush(stderr);
