@@ -221,7 +221,17 @@ double RunsStat(char *data_woof, int N)
 
 	stat = (runs - mu) / sqrt(sigma_sq);
 
+#ifdef DEBUG
+	printf("stat %f\n",stat);
+	fflush(stdout);
+#endif
+
 	WooFFree(wf);
+
+#ifdef DEBUG
+	printf("returning stat %f\n",stat);
+	fflush(stdout);
+#endif
 
 	return(stat);
 }

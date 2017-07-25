@@ -16,6 +16,8 @@ unsigned long Host_id;
 char WooF_dir[2048];
 char Host_log_name[2048];
 
+#define DEBUG
+
 
 int main(int argc, char **argv, char **envp)
 {

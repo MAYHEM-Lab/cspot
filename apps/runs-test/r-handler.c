@@ -31,11 +31,11 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	 * sanity checks
 	 */
 	if(fa->i >= fa->count) {
-		pthread_exit(NULL);
+		return(1);
 	}
 
 	if(fa->j >= fa->sample_size) {
-		pthread_exit(NULL);
+		return(1);
 	}
 
 	gettimeofday(&tm,NULL);
@@ -63,7 +63,7 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-printf("putting %f to %s\n",r,fa->r);
+printf("RHandler: i: %d, j: %d, putting %f to %s\n",fa->i,fa->j,r,fa->r);
 fflush(stdout);
 	/*
 	 * put put the random value with no handler
@@ -79,6 +79,8 @@ fflush(stdout);
 	 * if the buffer is full, create an SThread
 	 */
 	if(fa->j == (fa->sample_size - 1)) {
+printf("RHandler putting SHandler\n");
+fflush(stdout);
 		/*
 	 	* launch the stat handler
 	 	*/
@@ -91,5 +93,5 @@ fflush(stdout);
 
 	}
 
-	pthread_exit(NULL);
+	return(1);
 }

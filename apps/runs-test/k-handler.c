@@ -38,7 +38,7 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	 * sanity check
 	 */
 	if(fa->i > fa->count) {
-		pthread_exit(NULL);
+		return(1);
 	}
 
 	/*
@@ -107,6 +107,7 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 
 	WooFFree(s_wf);
-	pthread_exit(NULL);
+
+	return(1);
 }
 

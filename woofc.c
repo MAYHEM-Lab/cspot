@@ -130,7 +130,7 @@ WOOF *WooFOpen(char *name)
 
 void WooFFree(WOOF *wf)
 {
-	MIOClose(wf->mio);
+//	MIOClose(wf->mio);
 
 	return;
 }

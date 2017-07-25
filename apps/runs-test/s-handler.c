@@ -32,17 +32,19 @@ fflush(stdout);
 	 * sanity check
 	 */
 	if(fa->i >= fa->count) {
-		pthread_exit(NULL);
+		return(1);
 	}
 
 	/*
 	 * sanity check
 	 */
 	if(fa->j != (fa->sample_size - 1)) {
-		pthread_exit(NULL);
+		return(1);
 	}
 
 	stat = RunsStat(fa->r,fa->sample_size);
+printf("SHandler: putting %f to %s\n",stat,fa->stats);
+fflush(stdout);
 
 	/*
 	 * put the stat without a handler
@@ -52,6 +54,8 @@ fflush(stdout);
 		fprintf(stderr,"SHandler couldn't put stat\n");
 		exit(1);
 	}
+printf("SHandler: finished put %f to %s\n",stat,fa->stats);
+fflush(stdout);
 
 	if(fa->logfile != NULL) {
 		fd = fopen(fa->logfile,"a");
@@ -74,7 +78,7 @@ fflush(stdout);
 			exit(1);
 		}
 	}
-	pthread_exit(NULL);
+	return(1);
 }
 
 
