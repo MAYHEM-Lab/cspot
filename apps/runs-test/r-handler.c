@@ -60,7 +60,7 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	/*
 	 * put put the random value with no handler
 	 */
-	err = WooFPut(wf->r,NULL,&r);
+	err = WooFPut(wf,NULL,&r);
 	if(err < 0) {
 		fprintf(stderr,"RHandler couldn't put random value\n");
 		exit(1);

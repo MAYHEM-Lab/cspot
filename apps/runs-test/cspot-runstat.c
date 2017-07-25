@@ -7,6 +7,7 @@
 
 #include "woofc.h"
 #include "cspot-runstat.h"
+#include "c-twist.h"
 
 
 #define ARGS "c:S:s:L:a:"

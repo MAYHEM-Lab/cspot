@@ -30,8 +30,9 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	double value;
 	double critical;
 	double s;
-	WOOF *wf;
 	unsigned long ndx;
+	int count;
+	WOOF *s_wf;
 
 	/*
 	 * sanity check
@@ -55,14 +56,14 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-	wf = WooFOpen(fa->stats);
+	s_wf = WooFOpen(fa->stats);
 	if(wf == NULL) {
 		fprintf(stderr,"KHandler couldn't open stats woof %s\n",
 			fa->stats);
 		exit(1);
 	}
 
-	incr = 1.0 / (double)ta->count;
+	incr = 1.0 / (double)fa->count;
 	value = 0.0000000001;
 	for(i=0; i < fa->count; i++) {
 		n = InvNormal(value,0.0,1.0);
@@ -73,7 +74,8 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 	}
 
-	for(ndx=WooFEarliest(wf); ndx != WooFLatest(wf); ndx = WooFNext(wf,ndx)) {
+	count = 0;
+	for(ndx=WooFLatest(wf); count < fa->count; ndx = WooFBack(wf,count)) {
 		err = WooFGet(wf,&s,ndx);
 		if(err < 0) {
 			fprintf(stderr,"WooFGet failed at %lu for %s\n",
@@ -81,6 +83,7 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 			exit(1);
 		}
 		WriteData(local,1,&s);
+		count++;
 	}
 
 
@@ -90,20 +93,20 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	FreeDataSet(local);
 
 
-	if(ta->logfile != NULL) {
-		fd = fopen(ta->logfile,"a");
+	if(fa->logfile != NULL) {
+		fd = fopen(fa->logfile,"a");
 	} else {
 		fd = stdout;
 	}
 	fprintf(fd,"ks stat: %f alpha: %f critical value: %f\n",
-		kstat, ta->alpha, critical);
-	if(ta->logfile != NULL) {
+		kstat, fa->alpha, critical);
+	if(fa->logfile != NULL) {
 		fclose(fd);
 	} else {
 		fflush(stdout);
 	}
 
-	WooFFree(wf);
+	WooFFree(s_wf);
 	pthread_exit(NULL);
 }
 

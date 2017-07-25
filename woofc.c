@@ -431,4 +431,30 @@ unsigned long WooFNext(WOOF *wf, unsigned long ndx)
 	return(next);
 }
 
+unsigned long WooFBack(WOOF *wf, unsigned long elements)
+{
+	unsigned long remainder = elements % wf->history_size;
+	unsigned long new;
+	unsigned long wrap;
+
+	if(elements == 0) {
+		return(wf->head);
+	}
+
+	new = wf->head - remainder;
+
+	/*
+	 * if we need to wrap around
+	 */
+	if(new >= wf->history_size) {
+		wrap = remainder - wf->head;
+		new = wf->history_size - wrap;
+	}
+
+	return(new);
+}
+		
+
+	
+
 

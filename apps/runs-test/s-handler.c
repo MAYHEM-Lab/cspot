@@ -1,3 +1,4 @@
+#define HAS_WOOF
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -48,13 +49,13 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 
 #if 0
-	if(ta->logfile != NULL) {
-		fd = fopen(ta->logfile,"a");
+	if(fa->logfile != NULL) {
+		fd = fopen(fa->logfile,"a");
 	} else {
 		fd = stdout;
 	}
-	fprintf(fd,"i: %d stat: %f\n",ta->i,stat);
-	if(ta->logfile != NULL) {
+	fprintf(fd,"i: %d stat: %f\n",fa->i,stat);
+	if(fa->logfile != NULL) {
 		fclose(fd);
 	} else {
 		fflush(stdout);

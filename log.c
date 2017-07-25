@@ -8,9 +8,6 @@
 #include "mio.h"
 #include "log.h"
 
-int yan()
-{return(1);}
-
 
 
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
