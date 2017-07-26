@@ -318,7 +318,7 @@ void *WooFLauncher(void *arg)
 			 centos:7\
 			 %s/%s",
 				woof_shepherd_dir,
-				wf->filename,
+				wf->shared->filename,
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
 				Host_id,
@@ -339,7 +339,9 @@ void *WooFLauncher(void *arg)
 			ev[first].seq_no, ev[first].woofc_handler);
 		fflush(stdout);
 #endif
-		LogFree(log_tail); /* frees wf implicitly */
+		LogFree(log_tail); 
+		WooFFree(wf);
+
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {
 			/* LOGGING

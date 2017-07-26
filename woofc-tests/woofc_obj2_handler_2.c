@@ -29,11 +29,11 @@ int woofc_obj2_handler_2(WOOF *wf, unsigned long seq_no, void *ptr)
 		el.counter++;
 		fprintf(fd,"handler2, calling put counter: %lu, seq_no: %lu\n",el.counter, seq_no);
 		fflush(fd);
-		WooFPut(wf->filename,"woofc_obj2_handler_3",&el);
+		WooFPut(wf->shared->filename,"woofc_obj2_handler_3",&el);
 		el.counter++;
 		fprintf(fd,"handler2, calling put counter: %lu, seq_no: %lu\n",el.counter, seq_no);
 		fflush(fd);
-		WooFPut(wf->filename,"woofc_obj2_handler_3",&el);
+		WooFPut(wf->shared->filename,"woofc_obj2_handler_3",&el);
 	} else {
 	fprintf(fd,"handler2 done, counter: %lu, seq_no: %lu\n",el.counter, seq_no);
 	fflush(fd);

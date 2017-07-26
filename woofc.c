@@ -20,7 +20,7 @@ int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
 {
-	WOOF *wf;
+	WOOF_SHARED *wf;
 	MIO *mio;
 	unsigned long space;
 	char local_name[4096];
@@ -61,9 +61,8 @@ int WooFCreate(char *name,
 	fflush(stdout);
 #endif
 
-	wf = (WOOF *)MIOAddr(mio);
-	memset(wf,0,sizeof(WOOF));
-	wf->mio = mio;
+	wf = (WOOF_SHARED *)MIOAddr(mio);
+	memset(wf,0,sizeof(WOOF_SHARED));
 
 	if(name != NULL) {
 		strncpy(wf->filename,name,sizeof(wf->filename));
@@ -71,9 +70,6 @@ int WooFCreate(char *name,
 		strncpy(wf->filename,fname,sizeof(wf->filename));
 	}
 
-	memset(wf->handler_name,0,sizeof(wf->handler_name));
-	strncpy(wf->handler_name,name,sizeof(wf->handler_name));
-	strncat(wf->handler_name,".handler",sizeof(wf->handler_name)-strlen(wf->handler_name));
 	wf->history_size = history_size;
 	wf->element_size = element_size;
 	wf->seq_no = 1;
@@ -81,7 +77,7 @@ int WooFCreate(char *name,
 	InitSem(&wf->mutex,1);
 	InitSem(&wf->tail_wait,0);
 
-	MIOClose(wf->mio);
+	MIOClose(mio);
 
 	return(1);
 }
@@ -89,6 +85,7 @@ int WooFCreate(char *name,
 WOOF *WooFOpen(char *name)
 {
 	WOOF *wf;
+	WOOF_SHARED *wfs;
 	MIO *mio;
 	char local_name[4096];
 
@@ -123,14 +120,23 @@ WOOF *WooFOpen(char *name)
 	fflush(stdout);
 #endif
 
-	wf = (WOOF *)MIOAddr(mio);
+	wf = (WOOF *)malloc(sizeof(WOOF));
+	if(wf == NULL) {
+		MIOClose(mio);
+		return(NULL);
+	}
+	memset(wf,0,sizeof(WOOF));
+
+	wf->shared = (WOOF_SHARED *)MIOAddr(mio);
+	wf->mio = mio;
 
 	return(wf);
 }
 
 void WooFFree(WOOF *wf)
 {
-//	MIOClose(wf->mio);
+	MIOClose(wf->mio);
+	free(wf);
 
 	return;
 }
@@ -142,6 +148,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	MIO *lmio;
 	LOG *host_log;
 	WOOF *wf;
+	WOOF_SHARED *wfs;
 	char woof_name[2048];
 	char log_name[4096];
 	pthread_t tid;
@@ -179,10 +186,16 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 
 	wf = WooFOpen(wf_name);
 
+	if(wf == NULL) {
+		return(-1);
+	}
+
 #ifdef DEBUG
 	printf("WooFPut: WooF %s open\n",wf_name);
 	fflush(stdout);
 #endif
+
+	wfs = wf->shared;
 
 	/*
 	 * if called from within a handler, env variable carries cause seq_no
@@ -215,7 +228,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	/*
 	 * now drop the element in the object
 	 */
-	P(&wf->mutex);
+	P(&wfs->mutex);
 #ifdef DEBUG
 	printf("WooFPut: in mutex\n");
 	fflush(stdout);
@@ -223,15 +236,15 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	/*
 	 * find the next spot
 	 */
-	next = (wf->head + 1) % wf->history_size;
+	next = (wfs->head + 1) % wfs->history_size;
 	ndx = next;
 
 	/*
 	 * write the data and record the indices
 	 */
-	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
-	ptr = buf + (next * (wf->element_size + sizeof(ELID)));
-	el_id = (ELID *)(ptr + wf->element_size);
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+	ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
 
 	/*
 	 * tail is the last valid place where data could go
@@ -242,17 +255,17 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: element in\n");
 	fflush(stdout);
 #endif
-	while((el_id->busy == 1) && (next == wf->tail)) {
+	while((el_id->busy == 1) && (next == wfs->tail)) {
 #ifdef DEBUG
 	printf("WooFPut: busy at %lu\n",next);
 	fflush(stdout);
 #endif
-		V(&wf->mutex);
-		P(&wf->tail_wait);
-		P(&wf->mutex);
-		next = (wf->head + 1) % wf->history_size;
-		ptr = buf + (next * (wf->element_size + sizeof(ELID)));
-		el_id = (ELID *)(ptr+wf->element_size);
+		V(&wfs->mutex);
+		P(&wfs->tail_wait);
+		P(&wfs->mutex);
+		next = (wfs->head + 1) % wfs->history_size;
+		ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
+		el_id = (ELID *)(ptr+wfs->element_size);
 	}
 
 	/*
@@ -262,23 +275,23 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: writing element 0x%x\n",el_id);
 	fflush(stdout);
 #endif
-	memcpy(ptr,element,wf->element_size);
+	memcpy(ptr,element,wfs->element_size);
 	/*
 	 * and elemant meta data after it
 	 */
-	el_id->seq_no = wf->seq_no;
+	el_id->seq_no = wfs->seq_no;
 	el_id->busy = 1;
 
 	/*
 	 * update circular buffer
 	 */
-	ndx = wf->head = next;
-	if(next == wf->tail) {
-		wf->tail = (wf->tail + 1) % wf->history_size;
+	ndx = wfs->head = next;
+	if(next == wfs->tail) {
+		wfs->tail = (wfs->tail + 1) % wfs->history_size;
 	}
-	seq_no = wf->seq_no;
-	wf->seq_no++;
-	V(&wf->mutex);
+	seq_no = wfs->seq_no;
+	wfs->seq_no++;
+	V(&wfs->mutex);
 #ifdef DEBUG
 	printf("WooFPut: out of element mutex\n");
 	fflush(stdout);
@@ -301,18 +314,18 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: seq_no: %lu\n",ev->woofc_seq_no);
 	fflush(stdout);
 #endif
-	ev->woofc_element_size = wf->element_size;
+	ev->woofc_element_size = wfs->element_size;
 #ifdef DEBUG
 	printf("WooFPut: element_size %lu\n",ev->woofc_element_size);
 	fflush(stdout);
 #endif
-	ev->woofc_history_size = wf->history_size;
+	ev->woofc_history_size = wfs->history_size;
 #ifdef DEBUG
 	printf("WooFPut: history_size %lu\n",ev->woofc_history_size);
 	fflush(stdout);
 #endif
 	memset(ev->woofc_name,0,sizeof(ev->woofc_name));
-	strncpy(ev->woofc_name,wf->filename,sizeof(ev->woofc_name));
+	strncpy(ev->woofc_name,wfs->filename,sizeof(ev->woofc_name));
 #ifdef DEBUG
 	printf("WooFPut: name %s\n",ev->woofc_name);
 	fflush(stdout);
@@ -365,27 +378,30 @@ int WooFGetTail(WOOF *wf, void *elements, int element_count)
 	unsigned char *buf;
 	unsigned char *ptr;
 	unsigned char *lp;
+	WOOF_SHARED *wfs;
 
-	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
+	wfs = wf->shared;
+
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
 	
 	i = 0;
 	lp = (unsigned char *)elements;
-	P(&wf->mutex);
-		ndx = wf->head;
+	P(&wfs->mutex);
+		ndx = wfs->head;
 		while(i < element_count) {
-			ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
-			memcpy(lp,ptr,wf->element_size);
-			lp += wf->element_size;
+			ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
+			memcpy(lp,ptr,wfs->element_size);
+			lp += wfs->element_size;
 			i++;
 			ndx = ndx - 1;
-			if(ndx >= wf->history_size) {
+			if(ndx >= wfs->history_size) {
 				ndx = 0;
 			}
-			if(ndx == wf->tail) {
+			if(ndx == wfs->tail) {
 				break;
 			}
 		}
-	V(&wf->mutex);
+	V(&wfs->mutex);
 
 	return(i);
 
@@ -395,65 +411,69 @@ int WooFGet(WOOF *wf, void *element, unsigned long ndx)
 {
 	unsigned char *buf;
 	unsigned char *ptr;
+	WOOF_SHARED *wfs;
+
+	wfs = wf->shared;
 
 	/*
 	 * must be a valid index
 	 */
-	if(ndx >= wf->history_size) {
+	if(ndx >= wfs->history_size) {
 		return(-1);
 	}
-	buf = (unsigned char *)(((void *)wf) + sizeof(WOOF));
-	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
-	memcpy(element,ptr,sizeof(wf->element_size));
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
+	memcpy(element,ptr,sizeof(wfs->element_size));
 	return(1);
 }
 
 unsigned long WooFEarliest(WOOF *wf)
 {
 	unsigned long earliest;
+	WOOF_SHARED *wfs;
 
-	earliest = (wf->tail + 1) % wf->history_size;
+	wfs = wf->shared;
+
+	earliest = (wfs->tail + 1) % wfs->history_size;
 	return(earliest);
 }
 
 unsigned long WooFLatest(WOOF *wf)
 {
-	return(wf->head);
+	return(wf->shared->head);
 }
 
 unsigned long WooFNext(WOOF *wf, unsigned long ndx)
 {
 	unsigned long next;
 
-	next = (ndx + 1) % wf->history_size;
+	next = (ndx + 1) % wf->shared->history_size;
 
 	return(next);
 }
 
 unsigned long WooFBack(WOOF *wf, unsigned long elements)
 {
-	unsigned long remainder = elements % wf->history_size;
+	WOOF_SHARED *wfs = wf->shared;
+	unsigned long remainder = elements % wfs->history_size;
 	unsigned long new;
 	unsigned long wrap;
 
 	if(elements == 0) {
-		return(wf->head);
+		return(wfs->head);
 	}
 
-	new = wf->head - remainder;
+	new = wfs->head - remainder;
 
 	/*
 	 * if we need to wrap around
 	 */
-	if(new >= wf->history_size) {
-		wrap = remainder - wf->head;
-		new = wf->history_size - wrap;
+	if(new >= wfs->history_size) {
+		wrap = remainder - wfs->head;
+		new = wfs->history_size - wrap;
 	}
 
 	return(new);
 }
 		
-
-	
-
 

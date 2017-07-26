@@ -5,10 +5,9 @@
 #include "lsema.h"
 #include "log.h"
 
-struct woof_stc
+struct woof_shared_stc
 {
 	char filename[2048];
-	char handler_name[2048];
 	MIO *mio;
 	sema mutex;
 	sema tail_wait;
@@ -17,6 +16,13 @@ struct woof_stc
 	unsigned long head;
 	unsigned long tail;
 	unsigned long element_size;
+};
+
+typedef struct woof_shared_stc WOOF_SHARED;
+
+struct woof_stc {
+	WOOF_SHARED *shared;
+	MIO *mio;
 };
 
 typedef struct woof_stc WOOF;
