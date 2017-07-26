@@ -57,13 +57,13 @@ fflush(stdout);
 printf("SHandler: finished put %f to %s\n",stat,fa->stats);
 fflush(stdout);
 
-	if(fa->logfile != NULL) {
+	if(fa->logfile[0] != 0) {
 		fd = fopen(fa->logfile,"a");
 	} else {
 		fd = stdout;
 	}
 	fprintf(fd,"i: %d stat: %f\n",fa->i,stat);
-	if(fa->logfile != NULL) {
+	if(fa->logfile[0] != 0) {
 		fclose(fd);
 	} else {
 		fflush(stdout);

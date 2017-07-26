@@ -93,14 +93,14 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	FreeDataSet(local);
 
 
-	if(fa->logfile != NULL) {
+	if(fa->logfile[0] != 0) {
 		fd = fopen(fa->logfile,"a");
 	} else {
 		fd = stdout;
 	}
 	fprintf(fd,"ks stat: %f alpha: %f critical value: %f\n",
 		kstat, fa->alpha, critical);
-	if(fa->logfile != NULL) {
+	if(fa->logfile[0] != 0) {
 		fclose(fd);
 	} else {
 		fflush(stdout);

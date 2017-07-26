@@ -76,7 +76,7 @@ int WooFCreate(char *name,
 	wfs->seq_no = 1;
 
 	InitSem(&wfs->mutex,1);
-	InitSem(&wfs->tail_wait,0);
+	InitSem(&wfs->tail_wait,history_size);
 
 	MIOClose(mio);
 
@@ -166,7 +166,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	EVENT *ev;
 	unsigned long ls;
 #ifdef DEBUG
-	printf("WooFPut: called\n");
+	printf("WooFPut: called %s %s\n",wf_name,hand_name);
 	fflush(stdout);
 #endif
 
@@ -220,6 +220,18 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 		ev->cause_host = Host_id;
 		ev->cause_seq_no = my_log_seq_no;
 	}
+
+#ifdef DEBUG
+	printf("WooFPut: checking for empty slot\n");
+	fflush(stdout);
+#endif
+
+	P(&wfs->tail_wait);
+
+#ifdef DEBUG
+	printf("WooFPut: got empty slot\n");
+	fflush(stdout);
+#endif
 	
 
 #ifdef DEBUG
@@ -256,6 +268,9 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: element in\n");
 	fflush(stdout);
 #endif
+
+
+#if 0
 	while((el_id->busy == 1) && (next == wfs->tail)) {
 #ifdef DEBUG
 	printf("WooFPut: busy at %lu\n",next);
@@ -268,6 +283,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 		ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
 		el_id = (ELID *)(ptr+wfs->element_size);
 	}
+#endif
 
 	/*
 	 * write the element
@@ -300,8 +316,13 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 
 	/*
 	 * if there is no handler, we are done (no need to generate log record)
+	 * However, since there is no handler, woofc-shperherd can't V the counting
+	 * semaphore for the WooF.  Without a handler, the tail is immediately available since
+	 * we don't know whether the WooF will be consumed -- V it in this case
 	 */
 	if(hand_name == NULL) {
+		V(&wfs->tail_wait);
+		WooFFree(wf);
 		return(1);
 	}
 
@@ -364,11 +385,8 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 #endif
 
 	EventFree(ev);
-//	lmio = MIOReOpen(log_name);
-//	host_log = (LOG *)MIOAddr(lmio);
+	WooFFree(wf);
 	V(&Host_log->tail_wait);
-//	MIOClose(mio);
-//	MIOClose(lmio);
 	return(1);
 }
 

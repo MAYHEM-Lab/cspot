@@ -190,6 +190,11 @@ void *WooFLauncher(void *arg)
 		fflush(stdout);
 #endif
 
+		/*
+		 * yield in case other threads need to complete
+		 */
+		pthread_yield();
+
 		if(WooFDone == 1) {
 			break;
 		}

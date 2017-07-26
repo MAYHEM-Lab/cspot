@@ -32,11 +32,11 @@ int main(int argc, char **argv, char **envp)
 	char *host_id;
 	MIO *mio;
 	MIO *lmio;
-	unsigned long mio_size;
 	char full_name[2048];
 	char log_name[4096];
 
 	WOOF *wf;
+	WOOF_SHARED *wfs;
 	ELID *el_id;
 	unsigned char *buf;
 	unsigned char *ptr;
@@ -49,8 +49,13 @@ int main(int argc, char **argv, char **envp)
 	unsigned long host_log_size;
 	int err;
 	char *st = "SHandler";
+
+	/*
+	 * close stdin to make docker happy
+	 */
+	fclose(stdin);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: for handler %s\n",st);
+	fprintf(stdout,"WooFShepherd: called for handler %s\n",st);
 	fflush(stdout);
 #endif
 
@@ -163,14 +168,25 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
+#if 0
 	mio = MIOReOpen(full_name);
 	if(mio == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't open %s with size %lu\n",full_name,mio_size);
+		fprintf(stderr,"WooFShepherd: couldn't open %s with size %lu\n",full_name);
 		fflush(stderr);
 		exit(1);
 	}
+#endif
+
+	wf = WooFOpen(wf_name);
+	if(wf == NULL) {
+		fprintf(stderr,"WooFShepherd: couldn't open %s\n",full_name);
+		fflush(stderr);
+		exit(1);
+	}
+
+	wfs = wf->shared;
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: mio %s open\n",full_name);
+	fprintf(stdout,"WooFShepherd: woof %s open\n",full_name);
 	fflush(stdout);
 #endif
 
@@ -190,54 +206,67 @@ int main(int argc, char **argv, char **envp)
 #endif
 
 
-	wf = (WOOF *)MIOAddr(mio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: wf: 0x%u assigned, el size: %lu\n",
-			wf,wf->element_size);
+			wfs,wfs->element_size);
 	fflush(stdout);
 #endif
 
-	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
+//	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
+	buf = (unsigned char *)(((void *)wfs)+sizeof(WOOF_SHARED));
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: buf assigned 0x%u\n",buf);
 	fflush(stdout);
 #endif
-	ptr = buf + (ndx * (wf->element_size + sizeof(ELID)));
+	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: ptr assigned\n");
 	fflush(stdout);
 #endif
-	el_id = (ELID *)(ptr+wf->element_size);
+	el_id = (ELID *)(ptr+wfs->element_size);
 
-	farg = (unsigned char *)malloc(wf->element_size);
+	farg = (unsigned char *)malloc(wfs->element_size);
 	if(farg == NULL) {
 		fprintf(stderr,"WooFShepherd: no space for farg of size %d\n",
-				wf->element_size);
+				wfs->element_size);
 		fflush(stderr);
 		return(-1);
 	}
 
-	memcpy(farg,ptr,wf->element_size);
+	memcpy(farg,ptr,wfs->element_size);
 
 	/*
 	 * now that we have the argument copied, free the slot in the woof
 	 */
 
-	P(&wf->mutex);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: about to enter mutex\n");
+	fflush(stdout);
+#endif
+	P(&wfs->mutex);
+
+	/*
+	 * mark element as done to prevent handler crash from causing deadlock
+	 */
 	el_id->busy = 0;
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: marked el done at %lu\n",ndx);
+	fprintf(stdout,"WooFShepherd: marked el done at %lu and signalling\n",ndx);
 	fflush(stdout);
 #endif
 
-	next = (wf->head + 1) % wf->history_size;
+	V(&wfs->tail_wait);
+
+#if 0
+	next = (wfs->head + 1) % wfs->history_size;
 	/*
 	 * if PUT is waiting for the tail available, signal
 	 */
 	if(next == ndx) {
-		V(&wf->tail_wait);
+		V(&wfs->tail_wait);
 	}
-	V(&wf->mutex);
+#endif
+
+	V(&wfs->mutex);
 	/*
 	 * invoke the function
 	 */
@@ -255,17 +284,23 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 	free(farg);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: called free, seq_no: %lu\n",seq_no);
+	fflush(stdout);
+#endif
 	/* LOGGING
 	 * log either event success or failure here
 	 */
-	/*
-	 * mark the element as consumed
-	 */
 
-	MIOClose(mio);
+//	MIOClose(mio);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
+	fflush(stdout);
+#endif
+	WooFFree(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: exiting\n");
+	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
 	exit(0);
@@ -273,7 +308,3 @@ int main(int argc, char **argv, char **envp)
 }
 		
 
-	
-
-
-	
