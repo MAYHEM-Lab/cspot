@@ -14,13 +14,14 @@ extern char Host_log_name[2048];
 extern unsigned long Host_id;
 extern LOG *Host_log;
 
+#define DEBUG
 
 
 int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
 {
-	WOOF_SHARED *wf;
+	WOOF_SHARED *wfs;
 	MIO *mio;
 	unsigned long space;
 	char local_name[4096];
@@ -31,7 +32,7 @@ int WooFCreate(char *name,
 	 * function cancel if we wrap
 	 */
 	space = ((history_size+1) * (element_size +sizeof(ELID))) + 
-			sizeof(WOOF);
+			sizeof(WOOF_SHARED);
 
 	if(WooF_dir == NULL) {
 		fprintf(stderr,"WooFCreate: must init system\n");
@@ -61,21 +62,21 @@ int WooFCreate(char *name,
 	fflush(stdout);
 #endif
 
-	wf = (WOOF_SHARED *)MIOAddr(mio);
-	memset(wf,0,sizeof(WOOF_SHARED));
+	wfs = (WOOF_SHARED *)MIOAddr(mio);
+	memset(wfs,0,sizeof(WOOF_SHARED));
 
 	if(name != NULL) {
-		strncpy(wf->filename,name,sizeof(wf->filename));
+		strncpy(wfs->filename,name,sizeof(wfs->filename));
 	} else {
-		strncpy(wf->filename,fname,sizeof(wf->filename));
+		strncpy(wfs->filename,fname,sizeof(wfs->filename));
 	}
 
-	wf->history_size = history_size;
-	wf->element_size = element_size;
-	wf->seq_no = 1;
+	wfs->history_size = history_size;
+	wfs->element_size = element_size;
+	wfs->seq_no = 1;
 
-	InitSem(&wf->mutex,1);
-	InitSem(&wf->tail_wait,0);
+	InitSem(&wfs->mutex,1);
+	InitSem(&wfs->tail_wait,0);
 
 	MIOClose(mio);
 

@@ -8,7 +8,6 @@
 struct woof_shared_stc
 {
 	char filename[2048];
-	MIO *mio;
 	sema mutex;
 	sema tail_wait;
 	unsigned long long seq_no;
