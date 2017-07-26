@@ -172,16 +172,16 @@ int main(int argc, char **argv, char **envp)
 	}
 #endif
 
-	wf = WooFOpen(full_name);
+	wf = WooFOpen(wf_name);
 	if(wf == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't open %s with size %lu\n",full_name);
+		fprintf(stderr,"WooFShepherd: couldn't open %s\n",full_name);
 		fflush(stderr);
 		exit(1);
 	}
 
 	wfs = wf->shared;
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: mio %s open\n",full_name);
+	fprintf(stdout,"WooFShepherd: woof %s open\n",full_name);
 	fflush(stdout);
 #endif
 
@@ -208,7 +208,7 @@ int main(int argc, char **argv, char **envp)
 #endif
 
 //	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
-	buf = (unsigned char *)(wfs+sizeof(WOOF_SHARED));
+	buf = (unsigned char *)(((void *)wfs)+sizeof(WOOF_SHARED));
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: buf assigned 0x%u\n",buf);
 	fflush(stdout);
@@ -234,6 +234,10 @@ int main(int argc, char **argv, char **envp)
 	 * now that we have the argument copied, free the slot in the woof
 	 */
 
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: about to enter mutex\n");
+	fflush(stdout);
+#endif
 	P(&wfs->mutex);
 	el_id->busy = 0;
 #ifdef DEBUG
