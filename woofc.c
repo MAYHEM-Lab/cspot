@@ -16,7 +16,6 @@ extern LOG *Host_log;
 
 #define DEBUG
 
-
 int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)

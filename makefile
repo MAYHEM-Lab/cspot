@@ -17,7 +17,7 @@ TOBJ=woofc-thread.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o
+all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container
 
 log-test: ${LOBJ} ${LINC} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
@@ -39,6 +39,9 @@ woofc-shepherd.o: woofc-shepherd.c woofc.h
 
 woofc-thread.o: woofc-thread.c woofc-thread.h
 	${CC} ${CFLAGS} -c woofc-thread.c
+
+woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC}
+	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${LIBS}
 
 event.o: event.c event.h
 	${CC} ${CFLAGS} -c event.c

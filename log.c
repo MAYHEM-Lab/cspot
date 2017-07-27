@@ -195,7 +195,8 @@ LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
 		return(NULL);
 	}
 
-	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
+//	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
+	ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
 
 	/*
 	 * put events in the tail log in reverse order to save a scan

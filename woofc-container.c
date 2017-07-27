@@ -10,6 +10,8 @@
 #include "log.h"
 #include "woofc.h"
 
+#define DEBUG
+
 char WooF_dir[2048];
 char Host_log_name[2048];
 unsigned long Host_id;
@@ -32,9 +34,9 @@ void WooFShutdown(int sig)
 	return;
 }
 
-void *WooFLauncher(void *arg);
+void *WooFForker(void *arg);
 
-int WooFInit(unsigned long host_id)
+int WooFContainerInit(unsigned long host_id)
 {
 	struct timeval tm;
 	int err;
@@ -43,6 +45,7 @@ int WooFInit(unsigned long host_id)
 	char putbuf[25];
 	pthread_t tid;
 	char *str;
+	MIO *lmio;
 
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec+tm.tv_usec);
@@ -74,13 +77,13 @@ int WooFInit(unsigned long host_id)
 	}
 
 	if(strcmp(WooF_dir,"/") == 0) {
-		fprintf(stderr,"WooFInit: WOOFC_DIR can't be %s\n",
+		fprintf(stderr,"WooFContainerInit: WOOFC_DIR can't be %s\n",
 				WooF_dir);
 		exit(1);
 	}
 
 	if(strlen(str) >= (sizeof(WooF_dir)-1)) {
-		fprintf(stderr,"WooFInit: %s too long for directory name\n",
+		fprintf(stderr,"WooFContainerInit: %s too long for directory name\n",
 				str);
 		exit(1);
 	}
@@ -93,14 +96,14 @@ int WooFInit(unsigned long host_id)
 	sprintf(putbuf,"WOOFC_DIR=%s",WooF_dir);
 	putenv(putbuf);
 #ifdef DEBUG
-	fprintf(stdout,"WooFInit: %s\n",putbuf);
+	fprintf(stdout,"WooFContainerInit: %s\n",putbuf);
 	fflush(stdout);
 #endif
 
 
 	err = mkdir(WooF_dir,0600);
 	if((err < 0) && (errno != EEXIST)) {
-		perror("WooFInit");
+		perror("WooFContainerInit");
 		return(-1);
 	}
 
@@ -108,17 +111,29 @@ int WooFInit(unsigned long host_id)
 	memset(log_name,0,sizeof(log_name));
 	sprintf(log_name,"%s/%s",WooF_dir,Host_log_name);
 
-	Host_log = LogCreate(log_name,host_id,DEFAULT_WOOF_LOG_SIZE);
+        lmio = MIOReOpen(log_name);
+        if(lmio == NULL) {
+                fprintf(stderr,
+                "WooFOntainerInit: couldn't open mio for log %s\n",log_name);
+                fflush(stderr);
+                exit(1);
+        }
+        Host_log = (LOG *)MIOAddr(lmio);
 
 	if(Host_log == NULL) {
-		fprintf(stderr,"WooFInit: couldn't open log as %s, size %d\n",log_name,DEFAULT_WOOF_LOG_SIZE);
+		fprintf(stderr,"WooFContainerInit: couldn't open log as %s, size %d\n",log_name,DEFAULT_WOOF_LOG_SIZE);
 		fflush(stderr);
 		exit(1);
 	}
 
+#ifdef DEBUG
+	printf("WooFForker: log %s open\n",log_name);
+	fflush(stdout);
+#endif
+
 	Host_id = host_id;
 
-	err = pthread_create(&tid,NULL,WooFLauncher,NULL);
+	err = pthread_create(&tid,NULL,WooFForker,NULL);
 	if(err < 0) {
 		fprintf(stderr,"couldn't start launcher thread\n");
 		exit(1);
@@ -140,18 +155,18 @@ void WooFExit()
  *         Right now, the last_seq_no in the launcher is set before the launch actually happens
  *         which means a failure will nt be retried
  */
-void *WooFDockerThread(void *arg)
+void *WooFHandlerThread(void *arg)
 {
 	char *launch_string = (char *)arg;
 
 #ifdef DEBUG
-//	fprintf(stdout,"LAUNCH: %s\n",launch_string);
-//	fflush(stdout);
+	fprintf(stdout,"LAUNCH: %s\n",launch_string);
+	fflush(stdout);
 #endif
 	system(launch_string);
 #ifdef DEBUG
-//	fprintf(stdout,"DONE: %s\n",launch_string);
-//	fflush(stdout);
+	fprintf(stdout,"DONE: %s\n",launch_string);
+	fflush(stdout);
 #endif
 
 	free(launch_string);
@@ -159,7 +174,7 @@ void *WooFDockerThread(void *arg)
 	return(NULL);
 }
 
-void *WooFLauncher(void *arg)
+void *WooFForker(void *arg)
 {
 	unsigned long last_seq_no = 0;
 	unsigned long first;
@@ -177,21 +192,16 @@ void *WooFLauncher(void *arg)
 	 * wait for things to show up in the log
 	 */
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher started\n");
+		fprintf(stdout,"WooFForker started\n");
 		fflush(stdout);
 #endif
 
 	while(WooFDone == 0) {
 		P(&Host_log->tail_wait);
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher awake\n");
+		fprintf(stdout,"WooFForker awake\n");
 		fflush(stdout);
 #endif
-
-		/*
-		 * yield in case other threads need to complete
-		 */
-		pthread_yield();
 
 		if(WooFDone == 1) {
 			break;
@@ -201,11 +211,22 @@ void *WooFLauncher(void *arg)
 		 * must lock to extract tail
 		 */
 		P(&Host_log->mutex);
+#ifdef DEBUG
+		fprintf(stdout,"WooFForker: in mutex, size: %lu\n",
+			Host_log->size);
+		fflush(stdout);
+#endif
 		log_tail = LogTail(Host_log,last_seq_no,Host_log->size);
 		V(&Host_log->mutex);
+#ifdef DEBUG
+		fprintf(stdout,"WooFForker: out of mutex with log tail\n");
+		fflush(stdout);
+#endif
+
+
 		if(log_tail == NULL) {
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher no tail, continuing\n");
+		fprintf(stdout,"WooFForker no tail, continuing\n");
 		fflush(stdout);
 #endif
 			LogFree(log_tail);
@@ -213,7 +234,7 @@ void *WooFLauncher(void *arg)
 		}
 		if(log_tail->head == log_tail->tail) {
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher log tail empty, continuing\n");
+		fprintf(stdout,"WooFForker log tail empty, continuing\n");
 		fflush(stdout);
 #endif
 			LogFree(log_tail);
@@ -223,8 +244,10 @@ void *WooFLauncher(void *arg)
 		ev = (EVENT *)(MIOAddr(log_tail->m_buf) + sizeof(LOG));
 #ifdef DEBUG
 	first = log_tail->head;
+	printf("WooFForker: first: %lu\n",first);
+	fflush(stdout);
 	while(first != log_tail->tail) {
-	printf("WooFLauncher: log tail %lu, seq_no: %lu, last %lu\n",first, ev[first].seq_no, last_seq_no);
+	printf("WooFForker: log tail %lu, seq_no: %lu, last %lu\n",first, ev[first].seq_no, last_seq_no);
 	fflush(stdout);
 		if(ev[first].type == TRIGGER) {
 			break;
@@ -258,7 +281,7 @@ void *WooFLauncher(void *arg)
 		 */
 		if(none == 1) {
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher log tail empty, continuing\n");
+		fprintf(stdout,"WooFForker log tail empty, continuing\n");
 		fflush(stdout);
 #endif
 			LogFree(log_tail);
@@ -269,7 +292,7 @@ void *WooFLauncher(void *arg)
 		 */
 
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher: firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %lu\n",
+		fprintf(stdout,"WooFForker: firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %lu\n",
 			ev[first].woofc_name,
 			ev[first].woofc_handler,
 			ev[first].woofc_seq_no,
@@ -281,7 +304,7 @@ void *WooFLauncher(void *arg)
 		wf = WooFOpen(ev[first].woofc_name);
 
 		if(wf == NULL) {
-			fprintf(stderr,"WooFLauncher: open failed for WooF at %s, %lu %lu\n",
+			fprintf(stderr,"WooFForker: open failed for WooF at %s, %lu %lu\n",
 				ev[first].woofc_name,
 				ev[first].woofc_element_size,
 				ev[first].woofc_history_size);
@@ -308,22 +331,16 @@ void *WooFLauncher(void *arg)
 
 		memset(launch_string,0,2048);
 
-XXX  the system cammand uses bash
-change to "export WOOFC_DIR=%s; "
-
-		sprintf(launch_string, "docker run -it\
-			 -e WOOFC_DIR=%s\
-			 -e WOOF_SHEPHERD_NAME=%s\
-			 -e WOOF_SHEPHERD_NDX=%lu\
-			 -e WOOF_SHEPHERD_SEQNO=%lu\
-			 -e WOOF_HOST_ID=%lu\
-			 -e WOOF_HOST_LOG_NAME=%s\
-			 -e WOOF_HOST_LOG_SIZE=%lu\
-			 -e WOOF_HOST_LOG_SEQNO=%lu\
-			 -v %s:%s\
-			 centos:7\
+		sprintf(launch_string, "export WOOFC_DIR=%s; \
+			 export WOOF_SHEPHERD_NAME=%s; \
+			 export WOOF_SHEPHERD_NDX=%lu; \
+			 export WOOF_SHEPHERD_SEQNO=%lu; \
+			 export WOOF_HOST_ID=%lu; \
+			 export WOOF_HOST_LOG_NAME=%s; \
+			 export WOOF_HOST_LOG_SIZE=%lu; \
+			 export WOOF_HOST_LOG_SEQNO=%lu; \
 			 %s/%s",
-				woof_shepherd_dir,
+				WooF_dir,
 				wf->shared->filename,
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
@@ -331,8 +348,7 @@ change to "export WOOFC_DIR=%s; "
 				Host_log_name,
 				Host_log->size,
 				ev[first].seq_no,
-				WooF_dir,pathp,
-				woof_shepherd_dir,ev[first].woofc_handler);
+				WooF_dir,ev[first].woofc_handler);
 
 		/*
 		 * remember its sequence number for next time
@@ -341,14 +357,14 @@ change to "export WOOFC_DIR=%s; "
 		 */
 		last_seq_no = ev[first].seq_no; 		/* log seq_no */
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher: seq_no: %lu, handler: %s\n",
+		fprintf(stdout,"WooFForker: seq_no: %lu, handler: %s\n",
 			ev[first].seq_no, ev[first].woofc_handler);
 		fflush(stdout);
 #endif
 		LogFree(log_tail); 
 		WooFFree(wf);
 
-		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
+		err = pthread_create(&tid,NULL,WooFHandlerThread,(void *)launch_string);
 		if(err < 0) {
 			/* LOGGING
 			 * log thread create failure here
@@ -359,7 +375,7 @@ change to "export WOOFC_DIR=%s; "
 	}
 
 #ifdef DEBUG
-		fprintf(stdout,"WooFLauncher exiting\n");
+		fprintf(stdout,"WooFForker exiting\n");
 		fflush(stdout);
 #endif
 	pthread_exit(NULL);
@@ -370,14 +386,14 @@ int main(int argc, char ** argv)
 	int host_id;
 	char *host_id_str;
 
-	host_id_str = getenv("WOOFC_HOST_ID");
+	host_id_str = getenv("WOOF_HOST_ID");
 	if(host_id_str != NULL) {
 		host_id = atoi(host_id_str);
 	} else {
 		host_id = DEFAULT_HOST_ID;
 	}
 
-	WooFInit(host_id);
+	WooFContainerInit(host_id);
 
 #ifdef DEBUG
 	sleep(1000000); 

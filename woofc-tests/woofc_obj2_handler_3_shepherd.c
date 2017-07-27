@@ -16,8 +16,6 @@ unsigned long Host_id;
 char WooF_dir[2048];
 char Host_log_name[2048];
 
-#define DEBUG
-
 
 int main(int argc, char **argv, char **envp)
 {
@@ -49,8 +47,13 @@ int main(int argc, char **argv, char **envp)
 	unsigned long host_log_size;
 	int err;
 	char *st = "woofc_obj2_handler_3";
+
+	/*
+	 * close stdin to make docker happy
+	 */
+	fclose(stdin);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: for handler %s\n",st);
+	fprintf(stdout,"WooFShepherd: called for handler %s\n",st);
 	fflush(stdout);
 #endif
 
@@ -239,12 +242,19 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 	P(&wfs->mutex);
+
+	/*
+	 * mark element as done to prevent handler crash from causing deadlock
+	 */
 	el_id->busy = 0;
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: marked el done at %lu\n",ndx);
+	fprintf(stdout,"WooFShepherd: marked el done at %lu and signalling\n",ndx);
 	fflush(stdout);
 #endif
 
+	V(&wfs->tail_wait);
+
+#if 0
 	next = (wfs->head + 1) % wfs->history_size;
 	/*
 	 * if PUT is waiting for the tail available, signal
@@ -252,6 +262,8 @@ int main(int argc, char **argv, char **envp)
 	if(next == ndx) {
 		V(&wfs->tail_wait);
 	}
+#endif
+
 	V(&wfs->mutex);
 	/*
 	 * invoke the function
@@ -270,18 +282,23 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 	free(farg);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: called free, seq_no: %lu\n",seq_no);
+	fflush(stdout);
+#endif
 	/* LOGGING
 	 * log either event success or failure here
 	 */
-	/*
-	 * mark the element as consumed
-	 */
 
 //	MIOClose(mio);
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
+	fflush(stdout);
+#endif
 	WooFFree(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: exiting\n");
+	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
 	exit(0);

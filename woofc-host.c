@@ -15,7 +15,16 @@ char Host_log_name[2048];
 unsigned long Host_id;
 LOG *Host_log;
 
+#define DEBUG
+
 static int WooFDone;
+
+struct cont_arg_stc
+{
+	int container_count;
+};
+
+typedef struct cont_arg_stc CA;
 
 void WooFShutdown(int sig)
 {
@@ -35,8 +44,9 @@ void WooFShutdown(int sig)
 	
 
 void *WooFLauncher(void *arg);
+void *WooFContainerLauncher(void *arg);
 
-int WooFInit(unsigned long host_id)
+int WooFInit(unsigned long host_id, int container_count)
 {
 	struct timeval tm;
 	int err;
@@ -45,6 +55,7 @@ int WooFInit(unsigned long host_id)
 	char putbuf[25];
 	pthread_t tid;
 	char *str;
+	CA *ca;
 
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec+tm.tv_usec);
@@ -120,7 +131,14 @@ int WooFInit(unsigned long host_id)
 
 	Host_id = host_id;
 
-	err = pthread_create(&tid,NULL,WooFLauncher,NULL);
+	ca = malloc(sizeof(CA));
+	if(ca == NULL) {
+		exit(1);
+	}
+
+	ca->container_count = container_count;
+
+	err = pthread_create(&tid,NULL,WooFContainerLauncher,(void *)ca);
 	if(err < 0) {
 		fprintf(stderr,"couldn't start launcher thread\n");
 		exit(1);
@@ -363,6 +381,95 @@ void *WooFLauncher(void *arg)
 #endif
 	pthread_exit(NULL);
 }
+
+void *WooFContainerLauncher(void *arg)
+{
+	unsigned long last_seq_no = 0;
+	unsigned long first;
+	LOG *log_tail;
+	EVENT *ev;
+	char *launch_string;
+	char *pathp;
+	WOOF *wf;
+	char woof_shepherd_dir[2048];
+	int err;
+	pthread_t tid;
+	int none;
+	int count;
+	int container_count;
+	CA *ca = (CA *)arg;
+
+	container_count = ca->container_count;
+	free(ca);
+
+	/*
+	 * wait for things to show up in the log
+	 */
+#ifdef DEBUG
+		fprintf(stdout,"WooFContainerLauncher started\n");
+		fflush(stdout);
+#endif
+
+	for(count = 0; count < container_count; count++) {
+		/*
+		 * yield in case other threads need to complete
+		 */
+#ifdef DEBUG
+		fprintf(stdout,"WooFContainerLauncher: launch %d\n", count+1);
+		fflush(stdout);
+#endif
+
+		/*
+		 * find the last directory in the path
+		 */
+		pathp = strrchr(WooF_dir,'/');
+		if(pathp == NULL) {
+			fprintf(stderr,"couldn't find leaf dir in %s\n",
+				WooF_dir);
+			exit(1);
+		}
+
+		strncpy(woof_shepherd_dir,pathp,sizeof(woof_shepherd_dir));
+
+		launch_string = (char *)malloc(2048);
+		if(launch_string == NULL) {
+			exit(1);
+		}
+
+		memset(launch_string,0,2048);
+
+		sprintf(launch_string, "docker run -it\
+			 -e WOOFC_DIR=%s\
+			 -e WOOF_HOST_ID=%lu\
+			 -e WOOF_HOST_LOG_NAME=%s\
+			 -e WOOF_HOST_LOG_SIZE=%lu\
+			 -v %s:%s\
+			 centos:7\
+			 %s/%s",
+				woof_shepherd_dir,
+				Host_id,
+				Host_log_name,
+				Host_log->size,
+				WooF_dir,pathp,
+				woof_shepherd_dir,"woofc-container");
+
+		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
+		if(err < 0) {
+			/* LOGGING
+			 * log thread create failure here
+			 */
+			exit(1);
+		}
+		pthread_detach(tid);
+	}
+
+#ifdef DEBUG
+		fprintf(stdout,"WooFContainerLauncher exiting\n");
+		fflush(stdout);
+#endif
+	pthread_exit(NULL);
+}
+	
 
 	
 
