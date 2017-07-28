@@ -166,9 +166,9 @@ static int WooFHostInit(int min_containers, int max_containers)
 		fprintf(stderr,"couldn't start launcher thread\n");
 		exit(1);
 	}
-	pthread_detach(tid);
 
 	signal(SIGHUP, WooFShutdown);
+	pthread_join(tid,NULL);
 	return(1);
 }
 
@@ -350,7 +350,7 @@ void *WooFLauncher(void *arg)
 
 		memset(launch_string,0,2048);
 
-		sprintf(launch_string, "docker run -it\
+		sprintf(launch_string, "docker run -i\
 			 -e WOOFC_DIR=%s\
 			 -e WOOF_SHEPHERD_NAME=%s\
 			 -e WOOF_SHEPHERD_NDX=%lu\
@@ -419,6 +419,7 @@ void *WooFContainerLauncher(void *arg)
 	int count;
 	int container_count;
 	CA *ca = (CA *)arg;
+	pthread_t *tids;
 
 	container_count = ca->container_count;
 	free(ca);
@@ -427,6 +428,12 @@ void *WooFContainerLauncher(void *arg)
 	fprintf(stdout,"WooFContainerLauncher started\n");
 	fflush(stdout);
 #endif
+
+	tids = (pthread_t *)malloc(container_count*sizeof(pthread_t));
+	if(tids == NULL) {
+		fprintf(stderr,"WooFContainerLauncher no space\n");
+		exit(1);
+	}
 
 	for(count = 0; count < container_count; count++) {
 		/*
@@ -454,7 +461,7 @@ void *WooFContainerLauncher(void *arg)
 
 		memset(launch_string,0,2048);
 
-		sprintf(launch_string, "docker run -it\
+		sprintf(launch_string, "docker run -i\
 			 -e WOOFC_DIR=%s\
 			 -e WOOF_NAME_ID=%lu\
 			 -e WOOF_NAMELOG_NAME=%s\
@@ -474,13 +481,19 @@ void *WooFContainerLauncher(void *arg)
 			 */
 			exit(1);
 		}
-		pthread_detach(tid);
+//		pthread_detach(tid);
+		tids[count] = tid;
+	}
+
+	for(count=0; count < container_count; count++) {
+		pthread_join(tids[count],NULL);
 	}
 
 #ifdef DEBUG
 		fprintf(stdout,"WooFContainerLauncher exiting\n");
 		fflush(stdout);
 #endif
+	free(tids);
 	pthread_exit(NULL);
 }
 	
@@ -546,6 +559,8 @@ int main(int argc, char **argv)
 	memset(putbuf,0,sizeof(putbuf));
 	sprintf(putbuf,"WOOFC_DIR=%s",app_dir);
 	putenv(putbuf);
+
+	fclose(stdin);
 		
 
 	WooFHostInit(min_containers, max_containers);
