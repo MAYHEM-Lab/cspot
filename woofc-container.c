@@ -13,6 +13,7 @@
 #define DEBUG
 
 char WooF_dir[2048];
+char Host_dir[2048];
 char Host_log_name[2048];
 unsigned long Host_id;
 LOG *Host_log;
@@ -101,15 +102,69 @@ int WooFContainerInit(unsigned long host_id)
 #endif
 
 
+	str = getenv("CSPOT_HOST_DIR");
+	if(str == NULL) {
+		str = DEFAULT_WOOF_DIR;
+	}
+
+	if(strcmp(str,".") == 0) {
+		fprintf(stderr,"WOOFC_DIR cannot be .\n");
+		fflush(stderr);
+		exit(1);
+	}
+
+	if(str[0] != '/') { /* not an absolute path name */
+		getcwd(Host_dir,sizeof(Host_dir));
+		if(str[0] == '.') {
+			strncat(Host_dir,&(str[1]),
+				sizeof(Host_dir)-strlen(Host_dir));
+		} else {
+			strncat(Host_dir,"/",sizeof(Host_dir)-strlen(Host_dir));
+			strncat(Host_dir,str,
+				sizeof(Host_dir)-strlen(Host_dir));
+		}
+	} else {
+		strncpy(Host_dir,str,sizeof(Host_dir));
+	}
+
+	if(strcmp(Host_dir,"/") == 0) {
+		fprintf(stderr,"WooFInit: CSPOT_HOST_DIR can't be %s\n",
+				Host_dir);
+		exit(1);
+	}
+
+	if(strlen(str) >= (sizeof(Host_dir)-1)) {
+		fprintf(stderr,"WooFInit: %s too long for directory name\n",
+				str);
+		exit(1);
+	}
+
+	if(Host_dir[strlen(Host_dir)-1] == '/') {
+		Host_dir[strlen(Host_dir)-1] = 0;
+	}
+
+	memset(putbuf,0,sizeof(putbuf));
+	sprintf(putbuf,"CSPOT_HOST_DIR=%s",Host_dir);
+	putenv(putbuf);
+#ifdef DEBUG
+	fprintf(stdout,"WooFInit: %s\n",putbuf);
+	fflush(stdout);
+#endif
 	err = mkdir(WooF_dir,0600);
 	if((err < 0) && (errno != EEXIST)) {
 		perror("WooFContainerInit");
 		return(-1);
 	}
 
+	err = mkdir(Host_dir,0600);
+        if((err < 0) && (errno != EEXIST)) {
+                perror("WooFInit");
+                return(-1);
+        }
+
 	sprintf(Host_log_name,"cspot-log.%10.10d",host_id);
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_dir,Host_log_name);
+	sprintf(log_name,"%s/%s",Host_dir,Host_log_name);
 
         lmio = MIOReOpen(log_name);
         if(lmio == NULL) {
@@ -135,7 +190,7 @@ int WooFContainerInit(unsigned long host_id)
 
 	err = pthread_create(&tid,NULL,WooFForker,NULL);
 	if(err < 0) {
-		fprintf(stderr,"couldn't start launcher thread\n");
+		fprintf(stderr,"couldn't start forker thread\n");
 		exit(1);
 	}
 	pthread_detach(tid);
@@ -331,7 +386,10 @@ void *WooFForker(void *arg)
 
 		memset(launch_string,0,2048);
 
+XXX
+
 		sprintf(launch_string, "export WOOFC_DIR=%s; \
+			 export CSPOT_HOST_DIR=%s; \
 			 export WOOF_SHEPHERD_NAME=%s; \
 			 export WOOF_SHEPHERD_NDX=%lu; \
 			 export WOOF_SHEPHERD_SEQNO=%lu; \
@@ -341,6 +399,7 @@ void *WooFForker(void *arg)
 			 export WOOF_HOST_LOG_SEQNO=%lu; \
 			 %s/%s",
 				WooF_dir,
+				Host_dir,
 				wf->shared->filename,
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,

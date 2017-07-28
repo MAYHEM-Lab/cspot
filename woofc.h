@@ -46,6 +46,7 @@ unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFNext(WOOF *wf, unsigned long ndx);
 
 #define DEFAULT_WOOF_DIR "./cspot/"
+#define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
 #define DEFAULT_HOST_ID (0)
 #define DEFAULT_WOOF_LOG_SIZE (10000)
 #define WOOFNAMESIZE (25)

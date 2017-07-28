@@ -14,12 +14,14 @@
 LOG *Host_log;
 unsigned long Host_id;
 char WooF_dir[2048];
+char Host_dir[2048];
 char Host_log_name[2048];
 
 
 int main(int argc, char **argv, char **envp)
 {
 	char *wf_dir;
+	char *host_dir;
 	char *wf_name;
 	char *wf_size;
 	char *wf_ndx;
@@ -68,7 +70,14 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: WOOFC_DIR=%s\n",wf_dir);
 	fflush(stdout);
 #endif
-	strncpy(WooF_dir,wf_dir,sizeof(WooF_dir));
+
+	host_dir = getenv("CSPOT_HOST_DIR");
+	if(host_dir == NULL) {
+		fprintf(stderr,"WooFShepherd: couldn't find CSPOT_HOST_DIR\n");
+		fflush(stderr);
+		exit(1);
+	}
+	strncpy(Host_dir,host_dir,sizeof(Host_dir));
 
 	wf_name = getenv("WOOF_SHEPHERD_NAME");
 	if(wf_name == NULL) {
@@ -76,6 +85,9 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
+
+
+
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_NAME=%s\n",wf_name);
 	fflush(stdout);
@@ -188,7 +200,7 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
-	sprintf(log_name,"%s/%s",WooF_dir,host_log_name);
+	sprintf(log_name,"%s/%s",Host_dir,host_log_name);
 	lmio = MIOReOpen(log_name);
 	if(lmio == NULL) {
 		fprintf(stderr,
