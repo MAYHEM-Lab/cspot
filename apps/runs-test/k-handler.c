@@ -75,8 +75,8 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 
 	count = 0;
-	for(ndx=WooFLatest(wf); count < fa->count; ndx = WooFBack(wf,count)) {
-		err = WooFGet(wf,&s,ndx);
+	for(ndx=WooFLatest(s_wf); count < fa->count; ndx = WooFBack(s_wf,count)) {
+		err = WooFGet(s_wf,&s,ndx);
 		if(err < 0) {
 			fprintf(stderr,"WooFGet failed at %lu for %s\n",
 					ndx,fa->stats);

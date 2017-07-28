@@ -24,9 +24,6 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	int err;
 	FILE *fd;
 
-printf("SHandler: i: %d, j: %d, ss: %d, count: %d\n",
-	fa->i,fa->j,fa->sample_size,fa->count);
-fflush(stdout);
 
 	/*
 	 * sanity check
@@ -43,8 +40,6 @@ fflush(stdout);
 	}
 
 	stat = RunsStat(fa->r,fa->sample_size);
-printf("SHandler: putting %f to %s\n",stat,fa->stats);
-fflush(stdout);
 
 	/*
 	 * put the stat without a handler
@@ -54,8 +49,6 @@ fflush(stdout);
 		fprintf(stderr,"SHandler couldn't put stat\n");
 		exit(1);
 	}
-printf("SHandler: finished put %f to %s\n",stat,fa->stats);
-fflush(stdout);
 
 	if(fa->logfile[0] != 0) {
 		fd = fopen(fa->logfile,"a");

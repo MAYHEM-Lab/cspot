@@ -10,8 +10,6 @@
 #include "log.h"
 #include "woofc.h"
 
-#define DEBUG
-
 char WooF_dir[2048];
 char Namelog_name[2048];
 unsigned long Name_id;

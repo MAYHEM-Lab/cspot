@@ -16,8 +16,6 @@ unsigned long Name_id;
 char WooF_dir[2048];
 char Namelog_name[2048];
 
-#define DEBUG
-
 
 int main(int argc, char **argv, char **envp)
 {

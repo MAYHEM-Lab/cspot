@@ -63,8 +63,6 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-printf("RHandler: i: %d, j: %d, putting %f to %s\n",fa->i,fa->j,r,fa->r);
-fflush(stdout);
 	/*
 	 * put put the random value with no handler
 	 */
@@ -79,8 +77,6 @@ fflush(stdout);
 	 * if the buffer is full, create an SThread
 	 */
 	if(fa->j == (fa->sample_size - 1)) {
-printf("RHandler putting SHandler\n");
-fflush(stdout);
 		/*
 	 	* launch the stat handler
 	 	*/

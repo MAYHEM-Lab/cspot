@@ -16,8 +16,6 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
-#define DEBUG
-
 static int WooFDone;
 
 struct cont_arg_stc
