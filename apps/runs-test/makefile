@@ -53,7 +53,7 @@ ${KLIB}:
 
 cspot-runstat: cspot-runstat.c cspot-runstat.h c-twist.h c-twist.o ${LINCS} ${WINCS} ${SINCS} ${UINCS} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	${CC} ${CFLAGS} -o cspot-runstat cspot-runstat.c c-twist.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	mkdir -p cspot; cp cspot-runstat ./cspot
+	mkdir -p cspot; cp cspot-runstat ./cspot; cp ../../woofc-namespace-platform ./cspot; cp ../../woofc-container ./cspot
 
 ${H1}: r-handler.c ${SHEP_SRC} ${LINCS} ${WINCS} ${SINCS} ${UINCS} c-twist.h ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	sed 's/WOOF_HANDLER_NAME/${H1}/g' ${SHEP_SRC} > ${H1}_shepherd.c
