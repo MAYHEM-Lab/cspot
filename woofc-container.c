@@ -13,10 +13,9 @@
 #define DEBUG
 
 char WooF_dir[2048];
-char Host_dir[2048];
-char Host_log_name[2048];
-unsigned long Host_id;
-LOG *Host_log;
+char Namelog_name[2048];
+unsigned long Name_id;
+LOG *Name_log;
 
 static int WooFDone;
 
@@ -25,11 +24,11 @@ void WooFShutdown(int sig)
 	int val;
 
 	WooFDone = 1;
-	while(sem_getvalue(&Host_log->tail_wait,&val) >= 0) {
+	while(sem_getvalue(&Name_log->tail_wait,&val) >= 0) {
 		if(val > 0) {
 			break;
 		}
-		V(&Host_log->tail_wait);
+		V(&Name_log->tail_wait);
 	}
 
 	return;
@@ -37,7 +36,7 @@ void WooFShutdown(int sig)
 
 void *WooFForker(void *arg);
 
-int WooFContainerInit(unsigned long host_id)
+int WooFContainerInit()
 {
 	struct timeval tm;
 	int err;
@@ -47,13 +46,15 @@ int WooFContainerInit(unsigned long host_id)
 	pthread_t tid;
 	char *str;
 	MIO *lmio;
+	unsigned long name_id;
 
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec+tm.tv_usec);
 
 	str = getenv("WOOFC_DIR");
 	if(str == NULL) {
-		str = DEFAULT_WOOF_DIR;
+		fprintf(stderr,"WooFContainerInit: couldn't find WOOFC_DIR\n");
+		exit(1);
 	}
 
 	if(strcmp(str,".") == 0) {
@@ -101,70 +102,30 @@ int WooFContainerInit(unsigned long host_id)
 	fflush(stdout);
 #endif
 
-
-	str = getenv("CSPOT_HOST_DIR");
+	str = getenv("WOOF_NAME_ID");
 	if(str == NULL) {
-		str = DEFAULT_WOOF_DIR;
+		fprintf(stderr,"WooFContainerInit: couldn't find name id\n");
+		exit(1);
 	}
+	name_id = (unsigned long)atol(str);
 
-	if(strcmp(str,".") == 0) {
-		fprintf(stderr,"WOOFC_DIR cannot be .\n");
-		fflush(stderr);
+	str = getenv("WOOF_NAMELOG_NAME");
+	if(str == NULL) {
+		fprintf(stderr,"WooFContainerInit: couldn't find namelog name\n");
 		exit(1);
 	}
 
-	if(str[0] != '/') { /* not an absolute path name */
-		getcwd(Host_dir,sizeof(Host_dir));
-		if(str[0] == '.') {
-			strncat(Host_dir,&(str[1]),
-				sizeof(Host_dir)-strlen(Host_dir));
-		} else {
-			strncat(Host_dir,"/",sizeof(Host_dir)-strlen(Host_dir));
-			strncat(Host_dir,str,
-				sizeof(Host_dir)-strlen(Host_dir));
-		}
-	} else {
-		strncpy(Host_dir,str,sizeof(Host_dir));
-	}
+	strncpy(Namelog_name,str,sizeof(Namelog_name));
 
-	if(strcmp(Host_dir,"/") == 0) {
-		fprintf(stderr,"WooFInit: CSPOT_HOST_DIR can't be %s\n",
-				Host_dir);
-		exit(1);
-	}
-
-	if(strlen(str) >= (sizeof(Host_dir)-1)) {
-		fprintf(stderr,"WooFInit: %s too long for directory name\n",
-				str);
-		exit(1);
-	}
-
-	if(Host_dir[strlen(Host_dir)-1] == '/') {
-		Host_dir[strlen(Host_dir)-1] = 0;
-	}
-
-	memset(putbuf,0,sizeof(putbuf));
-	sprintf(putbuf,"CSPOT_HOST_DIR=%s",Host_dir);
-	putenv(putbuf);
-#ifdef DEBUG
-	fprintf(stdout,"WooFInit: %s\n",putbuf);
-	fflush(stdout);
-#endif
 	err = mkdir(WooF_dir,0600);
 	if((err < 0) && (errno != EEXIST)) {
 		perror("WooFContainerInit");
-		return(-1);
+		exit(1);
 	}
 
-	err = mkdir(Host_dir,0600);
-        if((err < 0) && (errno != EEXIST)) {
-                perror("WooFInit");
-                return(-1);
-        }
 
-	sprintf(Host_log_name,"cspot-log.%10.10d",host_id);
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",Host_dir,Host_log_name);
+	sprintf(log_name,"%s/%s",WooF_dir,Namelog_name);
 
         lmio = MIOReOpen(log_name);
         if(lmio == NULL) {
@@ -173,9 +134,9 @@ int WooFContainerInit(unsigned long host_id)
                 fflush(stderr);
                 exit(1);
         }
-        Host_log = (LOG *)MIOAddr(lmio);
+        Name_log = (LOG *)MIOAddr(lmio);
 
-	if(Host_log == NULL) {
+	if(Name_log == NULL) {
 		fprintf(stderr,"WooFContainerInit: couldn't open log as %s, size %d\n",log_name,DEFAULT_WOOF_LOG_SIZE);
 		fflush(stderr);
 		exit(1);
@@ -186,7 +147,7 @@ int WooFContainerInit(unsigned long host_id)
 	fflush(stdout);
 #endif
 
-	Host_id = host_id;
+	Name_id = name_id;
 
 	err = pthread_create(&tid,NULL,WooFForker,NULL);
 	if(err < 0) {
@@ -252,7 +213,7 @@ void *WooFForker(void *arg)
 #endif
 
 	while(WooFDone == 0) {
-		P(&Host_log->tail_wait);
+		P(&Name_log->tail_wait);
 #ifdef DEBUG
 		fprintf(stdout,"WooFForker awake\n");
 		fflush(stdout);
@@ -265,14 +226,14 @@ void *WooFForker(void *arg)
 		/*
 		 * must lock to extract tail
 		 */
-		P(&Host_log->mutex);
+		P(&Name_log->mutex);
 #ifdef DEBUG
 		fprintf(stdout,"WooFForker: in mutex, size: %lu\n",
-			Host_log->size);
+			Name_log->size);
 		fflush(stdout);
 #endif
-		log_tail = LogTail(Host_log,last_seq_no,Host_log->size);
-		V(&Host_log->mutex);
+		log_tail = LogTail(Name_log,last_seq_no,Name_log->size);
+		V(&Name_log->mutex);
 #ifdef DEBUG
 		fprintf(stdout,"WooFForker: out of mutex with log tail\n");
 		fflush(stdout);
@@ -386,26 +347,21 @@ void *WooFForker(void *arg)
 
 		memset(launch_string,0,2048);
 
-XXX
 
 		sprintf(launch_string, "export WOOFC_DIR=%s; \
-			 export CSPOT_HOST_DIR=%s; \
 			 export WOOF_SHEPHERD_NAME=%s; \
 			 export WOOF_SHEPHERD_NDX=%lu; \
 			 export WOOF_SHEPHERD_SEQNO=%lu; \
-			 export WOOF_HOST_ID=%lu; \
-			 export WOOF_HOST_LOG_NAME=%s; \
-			 export WOOF_HOST_LOG_SIZE=%lu; \
-			 export WOOF_HOST_LOG_SEQNO=%lu; \
+			 export WOOF_NAME_ID=%lu; \
+			 export WOOF_NAMELOG_NAME=%s; \
+			 export WOOF_NAMELOG_SEQNO=%lu; \
 			 %s/%s",
 				WooF_dir,
-				Host_dir,
 				wf->shared->filename,
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
-				Host_id,
-				Host_log_name,
-				Host_log->size,
+				Name_id,
+				Namelog_name,
 				ev[first].seq_no,
 				WooF_dir,ev[first].woofc_handler);
 
@@ -442,21 +398,8 @@ XXX
 
 int main(int argc, char ** argv)
 {
-	int host_id;
-	char *host_id_str;
 
-	host_id_str = getenv("WOOF_HOST_ID");
-	if(host_id_str != NULL) {
-		host_id = atoi(host_id_str);
-	} else {
-		host_id = DEFAULT_HOST_ID;
-	}
-
-	WooFContainerInit(host_id);
-
-#ifdef DEBUG
-	sleep(1000000); 
-#endif
+	WooFContainerInit();
 
 	pthread_exit(NULL);
 }

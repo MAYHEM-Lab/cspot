@@ -11,10 +11,12 @@
 #include "woofc.h"
 
 
-LOG *Host_log;
-unsigned long Host_id;
+LOG *Name_log;
+unsigned long Name_id;
 char WooF_dir[2048];
-char Host_log_name[2048];
+char Namelog_name[2048];
+
+#define DEBUG
 
 
 int main(int argc, char **argv, char **envp)
@@ -24,10 +26,10 @@ int main(int argc, char **argv, char **envp)
 	char *wf_size;
 	char *wf_ndx;
 	char *wf_seq_no;
-	char *host_log_name;
-	char *host_log_size_str;
-	char *host_log_seq_no;
-	char *host_id;
+	char *namelog_name;
+	char *namelog_size_str;
+	char *namelog_seq_no;
+	char *name_id;
 	MIO *mio;
 	MIO *lmio;
 	char full_name[2048];
@@ -44,7 +46,7 @@ int main(int argc, char **argv, char **envp)
 	unsigned long seq_no;
 	unsigned long next;
 	unsigned long my_log_seq_no; /* needed for logging cause */
-	unsigned long host_log_size;
+	unsigned long namelog_size;
 	int err;
 	char *st = "woofc_obj2_handler_1";
 
@@ -64,11 +66,12 @@ int main(int argc, char **argv, char **envp)
 		exit(1);
 	}
 
+	strncpy(WooF_dir,wf_dir,sizeof(WooF_dir));
+
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WOOFC_DIR=%s\n",wf_dir);
 	fflush(stdout);
 #endif
-	strncpy(WooF_dir,wf_dir,sizeof(WooF_dir));
 
 	wf_name = getenv("WOOF_SHEPHERD_NAME");
 	if(wf_name == NULL) {
@@ -76,6 +79,9 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
+
+
+
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_NAME=%s\n",wf_name);
 	fflush(stdout);
@@ -87,7 +93,7 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
-	ndx = atol(wf_ndx);
+	ndx = (unsigned long)atol(wf_ndx);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_NDX=%lu\n",ndx);
 	fflush(stdout);
@@ -99,59 +105,49 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
-	seq_no = atol(wf_seq_no);
+	seq_no = (unsigned long)atol(wf_seq_no);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_SEQ_NO=%lu\n",seq_no);
 	fflush(stdout);
 #endif
 
-	host_log_name = getenv("WOOF_HOST_LOG_NAME");
-	if(host_log_name == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_LOG_NAME\n");
+	namelog_name = getenv("WOOF_NAMELOG_NAME");
+	if(namelog_name == NULL) {
+		fprintf(stderr,"WooFShepherd: couldn't find WOOF_NAMELOG_NAME\n");
 		fflush(stderr);
 		exit(1);
 	}
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: WOOF_HOST_LOG_NAME=%s\n",host_log_name);
+	fprintf(stdout,"WooFShepherd: WOOF_NAMELOG_NAME=%s\n",namelog_name);
 	fflush(stdout);
 #endif
 
-	host_log_size_str = getenv("WOOF_HOST_LOG_SIZE");
-	if(host_log_size_str == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_LOG_SIZE\n");
-		fflush(stderr);
-		exit(1);
-	}
-	host_log_size = atol(host_log_size_str);
-#ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: WOOF_HOST_LOG_SIZE=%lu\n",host_log_size);
-	fflush(stdout);
-#endif
+	strncpy(Namelog_name,namelog_name,sizeof(Namelog_name));
 
-	host_log_seq_no = getenv("WOOF_HOST_LOG_SEQNO");
-	if(host_log_seq_no == NULL) {
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if(namelog_seq_no == NULL) {
 		fprintf(stderr,
-	"WooFShepherd: couldn't find WOOF_HOST_LOG_SEQNO for log %s wf %s\n",
-			host_log_name,wf_name);
+	"WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n",
+			namelog_name,wf_name);
 		fflush(stderr);
 		exit(1);
 	}
-	my_log_seq_no = atol(host_log_seq_no);
+	my_log_seq_no = (unsigned long)atol(namelog_seq_no);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: WOOF_HOST_LOG_SEQNO=%lu\n",my_log_seq_no);
+	fprintf(stdout,"WooFShepherd: WOOF_NAMELOG_SEQNO=%lu\n",my_log_seq_no);
 	fflush(stdout);
 #endif
 
-	host_id = getenv("WOOF_HOST_ID");
-	if(host_id == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_ID\n");
+	name_id = getenv("WOOF_NAME_ID");
+	if(name_id == NULL) {
+		fprintf(stderr,"WooFShepherd: couldn't find WOOF_NAME_ID\n");
 		fflush(stderr);
 		exit(1);
 	}
 
-	Host_id = atol(host_id);
+	Name_id = (unsigned long)atol(name_id);
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: WOOF_HOST_ID=%lu\n",Host_id);
+	fprintf(stdout,"WooFShepherd: WOOF_NAME_ID=%lu\n",Name_id);
 	fflush(stdout);
 #endif
 
@@ -188,18 +184,18 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
-	sprintf(log_name,"%s/%s",WooF_dir,host_log_name);
+	sprintf(log_name,"%s/%s",WooF_dir,namelog_name);
 	lmio = MIOReOpen(log_name);
 	if(lmio == NULL) {
 		fprintf(stderr,
-		"WooFShepherd: couldn't open mio for log %s\n",host_log_name);
+		"WooFShepherd: couldn't open mio for log %s\n",log_name);
 		fflush(stderr);
 		exit(1);
 	}
-	Host_log = (LOG *)MIOAddr(lmio);
-	strncpy(Host_log_name,host_log_name,sizeof(Host_log_name));
+	Name_log = (LOG *)MIOAddr(lmio);
+	strncpy(Namelog_name,namelog_name,sizeof(Namelog_name));
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: log %s open\n",host_log_name);
+	fprintf(stdout,"WooFShepherd: log %s open\n",namelog_name);
 	fflush(stdout);
 #endif
 
@@ -290,7 +286,6 @@ int main(int argc, char **argv, char **envp)
 	 * log either event success or failure here
 	 */
 
-//	MIOClose(mio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
 	fflush(stdout);

@@ -10,9 +10,9 @@
 #include "woofc.h"
 
 extern char WooF_dir[2048];
-extern char Host_log_name[2048];
-extern unsigned long Host_id;
-extern LOG *Host_log;
+extern char Namelog_name[2048];
+extern unsigned long Name_id;
+extern LOG *Name_log;
 
 #define DEBUG
 
@@ -93,7 +93,7 @@ WOOF *WooFOpen(char *name)
 		return(NULL);
 	}
 
-	if(WooF_dir == NULL) {
+	if(WooF_dir[0] == 0) {
 		fprintf(stderr,"WooFOpen: must init system\n");
 		fflush(stderr);
 		exit(1);
@@ -146,7 +146,6 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	MIO *mio;
 	MIO *lmio;
-	LOG *host_log;
 	WOOF *wf;
 	WOOF_SHARED *wfs;
 	char woof_name[2048];
@@ -160,7 +159,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	unsigned long ndx;
 	int err;
 	char launch_string[4096];
-	char *host_log_seq_no;
+	char *namelog_seq_no;
 	unsigned long my_log_seq_no;
 	EVENT *ev;
 	unsigned long ls;
@@ -201,22 +200,22 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	 * if called from within a handler, env variable carries cause seq_no
 	 * for logging
 	 *
-	 * when called for first time on host to start, should be NULL
+	 * when called for first time on namespace to start, should be NULL
 	 */
-	host_log_seq_no = getenv("WOOF_HOST_LOG_SEQNO");
-	if(host_log_seq_no != NULL) {
-		my_log_seq_no = atol(host_log_seq_no);
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if(namelog_seq_no != NULL) {
+		my_log_seq_no = (unsigned long)atol(namelog_seq_no);
 	} else {
 		my_log_seq_no = 1;
 	}
 
 	if(hand_name != NULL) {
-		ev = EventCreate(TRIGGER,Host_id);
+		ev = EventCreate(TRIGGER,Name_id);
 		if(ev == NULL) {
 			fprintf(stderr,"WooFPut: couldn't create log event\n");
 			exit(1);
 		}
-		ev->cause_host = Host_id;
+		ev->cause_host = Name_id;
 		ev->cause_seq_no = my_log_seq_no;
 	}
 
@@ -362,12 +361,12 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	 * log the event so that it can be triggered
 	 */
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_dir,Host_log_name);
+	sprintf(log_name,"%s/%s",WooF_dir,Namelog_name);
 #ifdef DEBUG
 	printf("WooFPut: logging event to %s\n",log_name);
 	fflush(stdout);
 #endif
-	ls = LogEvent(Host_log,ev);
+	ls = LogEvent(Name_log,ev);
 	if(ls == 0) {
 		fprintf(stderr,"WooFPut: couldn't log event to log %s\n",
 			log_name);
@@ -385,7 +384,7 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 
 	EventFree(ev);
 	WooFFree(wf);
-	V(&Host_log->tail_wait);
+	V(&Name_log->tail_wait);
 	return(1);
 }
 

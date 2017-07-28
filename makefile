@@ -19,7 +19,7 @@ TOBJ=woofc-thread.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-host-platform
+all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
 log-test: ${LOBJ} ${LINCS} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
@@ -44,10 +44,9 @@ woofc-thread.o: woofc-thread.c woofc-thread.h
 
 woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS}
 	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${LIBS}
-	mkdir -p ./cspot-host; cp woofc-container ./cspot-host
 
-woofc-host-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} ${UINCS} ${LINCS}
-	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-host-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${LIBS}
+woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} ${UINCS} ${LINCS}
+	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${LIBS}
 
 event.o: event.c event.h
 	${CC} ${CFLAGS} -c event.c
