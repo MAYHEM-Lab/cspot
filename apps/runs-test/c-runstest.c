@@ -11,7 +11,6 @@
 #define DEBUG
 
 // from https://en.wikipedia.org/wiki/Wald–Wolfowitz_runs_test
-#ifndef HAS_WOOF
 double RunsStat(double *v, int N)
 {
 	int i;
@@ -82,7 +81,7 @@ double RunsStat(double *v, int N)
 	return(stat);
 }
 
-#else
+#if 0
 
 /*
  * WooF version

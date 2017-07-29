@@ -23,6 +23,12 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	double stat;
 	int err;
 	FILE *fd;
+	WOOF *r_wf;
+	unsigned long start;
+	unsigned long end;
+	unsigned long ndx;
+	int i;
+	double *v;
 
 
 	/*
@@ -39,7 +45,26 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		return(1);
 	}
 
-	stat = RunsStat(fa->r,fa->sample_size);
+	r_wf = WooFOpen(fa->r);
+	if(r_wf == NULL) {
+		fprintf(stderr,"SHandler: couldn't open %s for rvals\n",fa->r);
+		return(-1);
+	}
+
+	start = WooFBack(r_wf,(fa->i+1)*(fa->sample_size-1));
+	end = WooFBack(r_wf,fa->i*(fa->sample_size-1));
+printf("SHandler: start: %lu, end: %lu\n",start,end);
+fflush(stdout);
+
+	v = (double *)malloc(sizeof(double)*fa->sample_size);
+	i = 0;
+	for(ndx=start; ndx <= end; ndx++) {
+		WooFGet(r_wf,&v[i],ndx);
+		i++;
+	}
+
+	stat = RunsStat(v,fa->sample_size);
+	free(v);
 
 	/*
 	 * put the stat without a handler
