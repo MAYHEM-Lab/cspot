@@ -28,7 +28,7 @@ H1=RHandler
 H2=SHandler
 H3=KHandler
 
-all: c-runstest c-runstat cspot-runstat ${H1} ${H2} ${H3}
+all: c-runstest c-runstat cspot-runstat cspot-runstat-fast ${H1} ${H2} ${H3}
 
 c-runstest: c-runstest.c c-runstest.h c-twist.o c-twist.h normal.o ${KLIB}
 	${CC} ${CFLAGS} -DSTANDALONE -o c-runstest c-runstest.c c-twist.o ${KLIB} normal.o ${LIBS}
@@ -54,6 +54,10 @@ ${KLIB}:
 cspot-runstat: cspot-runstat.c cspot-runstat.h c-twist.h c-twist.o ${LINCS} ${WINCS} ${SINCS} ${UINCS} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	${CC} ${CFLAGS} -o cspot-runstat cspot-runstat.c c-twist.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp cspot-runstat ./cspot; cp ../../woofc-namespace-platform ./cspot; cp ../../woofc-container ./cspot
+
+cspot-runstat-fast: cspot-runstat-fast.c cspot-runstat.h c-twist.h c-twist.o ${LINCS} ${WINCS} ${SINCS} ${UINCS} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	${CC} ${CFLAGS} -o cspot-runstat-fast cspot-runstat-fast.c c-twist.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp cspot-runstat-fast ./cspot; cp ../../woofc-namespace-platform ./cspot; cp ../../woofc-container ./cspot
 
 ${H1}: r-handler.c ${SHEP_SRC} ${LINCS} ${WINCS} ${SINCS} ${UINCS} c-twist.h ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	sed 's/WOOF_HANDLER_NAME/${H1}/g' ${SHEP_SRC} > ${H1}_shepherd.c

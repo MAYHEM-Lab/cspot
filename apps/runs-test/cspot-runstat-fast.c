@@ -4,7 +4,6 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#include <time.h>
 
 #include "woofc.h"
 #include "cspot-runstat.h"
@@ -12,7 +11,7 @@
 
 
 #define ARGS "c:S:s:L:a:"
-char *Usage = "usage: cspot-runstat -L logfile\n\
+char *Usage = "usage: cspot-runstat-fast -L logfile\n\
 \t-a alpha level\n\
 \t-c count\n\
 \t-s sample_size\n\
@@ -25,13 +24,18 @@ char LogFile[2048];
 int main(int argc, char **argv)
 {
 	int c;
+	int i;
+	int j;
 	int count;
 	int sample_size;
 	int has_seed;
+	struct timeval tm;
 	double alpha;
 	int err;
 	FA fa;
-	struct timeval tm;
+	WOOF *s_wf;
+	WOOF *r_wf;
+	double r;
 
 	count = 100;
 	sample_size = 100;
@@ -87,14 +91,7 @@ int main(int argc, char **argv)
 		Seed = (uint32_t)((tm.tv_sec + tm.tv_usec) % 0xFFFFFFFF);
 	}
 
-	WooFInit(1);
-
-	err = WooFCreate("Rargs",sizeof(FA),sample_size*count);
-	if(err < 0) {
-		fprintf(stderr,"WooFCreate for Rargs failed\n");
-		fflush(stderr);
-		exit(1);
-	}
+	WooFInit();
 
 	err = WooFCreate("Sargs",sizeof(FA),sample_size*count);
 	if(err < 0) {
@@ -117,7 +114,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	err = WooFCreate("Svals",sizeof(double),count);
+	err = WooFCreate("Svals",sizeof(double),count+1);
 	if(err < 0) {
 		fprintf(stderr,"WooFCreate for Rvals failed\n");
 		fflush(stderr);
@@ -126,8 +123,6 @@ int main(int argc, char **argv)
 
 	CTwistInitialize(Seed);
 
-	fa.i = 0;
-	fa.j = 0;
 	fa.count = count;
 	fa.sample_size = sample_size;
 	fa.alpha = alpha;
@@ -140,12 +135,44 @@ int main(int argc, char **argv)
 		fa.logfile[0] = 0;
 	}
 
-	err = WooFPut("Rargs","RHandler",&fa);
-
-	if(err < 0) {
-		fprintf(stderr,"main couldn't start");
+	s_wf = WooFOpen("Sargs");
+	if(s_wf == NULL) {
+		fprintf(stderr,"couldn't open Sargs\n");
 		exit(1);
 	}
+
+	r_wf = WooFOpen("Rvals");
+	if(r_wf == NULL) {
+		fprintf(stderr,"couldn't open Rvals\n");
+		exit(1);
+	}
+
+	gettimeofday(&tm,NULL);
+	Seed = (uint32_t)((tm.tv_sec + tm.tv_usec) % 0xFFFFFFFF);
+	CTwistInitialize(Seed);
+
+	for(i=0; i < count; i++) {
+		for(j=0; j < sample_size; j++) {
+			r = CTwistRandom();
+			err = WooFAppend(r_wf,NULL,&r);
+			if(err < 0) {
+				fprintf(stderr,"failed to append at i: %d j: %d\n",
+						i,j);
+				exit(1);
+			}
+		}
+		fa.i = i;
+		fa.j = sample_size-1;
+		err = WooFAppend(s_wf,"SHandler",&fa);
+		if(err < 0) {
+			fprintf(stderr,"failed to append to Sargs\n");
+			exit(1);
+		}
+	}
+
+	WooFFree(s_wf);
+	WooFFree(r_wf);
+
 
 	pthread_exit(NULL);
 
