@@ -28,6 +28,7 @@ int WH1(WOOF *my_wf, unsigned long long seq_no, void *element)
 	WHSTATE *whs = (WHSTATE *)element;
 	WHSTATE my_state;
 	unsigned long counter;
+	unsigned long ndx;
 	int err;
 
 	counter = whs->counter;
@@ -50,7 +51,7 @@ int WH1(WOOF *my_wf, unsigned long long seq_no, void *element)
 	my_state.max = whs->max;
 	my_state.target_wf = my_wf;
 
-	err = WooFPut(whs->target_wf,&my_state);
+	ndx = WooFPut(whs->target_wf,&my_state);
 
 	fflush(stdout);
 
@@ -63,6 +64,7 @@ int WH2(WOOF *my_wf, unsigned long long seq_no, void *element)
 	WHSTATE my_state;
 	unsigned long counter;
 	int err;
+	unsigned long ndx;
 
 	counter = whs->counter;
 
@@ -84,7 +86,7 @@ int WH2(WOOF *my_wf, unsigned long long seq_no, void *element)
 	my_state.max = whs->max;
 	my_state.target_wf = my_wf;
 
-	err = WooFPut(whs->target_wf,&my_state);
+	ndx = WooFPut(whs->target_wf,&my_state);
 
 	fflush(stdout);
 

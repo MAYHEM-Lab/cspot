@@ -17,6 +17,7 @@ int main(int argc, char **argv)
 	int size;
 	int err;
 	OBJ1_EL el;
+	unsigned long ndx;
 
 	size = 5;
 
@@ -57,9 +58,9 @@ int main(int argc, char **argv)
 	memset(el.string,0,sizeof(el.string));
 	strncpy(el.string,"my first bark",sizeof(el.string));
 
-	err = WooFPut(Fname,"woofc_obj1_handler_1",(void *)&el);
+	ndx = WooFPut(Fname,"woofc_obj1_handler_1",(void *)&el);
 
-	if(err < 0) {
+	if(WooFInvalid(err)) {
 		fprintf(stderr,"first WooFPut failed\n");
 		fflush(stderr);
 		exit(1);

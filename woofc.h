@@ -46,6 +46,7 @@ unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
 unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
+int WooFInvalid(unsigned long seq_no);
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"

@@ -501,7 +501,7 @@ unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements)
 	return(new);
 }
 
-unsigned long WooFInvalid(unsigned long seq_no)
+int WooFInvalid(unsigned long seq_no)
 {
 	if(seq_no == (unsigned long)-1) {
 		return(1);
