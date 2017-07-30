@@ -51,15 +51,17 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		return(-1);
 	}
 
-	start = WooFBack(r_wf,(fa->i+1)*(fa->sample_size-1));
-	end = WooFBack(r_wf,fa->i*(fa->sample_size-1));
+	end = fa->ndx;
+	start = WooFBack(r_wf,end,fa->sample_size-1);
 printf("SHandler: start: %lu, end: %lu\n",start,end);
 fflush(stdout);
 
 	v = (double *)malloc(sizeof(double)*fa->sample_size);
 	i = 0;
-	for(ndx=start; ndx <= end; ndx++) {
+	for(ndx=start; ndx != WooFForward(r_wf,end,1); ndx = WooFForward(r_wf,ndx,1)) {
 		WooFGet(r_wf,&v[i],ndx);
+printf("SHandler: ndx %lu, r: %f\n",ndx,v[i]);
+fflush(stdout);
 		i++;
 	}
 
@@ -69,8 +71,8 @@ fflush(stdout);
 	/*
 	 * put the stat without a handler
 	 */
-	err = WooFPut(fa->stats,NULL,&stat);
-	if(err < 0) {
+	ndx = WooFPut(fa->stats,NULL,&stat);
+	if(WooFInvalid(ndx)) {
 		fprintf(stderr,"SHandler couldn't put stat\n");
 		exit(1);
 	}
@@ -90,8 +92,9 @@ fflush(stdout);
 
 	if(fa->i == (fa->count - 1)) {
 		memcpy(&next_k,fa,sizeof(FA));
-		err = WooFPut("Kargs","KHandler",&next_k);
-		if(err < 0) {
+		next_k.ndx = ndx;
+		ndx = WooFPut("Kargs","KHandler",&next_k);
+		if(WooFInvalid(ndx)) {
 			fprintf(stderr,"SHandler: couldn't create KHandler\n");
 			exit(1);
 		}

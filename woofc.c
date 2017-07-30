@@ -139,7 +139,7 @@ void WooFFree(WOOF *wf)
 	return;
 }
 
-int WooFAppend(WOOF *wf, char *hand_name, void *element)
+unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
 	MIO *mio;
 	MIO *lmio;
@@ -290,7 +290,7 @@ int WooFAppend(WOOF *wf, char *hand_name, void *element)
 	 */
 	if(hand_name == NULL) {
 		V(&wfs->tail_wait);
-		return(1);
+		return(ndx);
 	}
 
 	ev->woofc_ndx = ndx;
@@ -353,14 +353,14 @@ int WooFAppend(WOOF *wf, char *hand_name, void *element)
 
 	EventFree(ev);
 	V(&Name_log->tail_wait);
-	return(1);
+	return(ndx);
 }
 		
-int WooFPut(char *wf_name, char *hand_name, void *element)
+unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
 	char woof_name[2048];
-	int err;
+	int ndx;
 
 #ifdef DEBUG
 	printf("WooFPut: called %s %s\n",wf_name,hand_name);
@@ -392,10 +392,10 @@ int WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: WooF %s open\n",wf_name);
 	fflush(stdout);
 #endif
-	err = WooFAppend(wf,hand_name,element);
+	ndx = WooFAppend(wf,hand_name,element);
 
 	WooFFree(wf);
-	return(err);
+	return(ndx);
 }
 
 int WooFGetTail(WOOF *wf, void *elements, int element_count)
@@ -470,16 +470,7 @@ unsigned long WooFLatest(WOOF *wf)
 	return(wf->shared->head);
 }
 
-unsigned long WooFNext(WOOF *wf, unsigned long ndx)
-{
-	unsigned long next;
-
-	next = (ndx + 1) % wf->shared->history_size;
-
-	return(next);
-}
-
-unsigned long WooFBack(WOOF *wf, unsigned long elements)
+unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements)
 {
 	WOOF_SHARED *wfs = wf->shared;
 	unsigned long remainder = elements % wfs->history_size;
@@ -490,17 +481,31 @@ unsigned long WooFBack(WOOF *wf, unsigned long elements)
 		return(wfs->head);
 	}
 
-	new = wfs->head - remainder;
+	new = ndx - remainder;
 
 	/*
 	 * if we need to wrap around
 	 */
 	if(new >= wfs->history_size) {
-		wrap = remainder - wfs->head;
+		wrap = remainder - ndx;
 		new = wfs->history_size - wrap;
 	}
 
 	return(new);
 }
 		
+unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements)
+{
+	unsigned long new = (ndx + elements) % wf->shared->history_size;
 
+	return(new);
+}
+
+unsigned long WooFInvalid(unsigned long seq_no)
+{
+	if(seq_no == (unsigned long)-1) {
+		return(1);
+	} else {
+		return(0);
+	}
+}

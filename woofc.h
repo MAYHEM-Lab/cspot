@@ -38,13 +38,14 @@ int WooFCreate(char *name,
                unsigned long element_size,
                unsigned long history_size);
 WOOF *WooFOpen(char *name);
-int WooFPut(char *wf_name, char *wf_handler, void *element);
-int WooFAppend(WOOF *wf, char *wf_handler, void *element);
+unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
+unsigned long WooFAppend(WOOF *wf, char *wf_handler, void *element);
 int WooFGet(WOOF *wf, void *element, unsigned long ndx);
 int WooFGetTail(WOOF *wf, void *elements, int element_count);
 unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
-unsigned long WooFNext(WOOF *wf, unsigned long ndx);
+unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
+unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"

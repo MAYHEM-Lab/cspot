@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 	int err;
 	FA fa;
 	struct timeval tm;
+	unsigned long ndx;
 
 	count = 100;
 	sample_size = 100;
@@ -140,9 +141,9 @@ int main(int argc, char **argv)
 		fa.logfile[0] = 0;
 	}
 
-	err = WooFPut("Rargs","RHandler",&fa);
+	ndx = WooFPut("Rargs","RHandler",&fa);
 
-	if(err < 0) {
+	if(WooFInvalid(ndx)) {
 		fprintf(stderr,"main couldn't start");
 		exit(1);
 	}
