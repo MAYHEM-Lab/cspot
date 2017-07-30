@@ -39,9 +39,6 @@ c-runstat: c-runstat.c c-runstest.o c-runstest.h c-twist.o c-twist.h
 c-runstest.o: c-runstest.c c-runstest.h
 	${CC} ${CFLAGS} -c c-runstest.c ${LIBS}
 
-c-runstest-cspot.o: c-runstest.c c-runstest.h
-	${CC} ${CFLAGS} -DHAS_WOOF -c c-runstest.c -o c-runstest-cspot.o ${LIBS}
-
 c-twist.o: c-twist.c c-twist.h
 	${CC} ${CFLAGS} -c c-twist.c
 
