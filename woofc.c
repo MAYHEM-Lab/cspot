@@ -356,6 +356,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	return(ndx);
 }
 		
+XXX fix this to return seq_no
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
@@ -434,23 +435,46 @@ int WooFGetTail(WOOF *wf, void *elements, int element_count)
 
 }
 
-int WooFGet(WOOF *wf, void *element, unsigned long ndx)
+int WooFGet(WOOF *wf, void *element, unsigned long seq_no)
 {
 	unsigned char *buf;
 	unsigned char *ptr;
 	WOOF_SHARED *wfs;
+	unsigned long oldest;
+	unsigned long youngest;
+	unsigned long last_valid;
+	unsigned long ndx;
+	ELID *el_id;
 
 	wfs = wf->shared;
 
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+
+	P(&wfs->mutex);
+
+	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID))); 
+	el_id = (ELID *)ptr + sizeof(ELID);
+	youngest = el_id->seq_no;
+
+	last_valid = (wfs->tail+1) % wfs->history_size;
+	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID))); 
+	el_id = (ELID *)ptr + sizeof(ELID);
+	oldest = el_id->seq_no;
+
 	/*
-	 * must be a valid index
-	 */
-	if(ndx >= wfs->history_size) {
+	 * is the seq_no between head and tail ndx?
+	if((seq_no < oldest) || (seq_no > youngest)) {
+		V(&wfs->mutex);
 		return(-1);
 	}
-	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+
+	/*
+	 * yes, compute ndx forward from last_valid ndx
+	 */
+	ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
 	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
 	memcpy(element,ptr,sizeof(wfs->element_size));
+	V(&wfs->mutex);
 	return(1);
 }
 
