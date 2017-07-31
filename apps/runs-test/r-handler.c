@@ -18,7 +18,7 @@
 uint32_t Seed;
 
 
-int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
+int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 {
 	FA *fa = (FA *)ptr;
 	FA next_r;
@@ -26,8 +26,8 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	int err;
 	double r;
 	struct timeval tm;
-	unsigned long ndx;
-	unsigned long r_ndx;
+	unsigned long seq_no;
+	unsigned long r_seq_no;
 
 	/*
 	 * sanity checks
@@ -59,8 +59,8 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	/*
 	 * generate next random number
 	 */
-	ndx = WooFPut("Rargs","RHandler",&next_r);
-	if(WooFInvalid(ndx)) {
+	seq_no = WooFPut("Rargs","RHandler",&next_r);
+	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"RHandler couldn't put RHandler\n");
 		exit(1);
 	}
@@ -68,13 +68,13 @@ int RHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	/*
 	 * put put the random value with no handler
 	 */
-	r_ndx = WooFPut(fa->r,NULL,&r);
-	if(WooFInvalid(r_ndx)) {
+	r_seq_no = WooFPut(fa->r,NULL,&r);
+	if(WooFInvalid(r_seq_no)) {
 		fprintf(stderr,"RHandler couldn't put random value\n");
 		exit(1);
 	}
 
-printf("RHandler: i: %d, ndx: %lu, r: %f\n",fa->i, r_ndx, r);
+printf("RHandler: i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
 fflush(stdout);
 
 
@@ -86,9 +86,9 @@ fflush(stdout);
 	 	* launch the stat handler
 	 	*/
 		memcpy(&next_s,fa,sizeof(FA));
-		next_s.ndx = r_ndx;
-		ndx = WooFPut("Sargs","SHandler",&next_s);
-		if(WooFInvalid(ndx)) {
+		next_s.seq_no = r_seq_no;
+		seq_no = WooFPut("Sargs","SHandler",&next_s);
+		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"RHandler couldn't put SHandler\n");
 			exit(1);
 		}

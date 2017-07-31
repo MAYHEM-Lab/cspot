@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 	WOOF *s_wf;
 	WOOF *r_wf;
 	double r;
-	unsigned long ndx;
+	unsigned long seq_no;
 
 	count = 100;
 	sample_size = 100;
@@ -155,8 +155,8 @@ int main(int argc, char **argv)
 	for(i=0; i < count; i++) {
 		for(j=0; j < sample_size; j++) {
 			r = CTwistRandom();
-			ndx = WooFAppend(r_wf,NULL,&r);
-			if(WooFInvalid(ndx)) {
+			seq_no = WooFAppend(r_wf,NULL,&r);
+			if(WooFInvalid(seq_no)) {
 				fprintf(stderr,"failed to append at i: %d j: %d\n",
 						i,j);
 				exit(1);
@@ -164,9 +164,9 @@ int main(int argc, char **argv)
 		}
 		fa.i = i;
 		fa.j = sample_size-1;
-		fa.ndx = ndx;
-		ndx = WooFAppend(s_wf,"SHandler",&fa);
-		if(WooFInvalid(ndx)) {
+		fa.seq_no = seq_no;
+		seq_no = WooFAppend(s_wf,"SHandler",&fa);
+		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"failed to append to Sargs\n");
 			exit(1);
 		}

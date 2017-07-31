@@ -7,7 +7,7 @@ struct func_arg_stc
 {
         int i;
         int j;
-	unsigned long ndx;
+	unsigned long seq_no;
         int count;
         int sample_size;
         double alpha;

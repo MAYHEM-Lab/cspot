@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 	int size;
 	int err;
 	OBJ2_EL el;
-	unsigned long ndx;
+	unsigned long seq_no;
 
 	size = 5;
 
@@ -57,9 +57,9 @@ int main(int argc, char **argv)
 
 
 	el.counter = 0;
-	ndx = WooFPut(Fname,"woofc_obj2_handler_2",(void *)&el);
+	seq_no = WooFPut(Fname,"woofc_obj2_handler_2",(void *)&el);
 
-	if(WooFInvalid(ndx)) {
+	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"first WooFPut failed\n");
 		fflush(stderr);
 		exit(1);

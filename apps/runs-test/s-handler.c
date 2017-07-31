@@ -16,7 +16,7 @@
 #include "woofc.h"
 #include "cspot-runstat.h"
 
-int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
+int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 {
 	FA *fa = (FA *)ptr;
 	FA next_k;
@@ -26,7 +26,7 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	WOOF *r_wf;
 	unsigned long start;
 	unsigned long end;
-	unsigned long ndx;
+	unsigned long seq_no;
 	int i;
 	double *v;
 
@@ -51,16 +51,16 @@ int SHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		return(-1);
 	}
 
-	end = fa->ndx;
-	start = WooFBack(r_wf,end,fa->sample_size-1);
+	end = fa->seq_no;
+	start = end - (fa->sample_size-1);
 printf("SHandler: start: %lu, end: %lu\n",start,end);
 fflush(stdout);
 
 	v = (double *)malloc(sizeof(double)*fa->sample_size);
 	i = 0;
-	for(ndx=start; ndx != WooFForward(r_wf,end,1); ndx = WooFForward(r_wf,ndx,1)) {
-		WooFGet(r_wf,&v[i],ndx);
-printf("SHandler: ndx %lu, r: %f\n",ndx,v[i]);
+	for(seq_no=start; seq_no <= end; seq_no++) {
+		WooFGet(r_wf,&v[i],seq_no);
+printf("SHandler: seq_no %lu, r: %f\n",seq_no,v[i]);
 fflush(stdout);
 		i++;
 	}
@@ -71,8 +71,8 @@ fflush(stdout);
 	/*
 	 * put the stat without a handler
 	 */
-	ndx = WooFPut(fa->stats,NULL,&stat);
-	if(WooFInvalid(ndx)) {
+	seq_no = WooFPut(fa->stats,NULL,&stat);
+	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"SHandler couldn't put stat\n");
 		exit(1);
 	}
@@ -92,9 +92,9 @@ fflush(stdout);
 
 	if(fa->i == (fa->count - 1)) {
 		memcpy(&next_k,fa,sizeof(FA));
-		next_k.ndx = ndx;
-		ndx = WooFPut("Kargs","KHandler",&next_k);
-		if(WooFInvalid(ndx)) {
+		next_k.seq_no = seq_no;
+		seq_no = WooFPut("Kargs","KHandler",&next_k);
+		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"SHandler: couldn't create KHandler\n");
 			exit(1);
 		}

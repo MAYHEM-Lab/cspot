@@ -16,7 +16,7 @@
 #include "cspot-runstat.h"
 
 
-int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
+int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 {
 	FA *fa = (FA *)ptr;
 	FILE *fd;
@@ -30,7 +30,7 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	double value;
 	double critical;
 	double s;
-	unsigned long ndx;
+	unsigned long seq_no;
 	int count;
 	WOOF *s_wf;
 
@@ -75,11 +75,11 @@ int KHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 
 	count = 0;
-	for(ndx=fa->ndx; count < fa->count; ndx = WooFBack(s_wf,ndx,1)) {
-		err = WooFGet(s_wf,&s,ndx);
+	for(seq_no=fa->seq_no; count < fa->count; seq_no--) {
+		err = WooFGet(s_wf,&s,seq_no);
 		if(err < 0) {
 			fprintf(stderr,"WooFGet failed at %lu for %s\n",
-					ndx,fa->stats);
+					seq_no,fa->stats);
 			exit(1);
 		}
 		WriteData(local,1,&s);

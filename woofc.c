@@ -14,6 +14,7 @@ extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
 
+
 int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
@@ -290,7 +291,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	 */
 	if(hand_name == NULL) {
 		V(&wfs->tail_wait);
-		return(ndx);
+		return(seq_no);
 	}
 
 	ev->woofc_ndx = ndx;
@@ -353,15 +354,14 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 
 	EventFree(ev);
 	V(&Name_log->tail_wait);
-	return(ndx);
+	return(seq_no);
 }
 		
-XXX fix this to return seq_no
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
 	char woof_name[2048];
-	int ndx;
+	int seq_no;
 
 #ifdef DEBUG
 	printf("WooFPut: called %s %s\n",wf_name,hand_name);
@@ -393,10 +393,10 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	printf("WooFPut: WooF %s open\n",wf_name);
 	fflush(stdout);
 #endif
-	ndx = WooFAppend(wf,hand_name,element);
+	seq_no = WooFAppend(wf,hand_name,element);
 
 	WooFFree(wf);
-	return(ndx);
+	return(seq_no);
 }
 
 int WooFGetTail(WOOF *wf, void *elements, int element_count)
@@ -453,13 +453,20 @@ int WooFGet(WOOF *wf, void *element, unsigned long seq_no)
 	P(&wfs->mutex);
 
 	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID))); 
-	el_id = (ELID *)ptr + sizeof(ELID);
+	el_id = (ELID *)(ptr + wfs->element_size);
 	youngest = el_id->seq_no;
 
-	last_valid = (wfs->tail+1) % wfs->history_size;
+	last_valid = wfs->tail;
 	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID))); 
-	el_id = (ELID *)ptr + sizeof(ELID);
+	el_id = (ELID *)(ptr + wfs->element_size);
 	oldest = el_id->seq_no;
+
+	if(oldest == 0) { /* haven't wrapped yet */
+		last_valid++;
+		ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID))); 
+		el_id = (ELID *)(ptr + wfs->element_size);
+		oldest = el_id->seq_no;
+	}
 
 	/*
 	 * is the seq_no between head and tail ndx?
@@ -472,6 +479,17 @@ int WooFGet(WOOF *wf, void *element, unsigned long seq_no)
 	 * yes, compute ndx forward from last_valid ndx
 	 */
 	ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
+#ifdef DEBUG
+	fprintf(stdout,"WooFGet: head: %lu tail: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
+		wfs->head,
+		wfs->tail,
+		last_valid,
+		seq_no,
+		oldest,
+		youngest,
+		ndx);
+	fflush(stdout);
+#endif
 	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
 	memcpy(element,ptr,sizeof(wfs->element_size));
 	V(&wfs->mutex);
