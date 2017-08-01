@@ -10,14 +10,16 @@ SLIB=./lsema.o
 LIBS=-lpthread -lm
 LOBJ=log.o host.o event.o
 LINCS=log.h host.h event.h
-WINCS=woofc.h
-WOBJ=woofc.o
+WINCS=woofc.h woofc-access.h
+WOBJ=woofc.o woofc-access.o
 WHOBJ=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
 TOBJ=woofc-thread.o
+URIINC=./uriparser2
+URILIB=./uriparser2/liburiparser2.a
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
 
 all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
@@ -33,6 +35,9 @@ log.o: log.c log.h host.h event.h
 woofc.o: woofc.c woofc.h
 	${CC} ${CFLAGS} -c woofc.c
 
+woofc-access.o: woofc-access.c woofc-access.h
+	${CC} ${CFLAGS} -c woofc-access.c
+
 woofc-host.o: woofc-host.c woofc.h
 	${CC} ${CFLAGS} -c woofc-host.c
 
@@ -42,11 +47,11 @@ woofc-shepherd.o: woofc-shepherd.c woofc.h
 woofc-thread.o: woofc-thread.c woofc-thread.h
 	${CC} ${CFLAGS} -c woofc-thread.c
 
-woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS}
-	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${LIBS}
+woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
+	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}
 
-woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} ${UINCS} ${LINCS}
-	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${LIBS}
+woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
+	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}
 
 event.o: event.c event.h
 	${CC} ${CFLAGS} -c event.c
@@ -59,6 +64,9 @@ sema.o: sema.c sema.h
 
 lsema.o: lsema.c lsema.h
 	${CC} ${CFLAGS} -c lsema.c
+
+${URILIB}:
+	cd ./uriparser2;make
 
 clean:
 	rm -f *.o log-test
