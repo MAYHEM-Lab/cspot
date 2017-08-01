@@ -8,7 +8,9 @@
 
 #include "log.h"
 #include "woofc.h"
+#include "woofc-access.h"
 
+extern char WooF_namespace[2048];
 extern char WooF_dir[2048];
 extern char Namelog_name[2048];
 extern unsigned long Name_id;
@@ -24,6 +26,12 @@ int WooFCreate(char *name,
 	unsigned long space;
 	char local_name[4096];
 	char fname[20];
+	int err;
+
+	if(name == NULL) {
+		return(-1);
+	}
+
 
 	/*
 	 * each element gets a seq_no and log index so we can handle
@@ -39,18 +47,34 @@ int WooFCreate(char *name,
 	}
 
 	memset(local_name,0,sizeof(local_name));
-	strncpy(local_name,WooF_dir,sizeof(local_name));
-	if(local_name[strlen(local_name)-1] != '/') {
-		strncat(local_name,"/",1);
-	}
-
-
-	if(name != NULL) {
-		strncat(local_name,name,sizeof(local_name));
-	} else {
-		sprintf(fname,"woof-%10.0",drand48()*399999999);
+	if(WooFValidURI(name)) {
+		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
+				name);
+			fflush(stderr);
+			return(-1);
+		}
+		if(local_name[strlen(local_name)-1] != '/') {
+			strncat(local_name,"/",1);
+		}
+		err = WooFNameFromURI(name,&fname,sizeof(fname));
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
+				name);
+			fflush(stderr);
+			return(-1);
+		}
 		strncat(local_name,fname,sizeof(fname));
+	} else { /* assume this is WooF_dir local */
+		strncpy(local_name,WooF_dir,sizeof(local_name));
+		if(local_name[strlen(local_name)-1] != '/') {
+			strncat(local_name,"/",1);
+		}
+		strncat(local_name,name,sizeof(local_name));
 	}
+		
+
 	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
 		return(-1);
@@ -87,6 +111,8 @@ WOOF *WooFOpen(char *name)
 	WOOF_SHARED *wfs;
 	MIO *mio;
 	char local_name[4096];
+	char fname[4096];
+	int err;
 
 	if(name == NULL) {
 		return(NULL);
@@ -99,13 +125,32 @@ WOOF *WooFOpen(char *name)
 	}
 
 	memset(local_name,0,sizeof(local_name));
-	strncpy(local_name,WooF_dir,sizeof(local_name));
-	if(local_name[strlen(local_name)-1] != '/') {
-		strncat(local_name,"/",1);
+	if(WooFValidURI(name)) {
+		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
+				name);
+			fflush(stderr);
+			return(-1);
+		}
+		if(local_name[strlen(local_name)-1] != '/') {
+			strncat(local_name,"/",1);
+		}
+		err = WooFNameFromURI(name,&fname,sizeof(fname));
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
+				name);
+			fflush(stderr);
+			return(-1);
+		}
+		strncat(local_name,fname,sizeof(fname));
+	} else { /* assume this is WooF_dir local */
+		strncpy(local_name,WooF_dir,sizeof(local_name));
+		if(local_name[strlen(local_name)-1] != '/') {
+			strncat(local_name,"/",1);
+		}
+		strncat(local_name,name,sizeof(local_name));
 	}
-
-
-	strncat(local_name,name,sizeof(local_name));
 #ifdef DEBUG
 	printf("WooFOpen: trying to open %s\n",local_name);
 	fflush(stdout);
@@ -294,6 +339,13 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 		return(seq_no);
 	}
 
+	memset(ev->namespace,0,sizeof(ev->namespace));
+	strncpy(ev->namespace,WooF_namespace,sizeof(ev->namespace));
+#ifdef DEBUG
+	printf("WooFAppend: namespace: %s\n",ev->namespace);
+	fflush(stdout);
+#endif
+
 	ev->woofc_ndx = ndx;
 #ifdef DEBUG
 	printf("WooFAppend: ndx: %lu\n",ev->woofc_ndx);
@@ -360,7 +412,6 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
-	char woof_name[2048];
 	int seq_no;
 
 #ifdef DEBUG
@@ -374,15 +425,10 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 		return(-1);
 	}
 #ifdef DEBUG
-	printf("WooFPut: WooF_dir: %s\n",WooF_dir);
+	printf("WooFPut: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
 	fflush(stdout);
 #endif
-
-	memset(woof_name,0,sizeof(woof_name));
-	strncpy(woof_name,WooF_dir,sizeof(woof_name));
-	strncat(woof_name,"/",sizeof(woof_name)-strlen("/"));
-	strncat(woof_name,wf_name,sizeof(woof_name)-strlen(woof_name));
-
 	wf = WooFOpen(wf_name);
 
 	if(wf == NULL) {
