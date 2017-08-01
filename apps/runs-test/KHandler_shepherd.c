@@ -13,6 +13,7 @@
 
 LOG *Name_log;
 unsigned long Name_id;
+char WooF_namespace[2048];
 char WooF_dir[2048];
 char Namelog_name[2048];
 

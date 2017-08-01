@@ -8,12 +8,12 @@ SINCS=${SINC}/lsema.h
 ULIB=../../../euca-cutils/libutils.a
 MLIB=../../../mio/mio.o ../../../mio/mymalloc.o
 SLIB=../../lsema.o
-LIBS=-lpthread -lm
+LIBS=../../uriparser2/liburiparser2.a -lpthread -lm
 LOBJ=../../log.o ../../host.o ../../event.o
 LINCS=../../log.h ../../host.h ../../event.h
 WINC=../..
-WINCS=${WINC}/woofc.h
-WOBJ=../../woofc.o
+WINCS=${WINC}/woofc.h ${WINC}/woofc-access.h
+WOBJ=../../woofc.o ../../woofc-access.o
 WHINC=../..
 WHOBJ=../../woofc-host.o
 TINC=../..
@@ -62,10 +62,10 @@ ${H1}: r-handler.c ${SHEP_SRC} ${LINCS} ${WINCS} ${SINCS} ${UINCS} c-twist.h ${W
 	${CC} ${CFLAGS} -o ${H1} r-handler.c ${H1}_shepherd.o c-twist.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ${H1} ./cspot
 
-${H2}: s-handler.c c-runstest-cspot.o c-runstest.h ${SHEP_SRC} ${LINCS} ${WINCS} ${SINCS} ${UINCS} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+${H2}: s-handler.c c-runstest.h ${SHEP_SRC} ${LINCS} ${WINCS} ${SINCS} ${UINCS} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	sed 's/WOOF_HANDLER_NAME/${H2}/g' ${SHEP_SRC} > ${H2}_shepherd.c
 	${CC} ${CFLAGS} -c ${H2}_shepherd.c -o ${H2}_shepherd.o
-	${CC} ${CFLAGS} -o ${H2} s-handler.c ${H2}_shepherd.o c-runstest-cspot.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	${CC} ${CFLAGS} -o ${H2} s-handler.c ${H2}_shepherd.o c-runstest.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ${H2} ./cspot
 
 ${H3}: k-handler.c ${SHEP_SRC} ${LINCS} ${WINCS} ${SINCS} ${UINCS} ${KINCS} normal.o normal.h ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
