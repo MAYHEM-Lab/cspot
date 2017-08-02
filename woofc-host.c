@@ -17,6 +17,8 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
+#define DEBUG
+
 static int WooFDone;
 
 struct cont_arg_stc
@@ -93,7 +95,7 @@ int WooFInit()
 	sprintf(putbuf,"WOOFC_DIR=%s",WooF_dir);
 	putenv(putbuf);
 #ifdef DEBUG
-	fprintf(stdout,"WooFInit: %s\n",putbuf);
+	fprintf(stdout,"WooFInit: WooF_dir: %s\n",putbuf);
 	fflush(stdout);
 #endif
 
@@ -107,6 +109,11 @@ int WooFInit()
 	} else { /* in the container */
 		strncpy(WooF_namespace,str,sizeof(WooF_namespace));
 	}
+
+#ifdef DEBUG
+	fprintf(stdout,"WooFInit: namespace: %s\n",WooF_namespace);
+	fflush(stdout);
+#endif
 
 	err = mkdir(WooF_dir,0600);
 	if((err < 0) && (errno != EEXIST)) {

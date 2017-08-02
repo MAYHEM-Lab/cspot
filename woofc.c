@@ -16,6 +16,7 @@ extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
 
+#define DEBUG
 
 int WooFCreate(char *name,
 	       unsigned long element_size,
@@ -58,7 +59,7 @@ int WooFCreate(char *name,
 		if(local_name[strlen(local_name)-1] != '/') {
 			strncat(local_name,"/",1);
 		}
-		err = WooFNameFromURI(name,&fname,sizeof(fname));
+		err = WooFNameFromURI(name,fname,sizeof(fname));
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
 				name);
@@ -131,17 +132,17 @@ WOOF *WooFOpen(char *name)
 			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
 				name);
 			fflush(stderr);
-			return(-1);
+			return(NULL);
 		}
 		if(local_name[strlen(local_name)-1] != '/') {
 			strncat(local_name,"/",1);
 		}
-		err = WooFNameFromURI(name,&fname,sizeof(fname));
+		err = WooFNameFromURI(name,fname,sizeof(fname));
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
 				name);
 			fflush(stderr);
-			return(-1);
+			return(NULL);
 		}
 		strncat(local_name,fname,sizeof(fname));
 	} else { /* assume this is WooF_dir local */
