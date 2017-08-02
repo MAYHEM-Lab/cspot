@@ -46,7 +46,6 @@ int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
 	i = strlen(uri.path);
 	while(i >= 0) {
 		if(uri.path[i] == '/') {
-			i--;
 			if(i <= 0) {
 				return(-1);
 			}
@@ -68,6 +67,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 {
 	struct URI uri;
 	int i;
+	int j;
 
 	if(!WooFValidURI(woof_uri_str)) { 
 		return(-1);
@@ -81,6 +81,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 	 * walk back to the last '/' character
 	 */
 	i = strlen(uri.path);
+	j = 0;
 	/*
 	 * if last character in the path is a '/' this is an error
 	 */
@@ -93,7 +94,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 			if(i <= 0) {
 				return(-1);
 			}
-			if(i > len) { /* not enough space to hold path */
+			if(j > len) { /* not enough space to hold path */
 				return(-1);
 			}
 			/*
@@ -103,6 +104,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 			return(1);
 		}
 		i--;
+		j++;
 	}
 	/*
 	 * we didn't find a '/' in the URI path for the woofname -- error out

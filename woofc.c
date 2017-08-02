@@ -88,10 +88,10 @@ int WooFCreate(char *name,
 	wfs = (WOOF_SHARED *)MIOAddr(mio);
 	memset(wfs,0,sizeof(WOOF_SHARED));
 
-	if(name != NULL) {
-		strncpy(wfs->filename,name,sizeof(wfs->filename));
-	} else {
+	if(WooFValidURI(name)) {
 		strncpy(wfs->filename,fname,sizeof(wfs->filename));
+	} else {
+		strncpy(wfs->filename,name,sizeof(wfs->filename));
 	}
 
 	wfs->history_size = history_size;

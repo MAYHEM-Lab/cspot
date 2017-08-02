@@ -171,6 +171,10 @@ static int WooFHostInit(int min_containers, int max_containers)
 		fflush(stderr);
 		exit(1);
 	}
+#ifdef DEBUG
+	printf("WooFHostInit: created %s\n",log_name);
+	fflush(stdout);
+#endif
 
 	ca = malloc(sizeof(CA));
 	if(ca == NULL) {

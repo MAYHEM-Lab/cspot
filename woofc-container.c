@@ -18,8 +18,6 @@ LOG *Name_log;
 
 static int WooFDone;
 
-#define DEBUG
-
 void WooFShutdown(int sig)
 {
 	int val;
