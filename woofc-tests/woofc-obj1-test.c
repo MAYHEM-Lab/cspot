@@ -6,10 +6,20 @@
 #include "woofc.h"
 #include "woofc-obj1.h"
 
-#define ARGS "c:f:s:"
-char *Usage = "woofc-obj1-test -f filename -s size (in events)\n";
+#define ARGS "c:f:s:N:H:"
+char *Usage = "woofc-obj1-test -f filename\n\
+\t-s size (in events)\n\
+\t-H namelog-path to host wide namelog\n\
+\t-N namespace\n";
 
 char Fname[4096];
+char Wname[4096];
+char NameSpace[4096];
+char Namelog_dir[4096];
+int UseNameSpace;
+
+char putbuf1[1024];
+char putbuf2[1024];
 
 int main(int argc, char **argv)
 {
@@ -25,6 +35,13 @@ int main(int argc, char **argv)
 		switch(c) {
 			case 'f':
 				strncpy(Fname,optarg,sizeof(Fname));
+				break;
+			case 'N':
+				UseNameSpace = 1;
+				strncpy(NameSpace,optarg,sizeof(NameSpace));
+				break;
+			case 'H':
+				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
 				break;
 			case 's':
 				size = atoi(optarg);
@@ -44,13 +61,25 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	WooFInit(1);
+	if(Namelog_dir[0] != 0) {
+		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
+		putenv(putbuf2);
+	}
+
+	if(UseNameSpace == 1) {
+		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
+		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+		putenv(putbuf1);
+	} else {
+		strncpy(Wname,Fname,sizeof(Wname));
+	}
+
+	WooFInit();
 
 
-	err = WooFCreate(Fname,sizeof(OBJ1_EL),size);
-
+	err = WooFCreate(Wname,sizeof(OBJ1_EL),size);
 	if(err < 0) {
-		fprintf(stderr,"couldn't create wf_1\n");
+		fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
 		fflush(stderr);
 		exit(1);
 	}
@@ -58,10 +87,10 @@ int main(int argc, char **argv)
 	memset(el.string,0,sizeof(el.string));
 	strncpy(el.string,"my first bark",sizeof(el.string));
 
-	ndx = WooFPut(Fname,"woofc_obj1_handler_1",(void *)&el);
+	ndx = WooFPut(Wname,"woofc_obj1_handler_1",(void *)&el);
 
 	if(WooFInvalid(err)) {
-		fprintf(stderr,"first WooFPut failed\n");
+		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
 		fflush(stderr);
 		exit(1);
 	}

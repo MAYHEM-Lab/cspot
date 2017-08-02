@@ -15,11 +15,13 @@ LOG *Name_log;
 unsigned long Name_id;
 char WooF_namespace[2048];
 char WooF_dir[2048];
+char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 
 
 int main(int argc, char **argv, char **envp)
 {
+	char *wnld;
 	char *wf_ns;
 	char *wf_dir;
 	char *wf_name;
@@ -85,6 +87,14 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: WOOFC_DIR=%s\n",wf_dir);
 	fflush(stdout);
 #endif
+
+	wnld = getenv("WOOF_NAMELOG_DIR");
+	if(wnld == NULL) {
+		fprintf(stderr,"WooFShepherd: couldn't find WOOF_NAMELOG_DIR\n");
+		fflush(stderr);
+		exit(1);
+	}
+	strncpy(WooF_namelog_dir,wnld,sizeof(WooF_namelog_dir));
 
 	wf_name = getenv("WOOF_SHEPHERD_NAME");
 	if(wf_name == NULL) {
@@ -197,7 +207,7 @@ int main(int argc, char **argv, char **envp)
 	fflush(stdout);
 #endif
 
-	sprintf(log_name,"%s/%s",WooF_dir,namelog_name);
+	sprintf(log_name,"%s/%s",WooF_namelog_dir,namelog_name);
 	lmio = MIOReOpen(log_name);
 	if(lmio == NULL) {
 		fprintf(stderr,

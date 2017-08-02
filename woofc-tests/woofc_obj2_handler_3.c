@@ -11,9 +11,10 @@ int woofc_obj2_handler_3(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	OBJ2_EL el;
 	FILE *fd;
+	char fbuf[4096];
 
 
-	fd = fopen("/cspot/log-obj2","a");
+	fd = fopen("/cspot-ns3/log-obj2","a");
         if(fd == NULL) {
                 fprintf(stderr,"handler3 couldn't open log\n");
                 fflush(stderr);
@@ -29,7 +30,11 @@ int woofc_obj2_handler_3(WOOF *wf, unsigned long seq_no, void *ptr)
 		el.counter++;
 		fprintf(fd,"handler3, calling put counter: %lu seq_no: %lu\n",el.counter,seq_no);
 		fflush(fd);
-		WooFPut(wf->shared->filename,"woofc_obj2_handler_2",&el);
+		if(WooFValidURI(el.next_woof)) {
+			WooFPut(el.next_woof,"woofc_obj2_handler_2",&el);
+		} else {
+			WooFPut(wf->shared->filename,"woofc_obj2_handler_2",&el);
+		}
 	} else {
 	fprintf(fd,"handler3 done, counter: %lu seq_no: %lu\n",el.counter,seq_no);
 	fflush(fd);

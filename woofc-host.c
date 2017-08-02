@@ -12,6 +12,7 @@
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
+char WooF_namelog_dir[2048];
 char Host_dir[2048];
 char Namelog_name[2048];
 unsigned long Name_id;
@@ -65,7 +66,7 @@ int WooFInit()
 	int err;
 	char log_name[2048];
 	char log_path[2048];
-	char putbuf[25];
+	char putbuf[1024];
 	char *str;
 	MIO *lmio;
 	unsigned long name_id;
@@ -109,9 +110,22 @@ int WooFInit()
 	} else { /* in the container */
 		strncpy(WooF_namespace,str,sizeof(WooF_namespace));
 	}
-
 #ifdef DEBUG
 	fprintf(stdout,"WooFInit: namespace: %s\n",WooF_namespace);
+	fflush(stdout);
+#endif
+
+	str = getenv("WOOF_NAMELOG_DIR");
+	if(str == NULL) { /* if not specified */
+			  /* use the WooF_dir as the namelog dir */
+		strncpy(WooF_namelog_dir,WooF_dir,sizeof(WooF_namespace));
+	} else { /* in the container */
+		strncpy(WooF_namelog_dir,str,sizeof(WooF_namelog_dir));
+	}
+
+
+#ifdef DEBUG
+	fprintf(stdout,"WooFInit: namelog dir: %s\n",WooF_namelog_dir);
 	fflush(stdout);
 #endif
 
@@ -121,11 +135,11 @@ int WooFInit()
 		return(-1);
 	}
 
-	name_id = WooFNameHash(WooF_dir);
 
+	name_id = WooFNameHash(WooF_namelog_dir);
 	sprintf(Namelog_name,"cspot-log.%20.20lu",name_id);
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_dir,Namelog_name);
+	sprintf(log_name,"%s/%s",WooF_namelog_dir,Namelog_name);
 
 #ifdef DEBUG
 	printf("WooFInit: Name log at %s with name %s\n",log_name,Namelog_name);
@@ -163,7 +177,7 @@ static int WooFHostInit(int min_containers, int max_containers)
 	WooFInit();
 
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_dir,Namelog_name);
+	sprintf(log_name,"%s/%s",WooF_namelog_dir,Namelog_name);
 
 	Name_log = LogCreate(log_name,Name_id,DEFAULT_WOOF_LOG_SIZE);
 	if(Name_log == NULL) {
@@ -291,6 +305,7 @@ void *WooFContainerLauncher(void *arg)
 			 -e WOOF_NAME_ID=%lu\
 			 -e WOOF_NAMELOG_NAME=%s\
 			 -v %s:%s\
+			 -v %s:/cspot-namelog\
 			 centos:7\
 			 %s/%s",
 				WooF_namespace,
@@ -298,6 +313,7 @@ void *WooFContainerLauncher(void *arg)
 				Name_id,
 				Namelog_name,
 				WooF_dir,pathp,
+				WooF_namelog_dir, /* all containers find namelog in /cspot-namelog */
 				pathp,"woofc-container");
 
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
@@ -325,23 +341,30 @@ void *WooFContainerLauncher(void *arg)
 	
 
 
-#define ARGS "m:M:d:"
+#define ARGS "m:M:d:H:N:"
 char *Usage = "woofc-name-platform -d application woof directory\n\
+\t-H directory for hostwide namelog\n\
 \t-m min container count\n\
--t-M max container count\n";
+-t-M max container count\n\
+-t-N namespace\n";
 
-int main(int argc, char **argv)
+char putbuf1[1024];
+char putbuf2[1024];
+char putbuf3[1024];
+
+int main(int argc, char **argv, char **envp)
 {
 	int c;
 	int min_containers;
 	int max_containers;
-	char app_dir[2048];
-	char putbuf[3000];
+	char name_dir[2048];
+	char name_space[2048];
 
 	min_containers = 1;
 	max_containers = 1;
 
-	memset(app_dir,0,sizeof(app_dir));
+	memset(name_dir,0,sizeof(name_dir));
+	memset(name_space,0,sizeof(name_space));
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'm':
@@ -350,8 +373,11 @@ int main(int argc, char **argv)
 			case 'M':
 				max_containers = atoi(optarg);
 				break;
-			case 'd':
-				strncpy(app_dir,optarg,sizeof(app_dir));
+			case 'H':
+				strncpy(name_dir,optarg,sizeof(name_dir));
+				break;
+			case 'N':
+				strncpy(name_space,optarg,sizeof(name_space));
 				break;
 			default:
 				fprintf(stderr,
@@ -378,13 +404,19 @@ int main(int argc, char **argv)
 	}
 
 
-	if(app_dir[0] == 0) {
-		getcwd(app_dir,sizeof(app_dir));
+
+	if(name_dir[0] != 0) {
+		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",name_dir);
+		putenv(putbuf2);
 	}
 
-	memset(putbuf,0,sizeof(putbuf));
-	sprintf(putbuf,"WOOFC_DIR=%s",app_dir);
-	putenv(putbuf);
+	if(name_space[0] == 0) {
+		getcwd(name_space,sizeof(name_space));
+	}
+	sprintf(putbuf1,"WOOFC_DIR=%s",name_space);
+	putenv(putbuf1);
+	sprintf(putbuf3,"WOOFC_NAMESPACE=%s",name_space);
+	putenv(putbuf3);
 
 	fclose(stdin);
 		

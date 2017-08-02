@@ -12,6 +12,7 @@
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
+char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
@@ -133,9 +134,10 @@ int WooFContainerInit()
 		exit(1);
 	}
 
+	strncpy(WooF_namelog_dir,"/cspot-namelog",sizeof(WooF_namelog_dir));
 
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_dir,Namelog_name);
+	sprintf(log_name,"%s/%s",WooF_namelog_dir,Namelog_name);
 
         lmio = MIOReOpen(log_name);
         if(lmio == NULL) {
@@ -405,6 +407,7 @@ exit(1);
 			 export WOOF_SHEPHERD_NDX=%lu; \
 			 export WOOF_SHEPHERD_SEQNO=%lu; \
 			 export WOOF_NAME_ID=%lu; \
+			 export WOOF_NAMELOG_DIR=%s; \
 			 export WOOF_NAMELOG_NAME=%s; \
 			 export WOOF_NAMELOG_SEQNO=%lu; \
 			 %s/%s",
@@ -414,6 +417,7 @@ exit(1);
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
 				Name_id,
+				WooF_namelog_dir,
 				Namelog_name,
 				ev[first].seq_no,
 				WooF_dir,ev[first].woofc_handler);

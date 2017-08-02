@@ -12,6 +12,7 @@
 
 extern char WooF_namespace[2048];
 extern char WooF_dir[2048];
+extern char WooF_namelog_dir[2048];
 extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
@@ -126,7 +127,12 @@ WOOF *WooFOpen(char *name)
 	}
 
 	memset(local_name,0,sizeof(local_name));
+	strncpy(local_name,WooF_dir,sizeof(local_name));
+	if(local_name[strlen(local_name)-1] != '/') {
+		strncat(local_name,"/",1);
+	}
 	if(WooFValidURI(name)) {
+#if 0
 		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
@@ -137,6 +143,7 @@ WOOF *WooFOpen(char *name)
 		if(local_name[strlen(local_name)-1] != '/') {
 			strncat(local_name,"/",1);
 		}
+#endif
 		err = WooFNameFromURI(name,fname,sizeof(fname));
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
@@ -146,10 +153,6 @@ WOOF *WooFOpen(char *name)
 		}
 		strncat(local_name,fname,sizeof(fname));
 	} else { /* assume this is WooF_dir local */
-		strncpy(local_name,WooF_dir,sizeof(local_name));
-		if(local_name[strlen(local_name)-1] != '/') {
-			strncat(local_name,"/",1);
-		}
 		strncat(local_name,name,sizeof(local_name));
 	}
 #ifdef DEBUG
@@ -384,7 +387,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	 * log the event so that it can be triggered
 	 */
 	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_dir,Namelog_name);
+	sprintf(log_name,"%s/%s",WooF_namelog_dir,Namelog_name);
 #ifdef DEBUG
 	printf("WooFAppend: logging event to %s\n",log_name);
 	fflush(stdout);
