@@ -6,8 +6,9 @@
 #include "woofc.h"
 #include "woofc-obj2.h"
 
-#define ARGS "c:f:s:N:n:"
-char *Usage = "woofc-obj2-test -f filename\n\
+#define ARGS "c:f:s:N:n:H:"
+char *Usage = "woofc-obj2-test-2 -f filename\n\
+\t-H namelog-path\n\
 \t-s size (in events)\n\
 \t-N first namespace-path\n\
 \t-n second namespace-path\n";
@@ -17,7 +18,10 @@ char Wname[4096];
 char Wname2[4096];
 char NameSpace[40967];
 char NameSpace2[40967];
+char Namelog_dir[4096];
 int UseNameSpace;
+char putbuf1[4096];
+char putbuf2[4096];
 
 int main(int argc, char **argv)
 {
@@ -26,7 +30,6 @@ int main(int argc, char **argv)
 	int err;
 	OBJ2_EL el;
 	unsigned long seq_no;
-	char putbuf[4096];
 
 	size = 5;
 	UseNameSpace=0;
@@ -46,6 +49,9 @@ int main(int argc, char **argv)
 			case 'n':
 				UseNameSpace = 1;
 				strncpy(NameSpace2,optarg,sizeof(NameSpace));
+				break;
+			case 'H':
+				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
 				break;
 			default:
 				fprintf(stderr,
@@ -77,14 +83,19 @@ int main(int argc, char **argv)
 	}
 
 	if(UseNameSpace == 1) {
-		sprintf(putbuf,"WOOFC_DIR=%s",NameSpace);
-		putenv(putbuf);
+		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+		putenv(putbuf1);
 		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
 		sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
 	} else {
 		strncpy(Wname,Fname,sizeof(Wname));
 	}
 
+	if(Namelog_dir[0] != 0) {
+		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
+		putenv(putbuf2);
+	}
+		
 
 	WooFInit();
 
