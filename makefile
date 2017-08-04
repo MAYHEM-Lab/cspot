@@ -21,7 +21,7 @@ URILIB=./uriparser2/liburiparser2.a
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
 
-all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
+all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
 log-test: ${LOBJ} ${LINCS} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
@@ -67,6 +67,9 @@ lsema.o: lsema.c lsema.h
 
 ${URILIB}:
 	cd ./uriparser2;make
+
+docker-image:
+	cd Docker-build; docker build -t cspot-docker-centos7 .
 
 clean:
 	rm -f *.o log-test
