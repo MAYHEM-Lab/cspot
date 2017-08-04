@@ -8,7 +8,7 @@ int main (void)
 //	zctx_t *context = zctx_new();
 //	void *socket = zsocket_new(context,ZMQ_PULL);
 
-	zsock_t *pull = zsock_new_pull ("@tcp://*:6029");
+	zsock_t *pull = zsock_new_pull (">tcp://10.1.5.30:6031");
 
 	if(pull == NULL) {
 		fprintf(stderr,"zsock new failed\n");
