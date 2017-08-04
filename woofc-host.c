@@ -300,13 +300,14 @@ void *WooFContainerLauncher(void *arg)
 		memset(launch_string,0,2048);
 
 		sprintf(launch_string, "docker run -i\
+			 -e LD_LIBRARY_PATH=usr/local/lib\
 			 -e WOOFC_NAMESPACE=%s\
 			 -e WOOFC_DIR=%s\
 			 -e WOOF_NAME_ID=%lu\
 			 -e WOOF_NAMELOG_NAME=%s\
 			 -v %s:%s\
 			 -v %s:/cspot-namelog\
-			 centos:7\
+			 cspot-docker-centos7\
 			 %s/%s",
 				WooF_namespace,
 				pathp,
