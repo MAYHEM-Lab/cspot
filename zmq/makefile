@@ -1,5 +1,5 @@
 CC=gcc
-LIBS=-lpthread -lczmq
+LIBS=-lpthread -lczmq -lzmq
 CFLAGS=-g
 
 all: woofc-msg-test-server woofc-msg-test-client
