@@ -2,208 +2,112 @@
 #include <unistd.h>
 #include <string.h>
 #include <zmq.h>
-#include <pthread.h>
 #include <czmq.h>
-#include <time.h>
 
 static int TempHash(char *namespace)
 {
-	return(5555);
+	return(6029);
 }
 
 
 void *WooFMsgThread(void *arg)
 {
-	void *context = arg;
-	void *receiver;
-	zmq_msg_t msg;
-	zmq_msg_t r_msg;
+	zsock_t *receiver;
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
 	char *str;
 	int count;
 	unsigned long seq_no;
 	char buffer[255];
 	int err;
 
-	receiver = zmq_socket(context,ZMQ_REP);
+	receiver = zsock_new_rep(">inproc://workers");
+	if(receiver == NULL) {
+		perror("WooFMsgThread: couldn't open receiver");
+		pthread_exit(NULL);
+	} 
 
-	err = zmq_connect(receiver,"inproc://workers");
-	if(err != 0) {
-		perror("WooFMsgThread: couldn't connect");
-		exit(1);
-	}
 
 	seq_no = 0;
 
-	err = zmq_msg_init(&msg);
-	if(err != 0) {
-		perror("WooFMsgThread: bad message init");
-		exit(1);
-	}
-printf("msg thread about to call receive\n");
-fflush(stdout);
-	err = zmq_msg_recv(&msg,receiver,0);
-	while(err >= 0)
+	printf("msg thread about to call receive\n");
+	fflush(stdout);
+	msg = zmsg_recv(receiver);
+	while(msg != NULL)
 	{
 printf("msg received\n");
 fflush(stdout);
 		count = 0;
-		str = (char *)zmq_msg_data(&msg);
+		frame = zmsg_first(msg);
+		if(frame == NULL) {
+			perror("WooFMsgThread: couldn't set cursor in msg");
+			exit(1);
+		}
+printf("cursor set\n");
+fflush(stdout);
+		str = (char *)zframe_data(frame);
 		printf("WooFMsgThread: seq_no: %lu, received %s (%d)\n",
 			seq_no,str,count);
 		count++;
-		if(zmq_msg_more(&msg)) {
-			zmq_msg_close(&msg);
-			zmq_msg_init(&msg);
-			err = zmq_msg_recv(&msg,receiver,0);
-			if(err == -1) {
-				perror("WooFMsgThread: bad 2nd part");
-				exit(1);
-			}
-		}
-		str = (char *)zmq_msg_data(&msg);
+		frame = zmsg_next(msg);
+		str = (char *)zframe_data(frame);
 		printf("WooFMsgThread: seq_no: %lu, received %s (%d)\n",
 			seq_no,str,count);
-
-		if(zmq_msg_more(&msg)) {
-			zmq_msg_close(&msg);
-			zmq_msg_init(&msg);
-			err = zmq_msg_recv(&msg,receiver,0);
-			if(err == -1) {
-				perror("WooFMsgThread: bad 2nd part");
-				exit(1);
-			}
-		}
-		str = (char *)zmq_msg_data(&msg);
+		count++;
+		frame = zmsg_next(msg);
+		str = (char *)zframe_data(frame);
 		printf("WooFMsgThread: seq_no: %lu, received %s (%d)\n",
 			seq_no,str,count);
-		fflush(stdout);
+		zmsg_destroy(&msg);
 
-		zmq_msg_close(&msg);
-
-		memset(buffer,0,sizeof(buffer));
-		sprintf(buffer,"%lu",seq_no);
-
-		err = zmq_msg_init_size(&r_msg,strlen(buffer));
-		if(err == -1) {
-			perror("WooFMsgThread: bad reply init");
+		r_msg = zmsg_new();
+		if(r_msg == NULL) {
+			perror("WooFMsgThread: no reply message");
 			exit(1);
 		}
-
-		memcpy(zmq_msg_data(&r_msg),buffer,strlen(buffer));
-
-		err = zmq_msg_send(&r_msg,receiver,0);
-		if(err < 0) {
+		memset(buffer,0,sizeof(buffer));
+		sprintf(buffer,"%lu",seq_no);
+		r_frame = zframe_new(buffer,strlen(buffer));
+		if(r_frame == NULL) {
+			perror("WooFMsgThread: no reply frame");
+			exit(1);
+		}
+		err = zmsg_append(r_msg,&r_frame);
+		if(err != 0) {
+			perror("WooFMsgThread: couldn't append to r_msg");
+			exit(1);
+		}
+		err = zmsg_send(&r_msg,receiver);
+		if(err != 0) {
 			perror("WooFMsgThread: couldn't send r_msg");
 			exit(1);
 		}
 		seq_no++;
-		zmq_msg_init(&msg);
-		err = zmq_msg_recv(&msg,receiver,0);
+		msg = zmsg_recv(receiver);
 	}
-
-printf("msg thread exit\n");
-fflush(stdout);
 
 	pthread_exit(NULL);
 }
 		
-void *WooFMsgHandler(void *arg)
-{
-	
-	void *receiver = arg;
-	zmq_msg_t msg;
-	zmq_msg_t r_msg;
-	char *str;
-	int count;
-	unsigned long seq_no;
-	char buffer[255];
-	int err;
 
-	err = zmq_msg_init(&msg);
-	if(err != 0) {
-		perror("WooFMsgThread: bad message init");
-		exit(1);
-	}
-printf("handler thread about to call receive\n");
-fflush(stdout);
-	err = zmq_msg_recv(&msg,receiver,0);
-	while(1)
-	{
-printf("msg received\n");
-fflush(stdout);
-		count = 0;
-		str = (char *)zmq_msg_data(&msg);
-		printf("WooFMsgThread: seq_no: %lu, received %s (%d)\n",
-			seq_no,str,count);
-		count++;
-		if(zmq_msg_more(&msg)) {
-			zmq_msg_close(&msg);
-			err = zmq_msg_recv(&msg,receiver,0);
-			if(err == -1) {
-				perror("WooFMsgThread: bad 2nd part");
-				exit(1);
-			}
-		}
-		str = (char *)zmq_msg_data(&msg);
-		printf("WooFMsgThread: seq_no: %lu, received %s (%d)\n",
-			seq_no,str,count);
-
-		if(zmq_msg_more(&msg)) {
-			zmq_msg_close(&msg);
-			err = zmq_msg_recv(&msg,receiver,0);
-			if(err == -1) {
-				perror("WooFMsgThread: bad 2nd part");
-				exit(1);
-			}
-		}
-		str = (char *)zmq_msg_data(&msg);
-		printf("WooFMsgThread: seq_no: %lu, received %s (%d)\n",
-			seq_no,str,count);
-		fflush(stdout);
-
-		zmq_msg_close(&msg);
-
-		err = zmq_msg_init(&r_msg);
-		if(err == -1) {
-			perror("WooFMsgThread: bad reply init");
-			exit(1);
-		}
-
-		memset(buffer,0,sizeof(buffer));
-		sprintf(buffer,"%lu",seq_no);
-		memcpy(zmq_msg_data(&r_msg),buffer,strlen(buffer));
-
-		err = zmq_msg_send(&r_msg,receiver,0);
-		if(err <= 0) {
-			perror("WooFMsgThread: couldn't send r_msg");
-			exit(1);
-		}
-		seq_no++;
-		zmq_msg_init(&msg);
-		err = zmq_msg_recv(&msg,receiver,0);
-	}
-
-printf("msg thread exit\n");
-fflush(stdout);
-
-	pthread_exit(NULL);
-}
+/*
+ * server can't use czmq since zproxy appears to be broken
+ */
 int WooFMsgServer (char *namespace)
 {
 
-	void *workers;
-	void *frontend;
-	void *context;
-	zmq_msg_t p_msg;
-	zmq_msg_t r_msg;
-	int pid;
-
 	int port;
+	zactor_t *proxy;
 	int err;
 	pthread_t tid;
 	char endpoint[255];
 
-	context = zmq_ctx_new();
+	zsock_t *frontend;
+	zsock_t *workers;
+	zmsg_t *msg;
+
 
 	/*
 	 * set up the front end router socket
@@ -212,20 +116,15 @@ int WooFMsgServer (char *namespace)
 	port = TempHash(namespace);
 	sprintf(endpoint,"tcp://*:%d",port);
 
-	frontend = zmq_socket(context,ZMQ_ROUTER);
+#if 0
+	frontend = zsock_new_router(endpoint);
 	if(frontend == NULL) {
 		fprintf(stderr,"WooFMsgServer: bad endpoint on create: %s\n",
 			endpoint);
 		perror("WooFMsgServer: frontend create");
 		exit(1);
 	}
-	printf("attempting bind to %s\n",endpoint);
-
-	err = zmq_bind(frontend,endpoint);
-	if(err != 0) {
-		perror("WooFMsgServer: couldn't bind font end\n");
-		exit(1);
-	}
+#endif
 
 	printf("fontend at %s\n",endpoint);
 
@@ -233,157 +132,125 @@ int WooFMsgServer (char *namespace)
 	 * may want to make inproc namespace specific name
 	 * instead of 'workers'
 	 */
-	workers = zmq_socket(context,ZMQ_DEALER);
-	if(workers == NULL) {
-		perror("WooFMsgServer: workers create");
-		exit(1);
-	}
-	err = zmq_bind(workers,"inproc://workers");
-	if(err != 0) {
-		perror("WooFMsgServer: couldn't bind workers\n");
-		exit(1);
-	}
-
-	err = pthread_create(&tid,NULL,WooFMsgThread,context);
-	if(err < 0) {
-		perror("WooFMsgServer: create failed\n");
-		exit(1);
-	}
-
-
-	zmq_proxy(frontend,workers,NULL);
-
 #if 0
-	zmq_msg_init(&p_msg);
-	while(1) {
-printf("server calling recv\n");
-fflush(stdout);
-		zmq_msg_recv(&p_msg,frontend,0);
-printf("server got message\n");
-fflush(stdout);
-		if(zmq_msg_more(&p_msg)) {
-			zmq_msg_send(&p_msg,workers,ZMQ_SNDMORE);
-printf("server forwraded message part\n");
-fflush(stdout);
-		} else {
-			zmq_msg_send(&p_msg,workers,0);
-printf("server forwraded last part\n");
-fflush(stdout);
-			zmq_msg_init(&r_msg);
-printf("server waiting for reply\n");
-fflush(stdout);
-			zmq_msg_recv(&r_msg,workers,0);
-			zmq_msg_send(&r_msg,frontend,0);
-		}
-	}
+	workers = zsock_new_dealer("inproc://workers");
+
 #endif
+
+	proxy = zactor_new(zproxy,NULL);
+	if(proxy == NULL) {
+		perror("WooFMsgServer: couldn't create proxy");
+		exit(1);
+	}
+
+	zstr_sendx(proxy,"FRONTEND","ROUTER",endpoint,NULL);
+	zsock_wait(proxy);
+	zstr_sendx(proxy,"BACKEND","DEALER","inproc://workers",NULL);
+	zsock_wait(proxy);
+
+	err = pthread_create(&tid,NULL,WooFMsgThread,NULL);
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgServer: couldn't create thread\n");
+		exit(1);
+	}
 	pthread_join(tid,NULL);
 
-	zmq_close (frontend);
-	zmq_close (workers);
-	zmq_ctx_destroy (context);	
+//	zactor_desroy(&proxy);
+//	zsock_destroy(&frontend);
+//	zsock_destroy(&workers);
+	
 
 	exit(0);
 }
 
-#define MY_IP "127.0.0.1"
+#define MY_IP "10.1.5.30"
 unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element)
 {
+	zsock_t *server;
 	char endpoint[255];
 	int port;
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
 	struct timeval tm;
 	unsigned long seq_no;
 	int err;
 
-	void *context;
-	void *server;
-	zmq_msg_t msg;
-	zmq_msg_t msg1;
-	zmq_msg_t msg2;
-	zmq_msg_t r_msg;
-
 	port = TempHash(woof_name);
 
 	memset(endpoint,0,sizeof(endpoint));
-	sprintf(endpoint,"tcp://%s:%d",MY_IP,port);
+	sprintf(endpoint,">tcp://%s:%d",MY_IP,port);
 
 	printf("trying enpoint %s\n",endpoint);
 
-	context = zmq_ctx_new();
-	if(context == NULL) {
-		perror("WoofMsgPut: context init failed");
-		exit(1);
-	}
-
-    //  Socket to talk to server
-	server = zmq_socket (context, ZMQ_REQ);
+	server = zsock_new_req(endpoint);
 	if(server == NULL) {
-		perror("WoofMsgPut: socket failed");
-		exit(1);
-	}
-	err = zmq_connect (server, endpoint);
-	if(err < 0) {
-		perror("WoofMsgPut: connect failed");
+		perror("WooFMsgPut: creating server");
 		exit(1);
 	}
 
-
-	memset(buffer,0,sizeof(buffer));
-	strncpy(buffer,"WooFPutMsg",strlen("WooFPutMsg"));
-	err = zmq_msg_init_size(&msg,strlen(buffer));
-	if(err < 0) {
-		perror("WoofMsgPut: msg init failed");
+	msg = zmsg_new();
+	if(msg == NULL) {
+		perror("WooFMsgPut: allocating msg");
 		exit(1);
 	}
-	strncpy(zmq_msg_data(&msg),buffer,strlen(buffer));
-	zmq_msg_send(&msg,server,ZMQ_SNDMORE);
+
+	frame = zframe_new("WooFPutMsg",strlen("WooFPutMsg"));
+	if(frame == NULL) {
+		perror("WooFMsgPut: couldn't get new frame");
+		exit(1);
+	}
+	err = zmsg_append(msg,&frame);
+	if(err != 0) {
+		perror("WooFMsgPut: couldn't append 1st frame");
+		exit(1);
+	}
 
 	memset(buffer,0,sizeof(buffer));
 	gettimeofday(&tm,NULL);
 	sprintf(buffer,"Now: %lu",tm.tv_sec);
-	err = zmq_msg_init_size(&msg1,strlen(buffer));
-	if(err < 0) {
-		perror("WoofMsgPut: msg1 init failed");
+	frame = zframe_new(buffer,strlen(buffer));
+	err = zmsg_append(msg,&frame);
+	if(err != 0) {
+		perror("WooFMsgPut: couldn't append 2rd frame");
 		exit(1);
 	}
-	strncpy(zmq_msg_data(&msg1),buffer,strlen(buffer));
-	zmq_msg_send(&msg1,server,ZMQ_SNDMORE);
-	
-	memset(buffer,0,sizeof(buffer));
-	strncpy(buffer,"WooFPutMsg-done",strlen("WooFPutMsg-done"));
-	err = zmq_msg_init_size(&msg2,strlen(buffer));
-	if(err < 0) {
-		perror("WoofMsgPut: msg2 init failed");
-		exit(1);
-	}
-	strncpy(zmq_msg_data(&msg2),buffer,strlen(buffer));
-	zmq_msg_send(&msg2,server,0);
 
+	frame = zframe_new("WooFPutMsg-done",strlen("WooFPutMsg-done"));
+	err = zmsg_append(msg,&frame);
+	if(err != 0) {
+		perror("WooFMsgPut: couldn't append 3rd frame");
+		exit(1);
+	}
 
 	printf("sending message to server\n");
 	fflush(stdout);
 
-	err = zmq_msg_init(&r_msg);
-	if(err < 0) {
-		perror("WoofMsgPut: r_msg init failed");
+	err = zmsg_send(&msg,server);
+	if(err != 0) {
+		perror("WooFMsgPut: couldn't send request");
 		exit(1);
 	}
 
-	err = zmq_msg_recv(&r_msg,server,0);
-	if(err < 0) {
-		perror("WoofMsgPut: r_msg receive failed");
+	r_msg = zmsg_recv(server);
+	if(r_msg == NULL) {
+		fprintf(stderr,"WooFMsgPut: no response received\n");
+		fflush(stderr);
 		seq_no = -1;
 	} else {
-		str = zmq_msg_data(&r_msg);
+
+		r_frame = zmsg_first(r_msg);
+		str = zframe_data(r_frame);
 		seq_no = atol(str); 
-		zmq_msg_close(&r_msg);
+		zmsg_destroy(&r_msg);
 	}
 	
 		
-	zmq_close(server);
-	zmq_ctx_destroy(context);
+	zmsg_destroy(&msg);
+	zsock_destroy(&server);
 
 	return(seq_no);
 }
