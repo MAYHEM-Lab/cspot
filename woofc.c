@@ -132,18 +132,6 @@ WOOF *WooFOpen(char *name)
 		strncat(local_name,"/",1);
 	}
 	if(WooFValidURI(name)) {
-#if 0
-		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
-		if(err < 0) {
-			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
-				name);
-			fflush(stderr);
-			return(NULL);
-		}
-		if(local_name[strlen(local_name)-1] != '/') {
-			strncat(local_name,"/",1);
-		}
-#endif
 		err = WooFNameFromURI(name,fname,sizeof(fname));
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
@@ -446,7 +434,7 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	 * for now, assume that the biggest element for remote name space is 10K
 	 */
 	if((err >= 0) && (strcmp(WooF_namespace,wf_namespace) != 0)) {
-		seq_no = WooFMsgPut(wf_name,hand_name,element,(1024*1024*10));
+		seq_no = WooFMsgPut(wf_name,hand_name,element,(1024*10));
 		return(seq_no);
 	}
 

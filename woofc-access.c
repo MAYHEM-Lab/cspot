@@ -218,7 +218,7 @@ void *WooFMsgThread(void *arg)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
-	char namespace[2048];
+	char woof_name[2048];
 	char hand_name[2048];
 	unsigned int copy_size;
 	void *element;
@@ -256,7 +256,7 @@ void *WooFMsgThread(void *arg)
 	fflush(stdout);
 #endif
 		/*
-		 * WooFPut requires a namespace, handler_name, and the data
+		 * WooFPut requires a woof_name, handler_name, and the data
 		 */
 		frame = zmsg_first(msg);
 		if(frame == NULL) {
@@ -264,18 +264,18 @@ void *WooFMsgThread(void *arg)
 			exit(1);
 		}
 		/*
-		 * namespace in the first frame
+		 * woof_name in the first frame
 		 */
-		memset(namespace,0,sizeof(namespace));
+		memset(woof_name,0,sizeof(woof_name));
 		str = (char *)zframe_data(frame);
 		copy_size = zframe_size(frame);
-		if(copy_size > (sizeof(namespace)-1)) {
-			copy_size = sizeof(namespace)-1;
+		if(copy_size > (sizeof(woof_name)-1)) {
+			copy_size = sizeof(woof_name)-1;
 		}
-		strncpy(namespace,str,copy_size);
+		strncpy(woof_name,str,copy_size);
 
 #ifdef DEBUG
-	printf("WooFMsgThread: received namespace %s\n",namespace);
+	printf("WooFMsgThread: received woof_name %s\n",woof_name);
 	fflush(stdout);
 #endif
 		/*
@@ -303,8 +303,8 @@ void *WooFMsgThread(void *arg)
 		copy_size = zframe_size(frame);
 		element = malloc(copy_size);
 		if(element == NULL) { /* element too big */
-			fprintf(stderr,"WooFMsgThread: namespace: %s, handler: %s, size %lu too big\n",
-				namespace,hand_name,copy_size);
+			fprintf(stderr,"WooFMsgThread: woof_name: %s, handler: %s, size %lu too big\n",
+				woof_name,hand_name,copy_size);
 			fflush(stderr);
 			seq_no = -1;
 		} else {
@@ -321,12 +321,12 @@ void *WooFMsgThread(void *arg)
 //			zmsg_destroy(&msg);
 
 			/*
-			 * attempt to put the element into the local namespace
+			 * attempt to put the element into the local woof_name
 			 *
-			 * note that we could sanity check the namespace against the local namespace
+			 * note that we could sanity check the woof_name against the local woof_name
 			 * but WooFPut does this also
 			 */
-			seq_no = WooFPut(namespace,hand_name,element);
+			seq_no = WooFPut(woof_name,hand_name,element);
 
 			free(element);
 		}
@@ -510,6 +510,11 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		return(-1);
 	}
 
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s req socket open\n",woof_name);
+	fflush(stdout);
+#endif
+
 	msg = zmsg_new();
 	if(msg == NULL) {
 		fprintf(stderr,"WooFMsgPut: woof: %s no outbound msg to server at %s\n",
@@ -518,30 +523,42 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		fflush(stderr);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got new msg\n",woof_name);
+	fflush(stdout);
+#endif
 
 	/*
 	 * make a frame for the namespace
 	 */
-	frame = zframe_new(namespace,strlen(namespace));
+	frame = zframe_new(woof_name,strlen(woof_name));
 	if(frame == NULL) {
-		fprintf(stderr,"WooFMsgPut: woof: %s no frame for namespace %s to server at %s\n",
+		fprintf(stderr,"WooFMsgPut: woof: %s no frame for woof_name in namespace %s to server at %s\n",
 			woof_name,namespace,endpoint);
 		perror("WooFMsgPut: couldn't get new frame");
 		fflush(stderr);
 //		zmsg_destroy(&msg);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got woof_name namespace frame for %s\n",woof_name,namespace);
+	fflush(stdout);
+#endif
 	/*
 	 * add the namespace frame to the msg
 	 */
 	err = zmsg_append(msg,&frame);
 	if(err < 0) {
-		fprintf(stderr,"WooFMsgPut: woof: %s can't append namespace %s to frame to server at %s\n",
+		fprintf(stderr,"WooFMsgPut: woof: %s can't append woof_name namespace %s to frame to server at %s\n",
 			woof_name,namespace,endpoint);
-		perror("WooFMsgPut: couldn't append namespace frame");
+		perror("WooFMsgPut: couldn't append woof_name namespace frame");
 //		zmsg_destroy(&msg);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s added woof_name namespace to frame for %s\n",woof_name,namespace);
+	fflush(stdout);
+#endif
 
 	/*
 	 * make a frame for the handler name
@@ -557,6 +574,10 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 //		zmsg_destroy(&msg);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got frame for handler name %s\n",woof_name,hand_name);
+	fflush(stdout);
+#endif
 
 	err = zmsg_append(msg,&frame);
 	if(err < 0) {
@@ -567,7 +588,16 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 //		zmsg_destroy(&msg);
 		exit(1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s appended frame for handler name %s\n",woof_name,hand_name);
+	fflush(stdout);
+#endif
 
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s for new frame for 0x%x, size %lu\n",
+		woof_name, element,el_size);
+	fflush(stdout);
+#endif
 	frame = zframe_new(element,el_size);
 	if(frame == NULL) {
 		fprintf(stderr,"WooFMsgPut: woof: %s no frame size %lu for handler name %s to server at %s\n",
@@ -577,6 +607,11 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 //		zmg_destroy(&msg);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got frame for element size %d\n",woof_name,el_size);
+	fflush(stdout);
+#endif
+	
 	err = zmsg_append(msg,&frame);
 	if(err < 0) {
 		fprintf(stderr,"WooFMsgPut: woof: %s couldn't append frame for element size %lu name %s to server at %s\n",
@@ -585,6 +620,10 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 //		zmg_destroy(&msg);
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s appended frame for element size %d\n",woof_name,el_size);
+	fflush(stdout);
+#endif
 
 #ifdef DEBUG
 	printf("WooFMsgPut: woof: %s sending message to server at %s\n",
