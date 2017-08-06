@@ -15,6 +15,7 @@ LOG *Name_log;
 unsigned long Name_id;
 char WooF_namespace[2048];
 char WooF_dir[2048];
+char Host_ip[25];
 char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 
@@ -28,6 +29,7 @@ int main(int argc, char **argv, char **envp)
 	char *wf_size;
 	char *wf_ndx;
 	char *wf_seq_no;
+	char *wf_ip;
 	char *namelog_name;
 	char *namelog_size_str;
 	char *namelog_seq_no;
@@ -74,6 +76,19 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: WOOFC_NAMESPACE=%s\n",wf_ns);
 	fflush(stdout);
 #endif
+
+	wf_ip = getenv("WOOF_HOST_IP");
+	if(wf_ip == NULL) {
+		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_IP\n");
+		fflush(stderr);
+		exit(1);
+	}
+	strncpy(Host_ip,wf_ip,sizeof(Host_ip));
+#ifdef DEBUG
+	fprintf(stdout,"WooFShepherd: WOOF_HOST_IP=%s\n",Host_ip);
+	fflush(stdout);
+#endif
+
 	wf_dir = getenv("WOOFC_DIR");
 	if(wf_dir == NULL) {
 		fprintf(stderr,"WooFShepherd: couldn't find WOOFC_DIR\n");

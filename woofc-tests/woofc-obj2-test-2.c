@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 	int err;
 	OBJ2_EL el;
 	unsigned long seq_no;
+	unsigned int pid;
 
 	size = 5;
 	UseNameSpace=0;
@@ -82,20 +83,46 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(UseNameSpace == 1) {
-		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
-		putenv(putbuf1);
-		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
-		sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
-	} else {
-		strncpy(Wname,Fname,sizeof(Wname));
-	}
-
 	if(Namelog_dir[0] != 0) {
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
 	}
+
+	if(UseNameSpace == 1) {
+		/*
+		 * need two woof init calls
+		 */
+		pid = fork();
+		if(pid == 0) {
+			/*
+			 * child creates woof in the other namespace
+			 */
+			sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace2);
+			putenv(putbuf1);
+			WooFInit();
+			sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
+			err = WooFCreate(Wname2,sizeof(OBJ2_EL),size);
+			if(err < 0) {
+				fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
+				fflush(stderr);
+				exit(1);
+			}
+			exit(0);
+		} else {
+			wait(pid);
+		}
+	} else {
+		strncpy(Wname,Fname,sizeof(Wname));
+	}
+
 		
+	sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+	putenv(putbuf1);
+	/*
+	 * in namespace case, child has already run and create woof in other namespace
+	 */
+	sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
+	sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
 
 	WooFInit();
 
