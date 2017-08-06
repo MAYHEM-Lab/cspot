@@ -417,6 +417,8 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
 	int seq_no;
+	char wf_namespace[2048];
+	int err;
 
 #ifdef DEBUG
 	printf("WooFPut: called %s %s\n",wf_name,hand_name);
@@ -433,6 +435,21 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 		WooF_namespace,WooF_dir,wf_name);
 	fflush(stdout);
 #endif
+
+	memset(wf_namespace,0,sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote put
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * for now, assume that the biggest element for remote name space is 10K
+	 */
+	if((err >= 0) && (strcmp(WooF_namespace,wf_namespace) != 0)) {
+		seq_no = WooFMsgPut(wf_name,hand_name,element,(1024*1024*10));
+		return(seq_no);
+	}
+
 	wf = WooFOpen(wf_name);
 
 	if(wf == NULL) {

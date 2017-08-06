@@ -9,13 +9,17 @@
 
 #include "log.h"
 #include "woofc.h"
+#include "woofc-access.h"
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
 char WooF_namelog_dir[2048];
+char Host_ip[25];
 char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
+
+#define DEBUG
 
 static int WooFDone;
 
@@ -113,6 +117,13 @@ int WooFContainerInit()
 	fflush(stdout);
 #endif
 
+	str = getenv("WOOF_HOST_IP");
+	if(str == NULL) {
+		fprintf(stderr,"WooFContainerInit: couldn't find local host IP\n");
+		exit(1);
+	}
+	strncpy(Host_ip,str,sizeof(Host_ip));
+
 	str = getenv("WOOF_NAME_ID");
 	if(str == NULL) {
 		fprintf(stderr,"WooFContainerInit: couldn't find name id\n");
@@ -155,7 +166,7 @@ int WooFContainerInit()
 	}
 
 #ifdef DEBUG
-	printf("WooFForker: log %s open\n",log_name);
+	printf("WooFContainerInit: log %s open\n",log_name);
 	fflush(stdout);
 #endif
 
@@ -221,15 +232,25 @@ void *WooFForker(void *arg)
 	/*
 	 * wait for things to show up in the log
 	 */
+	memset(&last_event,0,sizeof(last_event));
 #ifdef DEBUG
 		fprintf(stdout,"WooFForker: namespace: %s started\n",
 			WooF_namespace);
 		fflush(stdout);
 #endif
 
-	memset(&last_event,0,sizeof(last_event));
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: namespace: %s memset called\n",
+			WooF_namespace);
+	fflush(stdout);
+#endif
 
 	while(WooFDone == 0) {
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: namespace: %s caling P\n",
+			WooF_namespace);
+	fflush(stdout);
+#endif
 		P(&Name_log->tail_wait);
 #ifdef DEBUG
 		fprintf(stdout,"WooFForker: namespace: %s awake\n",
@@ -403,6 +424,7 @@ exit(1);
 
 		sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
 			 export WOOFC_DIR=%s; \
+			 export WOOC_HOST_IP=%s; \
 			 export WOOF_SHEPHERD_NAME=%s; \
 			 export WOOF_SHEPHERD_NDX=%lu; \
 			 export WOOF_SHEPHERD_SEQNO=%lu; \
@@ -413,6 +435,7 @@ exit(1);
 			 %s/%s",
 				WooF_namespace,
 				WooF_dir,
+				Host_ip,
 				wf->shared->filename,
 				ev[first].woofc_ndx,
 				ev[first].woofc_seq_no,
@@ -456,8 +479,22 @@ exit(1);
 
 int main(int argc, char ** argv)
 {
+	int err;
 
 	WooFContainerInit();
+
+#ifdef DEBUG
+	printf("woofc-container: about to start message server with namespace %s\n",
+		WooF_namespace);
+	fflush(stdout);
+#endif
+
+	/*
+	 * start the msg server for this container
+	 * 
+	 * for now, this doesn't ever return
+	 */
+	err = WooFMsgServer(WooF_namespace);
 
 	pthread_exit(NULL);
 }
