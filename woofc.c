@@ -413,7 +413,8 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
-	int seq_no;
+	unsigned long seq_no;
+	unsigned long el_size;
 	char wf_namespace[2048];
 	int err;
 
@@ -443,8 +444,16 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	 * for now, assume that the biggest element for remote name space is 10K
 	 */
 	if((err >= 0) && (strcmp(WooF_namespace,wf_namespace) != 0)) {
-		seq_no = WooFMsgPut(wf_name,hand_name,element,(1024*10));
-		return(seq_no);
+		el_size = WooFMsgGetElSize(wf_name);
+		if(el_size != (unsigned long)-1) {
+			seq_no = WooFMsgPut(wf_name,hand_name,element,el_size);
+			return(seq_no);
+		} else {
+			fprintf(stderr,"WooFPut: couldn't get element size for %s\n",
+				wf_name);
+			fflush(stderr);
+			return(-1);
+		}
 	}
 
 	wf = WooFOpen(wf_name);
