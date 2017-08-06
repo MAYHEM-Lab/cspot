@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include "log.h"
 #include "woofc.h"
@@ -115,6 +116,7 @@ WOOF *WooFOpen(char *name)
 	char local_name[4096];
 	char fname[4096];
 	int err;
+	struct stat sbuf;
 
 	if(name == NULL) {
 		return(NULL);
@@ -147,6 +149,13 @@ WOOF *WooFOpen(char *name)
 	printf("WooFOpen: trying to open %s\n",local_name);
 	fflush(stdout);
 #endif
+
+	if(stat(local_name,&sbuf) < 0) {
+		fprintf(stderr,"WooFOpen: couldn't open woof: %s\n",local_name);
+		fflush(stderr);
+		return(NULL);
+	}
+
 	mio = MIOReOpen(local_name);
 	if(mio == NULL) {
 		return(NULL);
