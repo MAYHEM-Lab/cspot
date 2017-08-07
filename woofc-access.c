@@ -265,12 +265,17 @@ fflush(stdout);
 	 */
 	memset(hand_name,0,sizeof(hand_name));
 	frame = zmsg_next(req_msg);
-	str = (char *)zframe_data(frame);
 	copy_size = zframe_size(frame);
-	if(copy_size > (sizeof(hand_name)-1)) {
-		copy_size = sizeof(hand_name)-1;
+	/*
+	 * could be zero if there is no handler
+	 */
+	if(copy_size > 0) {
+		str = (char *)zframe_data(frame);
+		if(copy_size > (sizeof(hand_name)-1)) {
+			copy_size = sizeof(hand_name)-1;
+		}
+		strncpy(hand_name,str,copy_size);
 	}
-	strncpy(hand_name,str,copy_size);
 
 #ifdef DEBUG
 printf("WooFProcessPut: received handler name %s\n",hand_name);
@@ -308,7 +313,11 @@ fflush(stdout);
 		 * note that we could sanity check the woof_name against the local woof_name
 		 * but WooFPut does this also
 		 */
-		seq_no = WooFPut(woof_name,hand_name,element);
+		if(hand_name[0] != 0) {
+			seq_no = WooFPut(woof_name,hand_name,element);
+		} else {
+			seq_no = WooFPut(woof_name,NULL,element);
+		}
 
 		free(element);
 	}
@@ -911,10 +920,16 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 
 	/*
 	 * make a frame for the handler name
+	 * could be NULL
 	 */
-	memset(buffer,0,sizeof(buffer));
-	strncpy(buffer,hand_name,sizeof(buffer));
-	frame = zframe_new(buffer,strlen(buffer));
+	
+	if(hand_name != NULL) {
+		memset(buffer,0,sizeof(buffer));
+		strncpy(buffer,hand_name,sizeof(buffer));
+		frame = zframe_new(buffer,strlen(buffer));
+	} else { /* czmq indicate this will work */
+		frame = zframe_new(NULL,0);
+	}
 	if(frame == NULL) {
 		fprintf(stderr,"WooFMsgPut: woof: %s no frame for handler name %s to server at %s\n",
 			woof_name,hand_name,endpoint);

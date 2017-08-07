@@ -52,7 +52,7 @@ int WooFInvalid(unsigned long seq_no);
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
 #define DEFAULT_HOST_ID (0)
 #define DEFAULT_WOOF_LOG_SIZE (10000)
-#define WOOFNAMESIZE (25)
+#define WOOFNAMESIZE (256)
 
 #endif
 
