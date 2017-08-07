@@ -13,6 +13,9 @@ struct func_arg_stc
         double alpha;
         char r[WOOFNAMESIZE];
 	char stats[WOOFNAMESIZE];
+	char rargs[WOOFNAMESIZE];
+	char sargs[WOOFNAMESIZE];
+	char kargs[WOOFNAMESIZE];
         char logfile[WOOFNAMESIZE];
 };
 

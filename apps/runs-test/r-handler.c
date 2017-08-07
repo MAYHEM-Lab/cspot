@@ -59,7 +59,7 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	/*
 	 * generate next random number
 	 */
-	seq_no = WooFPut("Rargs","RHandler",&next_r);
+	seq_no = WooFPut(fa->rargs,"RHandler",&next_r);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"RHandler couldn't put RHandler\n");
 		exit(1);
@@ -87,7 +87,7 @@ fflush(stdout);
 	 	*/
 		memcpy(&next_s,fa,sizeof(FA));
 		next_s.seq_no = r_seq_no;
-		seq_no = WooFPut("Sargs","SHandler",&next_s);
+		seq_no = WooFPut(fa->sargs,"SHandler",&next_s);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"RHandler couldn't put SHandler\n");
 			exit(1);

@@ -93,7 +93,7 @@ fflush(stdout);
 	if(fa->i == (fa->count - 1)) {
 		memcpy(&next_k,fa,sizeof(FA));
 		next_k.seq_no = seq_no;
-		seq_no = WooFPut("Kargs","KHandler",&next_k);
+		seq_no = WooFPut(fa->kargs,"KHandler",&next_k);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"SHandler: couldn't create KHandler\n");
 			exit(1);

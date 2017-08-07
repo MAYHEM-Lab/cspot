@@ -113,8 +113,6 @@ int main(int argc, char **argv)
 	}
 
 	/*
-
-	/*
 	 * make the stats namespace
 	 *
 	 * note that WooFInit reads env variables and if it doesn't see
@@ -200,8 +198,13 @@ int main(int argc, char **argv)
 	/*
 	 * load up the woof names
 	 */
+	sprintf(fa.rargs,"woof://%s/Rspace/Rargs",Top_dir);
 	sprintf(fa.r,"woof://%s/Rspace/Rvals",Top_dir);
+
+	sprintf(fa.sargs,"woof://%s/Sspace/Sargs",Top_dir);
 	sprintf(fa.stats,"woof://%s/Sspace/Svals",Top_dir);
+
+	sprintf(fa.kargs,"woof://%s/Kspace/Kargs",Top_dir);
 
 	if(LogFile[0] != 0) {
 		strncpy(fa.logfile,LogFile,sizeof(fa.logfile));

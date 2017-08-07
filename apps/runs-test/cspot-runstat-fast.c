@@ -127,8 +127,21 @@ int main(int argc, char **argv)
 	fa.count = count;
 	fa.sample_size = sample_size;
 	fa.alpha = alpha;
-	strncpy(fa.r,"Rvals",sizeof(fa.r));
-	strncpy(fa.stats,"Svals",sizeof(fa.stats));
+
+        /*
+         * load up woof names
+         *
+         * note that these will be interpreted relative to the same
+         * namespace which will be set by WOOFC_DIR when WooFInit() is
+         * called.
+         */
+        strncpy(fa.rargs,"Rargs",sizeof(fa.rargs));
+        strncpy(fa.r,"Rvals",sizeof(fa.r));
+
+        strncpy(fa.sargs,"Sargs",sizeof(fa.sargs));
+        strncpy(fa.stats,"Svals",sizeof(fa.stats));
+
+        strncpy(fa.kargs,"Kargs",sizeof(fa.kargs));
 
 	if(LogFile[0] != 0) {
 		strncpy(fa.logfile,LogFile,sizeof(fa.logfile));
