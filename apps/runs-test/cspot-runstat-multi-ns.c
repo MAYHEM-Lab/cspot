@@ -12,6 +12,14 @@
 
 /*
  * this version uses top_dir to create three name spaces
+ *
+ * the logic is that
+ * RHandler gets its arguments in Rspace and puts random values to a WOOF in Sspace
+ * Shandler gets its arguments in Sspace and reads values from WOOF in Sspace and, 
+ *   after sample_have been accumulated, buts a Runs stat to a WOOF in Kspace
+ * KHandler gets its arguments in Kspace and reads the Runs stats in Kspace and when count 
+ *   stats have been accumulated generates a z-transform Normal distribution and runs a KS 
+ *   test against the set of accumulated stats
  */
 
 char Top_dir[2048];
