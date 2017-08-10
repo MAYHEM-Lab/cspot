@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 				sample_size = atoi(optarg);
 				break;
 			case 'T':
-				strncpy(Top_dir,optarg,sizeof(optarg));
+				strncpy(Top_dir,optarg,sizeof(Top_dir));
 				break;
 			case 'S':
 				Seed = atoi(optarg);
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 		putenv(putbuf0);
 		WooFInit();
 		/*
-		 * create Sargs in Sspace
+		 * create Sargs in Sspace for SHandler
 		 */
 		err = WooFCreate("Sargs",sizeof(FA),sample_size*count);
 		if(err < 0) {
@@ -133,10 +133,12 @@ int main(int argc, char **argv)
 			fflush(stderr);
 			exit(1);
 		}
+
 		/*
-		 * create Svals in Sspace
+		 * create Rvals in Sspace so RHhandler has a landing spot for
+		 * its values
 		 */
-		err = WooFCreate("Svals",sizeof(double),count);
+		err = WooFCreate("Rvals",sizeof(double),sample_size*count);
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate for Rvals failed\n");
 			fflush(stderr);
@@ -153,11 +155,20 @@ int main(int argc, char **argv)
 		putenv(putbuf0);
 		WooFInit();
 		/*
-		 * create Kargs in Kspace
+		 * create Kargs in Kspace for KHandler
 		 */
 		err = WooFCreate("Kargs",sizeof(FA),sample_size*count);
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate for Sargs failed\n");
+			fflush(stderr);
+			exit(1);
+		}
+		/*
+		 * create Svals in Kspace so Shandler has a landing spot for the stats
+		 */
+		err = WooFCreate("Svals",sizeof(double),count);
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate for Svals failed\n");
 			fflush(stderr);
 			exit(1);
 		}
@@ -167,7 +178,7 @@ int main(int argc, char **argv)
 	}
 
 	/*
-	 * finally, create Rargs and Rvals in Rspace
+	 * finally, create Rargs in Rspace
 	 */
 	sprintf(putbuf0,"WOOFC_DIR=%s/Rspace",Top_dir);
 	putenv(putbuf0);
@@ -176,13 +187,6 @@ int main(int argc, char **argv)
 	err = WooFCreate("Rargs",sizeof(FA),sample_size*count);
 	if(err < 0) {
 		fprintf(stderr,"WooFCreate for Rargs failed\n");
-		fflush(stderr);
-		exit(1);
-	}
-
-	err = WooFCreate("Rvals",sizeof(double),sample_size*count);
-	if(err < 0) {
-		fprintf(stderr,"WooFCreate for Rvals failed\n");
 		fflush(stderr);
 		exit(1);
 	}
@@ -199,10 +203,10 @@ int main(int argc, char **argv)
 	 * load up the woof names
 	 */
 	sprintf(fa.rargs,"woof://%s/Rspace/Rargs",Top_dir);
-	sprintf(fa.r,"woof://%s/Rspace/Rvals",Top_dir);
+	sprintf(fa.r,"woof://%s/Sspace/Rvals",Top_dir);
 
 	sprintf(fa.sargs,"woof://%s/Sspace/Sargs",Top_dir);
-	sprintf(fa.stats,"woof://%s/Sspace/Svals",Top_dir);
+	sprintf(fa.stats,"woof://%s/Kspace/Svals",Top_dir);
 
 	sprintf(fa.kargs,"woof://%s/Kspace/Kargs",Top_dir);
 
