@@ -18,7 +18,6 @@ extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
 
-#define DEBUG
 
 int WooFCreate(char *name,
 	       unsigned long element_size,
