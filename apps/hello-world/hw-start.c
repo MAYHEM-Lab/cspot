@@ -7,7 +7,7 @@
 #include "hw.h"
 
 #define ARGS "f:N:H:"
-char *Usage = hw -f woof_name\n\
+char *Usage = "hw -f woof_name\n\
 \t-H namelog-path to host wide namelog\n\
 \t-N namespace\n";
 
@@ -23,7 +23,6 @@ char putbuf2[1024];
 int main(int argc, char **argv)
 {
 	int c;
-	int size;
 	int err;
 	HW_EL el;
 	unsigned long ndx;
@@ -71,7 +70,7 @@ int main(int argc, char **argv)
 	WooFInit();
 
 
-	err = WooFCreate(Wname,sizeof(HW_EL),size);
+	err = WooFCreate(Wname,sizeof(HW_EL),5);
 	if(err < 0) {
 		fprintf(stderr,"couldn't create woof from %s\n",Wname);
 		fflush(stderr);
