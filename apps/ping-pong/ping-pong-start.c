@@ -112,6 +112,8 @@ int main(int argc, char **argv)
 			wait(pid);
 		}
 	} else {
+		getcwd(NameSpace,sizeof(NameSpace));
+		getcwd(NameSpace2,sizeof(NameSpace2));
 		strncpy(Wname,Fname,sizeof(Wname));
 	}
 
@@ -141,7 +143,7 @@ int main(int argc, char **argv)
 	} 
 
 	el.counter = 0;
-	seq_no = WooFPut(Wname,"ping",(void *)&el);
+	seq_no = WooFPut(Wname,"pong",(void *)&el);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"first WooFPut failed\n");

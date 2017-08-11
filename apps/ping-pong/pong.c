@@ -13,8 +13,8 @@ int pong(WOOF *wf, unsigned long seq_no, void *ptr)
 
 
 	memcpy(&el,ptr,sizeof(el));
-	fprintf(fd,"pong called, counter: %lu seq_no: %lu\n",el.counter,seq_no);
-	fflush(fd);
+	fprintf(stdout,"pong called, counter: %lu seq_no: %lu\n",el.counter,seq_no);
+	fflush(stdout);
 
 	if(el.counter < 10) {
 		el.counter++;
