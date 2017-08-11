@@ -16,6 +16,12 @@ cd euca-cutils; make
 cd mio; make
 cd cspot; make
 
+CSPOT requires CZMQ.  If it isn't installed, there is a script (which must be run as root) in
+
+cspot/zmq/install-zmq.sh
+
+that will install the necessary dependencies under CentOS 7.
+
 All of the example applications codes ae in cspot/apps.  The build model assumes 
 that the host machine is running CentOS 7 (see the github wiki for details)
 
