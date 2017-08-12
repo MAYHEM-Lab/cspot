@@ -23,26 +23,19 @@ void *WooFMsgThread(void *arg)
 	char buffer[255];
 	int err;
 
-	receiver = zsock_new_rep("@tcp://127.0.0.1:6030");
+	receiver = zsock_new_rep(">inproc://workers");
 	if(receiver == NULL) {
 		perror("WooFMsgThread: couldn't open receiver");
 		pthread_exit(NULL);
 	} 
 
-#if 0
-	err = zsock_connect(receiver,"inproc://workers");
-	if(err != 0) {
-		perror("WooFMsgThread: couldn't connect to internal que\n");
-		exit(1);
-	}
-#endif
 
 	seq_no = 0;
 
 	printf("msg thread about to call receive\n");
 	fflush(stdout);
 	msg = zmsg_recv(receiver);
-	while(msg != NULL);
+	while(msg != NULL)
 	{
 printf("msg received\n");
 fflush(stdout);
@@ -106,12 +99,6 @@ fflush(stdout);
 int WooFMsgServer (char *namespace)
 {
 
-#if 0
-	void *workers;
-	void *frontend;
-	void *context;
-#endif
-
 	int port;
 	zactor_t *proxy;
 	int err;
@@ -122,34 +109,21 @@ int WooFMsgServer (char *namespace)
 	zsock_t *workers;
 	zmsg_t *msg;
 
-#if 0
-	context = zmq_ctx_new();
-#endif
 
 	/*
 	 * set up the front end router socket
 	 */
 	memset(endpoint,0,sizeof(endpoint));
 	port = TempHash(namespace);
-	sprintf(endpoint,"@tcp://*:%d",port);
+	sprintf(endpoint,"tcp://*:%d",port);
 
 	frontend = zsock_new_router(endpoint);
-//	frontend = zmq_socket(context,ZMQ_ROUTER);
 	if(frontend == NULL) {
 		fprintf(stderr,"WooFMsgServer: bad endpoint on create: %s\n",
 			endpoint);
 		perror("WooFMsgServer: frontend create");
 		exit(1);
 	}
-#if 0
-	printf("attempting bind to %s\n",endpoint);
-
-	err = zmq_bind(frontend,endpoint);
-	if(err != 0) {
-		perror("WooFMsgServer: couldn't bind font end\n");
-		exit(1);
-	}
-#endif
 
 	printf("fontend at %s\n",endpoint);
 
@@ -157,19 +131,7 @@ int WooFMsgServer (char *namespace)
 	 * may want to make inproc namespace specific name
 	 * instead of 'workers'
 	 */
-	workers = zsock_new_dealer(">tcp://127.0.0.1:6030");
-#if 0
-	workers = zmq_socket(context,ZMQ_DEALER);
-	if(workers == NULL) {
-		perror("WooFMsgServer: workers create");
-		exit(1);
-	}
-	err = zmq_bind(workers,"inproc://workers");
-	if(err != 0) {
-		perror("WooFMsgServer: couldn't bind workers\n");
-		exit(1);
-	}
-#endif
+	workers = zsock_new_dealer("inproc://workers");
 
 	err = pthread_create(&tid,NULL,WooFMsgThread,NULL);
 	if(err < 0) {
@@ -177,7 +139,6 @@ int WooFMsgServer (char *namespace)
 		exit(1);
 	}
 
-#if 0
 	proxy = zactor_new(zproxy,NULL);
 	if(proxy == NULL) {
 		perror("WooFMsgServer: couldn't create proxy");
@@ -188,23 +149,6 @@ int WooFMsgServer (char *namespace)
 	zsock_wait(proxy);
 	zstr_sendx(proxy,"BACKEND","DEALER","inproc://workers",NULL);
 	zsock_wait(proxy);
-
-	zmq_proxy(frontend,workers,NULL);
-#endif
-
-	while(1) {
-		msg = zmsg_recv(frontend);
-		if(msg != NULL) {
-			err = zmsg_send(&msg,workers);
-			if(err != 0) {
-				perror("WooFMsgServer: sending to workers");
-				exit(1);
-			}
-		} else {
-			perror("WooFMsgServer: received null msg");
-			exit(1);
-		}
-	}
 
 	pthread_join(tid,NULL);
 

@@ -4,21 +4,40 @@
 
 int main (void)
 {
-    char *reply;
+	char *reply;
+	zsock_t *receiver;
 
-    zsock_t *push = zsock_new_req (">tcp://10.1.5.30:6029");
-//    zsock_t *push = zsock_new_push (">tcp://127.0.0.1:6028");
-//    zsock_t *push = zsock_new_push (">tcp://172.17.0.3:6029");
+	zsock_t *push = zsock_new_req (">tcp://10.1.5.30:6029");
+	zpoller_t *poller = zpoller_new(push,NULL);
 
-//    zsock_bind (push, "tcp://127.0.0.1:%d", 6028);
+	if(push == NULL) {
+		fprintf(stderr,"new req failed\n");
+		exit(1);
+	}
 
-    zstr_send (push, "Hello, World\n");
-    reply = zstr_recv(push);
+	if(poller == NULL) {
+		fprintf(stderr,"new req failed\n");
+		exit(1);
+	}
 
-    sleep(2);
-//    zsock_unbind (push, "tcp://127.0.0.1:%d", 6028);
-    zsock_destroy (&push);
-    return 0;
+	zstr_send (push, "Hello, World\n");
+
+	receiver = zpoller_wait(poller,10000);
+	if(receiver != NULL) {
+		reply = zstr_recv(push);
+		printf("received: %s\n",reply);
+		fflush(stdout);
+		zstr_free(&reply);
+	} else if(zpoller_expired(poller)) {
+		printf("timeout expired\n");
+		fflush(stdout);
+	} else if(zpoller_terminated(poller)) {
+		printf("terminated\n");
+		fflush(stdout);
+	}
+
+	zsock_destroy (&push);
+	return 0;
 }
 
 
