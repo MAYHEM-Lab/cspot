@@ -202,8 +202,9 @@ static int WooFHostInit(int min_containers, int max_containers)
 		exit(1);
 	}
 
-	signal(SIGHUP, WooFShutdown);
 	pthread_join(tid,NULL);
+
+	exit(0);
 	return(1);
 }
 
@@ -301,7 +302,7 @@ void *WooFContainerLauncher(void *arg)
 
 		port = WooFPortHash(WooF_namespace);
 
-		sprintf(launch_string, "docker run -i\
+		sprintf(launch_string, "docker run -t\
 			 -e LD_LIBRARY_PATH=/usr/local/lib\
 			 -e WOOFC_NAMESPACE=%s\
 			 -e WOOFC_DIR=%s\
@@ -361,7 +362,89 @@ char putbuf2[1024];
 char putbuf3[1024];
 char putbuf4[1024];
 
+void sig_int_handler(int signal)
+{
+	fprintf(stdout,"SIGINT caught\n");
+	fflush(stdout);
 
+	exit(0);
+
+	return;
+}
+
+void CatchSignals()
+{
+	struct sigaction action;
+
+	action.sa_handler = sig_int_handler;
+	action.sa_flags = 0;
+	sigemptyset (&action.sa_mask);
+	sigaction (SIGINT, &action, NULL);
+	sigaction (SIGTERM, &action, NULL);
+
+	return;
+}
+
+void CleanUpDocker(int status, void *arg)
+{
+	FILE *fd;
+	int port;
+	char command[255];
+	char ps_line[4096];
+	char port_str[255];
+	int i;
+	char docker_id[255];
+	char c;
+
+	memset(command,0,sizeof(command));
+
+	port = WooFPortHash(putbuf3); // namespace port
+	sprintf(port_str,"%d/tcp",port);
+	strncpy(command,"docker ps",sizeof(command));
+
+	fd = popen(command,"r");
+	if(fd == NULL) {
+		fprintf(stderr,"CleanUpDocker: popen for docker ps failed\n");
+		return;
+	}
+	memset(ps_line,0,sizeof(ps_line));
+	memset(docker_id,0,sizeof(docker_id));
+	/*
+	 * loop through the docker ps output looking for the namespace port ID
+	 */
+	while(fgets(ps_line,sizeof(ps_line),fd) != NULL) {
+		/*
+		 * is the port in the docker ps line?
+		 */
+		if(strstr(ps_line,port_str) != NULL) {
+			i = 0;
+			while((i < sizeof(docker_id)) && (ps_line[i] != 0) && (ps_line[i] != ' ')) {
+				docker_id[i] = ps_line[i];
+				i++;
+			}
+			pclose(fd);
+			memset(command,0,sizeof(command));
+			sprintf(command,"docker kill %s",docker_id);
+			fd = popen(command,"r");
+			if(fd == NULL) {
+				fprintf(stderr,
+					"CleanUpDocker: kill failed for %s\n",
+						docker_id);
+				fflush(stderr);
+				return;
+			}
+			fread(&c,1,1,fd); /* wait until there is output */
+			pclose(fd);	
+			return;
+		}
+	}
+
+	return;
+}
+			
+
+
+	
 int main(int argc, char **argv, char **envp)
 {
 	int c;
@@ -437,6 +520,9 @@ int main(int argc, char **argv, char **envp)
 	putenv(putbuf3);
 
 	fclose(stdin);
+
+	CatchSignals();
+	on_exit(CleanUpDocker,NULL);
 
 	err = WooFLocalIP(Host_ip,sizeof(Host_ip));
 	if(err < 0) {
