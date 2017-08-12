@@ -16,7 +16,7 @@ int pong(WOOF *wf, unsigned long seq_no, void *ptr)
 	fprintf(stdout,"pong called, counter: %lu seq_no: %lu\n",el.counter,seq_no);
 	fflush(stdout);
 
-	if(el.counter < 10) {
+	if(el.counter < el.max) {
 		el.counter++;
 		if(WooFValidURI(el.next_woof)) {
 			WooFPut(el.next_woof,"ping",&el);

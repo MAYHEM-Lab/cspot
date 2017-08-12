@@ -18,7 +18,7 @@ int ping(WOOF *wf, unsigned long seq_no, void *ptr)
 	fflush(stdout);
 
 
-	if(el.counter < 10) {
+	if(el.counter < el.max) {
 		el.counter++;
 
 		if(WooFValidURI(el.next_woof2)) {

@@ -143,6 +143,7 @@ int main(int argc, char **argv)
 	} 
 
 	el.counter = 0;
+	el.max = size;
 	seq_no = WooFPut(Wname,"pong",(void *)&el);
 
 	if(WooFInvalid(seq_no)) {

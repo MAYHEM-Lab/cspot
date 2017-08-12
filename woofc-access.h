@@ -11,6 +11,11 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 unsigned long WooFMsgGetElSize(char *woof_name);
 int WooFMsgServer (char *namespace);
 
+/*
+ * 2 minute timeout
+ */
+#define WOOF_MSG_REQ_TIMEOUT (120000)
+
 #define WOOF_MSG_PUT (1)
 #define WOOF_MSG_GET_EL_SIZE (2)
 #define WOOF_MSG_GET (3)

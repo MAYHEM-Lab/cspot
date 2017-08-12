@@ -476,7 +476,7 @@ void *WooFMsgThread(void *arg)
 	fflush(stdout);
 #endif
 		/*
-		 * WooMsg starts with a message tag for dispatch
+		 * WooFMsg starts with a message tag for dispatch
 		 */
 		frame = zmsg_first(msg);
 		if(frame == NULL) {
@@ -606,9 +606,95 @@ int WooFMsgServer (char *namespace)
 	exit(0);
 }
 
-unsigned long WooFMsgGetElSize(char *woof_name)
+static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 {
 	zsock_t *server;
+	zpoller_t *resp_poll;
+	zsock_t *server_resp; 
+	int err;
+	zmsg_t *r_msg;
+
+	/*
+	 * get a socket to the server
+	 */
+	server = zsock_new_req(endpoint);
+	if(server == NULL) {
+		fprintf(stderr,"ServerRequest: no server connection to %s\n",
+			endpoint);
+		fflush(stderr);
+		return(NULL);
+	}
+
+	/*
+	 * set up the poller for the reply
+	 */
+	resp_poll = zpoller_new(server,NULL);
+	if(resp_poll == NULL) {
+		fprintf(stderr,"ServerRequest: no poller for reply from %s\n",
+			endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		return(NULL);
+	}
+
+	/*
+	 * send the message to the server
+	 */
+	err = zmsg_send(&msg,server);
+	if(err < 0) {
+		fprintf(stderr,"ServerRequest: msg send to %s failed\n",
+			endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	}
+
+	/*
+	 * wait for the reply, but not indefinitely
+	 */
+	server_resp = zpoller_wait(resp_poll,WOOF_MSG_REQ_TIMEOUT);
+	if(server_resp != NULL) {
+		r_msg = zmsg_recv(server_resp);
+		if(r_msg == NULL) {
+			fprintf(stderr,"ServerRequest: msg recv from %s failed\n",
+				endpoint);
+			fflush(stderr);
+			zsock_destroy(&server);
+			zpoller_destroy(&resp_poll);
+			return(NULL);
+		}
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(r_msg);
+	} if(zpoller_expired(resp_poll)) {
+		fprintf(stderr,"ServerRequest: msg recv timeout from %s after %d msec\n",
+				endpoint,WOOF_MSG_REQ_TIMEOUT);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	} else if(zpoller_terminated(resp_poll)) {
+		fprintf(stderr,"ServerRequest: msg recv interrupted from %s\n",
+				endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	} else {
+		fprintf(stderr,"ServerRequest: msg recv failed from %s\n",
+				endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	}
+
+}
+	
+
+unsigned long WooFMsgGetElSize(char *woof_name)
+{
 	char endpoint[255];
 	char namespace[2048];
 	char ip_str[25];
@@ -647,19 +733,6 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 
 #ifdef DEBUG
 	printf("WooFMsgGetElSize: woof: %s trying enpoint %s\n",woof_name,endpoint);
-	fflush(stdout);
-#endif
-	server = zsock_new_req(endpoint);
-	if(server == NULL) {
-		fprintf(stderr,"WooFMsgGetElSize: woof: %s no socket to server at %s\n",
-			woof_name,endpoint);
-		perror("WooFMsgGetElSize: new req");
-		fflush(stderr);
-		return(-1);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s req socket open\n",woof_name);
 	fflush(stdout);
 #endif
 
@@ -742,19 +815,8 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	fflush(stdout);
 #endif
 
-	err = zmsg_send(&msg,server);
-	if(err < 0) {
-		fprintf(stderr,"WooFMsgGetElSize: woof: %s couldn't send msg for element size to server at %s\n",
-			woof_name,endpoint);
-		perror("WooFMsgGetElSize: couldn't send request");
-//		zmsg_destroy(&msg);
-		return(-1);
-	}
+	r_msg = ServerRequest(endpoint,msg);
 
-	/*
-	 * try to get back the seq_no from the remote put
-	 */
-	r_msg = zmsg_recv(server);
 	if(r_msg == NULL) {
 		fprintf(stderr,"WooFMsgGetElSize: woof: %s couldn't recv msg for element size from server at %s\n",
 			woof_name,endpoint);
@@ -776,7 +838,6 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	}
 	
 		
-	zsock_destroy(&server);
 #ifdef DEBUG
 	printf("WooFMsgGetElSize: woof: %s recvd size: %lu message from server at %s\n",
 		woof_name,el_size, endpoint);
@@ -788,7 +849,6 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 
 unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size)
 {
-	zsock_t *server;
 	char endpoint[255];
 	char namespace[2048];
 	char ip_str[25];
@@ -828,19 +888,6 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 
 #ifdef DEBUG
 	printf("WooFMsgPut: woof: %s trying enpoint %s\n",woof_name,endpoint);
-	fflush(stdout);
-#endif
-	server = zsock_new_req(endpoint);
-	if(server == NULL) {
-		fprintf(stderr,"WooFMsgPut: woof: %s no socket to server at %s\n",
-			woof_name,endpoint);
-		perror("WooFMsgPut: new req");
-		fflush(stderr);
-		return(-1);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s req socket open\n",woof_name);
 	fflush(stdout);
 #endif
 
@@ -994,19 +1041,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	fflush(stdout);
 #endif
 
-	err = zmsg_send(&msg,server);
-	if(err < 0) {
-		fprintf(stderr,"WooFMsgPut: woof: %s couldn't send msg for element size %lu name %s to server at %s\n",
-			woof_name,el_size,hand_name,endpoint);
-		perror("WooFMsgPut: couldn't send request");
-//		zmsg_destroy(&msg);
-		return(-1);
-	}
-
-	/*
-	 * try to get back the seq_no from the remote put
-	 */
-	r_msg = zmsg_recv(server);
+	r_msg = ServerRequest(endpoint,msg);
 	if(r_msg == NULL) {
 		fprintf(stderr,"WooFMsgPut: woof: %s couldn't recv msg for element size %lu name %s to server at %s\n",
 			woof_name,el_size,hand_name,endpoint);
@@ -1028,7 +1063,6 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	}
 	
 		
-	zsock_destroy(&server);
 #ifdef DEBUG
 	printf("WooFMsgPut: woof: %s recvd seq_no %lu message to server at %s\n",
 		woof_name,seq_no, endpoint);
