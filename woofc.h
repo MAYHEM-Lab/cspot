@@ -39,8 +39,9 @@ int WooFCreate(char *name,
                unsigned long history_size);
 WOOF *WooFOpen(char *name);
 unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
+int WooFGet(char *wf_name, void *element, unsigned long seq_no);
 unsigned long WooFAppend(WOOF *wf, char *wf_handler, void *element);
-int WooFGet(WOOF *wf, void *element, unsigned long ndx);
+int WooFRead(WOOF *wf, void *element, unsigned long seq_no);
 int WooFGetTail(WOOF *wf, void *elements, int element_count);
 unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);

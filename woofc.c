@@ -471,6 +471,67 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	return(seq_no);
 }
 
+int WooFGet(char *wf_name, void *element, unsigned long seq_no)
+{
+	WOOF *wf;
+	unsigned long el_size;
+	char wf_namespace[2048];
+	int err;
+
+#ifdef DEBUG
+	printf("WooFGet: called %s %s\n",wf_name,hand_name);
+	fflush(stdout);
+#endif
+
+	if(WooF_dir[0] == 0) {
+		fprintf(stderr,"WooFGet: must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFGet: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
+	fflush(stdout);
+#endif
+
+	memset(wf_namespace,0,sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote put
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * for now, assume that the biggest element for remote name space is 10K
+	 */
+	if((err >= 0) && (strcmp(WooF_namespace,wf_namespace) != 0)) {
+		el_size = WooFMsgGetElSize(wf_name);
+		if(el_size != (unsigned long)-1) {
+			err = WooFMsgGet(wf_name,element,el_size,seq_no);
+			return(err);
+		} else {
+			fprintf(stderr,"WooFGet: couldn't get element size for %s\n",
+				wf_name);
+			fflush(stderr);
+			return(-1);
+		}
+	}
+
+	wf = WooFOpen(wf_name);
+
+	if(wf == NULL) {
+		return(-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFGet: WooF %s open\n",wf_name);
+	fflush(stdout);
+#endif
+	err = WooFRead(wf,element,seq_no);
+
+	WooFFree(wf);
+	return(err);
+}
+
 int WooFGetTail(WOOF *wf, void *elements, int element_count)
 {
 	int i;
@@ -507,7 +568,7 @@ int WooFGetTail(WOOF *wf, void *elements, int element_count)
 
 }
 
-int WooFGet(WOOF *wf, void *element, unsigned long seq_no)
+int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 {
 	unsigned char *buf;
 	unsigned char *ptr;
@@ -552,7 +613,7 @@ int WooFGet(WOOF *wf, void *element, unsigned long seq_no)
 	 */
 	ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
 #ifdef DEBUG
-	fprintf(stdout,"WooFGet: head: %lu tail: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
+	fprintf(stdout,"WooFRead: head: %lu tail: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
 		wfs->head,
 		wfs->tail,
 		last_valid,
