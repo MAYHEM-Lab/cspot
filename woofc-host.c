@@ -166,6 +166,8 @@ int WooFInit()
 void *WooFLauncher(void *arg);
 void *WooFContainerLauncher(void *arg);
 
+void CatchSignals();
+
 static int WooFHostInit(int min_containers, int max_containers)
 {
 	char log_name[2048];
@@ -202,6 +204,14 @@ static int WooFHostInit(int min_containers, int max_containers)
 		exit(1);
 	}
 
+	/*
+	 * sleep for 10 years
+	 *
+	 * calling pthread_join here causes pthreads to intercept the SIGINT signal handler
+	 * (which sounds like a bug in Linux).  Sleeping forever, however, allows SIGINT to
+	 * be caught which then triggers a clean up of the docker container
+	 */
+	sleep(86400*365*10);
 	pthread_join(tid,NULL);
 
 	exit(0);
@@ -225,6 +235,7 @@ void WooFExit()
 void *WooFDockerThread(void *arg)
 {
 	char *launch_string = (char *)arg;
+
 
 #ifdef DEBUG
 	fprintf(stdout,"LAUNCH: %s\n",launch_string);
@@ -262,6 +273,7 @@ void *WooFContainerLauncher(void *arg)
 
 	container_count = ca->container_count;
 	free(ca);
+
 
 #ifdef DEBUG
 	fprintf(stdout,"WooFContainerLauncher started\n");
@@ -362,29 +374,36 @@ char putbuf2[1024];
 char putbuf3[1024];
 char putbuf4[1024];
 
-void sig_int_handler(int signal)
+/*
+ * Linux fgets() doesn't appear to work in a signal handler
+ */
+char *SignalFgetS(char *buffer, int size, FILE *fd)
 {
-	fprintf(stdout,"SIGINT caught\n");
-	fflush(stdout);
+	int i;
+	char c;
+	char *ptr;
+	int count;
 
-	exit(0);
+	i = 0;
+	count = read(fileno(fd),&c,1);
+	while((count > 0) && (i < size)) {
+		buffer[i] = c;
+		ptr = &(buffer[i]);
+		if(c == '\n') {
+			break;
+		}
+		i++;
+		count = read(fileno(fd),&c,1);
+	}
 
-	return;
+
+	if(count > 0) {
+		return(buffer);
+	} else {
+		return(NULL);
+	}
 }
-
-void CatchSignals()
-{
-	struct sigaction action;
-
-	action.sa_handler = sig_int_handler;
-	action.sa_flags = 0;
-	sigemptyset (&action.sa_mask);
-	sigaction (SIGINT, &action, NULL);
-	sigaction (SIGTERM, &action, NULL);
-
-	return;
-}
-
+		
 void CleanUpDocker(int status, void *arg)
 {
 	FILE *fd;
@@ -392,15 +411,16 @@ void CleanUpDocker(int status, void *arg)
 	char command[255];
 	char ps_line[4096];
 	char port_str[255];
+	char temp_buf[255];
 	int i;
 	char docker_id[255];
 	char c;
 
 	memset(command,0,sizeof(command));
 
-	port = WooFPortHash(putbuf3); // namespace port
+	port = WooFPortHash(WooF_namespace); // namespace port
 	sprintf(port_str,"%d/tcp",port);
-	strncpy(command,"docker ps",sizeof(command));
+	strncpy(command,"/usr/bin/docker ps",sizeof(command));
 
 	fd = popen(command,"r");
 	if(fd == NULL) {
@@ -409,10 +429,11 @@ void CleanUpDocker(int status, void *arg)
 	}
 	memset(ps_line,0,sizeof(ps_line));
 	memset(docker_id,0,sizeof(docker_id));
+
 	/*
 	 * loop through the docker ps output looking for the namespace port ID
 	 */
-	while(fgets(ps_line,sizeof(ps_line),fd) != NULL) {
+	while(SignalFgetS(ps_line,sizeof(ps_line),fd) != NULL) {
 		/*
 		 * is the port in the docker ps line?
 		 */
@@ -424,7 +445,7 @@ void CleanUpDocker(int status, void *arg)
 			}
 			pclose(fd);
 			memset(command,0,sizeof(command));
-			sprintf(command,"docker kill %s",docker_id);
+			sprintf(command,"/usr/bin/docker kill %s",docker_id);
 			fd = popen(command,"r");
 			if(fd == NULL) {
 				fprintf(stderr,
@@ -437,10 +458,38 @@ void CleanUpDocker(int status, void *arg)
 			pclose(fd);	
 			return;
 		}
+		memset(ps_line,0,sizeof(ps_line));
 	}
 
 	return;
 }
+
+void sig_int_handler(int signal)
+{
+	fprintf(stdout,"SIGINT caught\n");
+	fflush(stdout);
+
+	CleanUpDocker(0,NULL);
+	exit(0);
+
+	return;
+}
+
+void CatchSignals()
+{
+	struct sigaction action;
+
+	action.sa_handler = sig_int_handler;
+	action.sa_flags = 0;
+	sigemptyset (&action.sa_mask);
+	sigaddset(&action.sa_mask,SIGINT);
+	sigaddset(&action.sa_mask,SIGTERM);
+	sigaction (SIGINT, &action, NULL);
+	sigaction (SIGTERM, &action, NULL);
+
+	return;
+}
+
 			
 
 
@@ -453,6 +502,10 @@ int main(int argc, char **argv, char **envp)
 	char name_dir[2048];
 	char name_space[2048];
 	int err;
+
+//	signal(SIGINT,sig_int_handler);
+//	signal(SIGTERM,sig_int_handler);
+
 
 	min_containers = 1;
 	max_containers = 1;
@@ -519,10 +572,11 @@ int main(int argc, char **argv, char **envp)
 	sprintf(putbuf3,"WOOFC_NAMESPACE=%s",name_space);
 	putenv(putbuf3);
 
-	fclose(stdin);
+//	fclose(stdin);
 
 	CatchSignals();
 	on_exit(CleanUpDocker,NULL);
+
 
 	err = WooFLocalIP(Host_ip,sizeof(Host_ip));
 	if(err < 0) {
