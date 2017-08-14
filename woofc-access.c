@@ -11,19 +11,11 @@
 
 #include "uriparser2.h"
 
-#define DEBUG
 
 #include "woofc.h"	/* for WooFPut */
 #include "woofc-access.h"
 
 extern char Host_ip[25];
-
-struct dumb
-{
-	unsigned long counter;
-	char name1[1024];
-	char name2[1024];
-};
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
@@ -314,11 +306,6 @@ fflush(stdout);
 		 */
 //			zmsg_destroy(&msg);
 
-struct dumb *dmb = (struct dumb *)element;
-printf("Put: counter: %d\n",dmb->counter);
-printf("Put: name1: %s\n",dmb->name1);
-printf("Put: name2: %s\n",dmb->name2);
-fflush(stdout);
 		/*
 		 * attempt to put the element into the local woof_name
 		 *
@@ -578,13 +565,6 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 			el_size,seq_no);
 	fflush(stdout);
 #endif
-
-struct dumb *dmb;
-dmb = (struct dumb *)element;
-printf("counter: %d\n",dmb->counter);
-printf("name1: %s\n",dmb->name1);
-printf("name2: %s\n",dmb->name2);
-fflush(stdout);
 
 		r_frame = zframe_new(element,el_size);
 		if(r_frame == NULL) {
