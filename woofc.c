@@ -18,6 +18,8 @@ extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
 
+#define DEBUG
+
 
 int WooFCreate(char *name,
 	       unsigned long element_size,
@@ -479,7 +481,7 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	int err;
 
 #ifdef DEBUG
-	printf("WooFGet: called %s %s\n",wf_name,hand_name);
+	printf("WooFGet: called %s %lu\n",wf_name,seq_no);
 	fflush(stdout);
 #endif
 
@@ -601,8 +603,20 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 		oldest = el_id->seq_no;
 	}
 
+#ifdef DEBUG
+	fprintf(stdout,"WooFRead: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu\n",
+		wfs->head,
+		wfs->tail,
+		wfs->history_size,
+		last_valid,
+		seq_no,
+		oldest,
+		youngest);
+#endif
+
 	/*
 	 * is the seq_no between head and tail ndx?
+	 */
 	if((seq_no < oldest) || (seq_no > youngest)) {
 		V(&wfs->mutex);
 		return(-1);
@@ -613,9 +627,10 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	 */
 	ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
 #ifdef DEBUG
-	fprintf(stdout,"WooFRead: head: %lu tail: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
+	fprintf(stdout,"WooFRead: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
 		wfs->head,
 		wfs->tail,
+		wfs->history_size,
 		last_valid,
 		seq_no,
 		oldest,
@@ -624,7 +639,12 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	fflush(stdout);
 #endif
 	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
-	memcpy(element,ptr,sizeof(wfs->element_size));
+	el_id = (ELID *)(ptr + wfs->element_size);
+#ifdef DEBUG
+	fprintf(stdout,"WooFRead: seq_no: %lu, found seq_no: %lu\n",seq_no,el_id->seq_no);
+	fflush(stdout);
+#endif
+	memcpy(element,ptr,wfs->element_size);
 	V(&wfs->mutex);
 	return(1);
 }

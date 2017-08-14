@@ -18,6 +18,12 @@
 
 extern char Host_ip[25];
 
+struct dumb
+{
+	unsigned long counter;
+	char name1[1024];
+	char name2[1024];
+};
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
@@ -308,6 +314,11 @@ fflush(stdout);
 		 */
 //			zmsg_destroy(&msg);
 
+struct dumb *dmb = (struct dumb *)element;
+printf("Put: counter: %d\n",dmb->counter);
+printf("Put: name1: %s\n",dmb->name1);
+printf("Put: name2: %s\n",dmb->name2);
+fflush(stdout);
 		/*
 		 * attempt to put the element into the local woof_name
 		 *
@@ -367,8 +378,8 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	WOOF *wf;
 
 #ifdef DEBUG
-printf("WooFProcessGetElSize: called\n");
-fflush(stdout);
+	printf("WooFProcessGetElSize: called\n");
+	fflush(stdout);
 #endif
 	/*
 	 * WooFElSize requires a woof_name
@@ -408,8 +419,8 @@ fflush(stdout);
 	}
 
 #ifdef DEBUG
-printf("WooFProcessGetElSize: woof_name %s has element size: %lu\n",woof_name,el_size);
-fflush(stdout);
+	printf("WooFProcessGetElSize: woof_name %s has element size: %lu\n",woof_name,el_size);
+	fflush(stdout);
 #endif
 
 	/*
@@ -441,12 +452,6 @@ fflush(stdout);
 	return;
 }
 
-struct dumb
-{
-	unsigned long counter;
-	char name1[1024];
-	char name2[1024];
-};
 
 void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 {
@@ -466,8 +471,8 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	WOOF *wf;
 
 #ifdef DEBUG
-printf("WooFProcessGet: called\n");
-fflush(stdout);
+	printf("WooFProcessGet: called\n");
+	fflush(stdout);
 #endif
 	/*
 	 * WooFGet requires a woof_name, and the seq_no
@@ -497,8 +502,8 @@ fflush(stdout);
 	strncpy(woof_name,str,copy_size);
 
 #ifdef DEBUG
-printf("WooFProcessGet: received woof_name %s\n",woof_name);
-fflush(stdout);
+	printf("WooFProcessGet: received woof_name %s\n",woof_name);
+	fflush(stdout);
 #endif
 	/*
 	 * seq_no name in the second frame
@@ -1041,6 +1046,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	struct timeval tm;
 	unsigned long seq_no;
 	int err;
+	void *el_buffer;
 
 	memset(namespace,0,sizeof(namespace));
 	err = WooFNameSpaceFromURI(woof_name,namespace,sizeof(namespace));
@@ -1187,7 +1193,12 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		woof_name, element,el_size);
 	fflush(stdout);
 #endif
-	frame = zframe_new(element,el_size);
+	el_buffer = malloc(el_size);
+	if(el_buffer == NULL) {
+		exit(1);
+	}
+	memcpy(el_buffer,element,el_size);
+	frame = zframe_new(el_buffer,el_size);
 	if(frame == NULL) {
 		fprintf(stderr,"WooFMsgPut: woof: %s no frame size %lu for handler name %s to server at %s\n",
 			woof_name,el_size, hand_name,endpoint);
@@ -1207,12 +1218,15 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 			woof_name,el_size,hand_name,endpoint);
 		perror("WooFMsgPut: couldn't append element frame");
 //		zmg_destroy(&msg);
+		free(el_buffer);
 		return(-1);
 	}
 #ifdef DEBUG
 	printf("WooFMsgPut: woof: %s appended frame for element size %d\n",woof_name,el_size);
 	fflush(stdout);
 #endif
+
+	free(el_buffer);
 
 #ifdef DEBUG
 	printf("WooFMsgPut: woof: %s sending message to server at %s\n",
