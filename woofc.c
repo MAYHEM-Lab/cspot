@@ -18,7 +18,6 @@ extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
 
-
 int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
@@ -393,6 +392,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 		fprintf(stderr,"WooFAppend: couldn't log event to log %s\n",
 			log_name);
 		fflush(stderr);
+		EventFree(ev);
 		return(-1);
 	}
 

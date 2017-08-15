@@ -589,7 +589,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	if(err != 0) {
 		perror("WooFProcessGet: couldn't append to r_msg");
-		zframe_destroy(r_frame);
+		zframe_destroy(&r_frame);
 		zmsg_destroy(&r_msg);
 		return;
 	}
@@ -683,6 +683,7 @@ void *WooFMsgThread(void *arg)
 		msg = zmsg_recv(receiver);
 	}
 
+	zsock_destroy(&receiver);
 	pthread_exit(NULL);
 }
 		

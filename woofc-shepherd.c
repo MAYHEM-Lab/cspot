@@ -53,6 +53,15 @@ int main(int argc, char **argv, char **envp)
 	unsigned long namelog_size;
 	int err;
 	char *st = "WOOF_HANDLER_NAME";
+	int i;
+
+	if(envp != NULL) {
+		i = 0;
+		while(envp[i] != NULL) {
+			putenv(envp[i]);
+			i++;
+		}
+	}
 
 	/*
 	 * close stdin to make docker happy
@@ -328,12 +337,16 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
+fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
+fflush(stdout);
 	WooFFree(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
+fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
+fflush(stdout);
 	exit(0);
 	return(0);
 }

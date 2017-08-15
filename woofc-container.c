@@ -37,6 +37,7 @@ void WooFShutdown(int sig)
 }
 
 void *WooFForker(void *arg);
+void *WooFReaper(void *arg);
 
 int WooFContainerInit()
 {
@@ -177,6 +178,13 @@ int WooFContainerInit()
 	}
 	pthread_detach(tid);
 
+	err = pthread_create(&tid,NULL,WooFReaper,NULL);
+	if(err < 0) {
+		fprintf(stderr,"couldn't start reaper thread\n");
+		exit(1);
+	}
+	pthread_detach(tid);
+
 	signal(SIGHUP, WooFShutdown);
 	return(1);
 }
@@ -186,31 +194,18 @@ void WooFExit()
 	WooFDone = 1;
 	pthread_exit(NULL);
 }
-	
-/*
- * FIX ME: it would be better if the TRIGGER seq_no gets retired after the launch is successful
- *         Right now, the last_seq_no in the launcher is set before the launch actually happens
- *         which means a failure will nt be retried
- */
-void *WooFHandlerThread(void *arg)
+
+void *WooFReaper(void *arg)
 {
-	char *launch_string = (char *)arg;
+	int status;
+	while(1) {
+		while(waitpid(-1,&status,WNOHANG) > 0);
+		sleep(1);
+	}
 
-#ifdef DEBUG
-	fprintf(stdout,"LAUNCH: %s\n",launch_string);
-	fflush(stdout);
-#endif
-	system(launch_string);
-#ifdef DEBUG
-	fprintf(stdout,"DONE: %s\n",launch_string);
-	fflush(stdout);
-#endif
-
-	free(launch_string);
-
-	return(NULL);
+	pthread_exit(NULL);
 }
-
+	
 void *WooFForker(void *arg)
 {
 	unsigned long last_seq_no = 0;
@@ -226,6 +221,11 @@ void *WooFForker(void *arg)
 	pthread_t tid;
 	int none;
 	EVENT last_event;	/* needed to understand if log tail has changed */
+	int status;
+	int pid;
+	char *pbuf;
+	char **eenvp;
+	int i;
 
 	/*
 	 * wait for things to show up in the log
@@ -256,6 +256,8 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 
+		pthread_yield();
+
 		if(WooFDone == 1) {
 			break;
 		}
@@ -284,7 +286,6 @@ void *WooFForker(void *arg)
 			WooF_namespace);
 		fflush(stdout);
 #endif
-			LogFree(log_tail);
 			continue;
 		}
 		if(log_tail->head == log_tail->tail) {
@@ -388,6 +389,8 @@ exit(1);
 		fflush(stdout);
 #endif
 
+		pid = fork();
+		if(pid == 0) {
 
 		wf = WooFOpen(ev[first].woofc_name);
 
@@ -412,17 +415,146 @@ exit(1);
 
 		strncpy(woof_shepherd_dir,pathp,sizeof(woof_shepherd_dir));
 
-		launch_string = (char *)malloc(2048);
-		if(launch_string == NULL) {
+		eenvp = (char **)malloc(12 * sizeof(char *));
+		if(eenvp == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp\n");
 			exit(1);
 		}
 
-		memset(launch_string,0,2048);
+		i = 0; /* 0 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOFC_NAMESPACE=%s",WooF_namespace);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 1 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOFC_DIR=%s",WooF_dir);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 2 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_HOST_IP=%s",Host_ip);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 3 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_SHEPHERD_NAME=%s",wf->shared->filename);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 4 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_SHEPHERD_NDX=%lu",ev[first].woofc_ndx);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 5 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_SHEPHERD_SEQNO=%lu",ev[first].woofc_seq_no);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 6 */
+		pbuf = (char *)malloc(255);
+		sprintf(pbuf,"WOOF_NAME_ID=%lu",Name_id);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 7 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_NAMELOG_DIR=%s",WooF_namelog_dir);
+		putenv(pbuf);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 8 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_NAMELOG_NAME=%s",Namelog_name);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 9 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		sprintf(pbuf,"WOOF_NAMELOG_SEQNO=%lu",ev[first].seq_no);
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 10 */
+		pbuf = (char *)malloc(255);
+		if(pbuf == NULL) {
+			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
+			exit(1);
+		}
+		memset(pbuf,0,255);
+		strcpy(pbuf,"LD_LIBRARY_PATH=/usr/local/lib");
+		eenvp[i] = pbuf;
+		i++;
+
+		/* 11 */
+		eenvp[i] = NULL;
+
+		pbuf = (char *)malloc(255);
+		sprintf(pbuf,"%s/%s",WooF_dir,ev[first].woofc_handler);
+
+		char *earg[2];
+		earg[0] = pbuf;
+		earg[1] = NULL;
+
+		WooFFree(wf);
+
+		execve(pbuf,earg,eenvp);
+
+		fprintf(stderr,"WooFForker: execve of %s failed\n",pbuf);
+		exit(1);
 
 
+#if 0
 		sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
 			 export WOOFC_DIR=%s; \
-			 export WOOC_HOST_IP=%s; \
+			 export WOOF_HOST_IP=%s; \
 			 export WOOF_SHEPHERD_NAME=%s; \
 			 export WOOF_SHEPHERD_NDX=%lu; \
 			 export WOOF_SHEPHERD_SEQNO=%lu; \
@@ -442,35 +574,31 @@ exit(1);
 				Namelog_name,
 				ev[first].seq_no,
 				WooF_dir,ev[first].woofc_handler);
+#endif
+		} else if(pid < 0) {
+			fprintf(stderr,"WooFForker: fork failed for %s/%s in %s/%s\n",
+				WooF_dir,ev[first].woofc_handler,WooF_namespace,wf->shared->filename);
+			fflush(stderr);
+			WooFDone = 1;
+		} else { /* parent */
 
-		/*
-		 * remember its sequence number for next time
-		 *
-		 * needs +1 because LogTail returns the earliest inclusively
-		 */
-		last_seq_no = ev[first].seq_no; 		/* log seq_no */
+			/*
+			 * remember its sequence number for next time
+			 */
+			last_seq_no = ev[first].seq_no; 		/* log seq_no */
 #ifdef DEBUG
 		fprintf(stdout,"WooFForker: namespace: %s seq_no: %lu, handler: %s\n",
 			WooF_namespace,ev[first].seq_no, ev[first].woofc_handler);
 		fflush(stdout);
 #endif
-		LogFree(log_tail); 
-		WooFFree(wf);
-
-		err = pthread_create(&tid,NULL,WooFHandlerThread,(void *)launch_string);
-		if(err < 0) {
-			/* LOGGING
-			 * log thread create failure here
-			 */
-			exit(1);
+			LogFree(log_tail); 
 		}
-		pthread_detach(tid);
+
+		while(waitpid(-1,&status,WNOHANG) > 0);
 	}
 
-#ifdef DEBUG
-		fprintf(stdout,"WooFForker namespace: %s exiting\n",WooF_namespace);
-		fflush(stdout);
-#endif
+	fprintf(stderr,"WooFForker namespace: %s exiting\n",WooF_namespace);
+	fflush(stderr);
 
 	pthread_exit(NULL);
 }
