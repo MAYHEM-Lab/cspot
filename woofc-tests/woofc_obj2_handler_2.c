@@ -30,9 +30,11 @@ int woofc_obj2_handler_2(WOOF *wf, unsigned long seq_no, void *ptr)
 		fflush(stdout);
 
 		if(WooFValidURI(el.next_woof)) {
-			seq_no = WooFPut(el.next_woof2,"woofc_obj2_handler_3",&el);
+//			seq_no = WooFPut(el.next_woof2,"woofc_obj2_handler_3",&el);
+			seq_no = WooFPut(el.next_woof2,NULL,&el);
 		} else {
-			WooFPut(wf->shared->filename,"woofc_obj2_handler_3",&el);
+//			WooFPut(wf->shared->filename,"woofc_obj2_handler_3",&el);
+			WooFPut(wf->shared->filename,NULL,&el);
 		}
 		el.counter++;
 		fprintf(stdout,"handler2, calling put counter: %lu, seq_no: %lu\n",el.counter, seq_no);
@@ -42,6 +44,7 @@ int woofc_obj2_handler_2(WOOF *wf, unsigned long seq_no, void *ptr)
 			/*
 			 * read it back to make sure
 			 */
+#if 0
 			err = WooFGet(el.next_woof2,&r_el,r_seq_no);
 			if(err < 0) {
 				fprintf(stderr,"handler2: WooFGet of %lu failed\n",r_seq_no);
@@ -54,6 +57,7 @@ int woofc_obj2_handler_2(WOOF *wf, unsigned long seq_no, void *ptr)
 				   "handler2, verified put at %lu\n", r_seq_no);
 				fflush(stdout);
 			}
+#endif
 		} else {
 			WooFPut(wf->shared->filename,"woofc_obj2_handler_3",&el);
 		}
