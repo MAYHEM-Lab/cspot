@@ -51,6 +51,8 @@ int main(int argc, char **argv)
 		}
 	}
 
+	size = 200*size;
+
 	if(Fname[0] == 0) {
 		fprintf(stderr,"must specify filename for object\n");
 		fprintf(stderr,"%s",Usage);

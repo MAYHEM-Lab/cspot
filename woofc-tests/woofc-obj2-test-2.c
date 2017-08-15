@@ -31,6 +31,7 @@ int main(int argc, char **argv)
 	OBJ2_EL el;
 	unsigned long seq_no;
 	unsigned int pid;
+	int max;
 
 	size = 5;
 	UseNameSpace=0;
@@ -88,6 +89,9 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
+	max = size;
+	size = size * 10;  // to prevent WooFGet() from getting errors due to fast wrapping
+
 	if(UseNameSpace == 1) {
 		/*
 		 * need two woof init calls
@@ -141,6 +145,7 @@ int main(int argc, char **argv)
 	} 
 
 	el.counter = 0;
+	el.max = max;
 	seq_no = WooFPut(Wname,"woofc_obj2_handler_2",(void *)&el);
 
 	if(WooFInvalid(seq_no)) {
