@@ -279,8 +279,8 @@ void *WooFForker(void *arg)
 		 */
 		P(&Name_log->mutex);
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s, in mutex, size: %lu\n",
-			WooF_namespace,Name_log->size);
+		fprintf(stdout,"WooFForker (%lu): namespace: %s, in mutex, size: %lu, last: %lu\n",
+			pthread_self(),WooF_namespace,Name_log->size,last_seq_no);
 		fflush(stdout);
 #endif
 		log_tail = LogTail(Name_log,last_seq_no,Name_log->size);
@@ -298,8 +298,8 @@ void *WooFForker(void *arg)
 		}
 		if(log_tail->head == log_tail->tail) {
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s log tail empty, continuing\n",
-				WooF_namespace);
+		fprintf(stdout,"WooFForker (%lu): namespace: %s log tail empty, last: %lu continuing\n",
+				pthread_self(),WooF_namespace,last_seq_no);
 		fflush(stdout);
 #endif
 			V(&Name_log->mutex);
@@ -344,6 +344,8 @@ void *WooFForker(void *arg)
 	printf("WooFForker: found firing for %s %lu\n",ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
+	printf("WooFForker: found firing for %s %lu\n",ev[first].namespace,ev[first].seq_no);
+	fflush(stdout);
 						break;
 					}
 					firing = firing - 1;
@@ -440,7 +442,7 @@ exit(1);
 		/*
 		 * must be LogAdd() call since inside of critical section
 		 */
-		ls = LogAdd(Name_log,fev);
+		ls = LogEventNoLock(Name_log,fev);
         	if(ls == 0) {
                 	fprintf(stderr,"WooFForker: couldn't log event to log\n");
                 	fflush(stderr);

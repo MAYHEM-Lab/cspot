@@ -157,8 +157,6 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_SEQ_NO=%lu\n",seq_no);
 	fflush(stdout);
 #endif
-fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_SEQ_NO=%lu\n",seq_no);
-fflush(stdout);
 
 	namelog_name = getenv("WOOF_NAMELOG_NAME");
 	if(namelog_name == NULL) {
@@ -339,16 +337,12 @@ fflush(stdout);
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
-fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
-fflush(stdout);
 	WooFFree(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
-fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
-fflush(stdout);
 	exit(0);
 	return(0);
 }

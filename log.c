@@ -177,6 +177,38 @@ unsigned long long LogEvent(LOG *log, EVENT *event)
 }
 
 /*
+ * exactly the same as previous one but without mutex so logging can be done
+ * atomically with other functions
+ */
+unsigned long long LogEventNoLock(LOG *log, EVENT *event)
+{
+	int err;
+	unsigned long long seq_no;
+	MIO *mio;
+
+	if(log == NULL) {
+		return(0);
+	}
+
+
+	seq_no = log->seq_no;
+	event->seq_no = seq_no;
+	log->seq_no++;
+#ifdef DEBUG
+	printf("LogEventNoLock: calling LogAdd\n");
+	fflush(stdout);
+#endif
+	err = LogAdd(log,event);
+#ifdef DEBUG
+	printf("LogEventNoLock: added\n");
+	fflush(stdout);
+#endif
+	
+	return(seq_no);
+}
+
+
+/*
  * not thread safe
  */
 LOG *LogTail(LOG *log, unsigned long long earliest, unsigned long max_size)
