@@ -21,8 +21,6 @@ LOG *Name_log;
 
 static int WooFDone;
 
-#define DEBUG
-
 #define WOOF_CONTAINER_FORKERS (5)
 
 void WooFShutdown(int sig)
