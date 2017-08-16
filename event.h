@@ -25,7 +25,8 @@ typedef struct event_stc EVENT;
 #define UNKNOWN (1)
 #define FUNC (2)
 #define TRIGGER (3)
-#define HOST_TRIGGER (4)
+#define TRIGGER_FIRING (4)
+#define FIRED (5)
 
 EVENT *EventCreate(unsigned char type, unsigned long host);
 

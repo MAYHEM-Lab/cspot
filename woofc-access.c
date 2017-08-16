@@ -694,12 +694,15 @@ int WooFMsgServer (char *namespace)
 	int port;
 	zactor_t *proxy;
 	int err;
-	pthread_t tid;
 	char endpoint[255];
+	pthread_t tids[WOOF_MSG_THREADS];
+	int i;
 
 	zsock_t *frontend;
 	zsock_t *workers;
 	zmsg_t *msg;
+
+	
 
 	if(namespace[0] == 0) {
 		fprintf(stderr,"WooFMsgServer: couldn't find namespace\n");
@@ -757,17 +760,21 @@ int WooFMsgServer (char *namespace)
 	 * create a single thread for now.  The DEALER pattern can handle multiple threads, however
 	 * so this can be increased if need be
 	 */
-	err = pthread_create(&tid,NULL,WooFMsgThread,NULL);
-	if(err < 0) {
-		fprintf(stderr,"WooFMsgServer: couldn't create thread\n");
-		exit(1);
+	for(i=0; i < WOOF_MSG_THREADS; i++) {
+		err = pthread_create(&tids[i],NULL,WooFMsgThread,NULL);
+		if(err < 0) {
+			fprintf(stderr,"WooFMsgServer: couldn't create thread %d\n",i);
+			exit(1);
+		}
 	}
 
 	/*
-	 * right now, there is no way for this thread to exit so the msg server will block
+	 * right now, there is no way for these threads to exit so the msg server will block
 	 * indefinitely in this join
 	 */
-	pthread_join(tid,NULL);
+	for(i=0; i < WOOF_MSG_THREADS; i++) {
+		pthread_join(tids[i],NULL);
+	}
 
 	/*
 	 * we'll get here if the Msg thread is ever pthread_canceled()

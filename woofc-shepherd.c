@@ -157,6 +157,8 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_SEQ_NO=%lu\n",seq_no);
 	fflush(stdout);
 #endif
+fprintf(stdout,"WooFShepherd: WOOF_SHEPHERD_SEQ_NO=%lu\n",seq_no);
+fflush(stdout);
 
 	namelog_name = getenv("WOOF_NAMELOG_NAME");
 	if(namelog_name == NULL) {
