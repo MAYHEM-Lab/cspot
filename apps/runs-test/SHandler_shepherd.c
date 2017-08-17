@@ -53,6 +53,15 @@ int main(int argc, char **argv, char **envp)
 	unsigned long namelog_size;
 	int err;
 	char *st = "SHandler";
+	int i;
+
+	if(envp != NULL) {
+		i = 0;
+		while(envp[i] != NULL) {
+			putenv(envp[i]);
+			i++;
+		}
+	}
 
 	/*
 	 * close stdin to make docker happy

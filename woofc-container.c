@@ -342,8 +342,6 @@ void *WooFForker(void *arg)
 	printf("WooFForker: found firing for %s %lu\n",ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
-	printf("WooFForker: found firing for %s %lu\n",ev[first].namespace,ev[first].seq_no);
-	fflush(stdout);
 						break;
 					}
 					firing = firing - 1;

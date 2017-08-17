@@ -59,9 +59,7 @@ fflush(stdout);
 	v = (double *)malloc(sizeof(double)*fa->sample_size);
 	i = 0;
 	for(seq_no=start; seq_no <= end; seq_no++) {
-		WooFGet(r_wf,&v[i],seq_no);
-printf("SHandler: seq_no %lu, r: %f\n",seq_no,v[i]);
-fflush(stdout);
+		WooFRead(r_wf,&v[i],seq_no);
 		i++;
 	}
 
@@ -76,6 +74,8 @@ fflush(stdout);
 		fprintf(stderr,"SHandler couldn't put stat\n");
 		exit(1);
 	}
+printf("shandler: seq_no %lu, i: %d\n",seq_no,fa->i);
+fflush(stdout);
 
 	if(fa->logfile[0] != 0) {
 		fd = fopen(fa->logfile,"a");
@@ -90,9 +90,11 @@ fflush(stdout);
 	}
 
 
-	if(fa->i == (fa->count - 1)) {
+	if(seq_no == fa->count) {
 		memcpy(&next_k,fa,sizeof(FA));
 		next_k.seq_no = seq_no;
+printf("SHandler: putting seq_no: %lu\n",seq_no);
+fflush(stdout);
 		seq_no = WooFPut(fa->kargs,"KHandler",&next_k);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"SHandler: couldn't create KHandler\n");

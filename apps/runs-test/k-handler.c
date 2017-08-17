@@ -41,6 +41,7 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return(1);
 	}
 
+
 	/*
 	 * generate a Normal(0,1) to compare with
 	 */
@@ -75,10 +76,12 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	}
 
 	count = 0;
+printf("Khandler: seq_no: %lu, count: %d\n",fa->seq_no,fa->count);
+fflush(stdout);
 	for(seq_no=fa->seq_no; count < fa->count; seq_no--) {
-		err = WooFGet(s_wf,&s,seq_no);
+		err = WooFRead(s_wf,&s,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"WooFGet failed at %lu for %s\n",
+			fprintf(stderr,"WooFRead failed at %lu for %s\n",
 					seq_no,fa->stats);
 			exit(1);
 		}
