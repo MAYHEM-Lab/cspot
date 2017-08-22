@@ -16,8 +16,8 @@ char *Usage = "ping-pong-start -f woof_name\n\
 char Fname[4096];
 char Wname[4096];
 char Wname2[4096];
-char NameSpace[40967];
-char NameSpace2[40967];
+char NameSpace[4096];
+char NameSpace2[4096];
 char Namelog_dir[4096];
 int UseNameSpace;
 char putbuf1[4096];
@@ -31,6 +31,7 @@ int main(int argc, char **argv)
 	PP_EL el;
 	unsigned long seq_no;
 	unsigned int pid;
+	char local_ns[4096];
 
 	size = 5;
 	UseNameSpace=0;
@@ -88,6 +89,7 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
+	memset(local_ns,0,sizeof(local_ns));
 	if(UseNameSpace == 1) {
 		/*
 		 * need two woof init calls
@@ -96,8 +98,15 @@ int main(int argc, char **argv)
 		if(pid == 0) {
 			/*
 			 * child creates woof in the other namespace
+			 *
+			 * try it as a URI
 			 */
-			sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace2);
+			err = WooFNameSpaceFromURI(NameSpace2,local_ns,sizeof(local_ns));
+			if(err > 0) {
+				sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+			} else { // assume it is a local path
+				sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace2);
+			}
 			putenv(putbuf1);
 			WooFInit();
 			sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
@@ -118,7 +127,12 @@ int main(int argc, char **argv)
 	}
 
 		
-	sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+	err = WooFNameSpaceFromURI(NameSpace,local_ns,sizeof(local_ns));
+	if((UseNameSpace == 1) && (err > 0)) {
+		sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+	} else { // assume it is a local path
+		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+	}
 	putenv(putbuf1);
 	/*
 	 * in namespace case, child has already run and create woof in other namespace
