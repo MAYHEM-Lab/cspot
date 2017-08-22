@@ -4,6 +4,7 @@
 int WooFValidURI(char *str);
 int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len);
 int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len);
+int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len);
 unsigned int WooFPortHash(char *namespace);
 int WooFLocalIP(char *ip_str, int len);
 

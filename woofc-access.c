@@ -8,6 +8,8 @@
 #include <czmq.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 #include "uriparser2.h"
 
@@ -140,6 +142,64 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 	return(-1);
 } 
 
+/*
+ * returns IP address to avoid DNS issues
+ */
+int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
+{
+	struct URI uri;
+	int i;
+	int j;
+	struct in_addr addr;
+	struct in_addr **list;
+	struct hostent *he;
+	int err;
+
+	if(!WooFValidURI(woof_uri_str)) { 
+		return(-1);
+	}
+
+	uri_parse2(woof_uri_str,&uri);
+	if(uri.host == NULL) {
+		return(-1);
+	}
+
+	/*
+	 * test to see if the host is an IP address already
+	 */
+	err = inet_aton(uri.host,&addr);
+	if(err == 1) {
+		strncpy(woof_ip,uri.host,len);
+		return(1);
+	}
+
+	/*
+	 * here, assume it is a DNS name
+	 */
+	he = gethostbyname(uri.host);
+	if(he == NULL) {
+		return(-1);
+	}
+
+	list = (struct in_addr **)he->h_addr_list;
+	if(list == NULL) {
+		return(-1);
+	}
+
+	for(i=0; list[i] != NULL; i++) {
+		/*
+		 * return first non-NULL ip address
+		 */
+		if(list[i] != NULL) {
+			strncpy(woof_ip,inet_ntoa(*list[i]),len);
+			return(1);
+		}
+	}
+
+	return(-1);
+	
+}
+
 int WooFLocalIP(char *ip_str, int len)
 {
 	struct ifaddrs *addrs;
@@ -170,44 +230,6 @@ int WooFLocalIP(char *ip_str, int len)
 	exit(1);
 }
 
-
-int WooFIPAddrFromURI(char *woof_uri_str, char *ip_str, int len)
-{
-	struct URI uri;
-	int i;
-	int j;
-
-	if(!WooFValidURI(woof_uri_str)) { 
-		return(-1);
-	}
-
-	/*
-	 * for now
-	 */
-	strncpy(ip_str,Host_ip,len);
-	return(1);
-
-
-#if 0
-	uri_parse2(woof_uri_str,&uri);
-
-	/*
-	 * no host => localhost
-	 */
-	if(uri.host == NULL) {
-		strncpy(ip_str,"127.0.0.1",len);
-		return(1);
-	}
-
-	/*
-	 * in the future, parse URI for host and return IP address. 
-	 *
-	 * for now, all woofs are local
-	 */
-	strncpy(ip_str,"127.0.0.1",len);
-	return(1);
-#endif
-}
 
 void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 {
