@@ -415,6 +415,8 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	unsigned long seq_no;
 	unsigned long el_size;
 	char wf_namespace[2048];
+	char ns_ip[25];
+	char my_ip[25];
 	int err;
 
 #ifdef DEBUG
@@ -433,6 +435,26 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 
+	memset(ns_ip,0,sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
+	/*
+	 * if there is no IP address in the URI, use the local IP address
+	 */
+	if(err < 0) {
+		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
+		if(err < 0) {
+			fprintf(stderr,"WooFPut: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip,0,sizeof(my_ip));
+	err = WooFLocalIP(my_ip,sizeof(my_ip));
+	if(err < 0) {
+		fprintf(stderr,"WooFPut: no local IP\n");
+		exit(1);
+	}
+
 	memset(wf_namespace,0,sizeof(wf_namespace));
 	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
 	/*
@@ -440,9 +462,12 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	 *
 	 * err < 0 implies that name is local name
 	 *
-	 * for now, assume that the biggest element for remote name space is 10K
+	 * if namespace paths do not match or they do match but the IP addresses do not match, this is
+	 * a remote put
 	 */
-	if((err >= 0) && (strcmp(WooF_namespace,wf_namespace) != 0)) {
+	if((err >= 0) && 
+		((strcmp(WooF_namespace,wf_namespace) != 0) ||
+		 (strcmp(my_ip,ns_ip) != 0))) {
 		el_size = WooFMsgGetElSize(wf_name);
 		if(el_size != (unsigned long)-1) {
 			seq_no = WooFMsgPut(wf_name,hand_name,element,el_size);
@@ -477,6 +502,8 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	unsigned long el_size;
 	char wf_namespace[2048];
 	int err;
+	char ns_ip[25];
+	char my_ip[25];
 
 #ifdef DEBUG
 	printf("WooFGet: called %s %lu\n",wf_name,seq_no);
@@ -494,16 +521,37 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	fflush(stdout);
 #endif
 
+	memset(ns_ip,0,sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
+	if(err < 0) {
+		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
+		if(err < 0) {
+			fprintf(stderr,"WooFGet: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip,0,sizeof(my_ip));
+	err = WooFLocalIP(my_ip,sizeof(my_ip));
+	if(err < 0) {
+		fprintf(stderr,"WooFGet: no local IP\n");
+		exit(1);
+	}
+
 	memset(wf_namespace,0,sizeof(wf_namespace));
 	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
 	/*
-	 * if this isn't for my namespace, try and remote put
+	 * if this isn't for my namespace, try and remote get
 	 *
 	 * err < 0 implies that name is local name
 	 *
-	 * for now, assume that the biggest element for remote name space is 10K
+	 * if the name space paths do not match or they do but the IP addresses don't this
+	 * is remote
+	 *
 	 */
-	if((err >= 0) && (strcmp(WooF_namespace,wf_namespace) != 0)) {
+	if((err >= 0) && 
+		((strcmp(WooF_namespace,wf_namespace) != 0) ||
+		 (strcmp(my_ip,ns_ip) != 0))) {
 		el_size = WooFMsgGetElSize(wf_name);
 		if(el_size != (unsigned long)-1) {
 			err = WooFMsgGet(wf_name,element,el_size,seq_no);
