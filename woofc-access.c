@@ -19,6 +19,7 @@
 
 extern char Host_ip[25];
 
+
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
@@ -52,6 +53,27 @@ int WooFValidURI(char *str)
 		return(0);
 	}
 	
+}
+
+/*
+ * convert URI to namespace path
+ */
+int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
+{
+	struct URI uri;
+	int i;
+
+	if(!WooFValidURI(woof_uri_str)) { /* still might be local name, but return error */
+		return(-1);
+	}
+
+	uri_parse2(woof_uri_str,&uri);
+	if(uri.path == NULL) {
+		return(-1);
+	}
+	strncpy(woof_namespace,uri.path,len);
+
+	return(1);
 }
 
 /*
@@ -204,6 +226,15 @@ int WooFLocalIP(char *ip_str, int len)
 {
 	struct ifaddrs *addrs;
 	struct ifaddrs *tmp;
+
+	/*
+	 * check to see if we have been assigned a local Host_ip (say because we are in a container
+	 */
+	if(Host_ip[0] != 0) {
+		strncpy(ip_str,Host_ip,len);
+		return(1);
+	}
+
 	/*
 	 * need the non loop back IP address for local machine to allow inter-container
 	 * communication (e.g. localhost won't work)
@@ -923,10 +954,16 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	memset(ip_str,0,sizeof(ip_str));
 	err = WooFIPAddrFromURI(woof_name,ip_str,sizeof(ip_str));
 	if(err < 0) {
-		fprintf(stderr,"WooFMsgGetElSize: woof: %s invalid IP address\n",
-			woof_name);
-		fflush(stderr);
-		return(-1);
+		/*
+		 * try local addr
+		 */
+		err = WooFLocalIP(ip_str,sizeof(ip_str));
+		if(err < 0) {
+			fprintf(stderr,"WooFMsgGetElSize: woof: %s invalid IP address\n",
+				woof_name);
+			fflush(stderr);
+			return(-1);
+		}
 	}
 
 	port = WooFPortHash(namespace);
@@ -1080,10 +1117,17 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	memset(ip_str,0,sizeof(ip_str));
 	err = WooFIPAddrFromURI(woof_name,ip_str,sizeof(ip_str));
 	if(err < 0) {
-		fprintf(stderr,"WooFMsgPut: woof: %s invalid IP address\n",
-			woof_name);
-		fflush(stderr);
-		return(-1);
+		/*
+		 * assume it is local
+		 */
+		memset(ip_str,0,sizeof(ip_str));
+		err = WooFLocalIP(ip_str,sizeof(ip_str));
+		if(err < 0) {
+			fprintf(stderr,"WooFMsgPut: woof: %s invalid IP address\n",
+				woof_name);
+			fflush(stderr);
+			return(-1);
+		}
 	}
 
 	port = WooFPortHash(namespace);
@@ -1310,10 +1354,16 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	memset(ip_str,0,sizeof(ip_str));
 	err = WooFIPAddrFromURI(woof_name,ip_str,sizeof(ip_str));
 	if(err < 0) {
-		fprintf(stderr,"WooFMsgGet: woof: %s invalid IP address\n",
-			woof_name);
-		fflush(stderr);
-		return(-1);
+		/*
+		 * assume it is local
+		 */
+		err = WooFLocalIP(ip_str,sizeof(ip_str));
+		if(err < 0) {
+			fprintf(stderr,"WooFMsgGet: woof: %s invalid IP address\n",
+				woof_name);
+			fflush(stderr);
+			return(-1);
+		}
 	}
 
 	port = WooFPortHash(namespace);

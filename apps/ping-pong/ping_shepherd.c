@@ -53,7 +53,7 @@ int main(int argc, char **argv, char **envp)
 	unsigned long my_log_seq_no; /* needed for logging cause */
 	unsigned long namelog_size;
 	int err;
-	char *st = "WOOF_HANDLER_NAME";
+	char *st = "ping";
 	int i;
 
 	if(envp != NULL) {
@@ -319,7 +319,7 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: invoking %s, seq_no: %lu\n",st,seq_no);
 	fflush(stdout);
 #endif
-	err = WOOF_HANDLER_NAME(wf,seq_no,(void *)farg);
+	err = ping(wf,seq_no,(void *)farg);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: %s done with seq_no: %lu\n",
 		st,seq_no);

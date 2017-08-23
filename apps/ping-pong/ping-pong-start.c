@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 	unsigned long seq_no;
 	unsigned int pid;
 	char local_ns[4096];
+	char ip_addr_str[50];
 
 	size = 5;
 	UseNameSpace=0;
@@ -93,23 +94,35 @@ int main(int argc, char **argv)
 	if(UseNameSpace == 1) {
 		/*
 		 * need two woof init calls
+		 *
+		 * fork a process locally
 		 */
 		pid = fork();
 		if(pid == 0) {
 			/*
 			 * child creates woof in the other namespace
 			 *
-			 * try it as a URI
+			 * see if there is a host spec namespace string
 			 */
-			err = WooFNameSpaceFromURI(NameSpace2,local_ns,sizeof(local_ns));
-			if(err > 0) {
+			err = WooFIPAddrFromURI(NameSpace2,ip_addr_str,sizeof(ip_addr_str));
+			if(err < 0) { // it is local
+				err = WooFURINameSpace(NameSpace2,local_ns,sizeof(local_ns));
+				if(err > 0) {
+					sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+				} else { // assume it is a local path
+					sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace2);
+				}
+			} else { // has host spec in URI
+				err = WooFURINameSpace(NameSpace2,local_ns,sizeof(local_ns));
+				if(err < 0) {
+					fprintf(stderr,"badly formed namespace in %s\n",NameSpace2);
+					exit(1);
+				}
 				sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
-			} else { // assume it is a local path
-				sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace2);
 			}
 			putenv(putbuf1);
 			WooFInit();
-			sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
+			sprintf(Wname2,"%s/%s",NameSpace2,Fname);
 			err = WooFCreate(Wname2,sizeof(PP_EL),size);
 			if(err < 0) {
 				fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
@@ -126,19 +139,26 @@ int main(int argc, char **argv)
 		strncpy(Wname,Fname,sizeof(Wname));
 	}
 
-		
-	err = WooFNameSpaceFromURI(NameSpace,local_ns,sizeof(local_ns));
-	if((UseNameSpace == 1) && (err > 0)) {
+	err = WooFIPAddrFromURI(NameSpace,ip_addr_str,sizeof(ip_addr_str));
+	if(err < 0) { // no host spec
+		err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
+		if(err > 0) {
+			sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+		} else { // assume it is a local path
+			sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+		}
+	} else { // there is a host spec
+		err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
+		if(err < 0) {
+			fprintf(stderr,"badly formed namespace %s\n",NameSpace);
+			exit(1);
+		}
 		sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
-	} else { // assume it is a local path
-		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
 	}
 	putenv(putbuf1);
-	/*
-	 * in namespace case, child has already run and create woof in other namespace
-	 */
-	sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
-	sprintf(Wname2,"woof://%s/%s",NameSpace2,Fname);
+	sprintf(Wname,"%s/%s",NameSpace,Fname);
+	sprintf(Wname2,"%s/%s",NameSpace2,Fname);
+
 
 	WooFInit();
 

@@ -12,6 +12,8 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 unsigned long WooFMsgGetElSize(char *woof_name);
 int WooFMsgServer (char *namespace);
 
+int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
+
 /*
  * 2 minute timeout
  */
