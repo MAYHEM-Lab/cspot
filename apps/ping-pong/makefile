@@ -23,12 +23,22 @@ HAND2=pong
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: ping-pong-start ${HAND1} ${HAND2}
+all: ping-pong-start ping-start pong-start ${HAND1} ${HAND2}
 
 ping-pong-start: ping-pong-start.c ping-pong.h
 	${CC} ${CFLAGS} -o ping-pong-start ping-pong-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ping-pong-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ping-pong-start ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
+ping-start: ping-start.c ping-pong.h
+	${CC} ${CFLAGS} -o ping-start ping-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp ping-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp ping-start ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
+pong-start: pong-start.c ping-pong.h
+	${CC} ${CFLAGS} -o pong-start pong-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp pong-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp pong-start ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
