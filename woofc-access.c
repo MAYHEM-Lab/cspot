@@ -19,8 +19,6 @@
 
 extern char Host_ip[25];
 
-#define DEBUG
-
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
