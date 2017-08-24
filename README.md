@@ -1,7 +1,11 @@
 # cspot
 c spot run
 
-CSPOT depend on two other libraries
+For a brief overview of CSPOT, please see the wiki at
+
+https://github.com/MAYHEM-Lab/cspot/wiki/CSPOT-Run
+
+CSPOT depends on two other libraries
 
 https://github.com/richwolski/euca-cutils.git
 https://github.com/MAYHEM-Lab/mio.git
@@ -20,7 +24,14 @@ CSPOT requires CZMQ.  If it isn't installed, there is a script (which must be ru
 
 cspot/zmq/install-zmq.sh
 
-that will install the necessary dependencies under CentOS 7.
+that will update the current installation
+and install the necessary dependencies under CentOS 7.
+
+Also, Docker will need to be installed and running.  Under CentOS 7,
+running as root
+
+yum -y install docker
+systemctl start docker
 
 All of the example applications codes ae in cspot/apps.  The build model assumes 
 that the host machine is running CentOS 7 (see the github wiki for details)
