@@ -7,7 +7,7 @@
 #include "put-test.h"
 
 #define ARGS "c:f:s:N:H:"
-char *Usage = "recv-init -f woof_name for recv experiment\n\
+char *Usage = "recv_init -f woof_name for recv experiment\n\
 \t-H namelog-path\n\
 \t-N target namespace (as a URI)\n";
 
@@ -25,7 +25,6 @@ int main(int argc, char **argv)
 	int c;
 	int err;
 	char local_ns[1024];
-	WOOF *exp_woof;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -66,7 +65,7 @@ int main(int argc, char **argv)
 	}
 
 	memset(local_ns,0,sizeof(local_ns));
-	err = WooFURINameSpace(Namespace,local_ns,sizeof(local_ns));
+	err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
 	if(err < 0) {
 		fprintf(stderr,"must specify namespace for experiment as URI\n");
 		fprintf(stderr,"%s",Usage);
@@ -85,14 +84,12 @@ int main(int argc, char **argv)
 	/*
 	 * create a local woof to hold the args for experiments
 	 */
-	exp_woof = WooFCreate(Wname,sizeof(PT_EL),MAX_SIMULTANEOUS_EXP);
-	if(exp_woof == NULL) {
+	err = WooFCreate(Wname,sizeof(PT_EL),MAX_SIMULTANEOUS_EXP);
+	if(err < 0) {
 		fprintf(stderr,"recv-init: can't init %s\n",Wname);
 		fflush(stderr);
 		exit(1);
 	}
-
-	WooFFree(exp_woof);
 
 	return(1);
 }

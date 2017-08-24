@@ -18,10 +18,14 @@ char Wname[4096];
 char NameSpace[4096];
 char Namelog_dir[4096];
 char putbuf1[4096];
+char putbuf2[4096];
+
+#define MAX_RETRIES 20
 
 int main(int argc, char **argv)
 {
 	int c;
+	int i;
 	int size;
 	int count;
 	int err;
@@ -35,6 +39,9 @@ int main(int argc, char **argv)
 	double elapsed;
 	double bw;
 	char arg_name[4096];
+	void *payload_buf;
+	PL *pl;
+	int retries;
 	
 
 	size = 0;
@@ -72,7 +79,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if((NameSpace[0] == 0) || (!WooFValidURI(NameSpace)) {
+	if((NameSpace[0] == 0) || (WooFValidURI(NameSpace) == 0)) {
 		fprintf(stderr,"must specify namespace for experimen as URI\n");
 		fprintf(stderr,"%s",Usage);
 		fflush(stderr);
@@ -102,6 +109,9 @@ int main(int argc, char **argv)
 	memset(arg_name,0,sizeof(arg_name));
 	sprintf(arg_name,"%s/%s",NameSpace,Fname);
 
+	if(size < sizeof(PL)) {
+		size = sizeof(PL);
+	}
 
 	memset(el.target_name,0,sizeof(el.target_name));
 	sprintf(el.target_name,"%s/%s.%s",NameSpace,Fname,"target");
@@ -116,16 +126,13 @@ int main(int argc, char **argv)
 	/*
 	 * start the experiment
 	 */
-	seq_no = WooFPut(arg_name,"recv-start",&el,sizeof(el));
-	if(WooFInvalid(seq_no) {
+	seq_no = WooFPut(arg_name,"recv-start",&el);
+	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"put-test: failed to start the experiment with %s\n",arg_name);
 		fflush(stderr);
 		exit(1);
 	}
 
-	if(size < sizeof(PL)) {
-		size = sizeof(PL);
-	}
 
 	payload_buf = malloc(size);
 	if(payload_buf == NULL) {
@@ -139,7 +146,7 @@ int main(int argc, char **argv)
 	 * assume that recv-init has been called to create the remote WOOF for args
 	 */
 	for(i=0; i < count; i++) {
-		e_seq_no = WooFPut(el.target_name,"recv",pl,size);
+		e_seq_no = WooFPut(el.target_name,"recv",pl);
 	}
 
 	/*
@@ -174,7 +181,7 @@ int main(int argc, char **argv)
 	}
 	memcpy(&start_tm,&(elog->tm),sizeof(struct timeval));
 
-	elasped = (double)(stop_tm.tv_sec * 1000000 + stop_tm.tv_usec) -
+	elapsed = (double)(stop_tm.tv_sec * 1000000 + stop_tm.tv_usec) -
 			(double)(start_tm.tv_sec * 1000000 + start_tm.tv_usec); 
 	elapsed = elapsed / 1000000.0;
 

@@ -15,8 +15,9 @@ int recv(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 	WOOF *woof_log;
 	char log_name[4096];
-	unsigned long seq_no;
+	unsigned long p_seq_no;
 	EX_LOG elog;
+	PL *pl;
 
 	gettimeofday(&(elog.tm),NULL);
 	pl = (PL *)ptr;
@@ -26,8 +27,8 @@ int recv(WOOF *wf, unsigned long seq_no, void *ptr)
 	memset(log_name,0,sizeof(log_name));
 	sprintf(log_name,"%s.%s",wf->shared->filename,"log");
 
-	seq_no = WooFPut(log_name,NULL,&elog);
-	if(WooFInvalid(seq_no)) {
+	p_seq_no = WooFPut(log_name,NULL,&elog);
+	if(WooFInvalid(p_seq_no)) {
 		fprintf(stderr,"recv: couldn't log %lu\n",wf->shared->seq_no);
 		fflush(stderr);
 		return(-1);
