@@ -6,18 +6,15 @@
 #include "woofc.h"
 #include "ping-pong.h"
 
-#define ARGS "c:f:s:N:n:H:"
-char *Usage = "ping-start -f woof_name\n\
+#define ARGS "c:f:s:N:H:"
+char *Usage = "ping-start -f pong-woof-name\n\
 \t-H namelog-path\n\
 \t-s size (in events)\n\
-\t-N ping namespace-path\n\
-\t-n pong namespace-path\n";
+\t-N namespace-path-for-pong\n";
 
 char Fname[4096];
 char Wname[4096];
-char Wname2[4096];
 char NameSpace[4096];
-char NameSpace2[4096];
 char Namelog_dir[4096];
 char putbuf1[4096];
 char putbuf2[4096];
@@ -45,9 +42,6 @@ int main(int argc, char **argv)
 				break;
 			case 'N':
 				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			case 'n':
-				strncpy(NameSpace2,optarg,sizeof(NameSpace));
 				break;
 			case 'H':
 				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
@@ -86,9 +80,55 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
-	/*
-	 * I am ping
-	 */
+	memset(local_ns,0,sizeof(local_ns));
+	if(UseNameSpace == 1) {
+		/*
+		 * need two woof init calls
+		 *
+		 * fork a process locally
+		 */
+		pid = fork();
+		if(pid == 0) {
+			/*
+			 * child creates woof in the other namespace
+			 *
+			 * see if there is a host spec namespace string
+			 */
+			err = WooFIPAddrFromURI(NameSpace2,ip_addr_str,sizeof(ip_addr_str));
+			if(err < 0) { // it is local
+				err = WooFURINameSpace(NameSpace2,local_ns,sizeof(local_ns));
+				if(err > 0) {
+					sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+				} else { // assume it is a local path
+					sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace2);
+				}
+			} else { // has host spec in URI
+				err = WooFURINameSpace(NameSpace2,local_ns,sizeof(local_ns));
+				if(err < 0) {
+					fprintf(stderr,"badly formed namespace in %s\n",NameSpace2);
+					exit(1);
+				}
+				sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+			}
+			putenv(putbuf1);
+			WooFInit();
+			sprintf(Wname2,"%s/%s",NameSpace2,Fname);
+			err = WooFCreate(Wname2,sizeof(PP_EL),size);
+			if(err < 0) {
+				fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
+				fflush(stderr);
+				exit(1);
+			}
+			exit(0);
+		} else {
+			wait(pid);
+		}
+	} else {
+		getcwd(NameSpace,sizeof(NameSpace));
+		getcwd(NameSpace2,sizeof(NameSpace2));
+		strncpy(Wname,Fname,sizeof(Wname));
+	}
+
 	err = WooFIPAddrFromURI(NameSpace,ip_addr_str,sizeof(ip_addr_str));
 	if(err < 0) { // no host spec
 		err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
@@ -106,21 +146,12 @@ int main(int argc, char **argv)
 		sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
 	}
 	putenv(putbuf1);
-	/*
-	 * ping's woof
-	 */
 	sprintf(Wname,"%s/%s",NameSpace,Fname);
-	/*
-	 * pong's woof
-	 */
 	sprintf(Wname2,"%s/%s",NameSpace2,Fname);
 
 
 	WooFInit();
 
-	/*
-	 * create ping's woof (assume pong is up)
-	 */
 	err = WooFCreate(Wname,sizeof(PP_EL),size);
 
 	if(err < 0) {
@@ -130,15 +161,14 @@ int main(int argc, char **argv)
 	}
 
 	memset(&el,0,sizeof(el));
-	/*
-	 * ping moves first and triggers pong
-	 */
-	strncpy(el.next_woof,Wname,sizeof(el.next_woof));
-	strncpy(el.next_woof2,Wname2,sizeof(el.next_woof2));
+	if(UseNameSpace == 1) {
+		strncpy(el.next_woof,Wname,sizeof(el.next_woof));
+		strncpy(el.next_woof2,Wname2,sizeof(el.next_woof2));
+	} 
 
 	el.counter = 0;
 	el.max = size;
-	seq_no = WooFPut(Wname2,"pong",(void *)&el);
+	seq_no = WooFPut(Wname,"pong",(void *)&el);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"first WooFPut failed\n");

@@ -19,7 +19,6 @@
 
 extern char Host_ip[25];
 
-
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */

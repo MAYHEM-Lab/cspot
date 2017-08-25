@@ -28,6 +28,7 @@ int WooFCreate(char *name,
 	char local_name[4096];
 	char fname[20];
 	int err;
+	int is_local;
 
 	if(name == NULL) {
 		return(-1);
@@ -47,8 +48,61 @@ int WooFCreate(char *name,
 		exit(1);
 	}
 
+	is_local = 0;
 	memset(local_name,0,sizeof(local_name));
+	/*
+	 * if it is a woof:// spec, check to see if the path matches the namespace
+	 *
+	 * if it does, it is local => use WooF_dir
+	 */
 	if(WooFValidURI(name)) {
+		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
+				name);
+			fflush(stderr);
+			return(-1);
+		}
+		if(strcmp(WooF_namespace,local_name) == 0) {
+			/*
+			 * woof spec for local name space, use WooF_dir
+			 */
+			is_local = 1;
+			memset(local_name,0,sizeof(local_name));
+			strncpy(local_name,WooF_dir,sizeof(local_name));
+			if(local_name[strlen(local_name)-1] != '/') {
+				strncat(local_name,"/",1);
+			}
+			err = WooFNameFromURI(name,fname,sizeof(fname));
+			if(err < 0) {
+				fprintf(stderr,"WooFCreate: bad name in URI %s\n",
+					name);
+				fflush(stderr);
+				return(-1);
+			}
+			strncat(local_name,fname,sizeof(fname));
+		}
+	} else { /* not URI spec so must be local */
+		is_local = 1;
+		strncpy(local_name,WooF_dir,sizeof(local_name));
+		if(local_name[strlen(local_name)-1] != '/') {
+			strncat(local_name,"/",1);
+		}
+		strncat(local_name,name,sizeof(local_name));
+	}
+		
+	if(is_local == 0) {
+		fprintf(stderr,"WooFCreate: non-local create of %s not supported (yet)\n",
+			name);
+		fflush(stderr);
+		return(-1);
+	}
+
+#ifdef NOTRIGHTNOW
+	/*
+	 * here is where a remote create message would go
+	 */
+	if(WooFValidURI(name) && (is_local == 0)) {
 		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
 		if(err < 0) {
 			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
@@ -74,10 +128,14 @@ int WooFCreate(char *name,
 		}
 		strncat(local_name,name,sizeof(local_name));
 	}
+#endif
+
 		
 
 	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
+		fprintf(stderr,"WooFCreate: couldn't open %s with space %lu\n",local_name,space);
+		fflush(stderr);
 		return(-1);
 	}
 #ifdef DEBUG
@@ -105,6 +163,7 @@ int WooFCreate(char *name,
 
 	return(1);
 }
+
 
 WOOF *WooFOpen(char *name)
 {

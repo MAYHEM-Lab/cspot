@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 	unsigned long l_seq_no;
 	struct timeval start_tm;
 	struct timeval stop_tm;
-	EX_LOG *elog;
+	EX_LOG elog;
 	double elapsed;
 	double bw;
 	char arg_name[4096];
@@ -126,13 +126,32 @@ int main(int argc, char **argv)
 	/*
 	 * start the experiment
 	 */
-	seq_no = WooFPut(arg_name,"recv-start",&el);
+	seq_no = WooFPut(arg_name,"recv_start",&el);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"put-test: failed to start the experiment with %s\n",arg_name);
 		fflush(stderr);
 		exit(1);
 	}
 
+
+	/*
+	 * wait for the recv side to create its timing log
+	 */
+	retries = 0;
+	do {
+		err = WooFGet(el.log_name,&elog,1);
+		if(err > 0) {
+			break;
+		}
+		retries++;
+		sleep(1);
+	} while(retries < MAX_RETRIES);
+
+	if(retries == MAX_RETRIES) {
+		fprintf(stderr,"put-test: timed out wating for log init on remote end\n");
+		fflush(stderr);
+		exit(1);
+	}
 
 	payload_buf = malloc(size);
 	if(payload_buf == NULL) {
@@ -149,13 +168,17 @@ int main(int argc, char **argv)
 		e_seq_no = WooFPut(el.target_name,"recv",pl);
 	}
 
+
 	/*
 	 * now poll looking for end of the log
 	 */
 	retries = 0;
 	do {
-		err = WooFGet(el.log_name,&elog,e_seq_no);
-		if(err > 1) {
+		/*
+		 * log record woof contains one more record than the target
+		 */
+		err = WooFGet(el.log_name,&elog,e_seq_no + 1);
+		if(err > 0) {
 			break;
 		}
 		retries++;
@@ -168,18 +191,18 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	memcpy(&stop_tm,&(elog->tm),sizeof(struct timeval));
+	memcpy(&stop_tm,&(elog.tm),sizeof(struct timeval));
 
 	/*
 	 * get the start time
 	 */
-	err = WooFGet(el.log_name,&elog,1);
+	err = WooFGet(el.log_name,&elog,2);
 	if(err < 0) {
 		fprintf(stderr,"put-test: failed to get start of experiment\n");
 		fflush(stderr);
 		exit(1);
 	}
-	memcpy(&start_tm,&(elog->tm),sizeof(struct timeval));
+	memcpy(&start_tm,&(elog.tm),sizeof(struct timeval));
 
 	elapsed = (double)(stop_tm.tv_sec * 1000000 + stop_tm.tv_usec) -
 			(double)(start_tm.tv_sec * 1000000 + start_tm.tv_usec); 
@@ -190,8 +213,6 @@ int main(int argc, char **argv)
 
 	printf("woof: %s bw: %f MB/s\n",arg_name,bw);
 	fflush(stdout);
-
-	pthread_exit(NULL);
 
 	return(1);
 }

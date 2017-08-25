@@ -15,6 +15,8 @@ int recv_start(WOOF *wf, unsigned long seq_no, void *ptr)
 	char target_name[4096];
 	char log_name[4096];
 	int err;
+	EX_LOG elog;
+	unsigned long p_seq_no;
 
 	memcpy(&el,ptr,sizeof(el));
 
@@ -32,6 +34,14 @@ int recv_start(WOOF *wf, unsigned long seq_no, void *ptr)
 	err = WooFCreate(el.log_name,sizeof(EX_LOG),el.history_size);
 	if(err < 0) {
 		fprintf(stderr,"recv_init: failed to create woof log\n");
+		fflush(stderr);
+		return(-1);
+	}
+
+	gettimeofday(&elog.tm,NULL);
+	p_seq_no = WooFPut(el.log_name,NULL,&elog);
+	if(WooFInvalid(p_seq_no)) {
+		fprintf(stderr,"recv_start: couldn't put start record in experiment log\n");
 		fflush(stderr);
 		return(-1);
 	}
