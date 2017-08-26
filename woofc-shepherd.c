@@ -334,6 +334,15 @@ int main(int argc, char **argv, char **envp)
 	 * log either event success or failure here
 	 */
 
+/*
+ * XXX now block in a select call waiting for a new seq no to come in through a pipe
+ *
+ * if new seq_no comes through the pipe, loop back and recall handler without remapping
+ * otherwise, a timeout has occurred.  Close pipe (to tell forker) and exit
+ * 
+ * pipe should be stdin
+ */
+
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
 	fflush(stdout);

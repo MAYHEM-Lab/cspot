@@ -459,6 +459,15 @@ exit(1);
 		fflush(stdout);
 #endif
 
+/*
+ * XXX here, look in the cache for cncatenation of woof name and handler and if it is there,
+ * get the pipe desc and write seq_no -- process is still alive
+ *
+ * otherwise, create a pipe, add it to the cache, and fork
+ *
+ * the exec should get the pipe as stdin
+ */
+
 		pid = fork();
 		if(pid == 0) {
 
