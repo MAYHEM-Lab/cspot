@@ -483,16 +483,6 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFPut: must init system\n");
-		fflush(stderr);
-		return(-1);
-	}
-#ifdef DEBUG
-	printf("WooFPut: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
-	fflush(stdout);
-#endif
 
 	memset(ns_ip,0,sizeof(ns_ip));
 	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
@@ -539,6 +529,16 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 		}
 	}
 
+	if(WooF_dir[0] == 0) {
+		fprintf(stderr,"WooFPut: local namespace put must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFPut: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
+	fflush(stdout);
+#endif
 	wf = WooFOpen(wf_name);
 
 	if(wf == NULL) {
@@ -569,16 +569,6 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	fflush(stdout);
 #endif
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFGet: must init system\n");
-		fflush(stderr);
-		return(-1);
-	}
-#ifdef DEBUG
-	printf("WooFGet: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
-	fflush(stdout);
-#endif
 
 	memset(ns_ip,0,sizeof(ns_ip));
 	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
@@ -623,6 +613,16 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 		}
 	}
 
+	if(WooF_dir[0] == 0) {
+		fprintf(stderr,"WooFGet: must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFGet: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
+	fflush(stdout);
+#endif
 	wf = WooFOpen(wf_name);
 
 	if(wf == NULL) {
