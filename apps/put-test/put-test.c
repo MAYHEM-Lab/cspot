@@ -121,8 +121,6 @@ int main(int argc, char **argv)
 	el.history_size = count;
 	
 
-	WooFInit();
-
 	/*
 	 * start the experiment
 	 */
@@ -139,12 +137,12 @@ int main(int argc, char **argv)
 	 */
 	retries = 0;
 	do {
+		sleep(1);
 		err = WooFGet(el.log_name,&elog,1);
 		if(err > 0) {
 			break;
 		}
 		retries++;
-		sleep(1);
 	} while(retries < MAX_RETRIES);
 
 	if(retries == MAX_RETRIES) {
@@ -174,6 +172,7 @@ int main(int argc, char **argv)
 	 */
 	retries = 0;
 	do {
+		sleep(1);
 		/*
 		 * log record woof contains one more record than the target
 		 */
@@ -182,7 +181,6 @@ int main(int argc, char **argv)
 			break;
 		}
 		retries++;
-		sleep(1);
 	} while(retries < MAX_RETRIES);
 
 	if(retries >= MAX_RETRIES) {
