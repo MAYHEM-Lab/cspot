@@ -10,8 +10,8 @@ SLIB=./lsema.o
 LIBS=-lpthread -lm -lczmq
 LOBJ=log.o host.o event.o
 LINCS=log.h host.h event.h
-WINCS=woofc.h woofc-access.h
-WOBJ=woofc.o woofc-access.o
+WINCS=woofc.h woofc-access.h woofc-cache.h
+WOBJ=woofc.o woofc-access.o woofc-cache.o
 WHOBJ=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
@@ -37,6 +37,9 @@ woofc.o: woofc.c woofc.h
 
 woofc-access.o: woofc-access.c woofc-access.h
 	${CC} ${CFLAGS} -c woofc-access.c
+
+woofc-cache.o: woofc-cache.c woofc-cache.h
+	${CC} ${CFLAGS} -c woofc-cache.c
 
 woofc-host.o: woofc-host.c woofc.h
 	${CC} ${CFLAGS} -c woofc-host.c

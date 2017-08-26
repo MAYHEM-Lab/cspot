@@ -15,9 +15,12 @@
 
 
 #include "woofc.h"	/* for WooFPut */
+#include "woofc-cache.h"
 #include "woofc-access.h"
 
 extern char Host_ip[25];
+
+WOOF_CACHE *WooF_cache;
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
@@ -940,6 +943,27 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	char *str;
 	unsigned long el_size;
 	int err;
+	unsigned long *el_size_cached;
+
+	if(WooF_cache == NULL) {
+		WooF_cache = WooFCacheInit(WOOF_MSG_CACHE_SIZE);
+		if(WooF_cache == NULL) {
+			fprintf(stderr,"WooFMsgGetElSize: woof: %s cache init failed\n",
+				woof_name);
+			fflush(stderr);
+			return(-1);
+		}
+	}
+
+	el_size_cached = (unsigned long *)WooFCacheFind(WooF_cache, woof_name);
+	if(el_size_cached != NULL) {
+#ifdef DEBUG
+		fprintf(stdout,"WooFMsgGetElSize: found %lu size for %s\n",
+			*el_size_cached, woof_name);
+		fflush(stdout);
+#endif
+		return(*el_size_cached);
+	}
 
 	memset(namespace,0,sizeof(namespace));
 	err = WooFNameSpaceFromURI(woof_name,namespace,sizeof(namespace));
@@ -964,6 +988,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 			return(-1);
 		}
 	}
+
 
 	port = WooFPortHash(namespace);
 
@@ -1085,6 +1110,13 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	fflush(stdout);
 
 #endif
+
+	el_size_cached = (unsigned long *)malloc(sizeof(unsigned long));
+	if(el_size_cached != NULL) {
+		*el_size_cached = el_size;
+		WooFCacheInsert(WooF_cache,woof_name,(void *)el_size_cached);
+	}
+		
 	return(el_size);
 }
 

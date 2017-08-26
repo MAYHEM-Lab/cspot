@@ -21,6 +21,8 @@ struct woof_cache_element_stc
 
 typedef struct woof_cache_element_stc WOOF_CACHE_EL;
 
+void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln);
+
 
 WOOF_CACHE *WooFCacheInit(int max_size)
 {
@@ -133,14 +135,14 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 	}
 
 	el->payload = payload;
-	dln = DlistAppend(wc->list,(Hval)el);
+	dln = DlistAppend(wc->list,(Hval)(void *)el);
 	if(dln == NULL) {
 		free(name);
 		free(el);
 		pthread_mutex_unlock(&wc->lock);
 		return(-1);
 	}
-	RBInsertS(wc->rb,name,(Hval)dln);
+	RBInsertS(wc->rb,name,(Hval)(void *)dln);
 
 	/*
 	 * now get rb node
@@ -169,16 +171,18 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 
 void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 {
-	rb *rb;
+	RB *rb;
 	char *str;
+	WOOF_CACHE_EL *el;
 
-	pthread_mutext_lock(&wc->lock);
+	pthread_mutex_lock(&wc->lock);
 
 	/*
 	 * free the string used as the rb key
 	 * after deleteing the node
 	 */
-	rb = dln->ndx;
+	el = (WOOF_CACHE_EL *)dln->value.v;
+	rb = el->ndx;
 	str = K_S(rb->key);
 	RBDeleteS(wc->rb,rb);
 	free(str);
@@ -209,7 +213,7 @@ void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name)
 		return(NULL);
 	}
 
-	pthread_mutext_lock(&wc->lock);
+	pthread_mutex_lock(&wc->lock);
 	rb = RBFindS(wc->rb,woof_name);
 	if(rb == NULL) {
 		pthread_mutex_unlock(&wc->lock);
@@ -217,7 +221,7 @@ void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name)
 	}
 
 	dln = (DlistNode *)rb->value.v;
-	el = (WOOF_CACHE_EL *)dln-value.v;
+	el = (WOOF_CACHE_EL *)dln->value.v;
 	payload = el->payload;
 	pthread_mutex_unlock(&wc->lock);
 

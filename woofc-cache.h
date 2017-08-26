@@ -7,7 +7,7 @@
 
 struct woof_cache_stc
 {
-	pthread_mutex lock;
+	pthread_mutex_t lock;
 	RB *rb;
 	Dlist *list;
 	int count;
