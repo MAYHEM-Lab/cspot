@@ -20,6 +20,8 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
+int Zero_open;
+
 #define DEBUG
 
 WOOF_CACHE *WooF_handler_cache;
@@ -284,7 +286,7 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 
-		pthread_yield();
+//		pthread_yield();
 
 		if(WooFDone == 1) {
 			break;
@@ -360,6 +362,7 @@ void *WooFForker(void *arg)
 	printf("WooFForker: found firing for %s %lu\n",ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
+						last_seq_no = ev[first].seq_no;
 						break;
 					}
 					firing = firing - 1;
@@ -547,6 +550,7 @@ exit(1);
 #endif
 					while(waitpid(-1,&status,WNOHANG) > 0);
 					signal(SIGPIPE,old_sig);
+					LogFree(log_tail);
 					continue;
 				}
 			}
@@ -583,17 +587,19 @@ exit(1);
 			}
 			ce->hpd[0] = pd[0];
 			ce->hpd[1] = pd[1];
-			dup2(pd[0],0);
-			close(pd[0]);
 		}
 			
 		pid = fork();
 		if(pid == 0) {
 
+
 		/*
 		 * I am the child.  I need the read end but not the write end
 		 */
 		if(ce != NULL) {
+			dup2(ce->hpd[0],0);
+			close(ce->hpd[0]);
+			close(ce->hpd[1]);
 			free(ce);
 		} else {
 			close(0); /* so shepherd knows there is no pipe */
@@ -794,6 +800,7 @@ exit(1);
 				/* don't need the read end */
 				ce->element_size = ev[first].woofc_element_size;
 				WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
+				close(ce->hpd[0]);
 			}
 
 			/*
