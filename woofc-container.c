@@ -23,6 +23,13 @@ LOG *Name_log;
 #define DEBUG
 
 WOOF_CACHE *WooF_handler_cache;
+struct woof_fork_cache_stc
+{
+	int hpd[2];
+	unsigned long element_size;
+};
+
+typedef struct woof_fork_cache_stc WOOF_FORK_EL;
 #define WOOF_CONTAINER_MAX_CACHE (100)
 
 static int WooFDone;
@@ -244,9 +251,9 @@ void *WooFForker(void *arg)
 	char **eenvp;
 	int i;
 	char cache_name[4096];
-	int *hpd;
 	sig_t old_sig;
 	int pd[2];
+	WOOF_FORK_EL *ce;
 
 	/*
 	 * wait for things to show up in the log
@@ -490,10 +497,10 @@ exit(1);
 		 * closed and to close those that are dead
 		 * XXX
 		 */
-		hpd = WooFCacheFind(WooF_handler_cache,cache_name);
-		if(hpd != NULL) {
+		ce = WooFCacheFind(WooF_handler_cache,cache_name);
+		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size)) {
 			old_sig = signal(SIGPIPE,SIG_IGN);
-			err = write(hpd[1],&ev[first].woofc_seq_no,sizeof(ev[first].woofc_seq_no));
+			err = write(ce->hpd[1],&ev[first].woofc_seq_no,sizeof(ev[first].woofc_seq_no));
 			if(err <= 0) {
 				if(errno == EPIPE) {
 #ifdef DEBUG
@@ -501,41 +508,41 @@ exit(1);
 	fflush(stdout);
 #endif
 					WooFCacheRemove(WooF_handler_cache,cache_name);
-					close(hpd[0]);
-					close(hpd[1]);
-					free(hpd);
+					close(ce->hpd[1]);
+					free(ce);
+					ce = NULL;
 				} else {
 					fprintf(stderr,"WooFForker: couldn't write seq_no pd for %s\n",
 						cache_name);
 					perror("WooFForker: bad pd write");
 					WooFCacheRemove(WooF_handler_cache,cache_name);
-					close(hpd[0]);
-					close(hpd[1]);
-					free(hpd);
+					close(ce->hpd[1]);
+					free(ce);
+					ce = NULL;
 					signal(SIGPIPE,old_sig);
 				}
 			}  else {
-				err = write(hpd[1],&ev[first].woofc_ndx,sizeof(ev[first].woofc_ndx));
+				err = write(ce->hpd[1],&ev[first].woofc_ndx,sizeof(ev[first].woofc_ndx));
 				if(err <= 0) {
 					if(errno == EPIPE) {
 						WooFCacheRemove(WooF_handler_cache,cache_name);
-						close(hpd[0]);
-						close(hpd[1]);
-						free(hpd);
+						close(ce->hpd[1]);
+						free(ce);
+						ce = NULL;
 					} else {
 						fprintf(stderr,"WooFForker: couldn't write ndx pd for %s\n",
 							cache_name);
 						perror("WooFForker: bad ndx pd write");
 						WooFCacheRemove(WooF_handler_cache,cache_name);
-						close(hpd[0]);
-						close(hpd[1]);
-						free(hpd);
+						close(ce->hpd[1]);
+						free(ce);
+						ce = NULL;
 						signal(SIGPIPE,old_sig);
 					}
 				} else { /* new seq_no sent, continue */
 #ifdef DEBUG
 	fprintf(stdout,"WooFForker: sending %s new seq_no: %lu and ndx: %lu on fd: %d\n",
-			cache_name,ev[first].woofc_seq_no,ev[first].woofc_ndx,hpd[1]);
+			cache_name,ev[first].woofc_seq_no,ev[first].woofc_ndx,ce->hpd[1]);
 	fflush(stdout);
 #endif
 					while(waitpid(-1,&status,WNOHANG) > 0);
@@ -543,6 +550,20 @@ exit(1);
 					continue;
 				}
 			}
+		}
+
+		/*
+		 * if we get here and ce was found, we need to get rid of it
+		 */
+		if(ce != NULL) {
+			WooFCacheRemove(WooF_handler_cache,cache_name);
+			close(ce->hpd[1]);
+			free(ce);
+			ce = NULL;
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: removing cache entry for %s due to difference\n", cache_name);
+	fflush(stdout);
+#endif
 		}
 
 		/*
@@ -554,14 +575,14 @@ exit(1);
 		 * create a pipe for cache
 		 */
 		err = pipe(pd);
-		hpd = NULL;
+		ce = NULL;
 		if(err >= 0) {
-			hpd = (int *)malloc(2*sizeof(int));
-			if(hpd == NULL) {
+			ce = (WOOF_FORK_EL *)malloc(sizeof(WOOF_FORK_EL));
+			if(ce == NULL) {
 				exit(1);
 			}
-			hpd[0] = pd[0];
-			hpd[1] = pd[1];
+			ce->hpd[0] = pd[0];
+			ce->hpd[1] = pd[1];
 			dup2(pd[0],0);
 			close(pd[0]);
 		}
@@ -572,9 +593,8 @@ exit(1);
 		/*
 		 * I am the child.  I need the read end but not the write end
 		 */
-		if(hpd != NULL) {
-//			close(pd[1]);
-			free(hpd);
+		if(ce != NULL) {
+			free(ce);
 		} else {
 			close(0); /* so shepherd knows there is no pipe */
 		}
@@ -770,11 +790,10 @@ exit(1);
 			WooFDone = 1;
 		} else { /* parent */
 
-			if(hpd != NULL) {
+			if(ce != NULL) {
 				/* don't need the read end */
-//				close(pd[0]);
-//				close(0);
-				WooFCacheInsert(WooF_handler_cache,cache_name,(void *)hpd);
+				ce->element_size = ev[first].woofc_element_size;
+				WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
 			}
 
 			/*
