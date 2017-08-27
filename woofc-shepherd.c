@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/select.h>
+#include <poll.h>
 
 
 #include "woofc.h"
@@ -62,6 +63,7 @@ int main(int argc, char **argv, char **envp)
 	int i;
 	struct timeval timeout;
 	fd_set readfd;
+	struct pollfd read_poll;
 
 	if(envp != NULL) {
 		i = 0;
@@ -331,15 +333,21 @@ int main(int argc, char **argv, char **envp)
 		/*
 		 * block waiting on a read of a new seq_no and ndx
 		 */
+#if 0
 		FD_ZERO(&readfd);
 		FD_SET(0,&readfd);
+#endif
+		read_poll.fd = 0;
+		read_poll.events = POLLIN;
+		read_poll.revents = 0;
 		timeout.tv_sec = WOOF_SHEPHERD_TIMEOUT;
 		timeout.tv_usec = 0;
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: calling select\n");
 	fflush(stdout);
 #endif
-		err = select(1,&readfd,NULL,NULL,&timeout);
+//		err = select(1,&readfd,NULL,NULL,&timeout);
+		err = poll(&read_poll,1,WOOF_SHEPHERD_TIMEOUT*1000);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: select finished with %d\n",err);
 	fflush(stdout);
