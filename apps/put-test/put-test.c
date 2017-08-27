@@ -6,11 +6,12 @@
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "c:f:s:N:H:"
+#define ARGS "c:f:s:N:H:L"
 char *Usage = "put-test -f woof_name for experiment (matching recv side)\n\
 \t-H namelog-path\n\
 \t-s size (payload size)\n\
 \t-c count (number of payloads to send)\n\
+\t-L use same namespace for source and target\n\
 \t-N target namespace (as a URI)\n";
 
 char Fname[4096];
@@ -19,6 +20,7 @@ char NameSpace[4096];
 char Namelog_dir[4096];
 char putbuf1[4096];
 char putbuf2[4096];
+int UseLocal;
 
 #define MAX_RETRIES 20
 
@@ -46,6 +48,7 @@ int main(int argc, char **argv)
 
 	size = 0;
 	count = 0;
+	UseLocal = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -63,6 +66,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				count = atoi(optarg);
+				break;
+			case 'L':
+				UseLocal = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -104,6 +110,10 @@ int main(int argc, char **argv)
 	if(Namelog_dir[0] != 0) {
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
+	}
+
+	if(UseLocal == 1) {
+		WooFInit();
 	}
 
 	memset(arg_name,0,sizeof(arg_name));
@@ -206,7 +216,7 @@ int main(int argc, char **argv)
 			(double)(start_tm.tv_sec * 1000000 + start_tm.tv_usec); 
 	elapsed = elapsed / 1000000.0;
 
-	bw = (double)(size * count) / elapsed;
+	bw = (double)(size * (count-1)) / elapsed;
 	bw = bw / 1000000.0;
 
 	printf("woof: %s bw: %f MB/s\n",arg_name,bw);
