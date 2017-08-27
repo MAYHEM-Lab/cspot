@@ -10,6 +10,7 @@
 #include "log.h"
 #include "woofc.h"
 #include "woofc-access.h"
+#include "woofc-cache.h"
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
@@ -18,6 +19,11 @@ char Host_ip[25];
 char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
+
+#define DEBUG
+
+WOOF_CACHE *WooF_handler_cache;
+#define WOOF_CONTAINER_MAX_CACHE (100)
 
 static int WooFDone;
 
@@ -237,6 +243,10 @@ void *WooFForker(void *arg)
 	char *pbuf;
 	char **eenvp;
 	int i;
+	char cache_name[4096];
+	int *hpd;
+	sig_t old_sig;
+	int pd[2];
 
 	/*
 	 * wait for things to show up in the log
@@ -459,17 +469,116 @@ exit(1);
 		fflush(stdout);
 #endif
 
-/*
- * XXX here, look in the cache for cncatenation of woof name and handler and if it is there,
- * get the pipe desc and write seq_no -- process is still alive
- *
- * otherwise, create a pipe, add it to the cache, and fork
- *
- * the exec should get the pipe as stdin
- */
+		if(WooF_handler_cache == NULL) {
+			WooF_handler_cache = WooFCacheInit(WOOF_CONTAINER_MAX_CACHE);
+			if(WooF_handler_cache == NULL) {
+				fprintf(stderr,"WooFForker: failed to init handler cache\n");
+				fflush(stderr);
+				exit(1);
+			}
+		}
 
+		memset(cache_name,0,sizeof(cache_name));
+		sprintf(cache_name,"%s.%s",ev[first].woofc_name,ev[first].woofc_handler);
+		/*
+		 * if we find the pipe descriptor in the cache, try and write it
+		 *
+		 * FIX ME: could leak file descriptors in the container
+		 *
+		 * cacheInsert drops oldest entries off the end
+		 * need a way to sweep through cached fd and test to see if the read end has
+		 * closed and to close those that are dead
+		 * XXX
+		 */
+		hpd = WooFCacheFind(WooF_handler_cache,cache_name);
+		if(hpd != NULL) {
+			old_sig = signal(SIGPIPE,SIG_IGN);
+			err = write(hpd[1],&ev[first].woofc_seq_no,sizeof(ev[first].woofc_seq_no));
+			if(err <= 0) {
+				if(errno == EPIPE) {
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: removing cache entry for %s\n", cache_name);
+	fflush(stdout);
+#endif
+					WooFCacheRemove(WooF_handler_cache,cache_name);
+					close(hpd[0]);
+					close(hpd[1]);
+					free(hpd);
+				} else {
+					fprintf(stderr,"WooFForker: couldn't write seq_no pd for %s\n",
+						cache_name);
+					perror("WooFForker: bad pd write");
+					WooFCacheRemove(WooF_handler_cache,cache_name);
+					close(hpd[0]);
+					close(hpd[1]);
+					free(hpd);
+					signal(SIGPIPE,old_sig);
+				}
+			}  else {
+				err = write(hpd[1],&ev[first].woofc_ndx,sizeof(ev[first].woofc_ndx));
+				if(err <= 0) {
+					if(errno == EPIPE) {
+						WooFCacheRemove(WooF_handler_cache,cache_name);
+						close(hpd[0]);
+						close(hpd[1]);
+						free(hpd);
+					} else {
+						fprintf(stderr,"WooFForker: couldn't write ndx pd for %s\n",
+							cache_name);
+						perror("WooFForker: bad ndx pd write");
+						WooFCacheRemove(WooF_handler_cache,cache_name);
+						close(hpd[0]);
+						close(hpd[1]);
+						free(hpd);
+						signal(SIGPIPE,old_sig);
+					}
+				} else { /* new seq_no sent, continue */
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: sending %s new seq_no: %lu and ndx: %lu on fd: %d\n",
+			cache_name,ev[first].woofc_seq_no,ev[first].woofc_ndx,hpd[1]);
+	fflush(stdout);
+#endif
+					while(waitpid(-1,&status,WNOHANG) > 0);
+					signal(SIGPIPE,old_sig);
+					continue;
+				}
+			}
+		}
+
+		/*
+		 * here, we need to fork a new process for the handler
+		 */
+
+
+		/*
+		 * create a pipe for cache
+		 */
+		err = pipe(pd);
+		hpd = NULL;
+		if(err >= 0) {
+			hpd = (int *)malloc(2*sizeof(int));
+			if(hpd == NULL) {
+				exit(1);
+			}
+			hpd[0] = pd[0];
+			hpd[1] = pd[1];
+			dup2(pd[0],0);
+			close(pd[0]);
+		}
+			
 		pid = fork();
 		if(pid == 0) {
+
+		/*
+		 * I am the child.  I need the read end but not the write end
+		 */
+		if(hpd != NULL) {
+//			close(pd[1]);
+			free(hpd);
+		} else {
+			close(0); /* so shepherd knows there is no pipe */
+		}
+
 
 		wf = WooFOpen(ev[first].woofc_name);
 
@@ -660,6 +769,13 @@ exit(1);
 			fflush(stderr);
 			WooFDone = 1;
 		} else { /* parent */
+
+			if(hpd != NULL) {
+				/* don't need the read end */
+//				close(pd[0]);
+//				close(0);
+				WooFCacheInsert(WooF_handler_cache,cache_name,(void *)hpd);
+			}
 
 			/*
 			 * remember its sequence number for next time

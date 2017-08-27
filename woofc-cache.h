@@ -20,6 +20,7 @@ WOOF_CACHE *WooFCacheInit(int max_size);
 void WooFCacheFree(WOOF_CACHE *wc);
 int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload);
 void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name);
+void WooFCacheRemove(WOOF_CACHE *wc, char *name);
 
 #endif
 

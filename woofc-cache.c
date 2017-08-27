@@ -169,13 +169,15 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 	return(1);
 }
 
+/*
+ * not thread safe -- must be called inside mutual exclusion region
+ */
 void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 {
 	RB *rb;
 	char *str;
 	WOOF_CACHE_EL *el;
 
-	pthread_mutex_lock(&wc->lock);
 
 	/*
 	 * free the string used as the rb key
@@ -197,7 +199,6 @@ void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 	 */
 	DlistDelete(wc->list,dln);
 
-	pthread_mutex_unlock(&wc->lock);
 
 	return;
 }
@@ -230,6 +231,19 @@ void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name)
 
 	
 	
+void WooFCacheRemove(WOOF_CACHE *wc, char *name)
+{
+	RB *rb;
+	DlistNode *dln;
+
+	pthread_mutex_lock(&wc->lock);
+        rb = RBFindS(wc->rb,name);
+        if(rb != NULL) {
+                dln = (DlistNode *)rb->value.v;
+                WooFCacheDelete(wc,dln);
+        }
+	pthread_mutex_unlock(&wc->lock);
 
 
-
+	return;
+}
