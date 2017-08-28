@@ -18,8 +18,6 @@
 #include "woofc-cache.h"
 #include "woofc-access.h"
 
-#define DEBUG
-
 extern char Host_ip[25];
 
 WOOF_CACHE *WooF_cache;

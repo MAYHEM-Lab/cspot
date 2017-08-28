@@ -37,6 +37,7 @@ typedef struct element_stc ELID;
 int WooFCreate(char *name,
                unsigned long element_size,
                unsigned long history_size);
+void WooFFree(WOOF *wf);
 WOOF *WooFOpen(char *name);
 unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
 int WooFGet(char *wf_name, void *element, unsigned long seq_no);
@@ -48,6 +49,7 @@ unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
 unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
 int WooFInvalid(unsigned long seq_no);
+
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
