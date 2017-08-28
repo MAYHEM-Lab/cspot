@@ -19,8 +19,15 @@ extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
 
-WOOF_CACHE *WooF_put_cache;
-#define WOOF_PUT_CACHE_MAX (100)
+WOOF_CACHE *WooF_open_cache;
+#define WOOF_OPEN_CACHE_MAX (100)
+struct woof_open_cache_stc
+{
+	WOOF *wf;
+	unsigned long element_size;
+	unsigned long history_size;
+};
+typedef struct woof_open_cache_stc WOOF_OPEN_EL;
 
 #define DEBUG
 
@@ -40,6 +47,11 @@ int WooFCreate(char *name,
 	if(name == NULL) {
 		return(-1);
 	}
+#ifdef DEBUG
+	printf("WooFCreate: called %s, history_size: %lu, element_size: %lu\n",name,
+		history_size,element_size);
+	fflush(stdout);
+#endif
 
 
 	/*
@@ -137,21 +149,6 @@ int WooFCreate(char *name,
 	}
 #endif
 
-	/*
-	 * if we are recreating, delete the put cache entry if it is there
-	 */
-	if(WooF_put_cache != NULL) {
-		wf = (WOOF *)WooFCacheFind(WooF_put_cache,name);
-		if(wf != NULL) {
-#ifdef DEBUG
-	printf("WooFCreate: deleting %s from put cache\n",name);
-	fflush(stdout);
-#endif
-			WooFCacheRemove(WooF_put_cache,name);
-			WooFFree(wf);
-		}
-	}
-			
 	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
 		fprintf(stderr,"WooFCreate: couldn't open %s with space %lu\n",local_name,space);
@@ -184,7 +181,6 @@ int WooFCreate(char *name,
 	return(1);
 }
 
-#undef DEBUG
 
 WOOF *WooFOpen(char *name)
 {
@@ -258,6 +254,11 @@ WOOF *WooFOpen(char *name)
 
 void WooFFree(WOOF *wf)
 {
+
+#ifdef DEBUG
+	printf("WooFFree: closing %s\n",wf->shared->filename);
+	fflush(stdout);
+#endif
 	MIOClose(wf->mio);
 	free(wf);
 
@@ -382,10 +383,16 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	 * write the element
 	 */
 #ifdef DEBUG
-	printf("WooFAppend: writing element 0x%x\n",el_id);
+	printf("WooFAppend: writing element 0x%x, head: %lu, tail: %lu, history_size: %lu el_size: %lu\n",
+		el_id,wfs->head,wfs->tail,wfs->history_size,wfs->element_size);
 	fflush(stdout);
 #endif
 	memcpy(ptr,element,wfs->element_size);
+#ifdef DEBUG
+	printf("WooFAppend: written element 0x%x, head: %lu, tail: %lu, history_size: %lu el_size: %lu\n",
+		el_id,wfs->head,wfs->tail,wfs->history_size,wfs->element_size);
+	fflush(stdout);
+#endif
 	/*
 	 * and elemant meta data after it
 	 */
@@ -561,27 +568,6 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 
-#if 0
-	if(WooF_put_cache == NULL) {
-		WooF_put_cache = WooFCacheInit(WOOF_PUT_CACHE_MAX);
-		if(WooF_put_cache == NULL) {
-			fprintf(stderr,"WooFPut: couldn't init put cache\n");
-			fflush(stderr);
-		}
-	}
-#endif
-
-	if(WooF_put_cache != NULL) {
-		wf = (WOOF *)WooFCacheFind(WooF_put_cache,wf_name);
-		if(wf != NULL) {
-#ifdef DEBUG
-	printf("WooFPut: WooF %s cached open\n",wf_name);
-	fflush(stdout);
-#endif
-			seq_no = WooFAppend(wf,hand_name,element);
-			return(seq_no);
-		}
-	}
 
 	wf = WooFOpen(wf_name);
 
@@ -595,9 +581,6 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 #endif
 	seq_no = WooFAppend(wf,hand_name,element);
 
-	if(WooF_put_cache != NULL) {
-		WooFCacheInsert(WooF_put_cache,wf_name,(void *)wf);
-	}
 	return(seq_no);
 }
 
