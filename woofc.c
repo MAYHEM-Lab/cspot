@@ -243,7 +243,6 @@ void WooFFree(WOOF *wf)
 	return;
 }
 
-#define DEBUG
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
 	MIO *mio;
@@ -556,7 +555,6 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	return(seq_no);
 }
 
-#undef DEBUG
 int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 {
 	WOOF *wf;

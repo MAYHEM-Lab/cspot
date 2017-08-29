@@ -11,14 +11,12 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include "uriparser2.h"
+#include "uriparser2/uriparser2.h"
 
 
 #include "woofc.h"	/* for WooFPut */
 #include "woofc-cache.h"
 #include "woofc-access.h"
-
-#define DEBUG
 
 extern char Host_ip[25];
 
@@ -64,18 +62,25 @@ int WooFValidURI(char *str)
  */
 int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
 {
-	struct URI uri;
+	struct URI *uri;
 	int i;
 
 	if(!WooFValidURI(woof_uri_str)) { /* still might be local name, but return error */
 		return(-1);
 	}
 
-	uri_parse2(woof_uri_str,&uri);
-	if(uri.path == NULL) {
+	uri = uri_parse(woof_uri_str);
+	if(uri == NULL) {
 		return(-1);
 	}
-	strncpy(woof_namespace,uri.path,len);
+
+	if(uri->path == NULL) {
+		free(uri);
+		return(-1);
+	}
+	strncpy(woof_namespace,uri->path,len);
+
+	free(uri);
 
 	return(1);
 }
@@ -85,30 +90,38 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
  */
 int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
 {
-	struct URI uri;
+	struct URI *uri;
 	int i;
 
 	if(!WooFValidURI(woof_uri_str)) { /* still might be local name, but return error */
 		return(-1);
 	}
 
-	uri_parse2(woof_uri_str,&uri);
-	if(uri.path == NULL) {
+	uri = uri_parse(woof_uri_str);
+	if(uri == NULL) {
+		return(-1);
+	}
+
+	if(uri->path == NULL) {
+		free(uri);
 		return(-1);
 	}
 	/*
 	 * walk back to the last '/' character
 	 */
-	i = strlen(uri.path);
+	i = strlen(uri->path);
 	while(i >= 0) {
-		if(uri.path[i] == '/') {
+		if(uri->path[i] == '/') {
 			if(i <= 0) {
+				free(uri);
 				return(-1);
 			}
 			if(i > len) { /* not enough space to hold path */
+				free(uri);
 				return(-1);
 			}
-			strncpy(woof_namespace,uri.path,i);
+			strncpy(woof_namespace,uri->path,i);
+			free(uri);
 			return(1);
 		}
 		i--;
@@ -116,12 +129,13 @@ int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
 	/*
 	 * we didn't find a '/' in the URI path for the woofname -- error out
 	 */
+	free(uri);
 	return(-1);
 }
 
 int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 {
-	struct URI uri;
+	struct URI *uri;
 	int i;
 	int j;
 
@@ -129,34 +143,43 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 		return(-1);
 	}
 
-	uri_parse2(woof_uri_str,&uri);
-	if(uri.path == NULL) {
+	uri = uri_parse(woof_uri_str);
+	if(uri == NULL) {
+		return(-1);
+	}
+
+	if(uri->path == NULL) {
+		free(uri);
 		return(-1);
 	}
 	/*
 	 * walk back to the last '/' character
 	 */
-	i = strlen(uri.path);
+	i = strlen(uri->path);
 	j = 0;
 	/*
 	 * if last character in the path is a '/' this is an error
 	 */
-	if(uri.path[i] == '/') {
+	if(uri->path[i] == '/') {
+		free(uri);
 		return(-1);
 	}
 	while(i >= 0) {
-		if(uri.path[i] == '/') {
+		if(uri->path[i] == '/') {
 			i++;
 			if(i <= 0) {
+				free(uri);
 				return(-1);
 			}
 			if(j > len) { /* not enough space to hold path */
+				free(uri);
 				return(-1);
 			}
 			/*
 			 * pull off the end as the name of the woof
 			 */
-			strncpy(woof_name,&(uri.path[i]),len);
+			strncpy(woof_name,&(uri->path[i]),len);
+			free(uri);
 			return(1);
 		}
 		i--;
@@ -165,6 +188,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 	/*
 	 * we didn't find a '/' in the URI path for the woofname -- error out
 	 */
+	free(uri);
 	return(-1);
 } 
 
@@ -173,7 +197,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
  */
 int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
 {
-	struct URI uri;
+	struct URI *uri;
 	int i;
 	int j;
 	struct in_addr addr;
@@ -185,30 +209,38 @@ int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
 		return(-1);
 	}
 
-	uri_parse2(woof_uri_str,&uri);
-	if(uri.host == NULL) {
+	uri = uri_parse(woof_uri_str);
+	if(uri == NULL) {
+		return(-1);
+	}
+
+	if(uri->host == NULL) {
+		free(uri);
 		return(-1);
 	}
 
 	/*
 	 * test to see if the host is an IP address already
 	 */
-	err = inet_aton(uri.host,&addr);
+	err = inet_aton(uri->host,&addr);
 	if(err == 1) {
-		strncpy(woof_ip,uri.host,len);
+		strncpy(woof_ip,uri->host,len);
+		free(uri);
 		return(1);
 	}
 
 	/*
 	 * here, assume it is a DNS name
 	 */
-	he = gethostbyname(uri.host);
+	he = gethostbyname(uri->host);
 	if(he == NULL) {
+		free(uri);
 		return(-1);
 	}
 
 	list = (struct in_addr **)he->h_addr_list;
 	if(list == NULL) {
+		free(uri);
 		return(-1);
 	}
 
@@ -218,10 +250,12 @@ int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
 		 */
 		if(list[i] != NULL) {
 			strncpy(woof_ip,inet_ntoa(*list[i]),len);
+			free(uri);
 			return(1);
 		}
 	}
 
+	free(uri);
 	return(-1);
 	
 }
@@ -460,6 +494,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 		el_size = wf->shared->element_size;
 		WooFFree(wf);
 	}
+
 
 #ifdef DEBUG
 	printf("WooFProcessGetElSize: woof_name %s has element size: %lu\n",woof_name,el_size);

@@ -21,8 +21,6 @@ char Host_ip[25];
 char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 
-#define DEBUG
-
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
 
