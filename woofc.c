@@ -10,7 +10,6 @@
 #include "log.h"
 #include "woofc.h"
 #include "woofc-access.h"
-#include "woofc-cache.h"
 
 extern char WooF_namespace[2048];
 extern char WooF_dir[2048];
@@ -18,11 +17,6 @@ extern char WooF_namelog_dir[2048];
 extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
-
-WOOF_CACHE *WooF_put_cache;
-#define WOOF_PUT_CACHE_MAX (100)
-
-#define DEBUG
 
 int WooFCreate(char *name,
 	       unsigned long element_size,
@@ -35,7 +29,6 @@ int WooFCreate(char *name,
 	char fname[20];
 	int err;
 	int is_local;
-	WOOF *wf;
 
 	if(name == NULL) {
 		return(-1);
@@ -137,21 +130,8 @@ int WooFCreate(char *name,
 	}
 #endif
 
-	/*
-	 * if we are recreating, delete the put cache entry if it is there
-	 */
-	if(WooF_put_cache != NULL) {
-		wf = (WOOF *)WooFCacheFind(WooF_put_cache,name);
-		if(wf != NULL) {
-#ifdef DEBUG
-	printf("WooFCreate: deleting %s from put cache\n",name);
-	fflush(stdout);
-#endif
-			WooFCacheRemove(WooF_put_cache,name);
-			WooFFree(wf);
-		}
-	}
-			
+		
+
 	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
 		fprintf(stderr,"WooFCreate: couldn't open %s with space %lu\n",local_name,space);
@@ -184,7 +164,6 @@ int WooFCreate(char *name,
 	return(1);
 }
 
-#undef DEBUG
 
 WOOF *WooFOpen(char *name)
 {
@@ -264,6 +243,7 @@ void WooFFree(WOOF *wf)
 	return;
 }
 
+#define DEBUG
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
 	MIO *mio;
@@ -560,29 +540,6 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 		WooF_namespace,WooF_dir,wf_name);
 	fflush(stdout);
 #endif
-
-#if 0
-	if(WooF_put_cache == NULL) {
-		WooF_put_cache = WooFCacheInit(WOOF_PUT_CACHE_MAX);
-		if(WooF_put_cache == NULL) {
-			fprintf(stderr,"WooFPut: couldn't init put cache\n");
-			fflush(stderr);
-		}
-	}
-#endif
-
-	if(WooF_put_cache != NULL) {
-		wf = (WOOF *)WooFCacheFind(WooF_put_cache,wf_name);
-		if(wf != NULL) {
-#ifdef DEBUG
-	printf("WooFPut: WooF %s cached open\n",wf_name);
-	fflush(stdout);
-#endif
-			seq_no = WooFAppend(wf,hand_name,element);
-			return(seq_no);
-		}
-	}
-
 	wf = WooFOpen(wf_name);
 
 	if(wf == NULL) {
@@ -595,12 +552,11 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 #endif
 	seq_no = WooFAppend(wf,hand_name,element);
 
-	if(WooF_put_cache != NULL) {
-		WooFCacheInsert(WooF_put_cache,wf_name,(void *)wf);
-	}
+	WooFFree(wf);
 	return(seq_no);
 }
 
+#undef DEBUG
 int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 {
 	WOOF *wf;

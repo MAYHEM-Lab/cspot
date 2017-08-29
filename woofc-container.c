@@ -22,13 +22,13 @@ LOG *Name_log;
 
 int Zero_open;
 
+#define DEBUG
 
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
 {
 	int hpd[2];
 	unsigned long element_size;
-	unsigned long history_size;
 };
 
 typedef struct woof_fork_cache_stc WOOF_FORK_EL;
@@ -500,17 +500,8 @@ exit(1);
 		 * closed and to close those that are dead
 		 * XXX
 		 */
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: before cache entry search for %s\n", cache_name);
-	fflush(stdout);
-#endif
 		ce = WooFCacheFind(WooF_handler_cache,cache_name);
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: after cache entry search for %s\n", cache_name);
-	fflush(stdout);
-#endif
-		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size) &&
-			(ce->history_size == ev[first].woofc_history_size)) {
+		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size)) {
 			old_sig = signal(SIGPIPE,SIG_IGN);
 			err = write(ce->hpd[1],&ev[first].woofc_seq_no,sizeof(ev[first].woofc_seq_no));
 			if(err <= 0) {
@@ -528,7 +519,7 @@ exit(1);
 						cache_name);
 					perror("WooFForker: bad pd write");
 					WooFCacheRemove(WooF_handler_cache,cache_name);
-//					close(ce->hpd[1]);
+					close(ce->hpd[1]);
 					free(ce);
 					ce = NULL;
 					signal(SIGPIPE,old_sig);
@@ -546,7 +537,7 @@ exit(1);
 							cache_name);
 						perror("WooFForker: bad ndx pd write");
 						WooFCacheRemove(WooF_handler_cache,cache_name);
-//						close(ce->hpd[1]);
+						close(ce->hpd[1]);
 						free(ce);
 						ce = NULL;
 						signal(SIGPIPE,old_sig);
@@ -808,12 +799,7 @@ exit(1);
 			if(ce != NULL) {
 				/* don't need the read end */
 				ce->element_size = ev[first].woofc_element_size;
-				ce->history_size = ev[first].woofc_history_size;
 				WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: inserting cache entry for %s\n", cache_name);
-	fflush(stdout);
-#endif
 				close(ce->hpd[0]);
 			}
 

@@ -15,7 +15,7 @@
 
 struct woof_cache_element_stc
 {
-	char *name;
+	RB *ndx;
 	void *payload;
 };
 
@@ -114,7 +114,6 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 		return(-1);
 	}
 	memset(el,0,sizeof(WOOF_CACHE_EL));
-	el->name = name;
 
 	pthread_mutex_lock(&wc->lock);
 	/*
@@ -145,6 +144,25 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 	}
 	RBInsertS(wc->rb,name,(Hval)(void *)dln);
 
+	/*
+	 * now get rb node
+	 */
+	rb = RBFindS(wc->rb,name);
+	if(rb == NULL) {
+		fprintf(stderr,"WooFCache is corrupt\n");
+		fflush(stderr);
+		exit(1);
+	}
+	/*
+	 * sanity check
+	 */
+	dln = (DlistNode *)rb->value.v;
+	el = (WOOF_CACHE_EL *)dln->value.v;
+	/*
+	 * back pointer to rb for delete
+	 */
+	el->ndx = rb;
+
 	wc->count++;
 	pthread_mutex_unlock(&wc->lock);
 
@@ -160,16 +178,21 @@ void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 	char *str;
 	WOOF_CACHE_EL *el;
 
-	el = (WOOF_CACHE_EL *)dln->value.v;
+
 	/*
-	 * find the rb node
+	 * free the string used as the rb key
+	 * after deleteing the node
 	 */
-	rb = RBFindS(wc->rb,el->name);
-	if(rb != NULL) {
-		RBDeleteS(wc->rb,rb);
-	}
-	free(el->name);
-	free(el);
+	el = (WOOF_CACHE_EL *)dln->value.v;
+	rb = el->ndx;
+	str = K_S(rb->key);
+	RBDeleteS(wc->rb,rb);
+	free(str);
+
+	/*
+	 * free the cache element
+	 */
+	free(dln->value.v);
 
 	/*
 	 * delete the node
