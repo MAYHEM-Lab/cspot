@@ -22,7 +22,6 @@ LOG *Name_log;
 
 int Zero_open;
 
-#define DEBUG
 
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
@@ -529,7 +528,7 @@ exit(1);
 						cache_name);
 					perror("WooFForker: bad pd write");
 					WooFCacheRemove(WooF_handler_cache,cache_name);
-					close(ce->hpd[1]);
+//					close(ce->hpd[1]);
 					free(ce);
 					ce = NULL;
 					signal(SIGPIPE,old_sig);
@@ -547,7 +546,7 @@ exit(1);
 							cache_name);
 						perror("WooFForker: bad ndx pd write");
 						WooFCacheRemove(WooF_handler_cache,cache_name);
-						close(ce->hpd[1]);
+//						close(ce->hpd[1]);
 						free(ce);
 						ce = NULL;
 						signal(SIGPIPE,old_sig);
