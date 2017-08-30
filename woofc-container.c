@@ -670,6 +670,9 @@ exit(1);
 			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
 			exit(1);
 		}
+		/*
+		 * XXX if we can get the file name in a different way we can eliminate this call to WooFOpen()
+		 */
 		sprintf(pbuf,"WOOF_SHEPHERD_NAME=%s",wf->shared->filename);
 		eenvp[i] = pbuf;
 		i++;
