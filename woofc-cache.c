@@ -117,9 +117,9 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 
 	pthread_mutex_lock(&wc->lock);
 	/*
-	 * if one more would make it full, fail
+	 * if it is full, fail out so caller can age the cache
 	 */
-	if((wc->count+1) >= wc->max) {
+	if((wc->count) >= wc->max) {
 		pthread_mutex_unlock(&wc->lock);
 		free(name);
 		return(-1);
