@@ -981,6 +981,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	unsigned long el_size;
 	int err;
 	unsigned long *el_size_cached;
+	void *payload;
 
 	if(WooF_cache == NULL) {
 		WooF_cache = WooFCacheInit(WOOF_MSG_CACHE_SIZE);
@@ -1151,7 +1152,19 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	el_size_cached = (unsigned long *)malloc(sizeof(unsigned long));
 	if(el_size_cached != NULL) {
 		*el_size_cached = el_size;
-		WooFCacheInsert(WooF_cache,woof_name,(void *)el_size_cached);
+		err = WooFCacheInsert(WooF_cache,woof_name,(void *)el_size_cached);
+		if(err < 0) {
+			payload = WooFCacheAge(WooF_cache);
+			if(payload != NULL) {
+				free(payload);
+			}
+			err = WooFCacheInsert(WooF_cache,woof_name,(void *)el_size_cached);
+			if(err < 0) {
+				fprintf(stderr,"WooFMsgGetElSize: cache insert failed\n");
+				fflush(stderr);
+				free(el_size_cached);
+			}
+		}
 	}
 		
 	return(el_size);

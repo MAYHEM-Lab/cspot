@@ -15,7 +15,7 @@
 
 struct woof_cache_element_stc
 {
-	RB *ndx;
+	char name[2048];
 	void *payload;
 };
 
@@ -117,6 +117,14 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 
 	pthread_mutex_lock(&wc->lock);
 	/*
+	 * if one more would make it full, fail
+	 */
+	if((wc->count+1) >= wc->max) {
+		pthread_mutex_unlock(&wc->lock);
+		free(name);
+		return(-1);
+	}
+	/*
 	 * first, see if it is in the cache.  If so, delete it
 	 * so this insert will replace it
 	 */
@@ -127,14 +135,10 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 	}
 	
 
-	/*
-	 * if this insert would exceed max, delete oldest in the list
-	 */
-	if((wc->count+1) >= wc->max) {
-		WooFCacheDelete(wc,wc->list->first);
-	}
-
 	el->payload = payload;
+	memset(el->name,0,sizeof(el->name));
+	strncpy(el->name,name,sizeof(el->name));
+
 	dln = DlistAppend(wc->list,(Hval)(void *)el);
 	if(dln == NULL) {
 		free(name);
@@ -143,25 +147,6 @@ int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
 		return(-1);
 	}
 	RBInsertS(wc->rb,name,(Hval)(void *)dln);
-
-	/*
-	 * now get rb node
-	 */
-	rb = RBFindS(wc->rb,name);
-	if(rb == NULL) {
-		fprintf(stderr,"WooFCache is corrupt\n");
-		fflush(stderr);
-		exit(1);
-	}
-	/*
-	 * sanity check
-	 */
-	dln = (DlistNode *)rb->value.v;
-	el = (WOOF_CACHE_EL *)dln->value.v;
-	/*
-	 * back pointer to rb for delete
-	 */
-	el->ndx = rb;
 
 	wc->count++;
 	pthread_mutex_unlock(&wc->lock);
@@ -184,10 +169,12 @@ void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 	 * after deleteing the node
 	 */
 	el = (WOOF_CACHE_EL *)dln->value.v;
-	rb = el->ndx;
-	str = K_S(rb->key);
-	RBDeleteS(wc->rb,rb);
-	free(str);
+	rb = RBFindS(wc->rb,el->name);
+	if(rb != NULL) {
+		str = K_S(rb->key);
+		free(str);
+		RBDeleteS(wc->rb,rb);
+	}
 
 	/*
 	 * free the cache element
@@ -198,6 +185,8 @@ void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 	 * delete the node
 	 */
 	DlistDelete(wc->list,dln);
+
+	wc->count--;
 
 
 	return;
@@ -247,3 +236,36 @@ void WooFCacheRemove(WOOF_CACHE *wc, char *name)
 
 	return;
 }
+
+int WooFCacheFull(WOOF_CACHE *wc)
+{
+	if(wc->count >= wc->max) {
+		return(1);
+	} else {
+		return(0);
+	}
+}
+
+void *WooFCacheAge(WOOF_CACHE *wc) 
+{
+	DlistNode *dln;
+	RB *rb;
+	WOOF_CACHE_EL *el;
+	char *payload;
+
+	pthread_mutex_lock(&wc->lock);
+	if(WooFCacheFull(wc)) {
+		dln = wc->list->first;
+		el = (WOOF_CACHE_EL *)dln->value.v;
+		payload = el->payload;
+		WooFCacheDelete(wc,dln);
+		pthread_mutex_unlock(&wc->lock);
+		return(payload);
+	}
+	pthread_mutex_lock(&wc->lock);
+	return(NULL);
+
+}
+
+			
+			

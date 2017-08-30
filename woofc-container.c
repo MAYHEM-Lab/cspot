@@ -253,6 +253,8 @@ void *WooFForker(void *arg)
 	sig_t old_sig;
 	int pd[2];
 	WOOF_FORK_EL *ce;
+	int retries;
+	void *payload;
 
 	/*
 	 * wait for things to show up in the log
@@ -796,8 +798,27 @@ exit(1);
 			if(ce != NULL) {
 				/* don't need the read end */
 				ce->element_size = ev[first].woofc_element_size;
-				WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
-				close(ce->hpd[0]);
+				err = WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
+				retries = 0;
+				if(err < 0) {
+					while(retries < 10) {
+						payload = WooFCacheAge(WooF_handler_cache);
+						if(payload != NULL) {
+							free(payload);
+						}
+						err = WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
+						if(err >= 0) {
+							break;
+						}
+						retries++;
+					}
+				}
+				if(retries >= 10) {
+					free(ce);
+					ce=NULL;
+				} else {
+					close(ce->hpd[0]);
+				}
 			}
 
 			/*
