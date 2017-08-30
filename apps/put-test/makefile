@@ -23,10 +23,15 @@ HAND2=recv
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: put-test recv-init ${HAND1} ${HAND2}
+all: bw-test put-test recv-init ${HAND1} ${HAND2}
 
 put-test: put-test.c put-test.h
 	${CC} ${CFLAGS} -o put-test put-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp put-test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp put-test ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
+bw-test: bw-test.c put-test.h
+	${CC} ${CFLAGS} -o bw-test bw-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp put-test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp put-test ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
