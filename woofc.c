@@ -17,6 +17,7 @@ extern char WooF_namelog_dir[2048];
 extern char Namelog_name[2048];
 extern unsigned long Name_id;
 extern LOG *Name_log;
+extern char Host_ip[25];
 
 int WooFCreate(char *name,
 	       unsigned long element_size,
@@ -26,7 +27,8 @@ int WooFCreate(char *name,
 	MIO *mio;
 	unsigned long space;
 	char local_name[4096];
-	char fname[20];
+	char fname[1024];
+	char ip_str[25];
 	int err;
 	int is_local;
 
@@ -50,6 +52,7 @@ int WooFCreate(char *name,
 
 	is_local = 0;
 	memset(local_name,0,sizeof(local_name));
+	memset(ip_str,0,sizeof(ip_str));
 	/*
 	 * if it is a woof:// spec, check to see if the path matches the namespace
 	 *
@@ -63,7 +66,15 @@ int WooFCreate(char *name,
 			fflush(stderr);
 			return(-1);
 		}
-		if(strcmp(WooF_namespace,local_name) == 0) {
+		/*
+		 * check to see if there is a host spec
+		 */
+		err = WooFIPAddrFromURI(name,ip_str,sizeof(ip_str));
+		if(err < 0) {
+			strncpy(ip_str,Host_ip,sizeof(ip_str));
+		}
+		if((strcmp(WooF_namespace,local_name) == 0) &&
+		   (strcmp(Host_ip,ip_str) == 0)) {
 			/*
 			 * woof spec for local name space, use WooF_dir
 			 */

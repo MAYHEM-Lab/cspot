@@ -20,12 +20,15 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
+#define DEBUG
+
 
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
 {
 	int hpd[2];
 	unsigned long element_size;
+	unsigned long history_size;
 };
 
 typedef struct woof_fork_cache_stc WOOF_FORK_EL;
@@ -491,16 +494,15 @@ exit(1);
 		sprintf(cache_name,"%s.%s",ev[first].woofc_name,ev[first].woofc_handler);
 		/*
 		 * if we find the pipe descriptor in the cache, try and write it
-		 *
-		 * FIX ME: could leak file descriptors in the container
-		 *
-		 * cacheInsert drops oldest entries off the end
-		 * need a way to sweep through cached fd and test to see if the read end has
-		 * closed and to close those that are dead
-		 * XXX
 		 */
 		ce = WooFCacheFind(WooF_handler_cache,cache_name);
-		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size)) {
+		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size)
+			&& (ce->history_size == ev[first].woofc_history_size)) {
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: found cache entry for %s, el_size: %lu, hsize: %lu\n", 
+			cache_name,ce->element_size,ce->history_size);
+	fflush(stdout);
+#endif
 			old_sig = signal(SIGPIPE,SIG_IGN);
 			err = write(ce->hpd[1],&ev[first].woofc_seq_no,sizeof(ev[first].woofc_seq_no));
 			if(err <= 0) {
@@ -559,14 +561,16 @@ exit(1);
 		 * if we get here and ce was found, we need to get rid of it
 		 */
 		if(ce != NULL) {
+#ifdef DEBUG
+	fprintf(stdout,"WooFForker: removing cache entry for %s due to difference, ce: %lu %lu ev: %lu %lu\n", 
+			cache_name,ce->element_size,ce->history_size,
+			ev[first].woofc_element_size, ev[first].woofc_history_size);
+	fflush(stdout);
+#endif
 			WooFCacheRemove(WooF_handler_cache,cache_name);
 			close(ce->hpd[1]);
 			free(ce);
 			ce = NULL;
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: removing cache entry for %s due to difference\n", cache_name);
-	fflush(stdout);
-#endif
 		}
 
 		/*
@@ -801,6 +805,7 @@ exit(1);
 			if(ce != NULL) {
 				/* don't need the read end */
 				ce->element_size = ev[first].woofc_element_size;
+				ce->history_size = ev[first].woofc_history_size;
 				err = WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
 				retries = 0;
 				if(err < 0) {
