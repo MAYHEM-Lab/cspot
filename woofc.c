@@ -240,7 +240,7 @@ WOOF *WooFOpen(char *name)
 	int err;
 	struct stat sbuf;
 	WOOF_OPEN_CACHE_EL *wel;
-	void *payload;
+	WOOF_OPEN_CACHE_EL *pel;
 
 	if(name == NULL) {
 		return(NULL);
@@ -349,9 +349,10 @@ WOOF *WooFOpen(char *name)
 		 * try only once on failure
 		 */
 		if(err < 0) {
-			payload = WooFCacheAge(WooF_open_cache);
-			if(payload != NULL) {
-				free(payload);
+			pel = (WOOF_OPEN_CACHE_EL *)WooFCacheAge(WooF_open_cache);
+			if(pel != NULL) {
+				WooFDrop(pel->wf);
+				free(pel);
 			}
 			err = WooFCacheInsert(WooF_open_cache,local_name,(void *)wel);
 			if(err < 0) {

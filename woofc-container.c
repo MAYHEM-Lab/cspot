@@ -254,8 +254,8 @@ void *WooFForker(void *arg)
 	sig_t old_sig;
 	int pd[2];
 	WOOF_FORK_EL *ce;
+	WOOF_FORK_EL *pe;
 	int retries;
-	void *payload;
 	unsigned long cache_vals[2];
 
 	/*
@@ -806,9 +806,10 @@ exit(1);
 				retries = 0;
 				if(err < 0) {
 					while(retries < 10) {
-						payload = WooFCacheAge(WooF_handler_cache);
-						if(payload != NULL) {
-							free(payload);
+						pe = (WOOF_FORK_EL *)WooFCacheAge(WooF_handler_cache);
+						if(pe != NULL) {
+							close(pe->hpd[1]);
+							free(pe);
 						}
 						err = WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
 						if(err >= 0) {
