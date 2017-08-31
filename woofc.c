@@ -29,6 +29,7 @@ struct woof_open_cache_stc
 };
 typedef struct woof_open_cache_stc WOOF_OPEN_CACHE_EL;
 #define WOOF_OPEN_CACHE_MAX (100)
+void WooFDrop(WOOF *wf);
 
 
 int WooFCreate(char *name,
@@ -251,9 +252,11 @@ WOOF *WooFOpen(char *name)
 		exit(1);
 	}
 
+#ifdef DOESNT_HELP
 	if(WooF_open_cache == NULL) {
 		WooF_open_cache = WooFCacheInit(WOOF_OPEN_CACHE_MAX);
 	}
+#endif
 
 	memset(local_name,0,sizeof(local_name));
 	strncpy(local_name,WooF_dir,sizeof(local_name));
@@ -305,6 +308,7 @@ WOOF *WooFOpen(char *name)
 	fflush(stdout);
 #endif
 				WooFCacheRemove(WooF_open_cache,local_name);
+				WooFDrop(wel->wf);
 				free(wel);
 			}
 		}
@@ -368,6 +372,14 @@ void WooFFree(WOOF *wf)
 
 	return;
 }
+
+void WooFDrop(WOOF *wf)
+{
+	MIOClose(wf->mio);
+	free(wf);
+	return;
+}
+
 
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
