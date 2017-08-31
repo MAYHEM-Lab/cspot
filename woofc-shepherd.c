@@ -12,8 +12,6 @@
 
 #include "woofc.h"
 
-#define DEBUG
-
 LOG *Name_log;
 unsigned long Name_id;
 char WooF_namespace[2048];

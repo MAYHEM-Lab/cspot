@@ -31,7 +31,6 @@ typedef struct woof_open_cache_stc WOOF_OPEN_CACHE_EL;
 #define WOOF_OPEN_CACHE_MAX (100)
 
 
-#define DEBUG
 int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
@@ -358,6 +357,7 @@ WOOF *WooFOpen(char *name)
 
 	return(wf);
 }
+
 
 void WooFFree(WOOF *wf)
 {
