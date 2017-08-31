@@ -332,6 +332,7 @@ WOOF *WooFOpen(char *name)
 
 	wf->shared = (WOOF_SHARED *)MIOAddr(mio);
 	wf->mio = mio;
+	wf->ino = sbuf.st_ino;
 
 	if(WooF_open_cache != NULL) {
 		wel = (WOOF_OPEN_CACHE_EL *)malloc(sizeof(WOOF_OPEN_CACHE_EL));
@@ -432,7 +433,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	}
 
 #ifdef DEBUG
-	printf("WooFAppend: checking for empty slot\n");
+	printf("WooFAppend: checking for empty slot, ino: %lu\n",wf->ino);
 	fflush(stdout);
 #endif
 
@@ -575,6 +576,12 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 
+	ev->ino = wf->ino;
+#ifdef DEBUG
+	printf("WooFAppend: ino %lu\n",ev->ino);
+	fflush(stdout);
+#endif
+
 	/*
 	 * log the event so that it can be triggered
 	 */
@@ -605,6 +612,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	V(&Name_log->tail_wait);
 	return(seq_no);
 }
+
 		
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
@@ -692,6 +700,7 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	WooFFree(wf);
 	return(seq_no);
 }
+
 
 int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 {

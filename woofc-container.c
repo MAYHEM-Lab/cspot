@@ -20,15 +20,13 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
-#define CACHE_ON
-
-
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
 {
 	int hpd[2];
 	unsigned long element_size;
 	unsigned long history_size;
+	unsigned long ino;
 };
 
 typedef struct woof_fork_cache_stc WOOF_FORK_EL;
@@ -258,6 +256,7 @@ void *WooFForker(void *arg)
 	WOOF_FORK_EL *ce;
 	int retries;
 	void *payload;
+	unsigned long cache_vals[2];
 
 	/*
 	 * wait for things to show up in the log
@@ -503,14 +502,20 @@ exit(1);
 			ce = NULL;
 		}
 		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size)
-			&& (ce->history_size == ev[first].woofc_history_size)) {
+			&& (ce->history_size == ev[first].woofc_history_size) &&
+			   (ce->ino == ev[first].ino)) {
 #ifdef DEBUG
 	fprintf(stdout,"WooFForker: found cache entry for %s, el_size: %lu, hsize: %lu\n", 
 			cache_name,ce->element_size,ce->history_size);
 	fflush(stdout);
 #endif
 			old_sig = signal(SIGPIPE,SIG_IGN);
-			err = write(ce->hpd[1],&ev[first].woofc_seq_no,sizeof(ev[first].woofc_seq_no));
+			/*
+			 * do it this way so it goes in one, indivisible write()
+			 */
+			cache_vals[0] = ev[first].woofc_seq_no;
+			cache_vals[1] = ev[first].woofc_ndx;
+			err = write(ce->hpd[1],cache_vals,sizeof(cache_vals));
 			if(err <= 0) {
 				if(errno == EPIPE) {
 #ifdef DEBUG
@@ -531,35 +536,16 @@ exit(1);
 					ce = NULL;
 					signal(SIGPIPE,old_sig);
 				}
-			}  else {
-				err = write(ce->hpd[1],&ev[first].woofc_ndx,sizeof(ev[first].woofc_ndx));
-				if(err <= 0) {
-					if(errno == EPIPE) {
-						WooFCacheRemove(WooF_handler_cache,cache_name);
-						close(ce->hpd[1]);
-						free(ce);
-						ce = NULL;
-					} else {
-						fprintf(stderr,"WooFForker: couldn't write ndx pd for %s\n",
-							cache_name);
-						perror("WooFForker: bad ndx pd write");
-						WooFCacheRemove(WooF_handler_cache,cache_name);
-						close(ce->hpd[1]);
-						free(ce);
-						ce = NULL;
-						signal(SIGPIPE,old_sig);
-					}
-				} else { /* new seq_no sent, continue */
+			}  else { /* new seq_no sent, continue */
 #ifdef DEBUG
 	fprintf(stdout,"WooFForker: sending %s new seq_no: %lu and ndx: %lu on fd: %d\n",
 			cache_name,ev[first].woofc_seq_no,ev[first].woofc_ndx,ce->hpd[1]);
 	fflush(stdout);
 #endif
-					while(waitpid(-1,&status,WNOHANG) > 0);
-					signal(SIGPIPE,old_sig);
-					LogFree(log_tail);
-					continue;
-				}
+				while(waitpid(-1,&status,WNOHANG) > 0);
+				signal(SIGPIPE,old_sig);
+				LogFree(log_tail);
+				continue;
 			}
 		}
 
@@ -815,6 +801,7 @@ exit(1);
 				/* don't need the read end */
 				ce->element_size = ev[first].woofc_element_size;
 				ce->history_size = ev[first].woofc_history_size;
+				ce->ino = ev[first].ino;
 				err = WooFCacheInsert(WooF_handler_cache,cache_name,(void *)ce);
 				retries = 0;
 				if(err < 0) {

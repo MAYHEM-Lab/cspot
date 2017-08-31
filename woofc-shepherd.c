@@ -9,10 +9,9 @@
 #include <sys/select.h>
 #include <poll.h>
 
-#define CACHE_ON
-
 
 #include "woofc.h"
+
 
 LOG *Name_log;
 unsigned long Name_id;
@@ -298,9 +297,10 @@ int main(int argc, char **argv, char **envp)
 		 */
 		el_id->busy = 0;
 	#ifdef DEBUG
-		fprintf(stdout,"WooFShepherd: marked el done at %lu and signalling\n",ndx);
+		fprintf(stdout,"WooFShepherd: marked el done at %lu and signalling, ino: %lu\n",ndx,wf->ino);
 		fflush(stdout);
 	#endif
+
 
 		V(&wfs->tail_wait);
 
@@ -372,7 +372,9 @@ int main(int argc, char **argv, char **envp)
 		}
 
 		err = read(0,&seq_no,sizeof(seq_no));
-		if(err <= 0) {
+		if(err == 0) { //EOF means container doesn't need this process
+			break;
+		} else if(err < 0) {
 			fprintf(stderr,"WooFShepherd: bad read of stdin for seq_no\n");
 			perror("WooFShepherd: bad read");
 			break;
@@ -402,7 +404,7 @@ int main(int argc, char **argv, char **envp)
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
-	WooFFree(wf);
+	WooFDrop(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
