@@ -20,6 +20,8 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
+#define CACHE_ON
+
 
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
@@ -479,6 +481,7 @@ exit(1);
 		fflush(stdout);
 #endif
 
+#ifdef CACHE_ON
 		if(WooF_handler_cache == NULL) {
 			WooF_handler_cache = WooFCacheInit(WOOF_CONTAINER_MAX_CACHE);
 			if(WooF_handler_cache == NULL) {
@@ -487,13 +490,18 @@ exit(1);
 				exit(1);
 			}
 		}
+#endif
 
 		memset(cache_name,0,sizeof(cache_name));
 		sprintf(cache_name,"%s.%s",ev[first].woofc_name,ev[first].woofc_handler);
 		/*
 		 * if we find the pipe descriptor in the cache, try and write it
 		 */
-		ce = WooFCacheFind(WooF_handler_cache,cache_name);
+		if(WooF_handler_cache != NULL) {
+			ce = WooFCacheFind(WooF_handler_cache,cache_name);
+		} else {
+			ce = NULL;
+		}
 		if((ce != NULL) && (ce->element_size == ev[first].woofc_element_size)
 			&& (ce->history_size == ev[first].woofc_history_size)) {
 #ifdef DEBUG
@@ -579,15 +587,17 @@ exit(1);
 		/*
 		 * create a pipe for cache
 		 */
-		err = pipe(pd);
-		ce = NULL;
-		if(err >= 0) {
-			ce = (WOOF_FORK_EL *)malloc(sizeof(WOOF_FORK_EL));
-			if(ce == NULL) {
-				exit(1);
+		if(WooF_handler_cache != NULL) {
+			err = pipe(pd);
+			ce = NULL;
+			if(err >= 0) {
+				ce = (WOOF_FORK_EL *)malloc(sizeof(WOOF_FORK_EL));
+				if(ce == NULL) {
+					exit(1);
+				}
+				ce->hpd[0] = pd[0];
+				ce->hpd[1] = pd[1];
 			}
-			ce->hpd[0] = pd[0];
-			ce->hpd[1] = pd[1];
 		}
 			
 		pid = fork();
@@ -597,6 +607,7 @@ exit(1);
 		/*
 		 * I am the child.  I need the read end but not the write end
 		 */
+		
 		if(ce != NULL) {
 			dup2(ce->hpd[0],0);
 			close(ce->hpd[0]);

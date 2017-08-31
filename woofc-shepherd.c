@@ -9,6 +9,8 @@
 #include <sys/select.h>
 #include <poll.h>
 
+#define CACHE_ON
+
 
 #include "woofc.h"
 
@@ -21,6 +23,7 @@ char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 
 #define WOOF_SHEPHERD_TIMEOUT (15)
+
 
 
 
@@ -327,6 +330,10 @@ int main(int argc, char **argv, char **envp)
 		 * log either event success or failure here
 		 */
 
+#ifndef CACHE_ON
+		break; // for no caching case
+#endif
+
 		/*
 		 * block waiting on a read of a new seq_no and ndx
 		 */
@@ -387,7 +394,9 @@ int main(int argc, char **argv, char **envp)
 
 	}
 
+#ifdef CACHE_ON
 	close(0);
+#endif
 
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);

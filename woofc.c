@@ -252,7 +252,7 @@ WOOF *WooFOpen(char *name)
 		exit(1);
 	}
 
-#ifdef DOESNT_HELP
+#ifdef CACHE_ON
 	if(WooF_open_cache == NULL) {
 		WooF_open_cache = WooFCacheInit(WOOF_OPEN_CACHE_MAX);
 	}
