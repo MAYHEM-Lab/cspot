@@ -10,6 +10,7 @@
 #include "log.h"
 #include "woofc.h"
 #include "woofc-access.h"
+#include "woofc-cache.h"
 
 extern char WooF_namespace[2048];
 extern char WooF_dir[2048];
@@ -19,6 +20,18 @@ extern unsigned long Name_id;
 extern LOG *Name_log;
 extern char Host_ip[25];
 
+WOOF_CACHE *WooF_open_cache;
+struct woof_open_cache_stc
+{
+	WOOF *wf;
+	unsigned long ino;
+	char local_name[1024];
+};
+typedef struct woof_open_cache_stc WOOF_OPEN_CACHE_EL;
+#define WOOF_OPEN_CACHE_MAX (100)
+
+
+#define DEBUG
 int WooFCreate(char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
@@ -27,10 +40,15 @@ int WooFCreate(char *name,
 	MIO *mio;
 	unsigned long space;
 	char local_name[4096];
+	char temp_name[4096];
 	char fname[1024];
 	char ip_str[25];
 	int err;
 	int is_local;
+	struct stat sbuf;
+	struct stat obuf;
+	int renamed;
+	double r;
 
 	if(name == NULL) {
 		return(-1);
@@ -141,18 +159,54 @@ int WooFCreate(char *name,
 	}
 #endif
 
+	/*
+	 * here is a HACK for open woof caching.  If the woof being created already exists, rename it so that the new
+	 * woof gets a different inode number (guaranteed).  That way, a cached open woof can "tell" (by getting the
+	 * inode number from a stat) whether the woof has changed since it was cached
+	 */
+
+	renamed = 0;
+	if(stat(local_name,&sbuf) >= 0) {
+		memset(temp_name,0,sizeof(temp_name));
+		r = drand48();
+		sprintf(temp_name,"%s.%10.10f",local_name,r);
+		rename(local_name,temp_name);
+		renamed = 1;
+#ifdef DEBUG
+	printf("WooFCreate: renamed %s to %s\n",local_name,temp_name);
+	fflush(stdout);
+#endif
+	}
 		
 
 	mio = MIOOpen(local_name,"w+",space);
 	if(mio == NULL) {
 		fprintf(stderr,"WooFCreate: couldn't open %s with space %lu\n",local_name,space);
 		fflush(stderr);
+		rename(temp_name,local_name);
 		return(-1);
 	}
 #ifdef DEBUG
-	printf("WooFCreate: opened %s\n",local_name);
+	if(stat(local_name,&obuf) >= 0) {
+		printf("WooFCreate: opened %s with inode %lu\n",local_name,obuf.st_ino);
+	} else {
+		printf("WooFCreate: opened %s\n",local_name);
+	}
 	fflush(stdout);
 #endif
+
+	if(renamed == 1) {
+#ifdef DEBUG
+	printf("WooFCreate: attempting unlick of %s\n",temp_name);
+	fflush(stdout);
+#endif
+		err = unlink(temp_name);
+		if(err < 0) {
+			fprintf(stderr,"WooFCreate: couldn't dispose of %s\n",temp_name);
+			fflush(stderr);
+		}
+	}
+
 
 	wfs = (WOOF_SHARED *)MIOAddr(mio);
 	memset(wfs,0,sizeof(WOOF_SHARED));
@@ -185,6 +239,8 @@ WOOF *WooFOpen(char *name)
 	char fname[4096];
 	int err;
 	struct stat sbuf;
+	WOOF_OPEN_CACHE_EL *wel;
+	void *payload;
 
 	if(name == NULL) {
 		return(NULL);
@@ -194,6 +250,10 @@ WOOF *WooFOpen(char *name)
 		fprintf(stderr,"WooFOpen: must init system\n");
 		fflush(stderr);
 		exit(1);
+	}
+
+	if(WooF_open_cache == NULL) {
+		WooF_open_cache = WooFCacheInit(WOOF_OPEN_CACHE_MAX);
 	}
 
 	memset(local_name,0,sizeof(local_name));
@@ -224,6 +284,33 @@ WOOF *WooFOpen(char *name)
 		return(NULL);
 	}
 
+	/*
+	 * here is the HACK for open woof caching
+	 */
+	if(WooF_open_cache != NULL) {
+		wel = WooFCacheFind(WooF_open_cache,local_name);
+		if(wel != NULL) {
+			/*
+			 * if the woof hasn't been recreated
+			 * it is still "good"
+			 */
+			if(wel->ino == sbuf.st_ino) {
+#ifdef DEBUG
+	printf("WooFOpen: found cached woof for %s\n",local_name);
+	fflush(stdout);
+#endif
+				return(wel->wf);
+			} else {
+#ifdef DEBUG
+	printf("WooFOpen: expiring cached woof for %s\n",local_name);
+	fflush(stdout);
+#endif
+				WooFCacheRemove(WooF_open_cache,local_name);
+				free(wel);
+			}
+		}
+	}
+
 	mio = MIOReOpen(local_name);
 	if(mio == NULL) {
 		return(NULL);
@@ -243,13 +330,41 @@ WOOF *WooFOpen(char *name)
 	wf->shared = (WOOF_SHARED *)MIOAddr(mio);
 	wf->mio = mio;
 
+	if(WooF_open_cache != NULL) {
+		wel = (WOOF_OPEN_CACHE_EL *)malloc(sizeof(WOOF_OPEN_CACHE_EL));
+		if((wel != NULL) && (stat(local_name,&sbuf) >= 0)) {
+			wel->wf = wf;
+			wel->ino = sbuf.st_ino;
+		}
+#ifdef DEBUG
+	printf("WooFOpen: inserting cached woof for %s\n",local_name);
+	fflush(stdout);
+#endif
+		err = WooFCacheInsert(WooF_open_cache,local_name,(void *)wel);
+		/*
+		 * try only once on failure
+		 */
+		if(err < 0) {
+			payload = WooFCacheAge(WooF_open_cache);
+			if(payload != NULL) {
+				free(payload);
+			}
+			err = WooFCacheInsert(WooF_open_cache,local_name,(void *)wel);
+			if(err < 0) {
+				free(wel);
+			}
+		}
+	}
+
 	return(wf);
 }
 
 void WooFFree(WOOF *wf)
 {
-	MIOClose(wf->mio);
-	free(wf);
+	if(WooF_open_cache == NULL) {
+		MIOClose(wf->mio);
+		free(wf);
+	}
 
 	return;
 }

@@ -20,10 +20,11 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 HAND1=recv_start
 HAND2=recv
+HAND3=null_handler
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: bw-test put-test recv-init ${HAND1} ${HAND2}
+all: bw-test put-test recv-init ${HAND1} ${HAND2} ${HAND3}
 
 put-test: put-test.c put-test.h
 	${CC} ${CFLAGS} -o put-test put-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -54,6 +55,13 @@ ${HAND2}: put-test.h ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SL
 	mkdir -p cspot; cp ${HAND2} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
+${HAND3}: put-test.h ${HAND3}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/${HAND3}/g' ${SHEP_SRC} > ${HAND3}_shepherd.c
+	${CC} ${CFLAGS} -c ${HAND3}_shepherd.c -o ${HAND3}_shepherd.o
+	${CC} ${CFLAGS} -o ${HAND3} ${HAND3}.c ${HAND3}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp ${HAND3} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp ${HAND3} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
 clean:
-	rm -f recv-init put-test *.o ${HAND1} ${HAND2}
+	rm -f recv-init put-test *.o ${HAND1} ${HAND2} ${HAND3}
 

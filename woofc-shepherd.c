@@ -12,6 +12,7 @@
 
 #include "woofc.h"
 
+#define DEBUG
 
 LOG *Name_log;
 unsigned long Name_id;

@@ -20,8 +20,6 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
-#define DEBUG
-
 
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
