@@ -22,7 +22,7 @@ typedef struct woof_shared_stc WOOF_SHARED;
 struct woof_stc {
 	WOOF_SHARED *shared;
 	MIO *mio;
-	unsigned long ino; // for caching, if enabled
+	unsigned long ino; // for caching
 };
 
 typedef struct woof_stc WOOF;
