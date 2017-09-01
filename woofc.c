@@ -787,6 +787,83 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	return(err);
 }
 
+
+unsigned long WooFGetLatestSeqno(char *wf_name)
+{
+	WOOF *wf;
+	unsigned long latest_seq_no;
+	char wf_namespace[2048];
+	int err;
+	char ns_ip[25];
+	char my_ip[25];
+
+#ifdef DEBUG
+	printf("WooFGetLatestSeqno: called %s %lu\n",wf_name,seq_no);
+	fflush(stdout);
+#endif
+
+
+	memset(ns_ip,0,sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
+	if(err < 0) {
+		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
+		if(err < 0) {
+			fprintf(stderr,"WooFGetLatestSeqno: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip,0,sizeof(my_ip));
+	err = WooFLocalIP(my_ip,sizeof(my_ip));
+	if(err < 0) {
+		fprintf(stderr,"WooFGetLatestSeqno: no local IP\n");
+		exit(1);
+	}
+
+	memset(wf_namespace,0,sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote get
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * if the name space paths do not match or they do but the IP addresses don't this
+	 * is remote
+	 *
+	 */
+	if((err >= 0) && 
+		((strcmp(WooF_namespace,wf_namespace) != 0) ||
+		 (strcmp(my_ip,ns_ip) != 0))) {
+		latest_seq_no = WooFMsgGetLatestSeqno(wf_name);
+		return(latest_seq_no);
+	}
+
+	if(WooF_dir[0] == 0) {
+		fprintf(stderr,"WooFGetLatestSeqno: must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFGetLatestSeqno: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
+	fflush(stdout);
+#endif
+	wf = WooFOpen(wf_name);
+
+	if(wf == NULL) {
+		return(-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFGetLatestSeqno: WooF %s open\n",wf_name);
+	fflush(stdout);
+#endif
+	latest_seq_no = WooFLatestSeqno(wf);
+
+	WooFFree(wf);
+	return(latest_seq_no);
+}
+
 int WooFReadTail(WOOF *wf, void *elements, int element_count)
 {
 	int i;
@@ -1042,18 +1119,11 @@ int WooFInvalid(unsigned long seq_no)
 	}
 }
 
-unsigned long WooFLatestSeqno(char *wf_name)
+unsigned long WooFLatestSeqno(WOOF *wf)
 {
-	WOOF *wf;
 	unsigned long seq_no;
 
-	wf = WooFOpen(wf_name);
-	if(wf == NULL) {
-		return(-1);
-	}
-
 	seq_no = wf->shared->seq_no;
-	WooFFree(wf);
 
 	return(seq_no);
 }

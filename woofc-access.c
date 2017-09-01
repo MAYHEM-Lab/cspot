@@ -299,6 +299,94 @@ int WooFLocalIP(char *ip_str, int len)
 	exit(1);
 }
 
+static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
+{
+	zsock_t *server;
+	zpoller_t *resp_poll;
+	zsock_t *server_resp; 
+	int err;
+	zmsg_t *r_msg;
+
+	/*
+	 * get a socket to the server
+	 */
+	server = zsock_new_req(endpoint);
+	if(server == NULL) {
+		fprintf(stderr,"ServerRequest: no server connection to %s\n",
+			endpoint);
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return(NULL);
+	}
+
+	/*
+	 * set up the poller for the reply
+	 */
+	resp_poll = zpoller_new(server,NULL);
+	if(resp_poll == NULL) {
+		fprintf(stderr,"ServerRequest: no poller for reply from %s\n",
+			endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zmsg_destroy(&msg);
+		return(NULL);
+	}
+
+	/*
+	 * send the message to the server
+	 */
+	err = zmsg_send(&msg,server);
+	if(err < 0) {
+		fprintf(stderr,"ServerRequest: msg send to %s failed\n",
+			endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		zmsg_destroy(&msg);
+		return(NULL);
+	}
+
+	/*
+	 * wait for the reply, but not indefinitely
+	 */
+	server_resp = zpoller_wait(resp_poll,WOOF_MSG_REQ_TIMEOUT);
+	if(server_resp != NULL) {
+		r_msg = zmsg_recv(server_resp);
+		if(r_msg == NULL) {
+			fprintf(stderr,"ServerRequest: msg recv from %s failed\n",
+				endpoint);
+			fflush(stderr);
+			zsock_destroy(&server);
+			zpoller_destroy(&resp_poll);
+			return(NULL);
+		}
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(r_msg);
+	} if(zpoller_expired(resp_poll)) {
+		fprintf(stderr,"ServerRequest: msg recv timeout from %s after %d msec\n",
+				endpoint,WOOF_MSG_REQ_TIMEOUT);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	} else if(zpoller_terminated(resp_poll)) {
+		fprintf(stderr,"ServerRequest: msg recv interrupted from %s\n",
+				endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	} else {
+		fprintf(stderr,"ServerRequest: msg recv failed from %s\n",
+				endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zpoller_destroy(&resp_poll);
+		return(NULL);
+	}
+
+}
 
 void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 {
@@ -532,6 +620,264 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	}
 
 	return;
+}
+
+
+void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	unsigned int copy_size;
+	unsigned latest_seq_no;
+	char buffer[255];
+	int err;
+	WOOF *wf;
+
+#ifdef DEBUG
+	printf("WooFProcessGetLatestSeqno: called\n");
+	fflush(stdout);
+#endif
+	/*
+	 * WooFLatestSeqno requires a woof_name
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if(frame == NULL) {
+		perror("WooFProcessGetLatestSeqno: couldn't set cursor in msg");
+		return;
+	}
+
+	frame = zmsg_next(req_msg);
+	if(frame == NULL) {
+		perror("WooFProcessGetLatestSeqno: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name,0,sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if(copy_size > (sizeof(woof_name)-1)) {
+		copy_size = sizeof(woof_name)-1;
+	}
+	strncpy(woof_name,str,copy_size);
+
+	wf = WooFOpen(woof_name);
+	if(wf == NULL) {
+		fprintf(stderr,"WooFProcessGetLatestSeqno: couldn't open %s\n",woof_name);
+		fflush(stderr);
+		latest_seq_no = -1;
+	} else {
+		latest_seq_no = WooFLatestSeqno(wf);
+		WooFFree(wf);
+	}
+
+
+#ifdef DEBUG
+	printf("WooFProcessGetLatestSeqno: woof_name %s has latest seq_no: %lu\n",woof_name,latest_seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * send latest_seq_no back
+	 */
+	r_msg = zmsg_new();
+	if(r_msg == NULL) {
+		perror("WooFProcessGetLatestSeqno: no reply message");
+		return;
+	}
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%lu",latest_seq_no);
+	r_frame = zframe_new(buffer,strlen(buffer));
+	if(r_frame == NULL) {
+		perror("WooFProcessGetLatestSeqno: no reply frame");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_append(r_msg,&r_frame);
+	if(err != 0) {
+		perror("WooFProcessPut: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg,receiver);
+	if(err != 0) {
+		perror("WooFProcessGetLatestSeqno: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+
+	return;
+}
+
+unsigned long WooFMsgGetLatestSeqno(char *woof_name)
+{
+	char endpoint[255];
+	char namespace[2048];
+	char ip_str[25];
+	int port;
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char buffer[255];
+	char *str;
+	unsigned long lastest_seq_no;
+	int err;
+
+	memset(namespace,0,sizeof(namespace));
+	err = WooFNameSpaceFromURI(woof_name,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s no name space\n",
+			woof_name);
+		fflush(stderr);
+		return(-1);
+	}
+
+	memset(ip_str,0,sizeof(ip_str));
+	err = WooFIPAddrFromURI(woof_name,ip_str,sizeof(ip_str));
+	if(err < 0) {
+		/*
+		 * try local addr
+		 */
+		err = WooFLocalIP(ip_str,sizeof(ip_str));
+		if(err < 0) {
+			fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s invalid IP address\n",
+				woof_name);
+			fflush(stderr);
+			return(-1);
+		}
+	}
+
+
+	port = WooFPortHash(namespace);
+
+	memset(endpoint,0,sizeof(endpoint));
+	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
+
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s trying enpoint %s\n",woof_name,endpoint);
+	fflush(stdout);
+#endif
+
+	msg = zmsg_new();
+	if(msg == NULL) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s no outbound msg to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetLatestSeqno: allocating msg");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s got new msg\n",woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * this is a GetElSize message
+	 */
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%lu",WOOF_MSG_GET_LATEST_SEQNO);
+	frame = zframe_new(buffer,strlen(buffer));
+	if(frame == NULL) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s no frame for WOOF_MSG_GET_LATEST_SEQNO command in to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetLatestSeqno: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s got WOOF_MSG_GET_LATEST_SEQNO command frame frame\n",woof_name);
+	fflush(stdout);
+#endif
+	err = zmsg_append(msg,&frame);
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s can't append WOOF_MSG_GET_LATEST_SEQNO command frame to msg for server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetLatestSeqno: couldn't append woof_name frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+
+	/*
+	 * make a frame for the woof_name
+	 */
+	frame = zframe_new(woof_name,strlen(woof_name));
+	if(frame == NULL) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s no frame for woof_name to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetLatestSeqno: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s got woof_name namespace frame\n",woof_name);
+	fflush(stdout);
+#endif
+	/*
+	 * add the woof_name frame to the msg
+	 */
+	err = zmsg_append(msg,&frame);
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s can't append woof_name to frame to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetLatestSeqno: couldn't append woof_name namespace frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s added woof_name namespace to frame\n",woof_name);
+	fflush(stdout);
+#endif
+
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s sending message to server at %s\n",
+		woof_name, endpoint);
+	fflush(stdout);
+#endif
+
+	r_msg = ServerRequest(endpoint,msg);
+
+	if(r_msg == NULL) {
+		fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s couldn't recv msg for element size from server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetLatestSeqno: no response received");
+		fflush(stderr);
+		return(-1);
+	} else {
+		r_frame = zmsg_first(r_msg);
+		if(r_frame == NULL) {
+			fprintf(stderr,"WooFMsgGetLatestSeqno: woof: %s no recv frame for from server at %s\n",
+				woof_name,endpoint);
+			perror("WooFMsgGetLatestSeqno: no response frame");
+			zmsg_destroy(&r_msg);
+			return(-1);
+		}
+		str = zframe_data(r_frame);
+		lastest_seq_no = atol(str); 
+		zmsg_destroy(&r_msg);
+	}
+	
+		
+#ifdef DEBUG
+	printf("WooFMsgGetLatestSeqno: woof: %s recvd size: %lu message from server at %s\n",
+		woof_name,lastest_seq_no, endpoint);
+	fflush(stdout);
+
+#endif
+
+	return(lastest_seq_no);
 }
 
 void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
@@ -916,6 +1262,9 @@ void *WooFMsgThread(void *arg)
 			case WOOF_MSG_GET_TAIL:
 				WooFProcessGetTail(msg,receiver);
 				break;
+			case WOOF_MSG_GET_LATEST_SEQNO:
+				WooFProcessGetLatestSeqno(msg,receiver);
+				break;
 			default:
 				fprintf(stderr,"WooFMsgThread: unknown tag %s\n",
 						str);
@@ -1033,94 +1382,6 @@ int WooFMsgServer (char *namespace)
 	exit(0);
 }
 
-static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
-{
-	zsock_t *server;
-	zpoller_t *resp_poll;
-	zsock_t *server_resp; 
-	int err;
-	zmsg_t *r_msg;
-
-	/*
-	 * get a socket to the server
-	 */
-	server = zsock_new_req(endpoint);
-	if(server == NULL) {
-		fprintf(stderr,"ServerRequest: no server connection to %s\n",
-			endpoint);
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return(NULL);
-	}
-
-	/*
-	 * set up the poller for the reply
-	 */
-	resp_poll = zpoller_new(server,NULL);
-	if(resp_poll == NULL) {
-		fprintf(stderr,"ServerRequest: no poller for reply from %s\n",
-			endpoint);
-		fflush(stderr);
-		zsock_destroy(&server);
-		zmsg_destroy(&msg);
-		return(NULL);
-	}
-
-	/*
-	 * send the message to the server
-	 */
-	err = zmsg_send(&msg,server);
-	if(err < 0) {
-		fprintf(stderr,"ServerRequest: msg send to %s failed\n",
-			endpoint);
-		fflush(stderr);
-		zsock_destroy(&server);
-		zpoller_destroy(&resp_poll);
-		zmsg_destroy(&msg);
-		return(NULL);
-	}
-
-	/*
-	 * wait for the reply, but not indefinitely
-	 */
-	server_resp = zpoller_wait(resp_poll,WOOF_MSG_REQ_TIMEOUT);
-	if(server_resp != NULL) {
-		r_msg = zmsg_recv(server_resp);
-		if(r_msg == NULL) {
-			fprintf(stderr,"ServerRequest: msg recv from %s failed\n",
-				endpoint);
-			fflush(stderr);
-			zsock_destroy(&server);
-			zpoller_destroy(&resp_poll);
-			return(NULL);
-		}
-		zsock_destroy(&server);
-		zpoller_destroy(&resp_poll);
-		return(r_msg);
-	} if(zpoller_expired(resp_poll)) {
-		fprintf(stderr,"ServerRequest: msg recv timeout from %s after %d msec\n",
-				endpoint,WOOF_MSG_REQ_TIMEOUT);
-		fflush(stderr);
-		zsock_destroy(&server);
-		zpoller_destroy(&resp_poll);
-		return(NULL);
-	} else if(zpoller_terminated(resp_poll)) {
-		fprintf(stderr,"ServerRequest: msg recv interrupted from %s\n",
-				endpoint);
-		fflush(stderr);
-		zsock_destroy(&server);
-		zpoller_destroy(&resp_poll);
-		return(NULL);
-	} else {
-		fprintf(stderr,"ServerRequest: msg recv failed from %s\n",
-				endpoint);
-		fflush(stderr);
-		zsock_destroy(&server);
-		zpoller_destroy(&resp_poll);
-		return(NULL);
-	}
-
-}
 	
 
 unsigned long WooFMsgGetElSize(char *woof_name)
@@ -1326,6 +1587,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 		
 	return(el_size);
 }
+
 
 unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_size, int el_count)
 {

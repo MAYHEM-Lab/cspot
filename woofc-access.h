@@ -25,6 +25,7 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 #define WOOF_MSG_GET_EL_SIZE (2)
 #define WOOF_MSG_GET (3)
 #define WOOF_MSG_GET_TAIL (4)
+#define WOOF_MSG_GET_LATEST_SEQNO (5)
 
 #define WOOF_MSG_CACHE_SIZE (100)
 
