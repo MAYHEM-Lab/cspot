@@ -534,6 +534,160 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
+void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	unsigned int copy_size;
+	void *element;
+	unsigned el_size;
+	char buffer[255];
+	int err;
+	WOOF *wf;
+	unsigned long el_read;
+	unsigned long el_count;
+	void *ptr;
+
+#ifdef DEBUG
+	printf("WooFProcessGetTail: called\n");
+	fflush(stdout);
+#endif
+	/*
+	 * WooFElSize requires a woof_name
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if(frame == NULL) {
+		perror("WooFProcessGetTail: couldn't set cursor in msg");
+		return;
+	}
+
+	frame = zmsg_next(req_msg);
+	if(frame == NULL) {
+		perror("WooFProcessGetTail: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name,0,sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if(copy_size > (sizeof(woof_name)-1)) {
+		copy_size = sizeof(woof_name)-1;
+	}
+	strncpy(woof_name,str,copy_size);
+
+	/*
+	 * next frame is the number of elements
+	 */
+	frame = zmsg_next(req_msg);
+	if(frame == NULL) {
+		perror("WooFProcessGetTail: couldn't find element count in msg");
+		return;
+	}
+	el_count = atol(zframe_data(frame));
+
+
+	wf = WooFOpen(woof_name);
+	if(wf == NULL) {
+		fprintf(stderr,"WooFProcessGetTail: couldn't open %s\n",woof_name);
+		fflush(stderr);
+		el_read = 0;
+	} else {
+		el_size = wf->shared->element_size;
+		WooFFree(wf);
+	}
+
+	if(wf != NULL) {
+		ptr = malloc(el_size*el_count);
+		if(ptr == NULL) {
+			fprintf(stderr,"WooFProcessGetTail: couldn't open %s\n",woof_name);
+			fflush(stderr);
+			WooFFree(wf);
+			return;
+		}
+
+		el_read = WooFReadTail(wf,ptr,el_count);
+		WooFFree(wf);
+	}
+
+
+#ifdef DEBUG
+	printf("WooFProcessGetTail: woof_name %s read %lu elements\n",woof_name,el_read);
+	fflush(stdout);
+#endif
+
+	/*
+	 * send el_read and elements back
+	 */
+	r_msg = zmsg_new();
+	if(r_msg == NULL) {
+		perror("WooFProcessGetElSize: no reply message");
+		if(ptr != NULL) {
+			free(ptr);
+		}
+		return;
+	}
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%lu",el_read);
+	r_frame = zframe_new(buffer,strlen(buffer));
+	if(r_frame == NULL) {
+		perror("WooFProcessGetTail: no reply frame");
+		zmsg_destroy(&r_msg);
+		if(ptr != NULL) {
+			free(ptr);
+		}
+		return;
+	}
+	err = zmsg_append(r_msg,&r_frame);
+	if(err != 0) {
+		perror("WooFProcessGetTail: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		if(ptr != NULL) {
+			free(ptr);
+		}
+		return;
+	}
+
+	r_frame = zframe_new(ptr,el_read*el_size);
+	if(r_frame == NULL) {
+		perror("WooFProcessGetTail: no second reply frame");
+		zmsg_destroy(&r_msg);
+		if(ptr != NULL) {
+			free(ptr);
+		}
+		return;
+	}
+	err = zmsg_append(r_msg,&r_frame);
+	if(err != 0) {
+		perror("WooFProcessGetTail: couldn't second append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		if(ptr != NULL) {
+			free(ptr);
+		}
+		return;
+	}
+	err = zmsg_send(&r_msg,receiver);
+	if(err != 0) {
+		perror("WooFProcessGetElSize: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		if(ptr != NULL) {
+			free(ptr);
+		}
+		return;
+	}
+
+	free(ptr);
+
+	return;
+}
 
 void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 {
@@ -758,6 +912,9 @@ void *WooFMsgThread(void *arg)
 				break;
 			case WOOF_MSG_GET_EL_SIZE:
 				WooFProcessGetElSize(msg,receiver);
+				break;
+			case WOOF_MSG_GET_TAIL:
+				WooFProcessGetTail(msg,receiver);
 				break;
 			default:
 				fprintf(stderr,"WooFMsgThread: unknown tag %s\n",
@@ -1168,6 +1325,223 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	}
 		
 	return(el_size);
+}
+
+unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_size, int el_count)
+{
+	char endpoint[255];
+	char namespace[2048];
+	char ip_str[25];
+	int port;
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char buffer[255];
+	char *str;
+	int err;
+	unsigned long el_read;
+
+	memset(namespace,0,sizeof(namespace));
+	err = WooFNameSpaceFromURI(woof_name,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s no name space\n",
+			woof_name);
+		fflush(stderr);
+		return(-1);
+	}
+
+	memset(ip_str,0,sizeof(ip_str));
+	err = WooFIPAddrFromURI(woof_name,ip_str,sizeof(ip_str));
+	if(err < 0) {
+		/*
+		 * try local addr
+		 */
+		err = WooFLocalIP(ip_str,sizeof(ip_str));
+		if(err < 0) {
+			fprintf(stderr,"WooFMsgGetTail: woof: %s invalid IP address\n",
+				woof_name);
+			fflush(stderr);
+			return(-1);
+		}
+	}
+
+
+	port = WooFPortHash(namespace);
+
+	memset(endpoint,0,sizeof(endpoint));
+	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
+
+#ifdef DEBUG
+	printf("WooFMsgGetElTail: woof: %s trying enpoint %s\n",woof_name,endpoint);
+	fflush(stdout);
+#endif
+
+	msg = zmsg_new();
+	if(msg == NULL) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s no outbound msg to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: allocating msg");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s got new msg\n",woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * this is a GetTail message
+	 */
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%lu",WOOF_MSG_GET_TAIL);
+	frame = zframe_new(buffer,strlen(buffer));
+	if(frame == NULL) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s no frame for WOOF_MSG_GET_TAIL command in to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s got WOOF_MSG_GET_TAIL command frame frame\n",woof_name);
+	fflush(stdout);
+#endif
+	err = zmsg_append(msg,&frame);
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetTAIL: woof: %s can't append WOOF_MSG_GET_TAIL command frame to msg for server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: couldn't append woof_name frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+
+	/*
+	 * make a frame for the woof_name
+	 */
+	frame = zframe_new(woof_name,strlen(woof_name));
+	if(frame == NULL) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s no frame for woof_name to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s got woof_name namespace frame\n",woof_name);
+	fflush(stdout);
+#endif
+	/*
+	 * add the woof_name frame to the msg
+	 */
+	err = zmsg_append(msg,&frame);
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s can't append woof_name to frame to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: couldn't append woof_name namespace frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s added woof_name namespace to frame\n",woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame with the element count
+	 */
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%lu",el_count);
+	frame = zframe_new(buffer,strlen(buffer));
+	if(frame == NULL) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s no frame for el_count to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s got el_count frame\n",woof_name);
+	fflush(stdout);
+#endif
+	/*
+	 * add the el_count frame to the msg
+	 */
+	err = zmsg_append(msg,&frame);
+	if(err < 0) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s can't append el_count to frame to server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetTail: couldn't append woof_name namespace frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s added el_count to frame\n",woof_name);
+	fflush(stdout);
+#endif
+
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s sending message to server at %s\n",
+		woof_name, endpoint);
+	fflush(stdout);
+#endif
+
+	r_msg = ServerRequest(endpoint,msg);
+
+	if(r_msg == NULL) {
+		fprintf(stderr,"WooFMsgGetTail: woof: %s couldn't recv msg for element size from server at %s\n",
+			woof_name,endpoint);
+		perror("WooFMsgGetElSize: no response received");
+		fflush(stderr);
+		return(-1);
+	} else {
+		r_frame = zmsg_first(r_msg);
+		if(r_frame == NULL) {
+			fprintf(stderr,"WooFMsgGetTail: woof: %s no recv frame for from server at %s\n",
+				woof_name,endpoint);
+			perror("WooFMsgGetTail: no response frame");
+			zmsg_destroy(&r_msg);
+			return(-1);
+		}
+		str = zframe_data(r_frame);
+		el_read = atol(str); 
+
+		r_frame = zmsg_next(r_msg);
+		if(r_frame == NULL) {
+			fprintf(stderr,"WooFMsgGetTail: woof: %s no second recv frame for from server at %s\n",
+				woof_name,endpoint);
+			perror("WooFMsgGetTail: no response frame");
+			zmsg_destroy(&r_msg);
+			return(-1);
+		}
+		if(el_read <= el_count) {
+			memcpy(elements,zframe_data(r_frame),el_read*el_size);
+		} else {
+			memcpy(elements,zframe_data(r_frame),el_count*el_size);
+		}
+		zmsg_destroy(&r_msg);
+	}
+	
+		
+#ifdef DEBUG
+	printf("WooFMsgGetTail: woof: %s recvd size: %lu message from server at %s\n",
+		woof_name,el_size, endpoint);
+	fflush(stdout);
+
+#endif
+
+	if(el_read <= el_count) {
+		return(el_read);
+	} else {
+		return(el_count);
+	}
 }
 
 unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size)

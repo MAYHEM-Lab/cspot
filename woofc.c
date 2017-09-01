@@ -787,7 +787,7 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	return(err);
 }
 
-int WooFGetTail(WOOF *wf, void *elements, int element_count)
+int WooFReadTail(WOOF *wf, void *elements, int element_count)
 {
 	int i;
 	unsigned long ndx;
@@ -821,6 +821,90 @@ int WooFGetTail(WOOF *wf, void *elements, int element_count)
 
 	return(i);
 
+}
+
+unsigned long WooFGetTail(char *wf_name, void *elements, unsigned long element_count)
+{
+	WOOF *wf;
+	unsigned long el_size;
+	char wf_namespace[2048];
+	int err;
+	char ns_ip[25];
+	char my_ip[25];
+
+#ifdef DEBUG
+	printf("WooFGetTail: called %s\n",wf_name);
+	fflush(stdout);
+#endif
+
+
+	memset(ns_ip,0,sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
+	if(err < 0) {
+		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
+		if(err < 0) {
+			fprintf(stderr,"WooFGetTail: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip,0,sizeof(my_ip));
+	err = WooFLocalIP(my_ip,sizeof(my_ip));
+	if(err < 0) {
+		fprintf(stderr,"WooFGetTail: no local IP\n");
+		exit(1);
+	}
+
+	memset(wf_namespace,0,sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote get
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * if the name space paths do not match or they do but the IP addresses don't this
+	 * is remote
+	 *
+	 */
+	if((err >= 0) && 
+		((strcmp(WooF_namespace,wf_namespace) != 0) ||
+		 (strcmp(my_ip,ns_ip) != 0))) {
+		el_size = WooFMsgGetElSize(wf_name);
+		if(el_size != (unsigned long)-1) {
+			err = WooFMsgGetTail(wf_name,elements,el_size,element_count);
+			return(err);
+		} else {
+			fprintf(stderr,"WooFGetTail: couldn't get element size for %s\n",
+				wf_name);
+			fflush(stderr);
+			return(-1);
+		}
+	}
+
+	if(WooF_dir[0] == 0) {
+		fprintf(stderr,"WooFGetTail: must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFGetTail: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
+	fflush(stdout);
+#endif
+	wf = WooFOpen(wf_name);
+
+	if(wf == NULL) {
+		return(-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFGetTail: WooF %s open\n",wf_name);
+	fflush(stdout);
+#endif
+	err = WooFReadTail(wf,elements,element_count);
+
+	WooFFree(wf);
+	return(err);
 }
 
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
@@ -957,3 +1041,21 @@ int WooFInvalid(unsigned long seq_no)
 		return(0);
 	}
 }
+
+unsigned long WooFLatestSeqno(char *wf_name)
+{
+	WOOF *wf;
+	unsigned long seq_no;
+
+	wf = WooFOpen(wf_name);
+	if(wf == NULL) {
+		return(-1);
+	}
+
+	seq_no = wf->shared->seq_no;
+	WooFFree(wf);
+
+	return(seq_no);
+}
+
+	
