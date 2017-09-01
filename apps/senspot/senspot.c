@@ -36,7 +36,7 @@ void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 
 	ts = spt->tm.tv_sec + ((double)(spt->tm.tv_usec) / 1000000.0);
 
-	fprintf(stdout,"time: %10.10f",ts);
+	fprintf(stdout,"time: %10.10f ",ts);
 	fprintf(stdout,"%s ",spt->ip_addr);
 	fprintf(stdout,"seq_no: %lu\n",seq_no);
 	fflush(stdout);
@@ -47,6 +47,7 @@ void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 void SenspotAssign(SENSPOT *spt, char type, char *v)
 {
 	
+	spt->type = type;
 	switch(type) {
 		case 'd':
 		case 'D':

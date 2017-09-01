@@ -1822,6 +1822,10 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	unsigned long seq_no;
 	int err;
 
+	if(el_size == (unsigned long)-1) {
+		return(-1);
+	}
+
 	memset(namespace,0,sizeof(namespace));
 	err = WooFNameSpaceFromURI(woof_name,namespace,sizeof(namespace));
 	if(err < 0) {

@@ -15,7 +15,8 @@ int senspot_log(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 	SENSPOT *spt = (SENSPOT *)ptr;
 
-	fprintf(stdout,"%s recv type %c from %s and timestamp %s\n",
+	fprintf(stdout,"seq_no: %lu %s recv type %c from %s and timestamp %s\n",
+			seq_no,
 			wf->shared->filename,
 			spt->type,
 			spt->ip_addr,

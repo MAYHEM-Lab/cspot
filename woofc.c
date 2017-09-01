@@ -1125,7 +1125,7 @@ unsigned long WooFLatestSeqno(WOOF *wf)
 
 	seq_no = wf->shared->seq_no;
 
-	return(seq_no);
+	return(seq_no-1);
 }
 
 	
