@@ -8,11 +8,10 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:H:LT:"
-char *Usage = "senspot-put -W woof_name for put\n\
-\t-H handler_name\n\
+#define ARGS "W:LS:"
+char *Usage = "senspot-get -W woof_name for get\n\
 \t-L use same namespace for source and target\n\
-\t-T C data type of value read on stdin\n";
+\t-S seq_no <sequence number to get, latest if missing)\n"
 
 char Wname[4096];
 char NameSpace[4096];
@@ -21,6 +20,44 @@ char putbuf1[4096];
 char putbuf2[4096];
 
 #define MAX_RETRIES 20
+
+void Senspot-print(SENSPOT *spt, unsigned long seq_no)
+{
+	double ts;
+
+	switch(spt->type) {
+		case 'd':
+		case 'D':
+			fprintf(stdout,"%f ",spt->value.d);
+			break;
+		case 's':
+		case 'S':
+			fprintf(stdout,"%s ",spt->payload);
+			break;
+		case 'i':
+		case 'I':
+			fprintf(stdout,"%d ",spt->value.i);
+			break;
+		case 'l':
+		case 'L':
+			fprintf(stdout,"%lu ",spt->value.l);
+			break;
+		default:
+			fprintf(stdout,"unknown_senspot_type-%c ",spt->type);
+			break;
+	}
+
+	ts = spt->tm.tv_sec + ((double)(spt->tm.tv_usec) / 1000000.0);
+
+	fprintf(stdout,"time: %10.10f",ts);
+	fprintf(stdout,"%s ",spt->ip_addr);
+	fprintf(stdout,"seq_no: %lu\n",seq_no);
+	fflush(stdout);
+
+	return;
+}
+
+}
 
 int main(int argc, char **argv)
 {
@@ -33,27 +70,21 @@ int main(int argc, char **argv)
 	char *str;
 	SENSPOT spt;
 	char wname[4096];
-	char hname[4096];
-	char *handler;
+	unsigned long seq_no;
 
-	handler = NULL;
-	memset(hname,0,sizeof(hname));
 	memset(wname,0,sizeof(wname));
+	seq_no = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
 				break;
-			case 'H':
-				strncpy(hname,optarg,sizeof(hname));
-				handler = hname;
-				break;
 			case 'L':
 				UseLocal = 1;
 				break;
-			case 'T':
-				type = optarg[0];
+			case 'S':
+				seq_no = atol(optarg);
 				break;
 			default:
 				fprintf(stderr,
@@ -79,27 +110,21 @@ int main(int argc, char **argv)
 		WooFInit();
 	}
 
-	str = fgets(input_buf,sizeof(input_buf),stdin);
 
-	if(str == NULL) {
-		exit(0);
+	if(seq_no == 0) {
+		seq_no = WooFGetLatestSeqno(wname);
 	}
 
-	SENSPOT_ASSIGN(&spt,type,input_buf);
-	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
-	gettimeofday(&spt.tm,NULL);
+	err = WooFGet(wname,&spt,seq_no);
 
-	seq_no = WooFPut(wname,handler,(void *)&spt);
-
-	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"senspot-put failed for %s with handler %s type %c and cargo %s\n",
-			wname,
-			handler,
-			type,
-			input_buf);
+	if(err < 0) {
+		fprintf(stderr,"senspot-get failed for %s\n",
+			wname);
 		fflush(stderr);
 		exit(1);
 	}
+
+	Senspot-print(&spt,seq_no);
 
 
 	exit(0);

@@ -8,11 +8,9 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:H:LT:"
-char *Usage = "senspot-put -W woof_name for put\n\
-\t-H handler_name\n\
-\t-L use same namespace for source and target\n\
-\t-T C data type of value read on stdin\n";
+#define ARGS "W:s:"
+char *Usage = "senspot-init -W woof_name\n\
+\t-s (history size in number of elements)\n"
 
 char Wname[4096];
 char NameSpace[4096];
@@ -25,35 +23,21 @@ char putbuf2[4096];
 int main(int argc, char **argv)
 {
 	int c;
-	int i;
 	int err;
-	int uselocal;
-	uselocal = 0;
-	unsigned char input_buf[4096];
-	char *str;
 	SENSPOT spt;
 	char wname[4096];
-	char hname[4096];
-	char *handler;
+	unsigned long history_size;
 
-	handler = NULL;
-	memset(hname,0,sizeof(hname));
 	memset(wname,0,sizeof(wname));
+	history_size = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
 				break;
-			case 'H':
-				strncpy(hname,optarg,sizeof(hname));
-				handler = hname;
-				break;
-			case 'L':
-				UseLocal = 1;
-				break;
-			case 'T':
-				type = optarg[0];
+			case 's':
+				history_size = atol(optarg);
 				break;
 			default:
 				fprintf(stderr,
@@ -70,33 +54,27 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if(history_size == 0) {
+		fprintf(stderr,"must specify history size for target object\n");
+		fprintf(stderr,"%s",Usage);
+		fflush(stderr);
+		exit(1);
+	}
+	
+
 	if(Namelog_dir[0] != 0) {
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
 	}
 
-	if(uselocal == 1) {
-		WooFInit();
-	}
+	WooFInit();
 
-	str = fgets(input_buf,sizeof(input_buf),stdin);
+	err = WooFCreate(wname,sizeof(SENSPOT),history_size);
 
-	if(str == NULL) {
-		exit(0);
-	}
-
-	SENSPOT_ASSIGN(&spt,type,input_buf);
-	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
-	gettimeofday(&spt.tm,NULL);
-
-	seq_no = WooFPut(wname,handler,(void *)&spt);
-
-	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"senspot-put failed for %s with handler %s type %c and cargo %s\n",
+	if(err < 0) {
+		fprintf(stderr,"senspot-init failed for %s with history size %lu\n",
 			wname,
-			handler,
-			type,
-			input_buf);
+			history_size);
 		fflush(stderr);
 		exit(1);
 	}

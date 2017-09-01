@@ -3,12 +3,14 @@
 
 #include "hval.h"
 #include <string.h>
+#include <time.h>
 
 struct senspot_stc
 {
 	char type;
 	Hval value;
 	char ip_addr[25];
+	struct timeval tm;
 	unsigned char payload[1024]; // for strings
 };
 
