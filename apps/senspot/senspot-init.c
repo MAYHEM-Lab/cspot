@@ -10,7 +10,7 @@
 
 #define ARGS "W:s:"
 char *Usage = "senspot-init -W woof_name\n\
-\t-s (history size in number of elements)\n"
+\t-s (history size in number of elements)\n";
 
 char Wname[4096];
 char NameSpace[4096];

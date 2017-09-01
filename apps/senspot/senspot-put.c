@@ -28,17 +28,19 @@ int main(int argc, char **argv)
 	int i;
 	int err;
 	int uselocal;
-	uselocal = 0;
 	unsigned char input_buf[4096];
 	char *str;
 	SENSPOT spt;
 	char wname[4096];
 	char hname[4096];
 	char *handler;
+	char type;
+	unsigned long seq_no;
 
 	handler = NULL;
 	memset(hname,0,sizeof(hname));
 	memset(wname,0,sizeof(wname));
+	uselocal = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -50,7 +52,7 @@ int main(int argc, char **argv)
 				handler = hname;
 				break;
 			case 'L':
-				UseLocal = 1;
+				uselocal = 1;
 				break;
 			case 'T':
 				type = optarg[0];
@@ -85,7 +87,7 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	SENSPOT_ASSIGN(&spt,type,input_buf);
+	SenspotAssign(&spt,type,input_buf);
 	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
 	gettimeofday(&spt.tm,NULL);
 

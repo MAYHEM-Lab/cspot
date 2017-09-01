@@ -19,7 +19,7 @@ int senspot_log(WOOF *wf, unsigned long seq_no, void *ptr)
 			wf->shared->filename,
 			spt->type,
 			spt->ip_addr,
-			asctime(&spt->tm));
+			ctime(&spt->tm.tv_sec));
 	fflush(stdout);
 	return(1);
 }

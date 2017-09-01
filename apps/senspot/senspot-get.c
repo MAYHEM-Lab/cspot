@@ -11,7 +11,7 @@
 #define ARGS "W:LS:"
 char *Usage = "senspot-get -W woof_name for get\n\
 \t-L use same namespace for source and target\n\
-\t-S seq_no <sequence number to get, latest if missing)\n"
+\t-S seq_no <sequence number to get, latest if missing)\n";
 
 char Wname[4096];
 char NameSpace[4096];
@@ -21,51 +21,12 @@ char putbuf2[4096];
 
 #define MAX_RETRIES 20
 
-void Senspot-print(SENSPOT *spt, unsigned long seq_no)
-{
-	double ts;
-
-	switch(spt->type) {
-		case 'd':
-		case 'D':
-			fprintf(stdout,"%f ",spt->value.d);
-			break;
-		case 's':
-		case 'S':
-			fprintf(stdout,"%s ",spt->payload);
-			break;
-		case 'i':
-		case 'I':
-			fprintf(stdout,"%d ",spt->value.i);
-			break;
-		case 'l':
-		case 'L':
-			fprintf(stdout,"%lu ",spt->value.l);
-			break;
-		default:
-			fprintf(stdout,"unknown_senspot_type-%c ",spt->type);
-			break;
-	}
-
-	ts = spt->tm.tv_sec + ((double)(spt->tm.tv_usec) / 1000000.0);
-
-	fprintf(stdout,"time: %10.10f",ts);
-	fprintf(stdout,"%s ",spt->ip_addr);
-	fprintf(stdout,"seq_no: %lu\n",seq_no);
-	fflush(stdout);
-
-	return;
-}
-
-}
-
 int main(int argc, char **argv)
 {
 	int c;
 	int i;
 	int err;
 	int uselocal;
-	uselocal = 0;
 	unsigned char input_buf[4096];
 	char *str;
 	SENSPOT spt;
@@ -74,6 +35,7 @@ int main(int argc, char **argv)
 
 	memset(wname,0,sizeof(wname));
 	seq_no = 0;
+	uselocal = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -81,7 +43,7 @@ int main(int argc, char **argv)
 				strncpy(wname,optarg,sizeof(wname));
 				break;
 			case 'L':
-				UseLocal = 1;
+				uselocal = 1;
 				break;
 			case 'S':
 				seq_no = atol(optarg);
@@ -124,7 +86,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	Senspot-print(&spt,seq_no);
+	SenspotPrint(&spt,seq_no);
 
 
 	exit(0);
