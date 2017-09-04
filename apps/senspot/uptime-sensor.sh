@@ -1,4 +1,5 @@
 #!/bin/bash
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
 if ( test -z "$1" ) ; then
 	echo "uptime-sensor.sh must specify target woof name"
