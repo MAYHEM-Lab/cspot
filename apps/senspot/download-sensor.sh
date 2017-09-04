@@ -1,5 +1,7 @@
 #!/bin/bash
 
+HERE=/root/bin
+
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
 if ( test -z "$1" ) ; then
@@ -18,7 +20,6 @@ fi
 
 ADDR=$2
 
-HERE=`pwd`
 
 AVG=`/usr/bin/iperf3 -c $ADDR -R -p 8008 | grep receiver | awk '{print $7}'`
 

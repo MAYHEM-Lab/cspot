@@ -1,6 +1,8 @@
 #!/bin/bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
+HERE=/root/bin
+
 if ( test -z "$1" ) ; then
 	echo "upload-sensor.sh must specify target woof name"
 	echo "upload-sensor woof_name IP-addre-of-iperf3-server"
@@ -17,7 +19,6 @@ fi
 
 ADDR=$2
 
-HERE=`pwd`
 
 AVG=`/usr/bin/iperf3 -c $ADDR -p 8008 | grep receiver | awk '{print $7}'`
 
