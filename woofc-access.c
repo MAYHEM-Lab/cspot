@@ -299,6 +299,11 @@ int WooFLocalIP(char *ip_str, int len)
 	exit(1);
 }
 
+int WooFLocalName(char *woof_name, char *local_name, int len)
+{
+	return(WooFNameFromURI(woof_name,local_name,len));
+}
+
 static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 {
 	zsock_t *server;
@@ -396,6 +401,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	char *str;
 	char woof_name[2048];
 	char hand_name[2048];
+	char local_name[2048];
 	unsigned int copy_size;
 	void *element;
 	int count;
@@ -481,15 +487,27 @@ fflush(stdout);
 #endif
 
 		/*
+		 * FIX ME: in a cloud, the calling process doesn't know the publically viewable
+		 * IP address so it can't determine whether the access is local or not.
+		 *
+		 * For now, assume that all Process functions convert to a local access
+		 */
+		memset(local_name,0,sizeof(local_name));
+		err = WooFLocalName(woof_name,local_name,sizeof(local_name));
+		if(err < 0) {
+			strncpy(local_name,woof_name,sizeof(local_name));
+		}
+
+		/*
 		 * attempt to put the element into the local woof_name
 		 *
 		 * note that we could sanity check the woof_name against the local woof_name
 		 * but WooFPut does this also
 		 */
 		if(hand_name[0] != 0) {
-			seq_no = WooFPut(woof_name,hand_name,element);
+			seq_no = WooFPut(local_name,hand_name,element);
 		} else {
-			seq_no = WooFPut(woof_name,NULL,element);
+			seq_no = WooFPut(local_name,NULL,element);
 		}
 
 		free(element);
@@ -535,6 +553,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *r_frame;
 	char *str;
 	char woof_name[2048];
+	char local_name[2048];
 	unsigned int copy_size;
 	void *element;
 	unsigned el_size;
@@ -573,9 +592,20 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	strncpy(woof_name,str,copy_size);
 
-	wf = WooFOpen(woof_name);
+	/*
+	 * FIX ME: for now, make all Process requests local
+	 */
+	memset(local_name,0,sizeof(local_name));
+	err = WooFLocalName(woof_name,local_name,sizeof(local_name));
+
+	if(err < 0) {
+		wf = WooFOpen(local_name);
+	} else {
+		wf = WooFOpen(woof_name);
+	}
+
 	if(wf == NULL) {
-		fprintf(stderr,"WooFProcessGetElSize: couldn't open %s\n",woof_name);
+		fprintf(stderr,"WooFProcessGetElSize: couldn't open %s (%s)\n",local_name, woof_name);
 		fflush(stderr);
 		el_size = -1;
 	} else {
@@ -630,6 +660,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *r_frame;
 	char *str;
 	char woof_name[2048];
+	char local_name[2048];
 	unsigned int copy_size;
 	unsigned latest_seq_no;
 	char buffer[255];
@@ -667,7 +698,16 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	strncpy(woof_name,str,copy_size);
 
-	wf = WooFOpen(woof_name);
+	/*
+	 * FIX ME: for now, all process requests are local
+	 */
+	memset(local_name,0,sizeof(local_name));
+	err = WooFLocalName(woof_name,local_name,sizeof(local_name));
+	if(err < 0) {
+		wf = WooFOpen(woof_name);
+	} else {
+		wf = WooFOpen(local_name);
+	}
 	if(wf == NULL) {
 		fprintf(stderr,"WooFProcessGetLatestSeqno: couldn't open %s\n",woof_name);
 		fflush(stderr);
@@ -887,6 +927,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *r_frame;
 	char *str;
 	char woof_name[2048];
+	char local_name[2048];
 	unsigned int copy_size;
 	void *element;
 	unsigned el_size;
@@ -938,8 +979,17 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	el_count = atol(zframe_data(frame));
 
+	/*
+	 * FIX ME: for now, all process requests are local
+	 */
+	memset(local_name,0,sizeof(local_name));
+	err = WooFLocalName(woof_name,local_name,sizeof(local_name));
 
-	wf = WooFOpen(woof_name);
+	if(err < 0) {
+		wf = WooFOpen(woof_name);
+	} else {
+		wf = WooFOpen(local_name);
+	}
 	if(wf == NULL) {
 		fprintf(stderr,"WooFProcessGetTail: couldn't open %s\n",woof_name);
 		fflush(stderr);
@@ -1043,6 +1093,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	char *str;
 	char woof_name[2048];
 	char hand_name[2048];
+	char local_name[2048];
 	unsigned int copy_size;
 	void *element;
 	unsigned long el_size;
@@ -1099,9 +1150,18 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	fflush(stdout);
 #endif
 		/*
+		 * FIX ME: for now, all process requests are local
+		 */
+		memset(local_name,0,sizeof(local_name));
+		err = WooFLocalName(woof_name,local_name,sizeof(local_name));
+		/*
 		 * attempt to get the element from the local woof_name
 		 */
-		wf = WooFOpen(woof_name);
+		if(err < 0) {
+			wf = WooFOpen(woof_name);
+		} else {
+			wf = WooFOpen(local_name);
+		}
 		if(wf == NULL) {
 			fprintf(stderr,"WooFProcessGet: couldn't open woof: %s\n",
 				woof_name);
