@@ -575,7 +575,9 @@ int main(int argc, char **argv, char **envp)
 //	fclose(stdin);
 
 	CatchSignals();
+#ifndef __APPLE__
 	on_exit(CleanUpDocker,NULL);
+#endif
 
 
 	err = WooFLocalIP(Host_ip,sizeof(Host_ip));
