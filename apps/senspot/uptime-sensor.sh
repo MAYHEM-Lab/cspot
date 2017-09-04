@@ -7,6 +7,8 @@ fi
 
 WNAME=$1
 
+HERE=`pwd`
+
 LINE=`uptime`
 for WORD in $LINE ; do
 	ATEST=`echo $WORD | grep '\.'`
@@ -20,13 +22,13 @@ done
 
 if ( ! test -z "$2" ) ; then
 	if ( test "$2" = "-d" ) ; then
-		echo $AVG | senspot-put -W $WNAME -H senspot_log
-		senspot-get -W $WNAME
+		echo $AVG | $HERE/senspot-put -W $WNAME -H senspot_log -T d
+		$HERE/senspot-get -W $WNAME
 	else
-		echo $AVG | senspot-put -W $WNAME
+		echo $AVG | $HERE/senspot-put -W $WNAME -T d
 	fi
 else
-	echo $AVG | senspot-put -W $WNAME
+	echo $AVG | $HERE/senspot-put -W $WNAME -T d
 fi
 		
 		
