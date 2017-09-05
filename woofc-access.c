@@ -22,6 +22,8 @@ extern char Host_ip[25];
 
 WOOF_CACHE *WooF_cache;
 
+#define DEBUG
+
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
@@ -835,7 +837,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	}
 
 #ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s got WOOF_MSG_GET_LATEST_SEQNO command frame frame\n",woof_name);
+	printf("WooFMsgGetLatestSeqno: woof: %s got WOOF_MSG_GET_LATEST_SEQNO (%s) command frame frame\n",woof_name, buffer);
 	fflush(stdout);
 #endif
 	err = zmsg_append(msg,&frame);
