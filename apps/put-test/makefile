@@ -21,10 +21,11 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 HAND1=recv_start
 HAND2=recv
 HAND3=null_handler
+HAND4=invoke_handler
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: bw-test put-test recv-init ${HAND1} ${HAND2} ${HAND3}
+all: bw-test put-test recv-init invoke-test ${HAND1} ${HAND2} ${HAND3} ${HAND4}
 
 put-test: put-test.c put-test.h
 	${CC} ${CFLAGS} -o put-test put-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -35,6 +36,11 @@ bw-test: bw-test.c put-test.h
 	${CC} ${CFLAGS} -o bw-test bw-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp bw-test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp bw-test ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
+invoke-test: invoke-test.c
+	${CC} ${CFLAGS} -o invoke-test invoke-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp invoke-test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp invoke-test ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 recv-init: recv-init.c put-test.h
 	${CC} ${CFLAGS} -o recv-init recv-init.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -62,6 +68,13 @@ ${HAND3}: put-test.h ${HAND3}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SL
 	mkdir -p cspot; cp ${HAND3} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND3} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
+${HAND4}: ${HAND4}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/${HAND4}/g' ${SHEP_SRC} > ${HAND4}_shepherd.c
+	${CC} ${CFLAGS} -c ${HAND4}_shepherd.c -o ${HAND4}_shepherd.o
+	${CC} ${CFLAGS} -o ${HAND4} ${HAND4}.c ${HAND4}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp ${HAND4} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp ${HAND4} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
 clean:
-	rm -f recv-init put-test bw-test *.o ${HAND1} ${HAND2} ${HAND3}
+	rm -f recv-init put-test bw-test *.o ${HAND1} ${HAND2} ${HAND4}
 
