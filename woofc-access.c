@@ -22,7 +22,6 @@ extern char Host_ip[25];
 
 WOOF_CACHE *WooF_cache;
 
-#define DEBUG
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
@@ -1263,7 +1262,7 @@ void *WooFMsgThread(void *arg)
 	zmsg_t *msg;
 	zmsg_t *r_msg;
 	zframe_t *frame;
-	unsigned int tag;
+	unsigned long tag;
 	char *str;
 	int err;
 
@@ -1305,7 +1304,8 @@ void *WooFMsgThread(void *arg)
 		 * tag in the first frame
 		 */
 		str = (char *)zframe_data(frame);
-		tag = atoi(str);
+		str[1] = 0;
+		tag = atol(str);
 #ifdef DEBUG
 	printf("WooFMsgThread: processing msg with tag: %d\n",tag);
 	fflush(stdout);
@@ -1347,7 +1347,6 @@ void *WooFMsgThread(void *arg)
 	pthread_exit(NULL);
 }
 		
-
 int WooFMsgServer (char *namespace)
 {
 
