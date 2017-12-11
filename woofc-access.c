@@ -261,6 +261,36 @@ int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
 	
 }
 
+int WooFPortFromURI(char *woof_uri_str, int *woof_port)
+{
+	struct URI *uri;
+	int err;
+
+	if(!WooFValidURI(woof_uri_str)) { 
+		return(-1);
+	}
+
+	uri = uri_parse(woof_uri_str);
+	if(uri == NULL) {
+		return(-1);
+	}
+
+	if(uri->port == 0) {
+		free(uri);
+		return(-1);
+	}
+
+	if(uri->port == -1) {
+		free(uri);
+		return(-1);
+	}
+
+	*woof_port = (int)uri->port;
+
+	free(uri);
+	return(1);
+	
+}
 int WooFLocalIP(char *ip_str, int len)
 {
 	struct ifaddrs *addrs;
@@ -797,7 +827,10 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	}
 
 
-	port = WooFPortHash(namespace);
+	err = WooFPortFromURI(woof_name,&port);
+	if(err < 0) {
+		port = WooFPortHash(namespace);
+	}
 
 	memset(endpoint,0,sizeof(endpoint));
 	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
@@ -1378,6 +1411,7 @@ int WooFMsgServer (char *namespace)
 	 * set up the front end router socket
 	 */
 	memset(endpoint,0,sizeof(endpoint));
+	
 	port = WooFPortHash(namespace);
 
 	/*
@@ -1507,7 +1541,10 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	}
 
 
-	port = WooFPortHash(namespace);
+	err = WooFPortFromURI(woof_name,&port);
+	if(err < 0) {
+		port = WooFPortHash(namespace);
+	}
 
 	memset(endpoint,0,sizeof(endpoint));
 	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
@@ -1690,7 +1727,10 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	}
 
 
-	port = WooFPortHash(namespace);
+	err = WooFPortFromURI(woof_name,&port);
+	if(err < 0) {
+		port = WooFPortHash(namespace);
+	}
 
 	memset(endpoint,0,sizeof(endpoint));
 	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
@@ -1912,7 +1952,10 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		}
 	}
 
-	port = WooFPortHash(namespace);
+	err = WooFPortFromURI(woof_name,&port);
+	if(err < 0) {
+		port = WooFPortHash(namespace);
+	}
 
 	memset(endpoint,0,sizeof(endpoint));
 	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
@@ -2148,7 +2191,10 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 		}
 	}
 
-	port = WooFPortHash(namespace);
+	err = WooFPortFromURI(woof_name,&port);
+	if(err < 0) {
+		port = WooFPortHash(namespace);
+	}
 
 	memset(endpoint,0,sizeof(endpoint));
 	sprintf(endpoint,">tcp://%s:%d",ip_str,port);
