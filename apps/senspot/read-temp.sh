@@ -44,7 +44,7 @@ while ( test $CNT -lt $READINGS ) ; do
                         fi
 
 		else
-			NOW=`date "+s"`
+			NOW=`date "+%s"`
 			NSIZE=`echo $NOW | wc | awk '{print $3}'`
                         if ( test $TSIZE -ne $NSIZE ) ; then
                                 DT=`date --date @$NOW`
@@ -75,7 +75,7 @@ while ( test $CNT -lt $READINGS ) ; do
                                 DT=`date -r $TIME`
                         fi
 		else
-			NOW=`date "+s"`
+			NOW=`date "+%s"`
 			NSIZE=`echo $NOW | wc | awk '{print $3}'`
                         if ( test $TSIZE -ne $NSIZE ) ; then
                                 DT=`date --date @$NOW`
