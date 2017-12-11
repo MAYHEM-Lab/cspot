@@ -30,10 +30,29 @@ while ( test $CNT -lt $READINGS ) ; do
 		LINE=`$HERE/senspot-get -W $WNAME`
 		SEQNO=`echo $LINE | awk '{print $6}'`
 		TIME=`echo $LINE | awk '{print $3}' | sed 's/\./ /' | awk '{print $1}'`
+		TSIZE=`echo $TIME | wc | awk '{print $3}'`
 		if ( test -z "$ISLINUX" ) ; then
-			DT=`date -r $TIME`
+			ODATE=`date`
+			NOW=`date -j -f "%a %b %d %T %Z %Y" "$ODATE" +"%s"`
+			NSIZE=`echo $NOW | wc | awk '{print $3}'`
+                        if( test $TSIZE -ne $NSIZE ) ; then
+                                DT=`date -r $NOW`
+				NLINE=`echo ${LINE/$TIME/$NOW}`
+				LINE=$NLINE
+                        else
+                                DT=`date -r $TIME`
+                        fi
+
 		else
-			DT=`date --date @$TIME`
+			NOW=`date "+s"`
+			NSIZE=`echo $NOW | wc | awk '{print $3}'`
+                        if ( test $TSIZE -ne $NSIZE ) ; then
+                                DT=`date --date @$NOW`
+				NLINE=`echo ${LINE/$TIME/$NOW}`
+				LINE=$NLINE
+                        else
+                                DT=`date --date @$TIME`
+                        fi
 		fi
 		echo $LINE "--" $DT
 	else
@@ -43,10 +62,28 @@ while ( test $CNT -lt $READINGS ) ; do
 		fi
 		LINE=`$HERE/senspot-get -W $WNAME -S $SEQNO`
 		TIME=`echo $LINE | awk '{print $3}' | sed 's/\./ /' | awk '{print $1}'`
+		TSIZE=`echo $TIME | wc | awk '{print $3}'`
 		if ( test -z "$ISLINUX" ) ; then
-			DT=`date -r $TIME`
+			ODATE=`date`
+			NOW=`date -j -f "%a %b %d %T %Z %Y" "$ODATE" +"%s"`
+			NSIZE=`echo $NOW | wc | awk '{print $3}'`
+                        if( test $TSIZE -ne $NSIZE ) ; then
+                                DT=`date -r $NOW`
+				NLINE=`echo ${LINE/$TIME/$NOW}`
+				LINE=$NLINE
+                        else
+                                DT=`date -r $TIME`
+                        fi
 		else
-			DT=`date --date @$TIME`
+			NOW=`date "+s"`
+			NSIZE=`echo $NOW | wc | awk '{print $3}'`
+                        if ( test $TSIZE -ne $NSIZE ) ; then
+                                DT=`date --date @$NOW`
+				NLINE=`echo ${LINE/$TIME/$NOW}`
+				LINE=$NLINE
+                        else
+                                DT=`date --date @$TIME`
+                        fi
 		fi
 		echo $LINE "--" $DT
 	fi
