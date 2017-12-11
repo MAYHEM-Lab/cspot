@@ -1,5 +1,6 @@
 #!/bin/bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+DISTRO="debian"
 
 HERE=/root/bin
 
@@ -10,8 +11,11 @@ fi
 
 WNAME=$1
 
-TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
-
+if ( test "$DISTRO" == "debian" ) ; then
+	TEMP=`/opt/vc/bin/vcgencmd measure_temp | sed 's/temp=//' | awk -F "'"  '{print ($1*9/5)+32}'`
+else
+	TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
+fi
 
 ## second argument can be "-d" for debugging
 
