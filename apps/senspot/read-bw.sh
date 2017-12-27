@@ -31,9 +31,21 @@ while ( test $CNT -lt $READINGS ) ; do
 		SEQNO=`echo $LINE | awk '{print $6}'`
 		TIME=`echo $LINE | awk '{print $3}' | sed 's/\./ /' | awk '{print $1}'`
 		if ( test -z "$ISLINUX" ) ; then
-			DT=`date -r $TIME`
+			NOW=`date "+%s"`
+			NTEST=$(($NOW+3600))
+			if( test $TIME -gt $NTEST ) ; then
+				DT=$NOW
+			else
+				DT=`date -r $TIME`
+			fi
 		else
-			DT=`date --date @$TIME`
+			NOW=`date -j -f "%a %b %d %T %Z %Y" "`date`" +"%s"`
+			NTEST=$(($NOW+3600))
+			if ( test $TIME -gt $NTEST ) ; then
+				DT=$NOW
+			else
+				DT=`date --date @$TIME`
+			fi
 		fi
 		echo $LINE "--" $DT
 	else
