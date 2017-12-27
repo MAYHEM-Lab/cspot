@@ -1,6 +1,7 @@
 #!/bin/bash
 
 HERE=/root/bin
+BIN=/usr/bin
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
@@ -20,8 +21,30 @@ fi
 
 ADDR=$2
 
+OUTLINE=`$BIN/iperf3 -c $ADDR -p 8008 | grep receiver`
 
-AVG=`/usr/bin/iperf3 -c $ADDR -R -p 8008 | grep receiver | awk '{print $7}'`
+CNT=0
+MAX=6
+while ( test -z "$OUTLINE" ) ; do
+        sleep 10
+        OUTLINE=`$BIN/iperf3 -c $ADDR -p 8008 | grep receiver`
+        CNT=$(($CNT+1))
+        if ( test $CNT -ge $MAX ) ; then
+                break;
+        fi
+done
+
+
+AVG=`echo $OUTLINE | awk '{print $7}'`
+UNITS=`echo $OUTLINE | awk '{print $8}'`
+
+# units have to be megabits
+
+if ( test "$UNITS" = "Kbits/sec" ) ; then
+        NAVG=`echo $AVG | awk '{print $1 / 1000.0}'`
+        AVG=$NAVG
+fi
+
 
 ## third argument can be "-d" for debugging
 
