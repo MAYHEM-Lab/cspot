@@ -51,7 +51,8 @@ void SenspotAssign(SENSPOT *spt, char type, char *v)
 	switch(type) {
 		case 'd':
 		case 'D':
-			spt->value.d = atof(v);
+//			spt->value.d = atof(v);
+			spt->value.d = strtod((char *)v,NULL);
 			break;
 		case 's':
 		case 'S':

@@ -81,6 +81,7 @@ int main(int argc, char **argv)
 		WooFInit();
 	}
 
+	memset(input_buf,0,sizeof(input_buf));
 	str = fgets(input_buf,sizeof(input_buf),stdin);
 
 	if(str == NULL) {
