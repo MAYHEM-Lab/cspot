@@ -20,7 +20,6 @@ mkdir -p /src
 cd /src
 git clone git://github.com/zeromq/czmq.git
 cd czmq
-./autogen.sh && ./configure && make check
-make
+./autogen.sh && ./configure && make
 make install
 ldconfig
