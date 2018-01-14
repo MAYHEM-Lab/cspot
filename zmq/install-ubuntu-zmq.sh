@@ -15,6 +15,7 @@ ldconfig
 
 cd ..
 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 mkdir -p /src
 cd /src
 git clone git://github.com/zeromq/czmq.git
@@ -23,4 +24,3 @@ cd czmq
 make
 make install
 ldconfig
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
