@@ -1,6 +1,5 @@
 #!/bin/bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-DISTRO="debian"
 
 HERE=/root/bin
 
@@ -9,13 +8,17 @@ if ( test -z "$1" ) ; then
 	exit 1
 fi
 
+DISTRO="debian"
+
 WNAME=$1
 
 if ( test "$DISTRO" == "debian" ) ; then
-	TEMP=`/opt/vc/bin/vcgencmd measure_temp | sed 's/temp=//' | awk -F "'"  '{print ($1*9/5)+32}'`
+        TEMP1=`/opt/vc/bin/vcgencmd measure_temp | sed 's/temp=//' | awk -F "'"  '{print ($1*9/5)+32}'`
+        TEMP=`cat /sys/class/thermal/thermal_zone0/temp | awk '{print (($1/1000)*9/5)+32}'`
 else
-	TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
+        TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
 fi
+
 
 ## second argument can be "-d" for debugging
 
