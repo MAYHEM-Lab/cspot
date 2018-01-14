@@ -9,8 +9,9 @@ apt-get -y install checkinstall
 
 ./configure
 make
-sudo checkinstall
-sudo ldconfig
+make install
+checkinstall
+ldconfig
 
 cd ..
 
@@ -19,6 +20,7 @@ cd /src
 git clone git://github.com/zeromq/czmq.git
 cd czmq
 ./autogen.sh && ./configure && make check
+make
 make install
 ldconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
