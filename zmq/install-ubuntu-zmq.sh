@@ -1,8 +1,8 @@
 #!/bin/bash
 
 wget https://github.com/zeromq/libzmq/releases/download/v4.2.1/zeromq-4.2.1.tar.gz
-cd zeromq-4.2.1/
 tar -xvzf zeromq-4.2.1.tar.gz
+cd zeromq-4.2.1/
 
 sudo apt-get install libtool pkg-config build-essential autoconf automake uuid-dev
 sudo apt-get install checkinstall
