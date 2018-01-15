@@ -12,6 +12,8 @@ struct senspot_stc
 	char ip_addr[25];
 	unsigned int tv_sec;
 	unsigned int tv_usec;
+	unsigned int pad_1;
+	unsigned int pad_2;
 	unsigned char payload[1024]; // for strings
 };
 

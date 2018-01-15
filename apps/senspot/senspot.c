@@ -8,10 +8,24 @@
 #include "woofc.h"
 #include "senspot.h"
 
+/**
+ * HACK
+ *
+ * The original code puts a struct timeval in the payload.  On 32 bit machine
+ * (Rpi) this does not decode properly when get runs on 64 bit machine.  The
+ * fix is to put htonl() and ntohl() in explictly, but then "old" woofs don't
+ * work
+ *
+ * This hack let's old 64-bit woofs work with new 32/64 bit code
+ **/
+#define BADTIME (1516047601.0 + (100.0 * 365.0 * 86400.0))
+#define NBADTIME (1516047601.0 - (365.0 * 86400.0))
+
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 {
 	double ts;
 	struct timeval tm;
+	struct timeval *ptm;
 
 	switch(spt->type) {
 		case 'd':
@@ -38,6 +52,14 @@ void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 	tm.tv_sec = (unsigned long)ntohl(spt->tv_sec);
 	tm.tv_usec = (unsigned long)ntohl(spt->tv_usec);
 	ts = (double)((unsigned long)tm.tv_sec) + ((double)((unsigned long)tm.tv_usec) / 1000000.0);
+printf("ts: %f\n",ts);
+	if(!((ts < (double)BADTIME) && (ts > (double)NBADTIME))) {
+		ptm = (struct timeval *)&(spt->tv_usec);
+		tm.tv_sec = ptm->tv_sec;
+		tm.tv_usec = ptm->tv_usec;
+		ts = (double)((unsigned long)tm.tv_sec) + ((double)((unsigned long)tm.tv_usec) / 1000000.0);
+printf("bad: %f, ts: %f\n",(double)BADTIME,ts);
+	}
 
 	fprintf(stdout,"time: %10.10f ",ts);
 	fprintf(stdout,"%s ",spt->ip_addr);
