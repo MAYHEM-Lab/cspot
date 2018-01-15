@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-#include <time.h>
+#include <sys/time.h>
 
 #include "woofc.h"
 #include "senspot.h"
@@ -11,6 +11,7 @@
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 {
 	double ts;
+	struct timeval tm;
 
 	switch(spt->type) {
 		case 'd':
@@ -34,7 +35,9 @@ void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 			break;
 	}
 
-	ts = spt->tm.tv_sec + ((double)(spt->tm.tv_usec) / 1000000.0);
+	tm.tv_sec = ntohl(spt->tm.tv_sec);
+	tm.tv_usec = ntohl(spt->tm.tv_usec);
+	ts = (double)((unsigned long)tm.tv_sec) + ((double)((unsigned long)tm.tv_usec) / 1000000.0);
 
 	fprintf(stdout,"time: %10.10f ",ts);
 	fprintf(stdout,"%s ",spt->ip_addr);
