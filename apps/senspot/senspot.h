@@ -10,7 +10,8 @@ struct senspot_stc
 	char type;
 	Hval value;
 	char ip_addr[25];
-	struct timeval tm;
+	unsigned int tv_sec;
+	unsigned int tv_usec;
 	unsigned char payload[1024]; // for strings
 };
 

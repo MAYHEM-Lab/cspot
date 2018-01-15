@@ -36,6 +36,7 @@ int main(int argc, char **argv)
 	char *handler;
 	char type;
 	unsigned long seq_no;
+	struct timeval tm;
 
 	handler = NULL;
 	memset(hname,0,sizeof(hname));
@@ -90,7 +91,9 @@ int main(int argc, char **argv)
 
 	SenspotAssign(&spt,type,input_buf);
 	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
-	gettimeofday(&spt.tm,NULL);
+	gettimeofday(&tm,NULL);
+	spt.tv_sec = htonl(tm.tv_sec);
+	spt.tv_usec = htonl(tm.tv_usec);
 
 	seq_no = WooFPut(wname,handler,(void *)&spt);
 
