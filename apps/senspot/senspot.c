@@ -52,13 +52,11 @@ void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 	tm.tv_sec = (unsigned long)ntohl(spt->tv_sec);
 	tm.tv_usec = (unsigned long)ntohl(spt->tv_usec);
 	ts = (double)((unsigned long)tm.tv_sec) + ((double)((unsigned long)tm.tv_usec) / 1000000.0);
-printf("ts: %f\n",ts);
 	if(!((ts < (double)BADTIME) && (ts > (double)NBADTIME))) {
 		ptm = (struct timeval *)&(spt->tv_usec);
 		tm.tv_sec = ptm->tv_sec;
 		tm.tv_usec = ptm->tv_usec;
 		ts = (double)((unsigned long)tm.tv_sec) + ((double)((unsigned long)tm.tv_usec) / 1000000.0);
-printf("bad: %f, ts: %f\n",(double)BADTIME,ts);
 	}
 
 	fprintf(stdout,"time: %10.10f ",ts);
