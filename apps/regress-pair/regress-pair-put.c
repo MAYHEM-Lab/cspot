@@ -32,7 +32,6 @@ int main(int argc, char **argv)
 	char *str;
 	REGRESSVAL rv;
 	char wname[4096];
-	char sname[4096+64];
 	char type;
 	char series_type;
 	unsigned long seq_no;
@@ -76,12 +75,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(series_type == 'm') {
-		MAKE_EXTENDED_NAME(sname,wname,"measured");
-	} else {
-		MAKE_EXTENDED_NAME(sname,wname,"predicted");
-	}
-
 	if(Namelog_dir[0] != 0) {
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
@@ -100,6 +93,7 @@ int main(int argc, char **argv)
 	memset(&rv,0,sizeof(rv));
 
 	strncpy(rv.woof_name,wname,sizeof(rv.woof_name));
+	rv.series_type = series_type;
 
 	/*
 	 * value needs to be a number
@@ -113,7 +107,7 @@ int main(int argc, char **argv)
 	rv.tv_sec = htonl(tm.tv_sec);
 	rv.tv_usec = htonl(tm.tv_usec);
 
-	seq_no = WooFPut(sname,"RegressPairReqHandler",(void *)&rv);
+	seq_no = WooFPut(wname,"RegressPairReqHandler",(void *)&rv);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"request-pair-put failed for %s with handler %s type %c and cargo %s\n",

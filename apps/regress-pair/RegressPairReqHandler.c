@@ -11,6 +11,10 @@
 
 #include "woofc.h"
 
+FILE *fd;
+
+#define DEBUG
+
 /*
  * dispatches incoming data
  */
@@ -20,7 +24,15 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	char target_name[4096+64];
 	unsigned long seq_no;
 
-	if(rv->series_type == MEASURED) {
+#ifdef DEBUG
+	fd = fopen("/cspot/req-handler.log","a+");
+	fprintf(fd,"RegressPairReqHandler called on woof %s, type %c\n",
+		rv->woof_name,rv->series_type);
+	fflush(fd);
+	fclose(fd);
+#endif	
+
+	if(rv->series_type == 'm') {
 		MAKE_EXTENDED_NAME(target_name,rv->woof_name,"measured");
 		seq_no = WooFPut(target_name,
 				 NULL, /* no handler for measurement */
@@ -31,7 +43,7 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		}
 	}
 
-	if(rv->series_type == PREDICTED) {
+	if(rv->series_type == 'p') {
 		MAKE_EXTENDED_NAME(target_name,rv->woof_name,"predicted");
 		seq_no = WooFPut(target_name,
 				 "RegressPairPredictedHandler",

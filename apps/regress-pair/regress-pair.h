@@ -29,10 +29,6 @@ struct regress_value_stc
 typedef struct regress_index_stc REGRESSINDEX;
 typedef struct regress_value_stc REGRESSVAL;
 
-#define MEASURED (1)
-#define PREDICTED (2)
-#define RESULT (3)
-
 #define MAKE_EXTENDED_NAME(ename,wname,str) {\
         memset(ename,0,sizeof(ename));\
         sprintf(ename,"%s.%s",wname,str);\

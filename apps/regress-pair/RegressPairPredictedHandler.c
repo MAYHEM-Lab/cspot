@@ -12,6 +12,10 @@
 
 #include "woofc.h"
 
+FILE *fd;
+
+#define DEBUG
+
 double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 {
 	double *matches;
@@ -211,6 +215,14 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	int err;
 	struct timeval tm;
 
+#ifdef DEBUG
+        fd = fopen("/cspot/pred-handler.log","a+");
+        fprintf(fd,"RegressPairPredictedHandler called on woof %s, type %c\n",
+                rv->woof_name,rv->series_type);
+        fflush(fd);
+        fclose(fd);
+#endif  
+
 	MAKE_EXTENDED_NAME(index_name,rv->woof_name,"index");
 	MAKE_EXTENDED_NAME(measured_name,rv->woof_name,"measured");
 	MAKE_EXTENDED_NAME(predicted_name,rv->woof_name,"predicted");
@@ -218,7 +230,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 
 
 	memcpy(result_rv.woof_name,rv->woof_name,sizeof(result_rv.woof_name));
-	result_rv.series_type = RESULT;
+	result_rv.series_type = 'r';
 
 	/*
 	 * get the count back from the index
