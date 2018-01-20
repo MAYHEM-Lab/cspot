@@ -798,7 +798,7 @@ unsigned long WooFGetLatestSeqno(char *wf_name)
 	char my_ip[25];
 
 #ifdef DEBUG
-	printf("WooFGetLatestSeqno: called %s %lu\n",wf_name,seq_no);
+	printf("WooFGetLatestSeqno: called %s\n",wf_name);
 	fflush(stdout);
 #endif
 
