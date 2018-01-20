@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 	seq_no = WooFPut(index_name,NULL,(void *)&ri);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"regress-pair-init: couldn't write index\n");
-		fflusgh(stderr);
+		fflush(stderr);
 	}
 	
 

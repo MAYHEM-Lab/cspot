@@ -6,6 +6,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/time.h>
 
 #include "regress-pair.h"
 
@@ -34,7 +35,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 
 	memset(matches,0,count_back * sizeof(double) * 2);
 
-	m_seq_no = WooFLatestSeqNo(measured_name);
+	m_seq_no = WooFGetLatestSeqno(measured_name);
 	if(WooFInvalid(m_seq_no)) {
 		fprintf(stderr,"no latest seq no in %s\n",
 			measured_name);
@@ -42,7 +43,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 		free(matches);
 		return(NULL);
 	}
-	p_seq_no = WooFLatestSeqNo(predicted_name);
+	p_seq_no = WooFGetLatestSeqno(predicted_name);
 	if(WooFInvalid(m_seq_no)) {
 		fprintf(stderr,"no latest seq no in %s\n",
 			predicted_name);
@@ -72,7 +73,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 	count = count_back;
 	err = WooFGet(predicted_name,(void *)&p_rv,(p_seq_no - count));
 	if(err < 0) {
-		fprintf(stderr,"couldn't get earliest at %d in %s\n",
+		fprintf(stderr,"couldn't get earliest at %lu in %s\n",
 			p_seq_no-count,predicted_name);
 		fflush(stderr);
 		free(matches);
@@ -85,9 +86,9 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 	 */
 	seq_no = m_seq_no;
 	while((int)seq_no >= 0) {
-		err = WooFGet(measured_series,(void *)&m_rv,seq_no);
+		err = WooFGet(measured_name,(void *)&m_rv,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get measured at %d in %s\n",
+			fprintf(stderr,"couldn't get measured at %lu in %s\n",
 				seq_no,measured_name);
 			fflush(stderr);
 			free(matches);
@@ -113,11 +114,10 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 	/*
 	 * now bracket the earliest entry
 	 */
-	last_seq_no = seq_no;
 	seq_no++;
-	err = WooFGet(measured_name,(void *)next_rv,seq_no);
+	err = WooFGet(measured_name,(void *)&next_rv,seq_no);
 	if(err < 0) {
-		fprintf(stderr,"couldn't get next rv from %s at %d\n",
+		fprintf(stderr,"couldn't get next rv from %s at %lu\n",
 				measured_name,seq_no);
 		fflush(stderr);
 		free(matches);
@@ -139,7 +139,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 		count--;
 		err = WooFGet(predicted_name,(void *)&p_rv,(p_seq_no - count));
 		if(err < 0) {
-			fprintf(stderr,"couldn't get current at %d in %s\n",
+			fprintf(stderr,"couldn't get current at %lu in %s\n",
 			p_seq_no-count,predicted_name);
 			fflush(stderr);
 			free(matches);
@@ -147,12 +147,11 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 		}
 		p_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
 		
-		last_seq_no = seq_no;
 		memcpy(&m_rv,&next_rv,sizeof(m_rv));
 		seq_no++;
-		err = WooFGet(measured_name,(void *)next_rv,seq_no);
+		err = WooFGet(measured_name,(void *)&next_rv,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get next in rv from %s at %d\n",
+			fprintf(stderr,"couldn't get next in rv from %s at %lu\n",
 				measured_name,seq_no);
 			fflush(stderr);
 			free(matches);
@@ -161,15 +160,14 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 		next_ts = (double)ntohl(next_rv.tv_sec)+(double)(ntohl(next_rv.tv_usec) / 1000000.0);
 		m_ts = (double)ntohl(m_rv.tv_sec)+(double)(ntohl(m_rv.tv_usec) / 1000000.0);
 		while(next_ts < p_ts) {
-			last_seq_no = seq_no;
 			memcpy(&m_rv,&next_rv,sizeof(m_rv));
 			seq_no++;
 			if(seq_no > m_seq_no) {
 				break;
 			}
-			err = WooFGet(measured_name,(void *)next_rv,seq_no);
+			err = WooFGet(measured_name,(void *)&next_rv,seq_no);
 			if(err < 0) {
-				fprintf(stderr,"couldn't get next loop rv from %s at %d\n",
+				fprintf(stderr,"couldn't get next loop rv from %s at %lu\n",
 				measured_name,seq_no);
 				fflush(stderr);
 				free(matches);
@@ -211,6 +209,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	double m;
 	int i;
 	int err;
+	struct timeval tm;
 
 	MAKE_EXTENDED_NAME(index_name,rv->woof_name,"index");
 	MAKE_EXTENDED_NAME(measured_name,rv->woof_name,"measured");
@@ -223,16 +222,16 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	/*
 	 * get the count back from the index
 	 */
-	seq_no = WooFGetLatestSeqno(wname); 
+	seq_no = WooFGetLatestSeqno(index_name); 
 
-	err = WooFGet(index_name,seq_no,&ri);
+	err = WooFGet(index_name,(void *)&ri,seq_no);
 	if(err < 0) {
 		fprintf(stderr,
 			"RegressPairPredictedHandler couldn't get count back from %s\n",index_name);
 		return(-1);
 	}
 
-	matches = ComputeMatchces(predicted_name,measured_name,rv.count_back);
+	matches = ComputeMatchces(predicted_name,measured_name,ri.count_back);
 
 	if(matches == NULL) {
 		fprintf(stderr,"couldn't compute matches from %s and %s\n",
@@ -250,7 +249,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		result_rv.tv_usec = htonl(tm.tv_usec);
 		result_rv.type = 'd';
 		result_rv.value.d = (p - m); /* diff for testing */
-		seq_no = WooFPut(result_name,NULL,(void *)result_rv);
+		seq_no = WooFPut(result_name,NULL,(void *)&result_rv);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,
 				"RegressPairPredictedHandler: couldn't put result to %s\n",result_name);

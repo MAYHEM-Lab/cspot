@@ -29,7 +29,7 @@ struct regress_value_stc
 typedef struct regress_index_stc REGRESSINDEX;
 typedef struct regress_value_stc REGRESSVAL;
 
-#define MEASUREMENT (1)
+#define MEASURED (1)
 #define PREDICTED (2)
 
 #define MAKE_EXTENDED_NAME(ename,wname,str) {\
