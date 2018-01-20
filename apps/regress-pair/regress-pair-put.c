@@ -9,9 +9,9 @@
 #include "woofc-access.h"
 #include "regress-pair.h"
 
-#define ARGS "W:S:LT:"
+#define ARGS "W:s:LT:"
 char *Usage = "senspot-put -W woof_name for put\n\
-\t-S series type ('m' measured or 'p' predicted)\n\
+\t-s series type ('m' measured or 'p' predicted)\n\
 \t-L use same namespace for source and target\n\
 \t-T C data type of value read on stdin\n";
 
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
 				break;
-			case 'S':
+			case 's':
 				series_type = optarg[0];
 				break;
 			case 'L':

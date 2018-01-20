@@ -23,12 +23,17 @@ HAND2=RegressPairPredictedHandler
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: regress-pair-put regress-pair-init ${HAND1} ${HAND2}
+all: regress-pair-put regress-pair-get regress-pair-init ${HAND1} ${HAND2}
 
 regress-pair-put: regress-pair-put.c regress-pair.h
 	${CC} ${CFLAGS} -o regress-pair-put regress-pair-put.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp regress-pair-put ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp regress-pair-put ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
+regress-pair-get: regress-pair-get.c regress-pair.h
+	${CC} ${CFLAGS} -o regress-pair-get regress-pair-get.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp regress-pair-get ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp regress-pair-get ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 regress-pair-init: regress-pair-init.c regress-pair.h
 	${CC} ${CFLAGS} -o regress-pair-init regress-pair-init.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
