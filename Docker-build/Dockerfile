@@ -16,5 +16,5 @@ RUN mkdir -p src
 WORKDIR /root/src
 RUN git clone git://github.com/zeromq/czmq.git
 WORKDIR /root/src/czmq
-RUN ./autogen.sh && ./configure && make check && make install && ldconfig
+RUN ./autogen.sh && ./configure && make && make install && ldconfig
 WORKDIR /
