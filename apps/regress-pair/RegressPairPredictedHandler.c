@@ -14,9 +14,9 @@
 
 FILE *fd;
 
-#define DEBUG
 
-double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
+double *ComputeMatchces(char *predicted_name,char *measured_name,
+		int count_back, int *r_count_back)
 {
 	double *matches;
 	int i;
@@ -57,8 +57,8 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 	}
 
 	if((int)(p_seq_no - count_back) < 0) {
-		fprintf(stderr,"not enough history for %d countback in %s\n",
-			count_back,predicted_name);
+		fprintf(stderr,"not enough history for %d countback in %s, seq_no: %lu\n",
+			count_back,predicted_name,p_seq_no);
 		fflush(stderr);
 		free(matches);
 		return(NULL);
@@ -140,6 +140,9 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 		}
 		
 		i++;
+		if(i >= count_back) {
+			break;
+		}
 		count--;
 		err = WooFGet(predicted_name,(void *)&p_rv,(p_seq_no - count));
 		if(err < 0) {
@@ -155,11 +158,8 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 		seq_no++;
 		err = WooFGet(measured_name,(void *)&next_rv,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get next in rv from %s at %lu\n",
-				measured_name,seq_no);
-			fflush(stderr);
-			free(matches);
-			return(NULL);
+			*r_count_back = i;
+			return(matches);
 		}
 		next_ts = (double)ntohl(next_rv.tv_sec)+(double)(ntohl(next_rv.tv_usec) / 1000000.0);
 		m_ts = (double)ntohl(m_rv.tv_sec)+(double)(ntohl(m_rv.tv_usec) / 1000000.0);
@@ -167,6 +167,8 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 			memcpy(&m_rv,&next_rv,sizeof(m_rv));
 			seq_no++;
 			if(seq_no > m_seq_no) {
+				matches[i*2+0] = p_rv.value.d;
+				matches[i*2+1] = m_rv.value.d;
 				break;
 			}
 			err = WooFGet(measured_name,(void *)&next_rv,seq_no);
@@ -180,16 +182,9 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,int count_back)
 			next_ts = (double)ntohl(next_rv.tv_sec)+(double)(ntohl(next_rv.tv_usec) / 1000000.0);
 			m_ts = (double)ntohl(m_rv.tv_sec)+(double)(ntohl(m_rv.tv_usec) / 1000000.0);
 		}
-		/*
-		 * end case
-		 */
-		if((next_ts < p_ts) && (count == 0)) {
-			matches[i*2+0] = p_rv.value.d;
-			matches[i*2+1] = m_rv.value.d;
-		}
-			
 	}
 
+	*r_count_back = i;
 	return(matches);
 			
 }
@@ -244,7 +239,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return(-1);
 	}
 
-	matches = ComputeMatchces(predicted_name,measured_name,ri.count_back);
+	matches = ComputeMatchces(predicted_name,measured_name,ri.count_back,&count_back);
 
 	if(matches == NULL) {
 		fprintf(stderr,"couldn't compute matches from %s and %s\n",

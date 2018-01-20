@@ -13,8 +13,6 @@
 
 FILE *fd;
 
-#define DEBUG
-
 /*
  * dispatches incoming data
  */
