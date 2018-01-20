@@ -218,6 +218,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 
 
 	memcpy(result_rv.woof_name,rv->woof_name,sizeof(result_rv.woof_name));
+	result_rv.series_type = RESULT;
 
 	/*
 	 * get the count back from the index
