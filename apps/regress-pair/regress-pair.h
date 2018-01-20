@@ -35,7 +35,7 @@ typedef struct regress_value_stc REGRESSVAL;
 
 #define MAKE_EXTENDED_NAME(ename,wname,str) {\
         memset(ename,0,sizeof(ename));\
-        sprintf(ename,"%s.%s",ename,str);\
+        sprintf(ename,"%s.%s",wname,str);\
 }
 
 
