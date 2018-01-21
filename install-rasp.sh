@@ -18,4 +18,4 @@ cd $HERE
 cd zmq
 ./install-ubuntu-zmq.sh
 cd ..
-make
+make abd
