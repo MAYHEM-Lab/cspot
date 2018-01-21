@@ -26,8 +26,20 @@ struct regress_value_stc
 	unsigned int pad_2;
 };
 
+struct regress_coeff_stc
+{
+	char woof_name[4096];
+	unsigned int tv_sec;
+	unsigned int tv_usec;
+	unsigned int pad_1;
+	unsigned int pad_2;
+	double slope;
+	double intercept;
+};
+
 typedef struct regress_index_stc REGRESSINDEX;
 typedef struct regress_value_stc REGRESSVAL;
+typedef struct regress_coeff_stc REGRESSCOEFF;
 
 #define MAKE_EXTENDED_NAME(ename,wname,str) {\
         memset(ename,0,sizeof(ename));\

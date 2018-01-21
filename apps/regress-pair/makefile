@@ -3,9 +3,11 @@ DEP=../../..
 WOOFC=../..
 UINC=${DEP}/euca-cutils
 MINC=${DEP}/mio
+MXINC=${DEP}/matrix
 SINC=${WOOFC}
 ULIB=${DEP}/euca-cutils/libutils.a
 MLIB=${DEP}/mio/mio.o ${DEP}/mio/mymalloc.o
+MXLIB=${DEP}/matrix/mioregress.o ${DEP}/matrix/mioarray.o
 SLIB=${WOOFC}/lsema.o
 LIBS=${WOOFC}/uriparser2/liburiparser2.a -lpthread -lm -lczmq -lpthread
 LOBJ=${WOOFC}/log.o ${WOOFC}/host.o ${WOOFC}/event.o
@@ -21,7 +23,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 HAND1=RegressPairReqHandler
 HAND2=RegressPairPredictedHandler
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${MXINC}
 
 all: regress-pair-put regress-pair-get regress-pair-init ${HAND1} ${HAND2}
 
@@ -40,6 +42,9 @@ regress-pair-init: regress-pair-init.c regress-pair.h
 	mkdir -p cspot; cp regress-pair-init ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp regress-pair-init ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
+regress-matrix.o: regress-matrix.c regress-matrix.h ${MXINC} ${MXLIB}
+	${CC} ${CFLAGS} -c regress-matrix.c
+
 ${HAND1}: regress-pair.h ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -o ${HAND1}_shepherd.o
@@ -47,10 +52,10 @@ ${HAND1}: regress-pair.h ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} 
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND1} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
-${HAND2}: regress-pair.h ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+${HAND2}: regress-pair.h ${HAND2}.c regress-matrix.o regress-matrix.h ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${MXINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND2}/g' ${SHEP_SRC} > ${HAND2}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND2}_shepherd.c -o ${HAND2}_shepherd.o
-	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o regress_matrix.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${MXLIB} ${LIBS}
 	mkdir -p cspot; cp ${HAND2} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 

@@ -22,6 +22,11 @@ char putbuf2[4096];
 
 #define MAX_RETRIES 20
 
+#define CONVERT_TIME(ts,psec,usec) {\
+	psec = (unsigned int)ts;\
+	usec = (unsigned int)((ts - (double)psec)*1000000.0);\
+}
+
 int main(int argc, char **argv)
 {
 	int c;
@@ -37,6 +42,8 @@ int main(int argc, char **argv)
 	unsigned long seq_no;
 	struct timeval tm;
 	double value;
+	double ts;
+	char *next_str;
 
 	memset(wname,0,sizeof(wname));
 	uselocal = 0;
@@ -96,16 +103,18 @@ int main(int argc, char **argv)
 	rv.series_type = series_type;
 
 	/*
+	 * ts needs to be a number
 	 * value needs to be a number
 	 */
-	value = strtod(input_buf,NULL);
+	ts = strtod(input_buf,&next_str);
+	value = strtod(next_str,NULL);
+	
 	rv.value.d = value;
 	rv.type = 'd';
 
+	CONVERT_TIME(ts,rv.tv_sec,rv.tv_usec);
+
 	WooFLocalIP(rv.ip_addr,sizeof(rv.ip_addr));
-	gettimeofday(&tm,NULL);
-	rv.tv_sec = htonl(tm.tv_sec);
-	rv.tv_usec = htonl(tm.tv_usec);
 
 	seq_no = WooFPut(wname,"RegressPairReqHandler",(void *)&rv);
 
