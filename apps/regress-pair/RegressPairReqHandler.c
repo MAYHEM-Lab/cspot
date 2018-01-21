@@ -33,7 +33,7 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	if(rv->series_type == 'm') {
 		MAKE_EXTENDED_NAME(target_name,rv->woof_name,"measured");
 		seq_no = WooFPut(target_name,
-				 NULL, /* no handler for measurement */
+				 "RegressPairMeasuredHandler", 
 				 ptr);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,
