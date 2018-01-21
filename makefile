@@ -23,6 +23,8 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
 
 all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
+abd: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
+
 log-test: ${LOBJ} ${LINCS} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
 
