@@ -19,6 +19,7 @@ FILE *fd;
 int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 {
 	REGRESSVAL *rv = (REGRESSVAL *)ptr;
+	REGRESSVAL result_rv;
 	REGRESSCOEFF coeff_rv;
 	char coeff_name[4096+64];
 	char result_name[4096+64];
@@ -57,7 +58,7 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	result_rv.tv_usec = rv->tv_usec;
 	result_rv.series_type = 'r';
 
-	seq_no = WooFPut(result_name,NULL,(void *)&result_rv_rv);
+	seq_no = WooFPut(result_name,NULL,(void *)&result_rv);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,
 			"RegressPairPredictedHandler: couldn't put result to %s\n",result_name);

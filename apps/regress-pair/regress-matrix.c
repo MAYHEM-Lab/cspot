@@ -28,7 +28,7 @@ double *RegressMatrix(Array2D *matches)
 		return(NULL);
 	}
 
-	y = MakeArray2D(matches->ydim);
+	y = MakeArray1D(matches->ydim);
 	if(y == NULL) {
 		FreeArray2D(x);
 		return(NULL);
@@ -60,7 +60,7 @@ double *RegressMatrix(Array2D *matches)
 	}
 
 	/*
-	 * intercept in first element, slope in second */
+	 * intercept in first element, slope in second
 	 */
 	coeff[0] = b->data[0];
 	coeff[1] = b->data[1];

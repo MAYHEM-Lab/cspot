@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 	char measured_name[4096+64];
 	char index_name[4096+64];
 	char result_name[4096+64];
+	char coeff_name[4096+64];
 	int count_back;
 	unsigned long seq_no;
 
