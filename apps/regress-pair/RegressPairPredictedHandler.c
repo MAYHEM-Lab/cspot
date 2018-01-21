@@ -288,10 +288,10 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return(-1);
 	}
 
-	coeff.tv_sec = p_rv.tv_sec;
-	coeff.tv_usec = p_rv.tv_usec;
-	coeff.intercept = coeff[0];
-	coeff.slope = coeff[1];
+	coeff_rv.tv_sec = p_rv.tv_sec;
+	coeff_rv.tv_usec = p_rv.tv_usec;
+	coeff_rv.intercept = coeff[0];
+	coeff_rv.slope = coeff[1];
 	free(coeff);
 	seq_no = WooFPut(coeff_name,NULL,(void *)&coeff_rv);
 	if(WooFInvalid(seq_no)) {
