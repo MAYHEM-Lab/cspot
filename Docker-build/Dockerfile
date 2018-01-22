@@ -2,7 +2,7 @@ FROM centos:7
 MAINTAINER Name rich@cs.ucsb.edu
 RUN yum -y update && \
 yum -y install epel-release && \
-yum -y install zeromq-devel \
+yum -y install zeromq-devel install blas blas-devel \
 	gcc \
 	autoconf \
 	gdb \

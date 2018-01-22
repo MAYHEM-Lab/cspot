@@ -169,7 +169,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,
 			seq_no++;
 			if(seq_no > m_seq_no) {
 				matches[i*2+0] = p_rv.value.d;
-				matches[i*2+1] = m_rv.value.d;
+				matches[i*2+1] = next_rv.value.d;
 				break;
 			}
 			err = WooFGet(measured_name,(void *)&next_rv,seq_no);
