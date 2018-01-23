@@ -57,14 +57,14 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,
 		return(NULL);
 	}
 
-	if((int)(p_seq_no - count_back) < 0) {
+	if((int)(p_seq_no - count_back) <= 0) {
 		fprintf(stderr,"not enough history for %d countback in %s, seq_no: %lu\n",
 			count_back,predicted_name,p_seq_no);
 		fflush(stderr);
 		free(matches);
 		return(NULL);
 	}
-	if((int)(m_seq_no - count_back) < 0) {
+	if((int)(m_seq_no - count_back) <= 0) {
 		fprintf(stderr,"not enough history for %d countback in %s\n",
 			count_back,measured_name);
 		fflush(stderr);
@@ -90,7 +90,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,
 	 * immediately before predicted value in terms of time stamp
 	 */
 	seq_no = m_seq_no;
-	while((int)seq_no >= 0) {
+	while((int)seq_no > 0) {
 		err = WooFGet(measured_name,(void *)&m_rv,seq_no);
 		if(err < 0) {
 			fprintf(stderr,"couldn't get measured at %lu in %s\n",
@@ -294,6 +294,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	coeff_rv.tv_usec = p_rv.tv_usec;
 	coeff_rv.intercept = coeff[0];
 	coeff_rv.slope = coeff[1];
+printf("SLOPE: %f int: %f\n",coeff_rv.slope,coeff_rv.intercept);
+fflush(stdout);
 	free(coeff);
 	seq_no = WooFPut(coeff_name,NULL,(void *)&coeff_rv);
 	if(WooFInvalid(seq_no)) {
