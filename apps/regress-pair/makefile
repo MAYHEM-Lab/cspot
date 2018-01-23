@@ -27,7 +27,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 HAND1=RegressPairReqHandler
 HAND2=RegressPairPredictedHandler
-HAND2=RegressPairMeasuredHandler
+HAND3=RegressPairMeasuredHandler
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH}
 
