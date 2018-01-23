@@ -23,7 +23,7 @@ double *RegressMatrix(Array2D *matches)
 	double rmse;
 	double *coeff;
 
-	x = MakeArray2D(2,matches->ydim);
+	x = MakeArray2D(matches->ydim,2);
 	if(x == NULL) {
 		return(NULL);
 	}
@@ -39,6 +39,11 @@ double *RegressMatrix(Array2D *matches)
 		x->data[i*2+1] = matches->data[i*2+1]; /* x data in second column */
 		y->data[i] = matches->data[i*2+0]; /* x data in first column */
 	}
+
+printf("x: ");
+PrintArray2D(x);
+printf("y: ");
+PrintArray1D(y);
 
 	/*
 	 * destructive of x

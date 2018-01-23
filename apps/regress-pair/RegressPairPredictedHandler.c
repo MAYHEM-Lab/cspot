@@ -143,8 +143,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,
 			v_ts = m_ts;
 		}
 
-printf("P TS: %lu %lu\n",p_rv.tv_sec,p_rv.tv_usec);
-printf("MATCHED: p: %10.10f %f m: %10.10f %f\n",p_ts,matches[i*2+0],v_ts,matches[i*2+1]);
+printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",i,p_ts,matches[i*2+0],v_ts,matches[i*2+1]);
 fflush(stdout);
 		
 		i++;
@@ -258,7 +257,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return(-1);
 	}
 
-	match_array = MakeArray2D(2,count_back);
+printf("cb: %d\n",count_back);
+	match_array = MakeArray2D(count_back,2);
 	if(match_array == NULL) {
 		free(matches);
 		return(-1);
