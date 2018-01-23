@@ -18,3 +18,14 @@ RUN git clone git://github.com/zeromq/czmq.git
 WORKDIR /root/src/czmq
 RUN ./autogen.sh && ./configure && make && make install && ldconfig
 WORKDIR /
+ENV LAPACK=lapack-3.8.0
+RUN mkdir ${LAPACK}
+RUN /bin/bash -l -c '\
+    curl -sSL "http://www.netlib.org/lapack/${LAPACK}.tar" | \
+    tar xz && cd ${LAPACK} && \
+    cp make.inc.example make.inc && \
+    make blaslib && \
+    make lapacklib -j 8 && cp liblapack.a /lib64 && \
+    cp liblapack.a /usr/local/lib && cp librefblas.a /usr/local/lib && \
+    cd LAPACKE && make && cd .. && cp liblapacke.a /usr/local/lib && \
+    cd ../ && rm -rf ${LAPACK}'

@@ -76,6 +76,9 @@ ${URILIB}:
 docker-image:
 	cd Docker-build; docker build -t cspot-docker-centos7 .
 
+force-docker:
+	cd Docker-build; docker build --no-cache -t cspot-docker-centos7 .
+
 clean:
 	rm -f *.o log-test
 
