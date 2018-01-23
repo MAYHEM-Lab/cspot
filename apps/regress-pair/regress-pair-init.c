@@ -138,11 +138,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	err = WooFCreate(result_name,sizeof(REGRESSCOEFF),history_size);
+	err = WooFCreate(coeff_name,sizeof(REGRESSCOEFF),history_size);
 
 	if(err < 0) {
 		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
-			result_name,
+			coeff_name,
 			history_size);
 		fflush(stderr);
 		exit(1);
