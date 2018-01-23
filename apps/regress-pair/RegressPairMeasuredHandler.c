@@ -51,12 +51,15 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 			"RegressPairPredictedHandler couldn't get count back from %s\n",coeff_name);
 		return(-1);
 	}
+printf("MS: %f, MI: %f, meas: %f\n",coeff_rv.slope,coeff_rv.intercept,rv->value.d);
 
 	pred = (coeff_rv.slope * rv->value.d) + coeff_rv.intercept;
 	result_rv.value.d = pred;
 	result_rv.tv_sec = rv->tv_sec;
 	result_rv.tv_usec = rv->tv_usec;
 	result_rv.series_type = 'r';
+printf("PRED: %lu %lu %f\n",ntohl(rv->tv_sec),ntohl(rv->tv_usec),pred);
+fflush(stdout);
 
 	seq_no = WooFPut(result_name,NULL,(void *)&result_rv);
 	if(WooFInvalid(seq_no)) {
