@@ -209,6 +209,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	int i;
 	int err;
 	struct timeval tm;
+	Array2D *match_array;
+	double *coeff;
 
 #ifdef DEBUG
         fd = fopen("/cspot/pred-handler.log","a+");
@@ -270,7 +272,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	FreeArray2D(match_array);
 	free(matches);
 
-	seq_no = GetLatestSeqno(predicted_name);
+	seq_no = WooFGetLatestSeqno(predicted_name);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"couldn't get latest seq_no from %s\n",
 			predicted_name);
