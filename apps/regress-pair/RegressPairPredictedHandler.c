@@ -32,6 +32,7 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,
 	REGRESSVAL p_rv;
 	REGRESSVAL m_rv;
 	REGRESSVAL next_rv;
+	double v_ts;
 
 	matches = (double *)malloc(count_back * sizeof(double) * 2);
 	if(matches == NULL) {
@@ -135,10 +136,16 @@ double *ComputeMatchces(char *predicted_name,char *measured_name,
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
 			matches[i*2+0] = p_rv.value.d;
 			matches[i*2+1] = next_rv.value.d;
+			v_ts = next_ts;
 		} else {
 			matches[i*2+0] = p_rv.value.d;
 			matches[i*2+1] = m_rv.value.d;
+			v_ts = m_ts;
 		}
+
+printf("P TS: %lu %lu\n",p_rv.tv_sec,p_rv.tv_usec);
+printf("MATCHED: p: %10.10f %f m: %10.10f %f\n",p_ts,matches[i*2+0],v_ts,matches[i*2+1]);
+fflush(stdout);
 		
 		i++;
 		if(i >= count_back) {

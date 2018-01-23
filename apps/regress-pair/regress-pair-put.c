@@ -23,8 +23,8 @@ char putbuf2[4096];
 #define MAX_RETRIES 20
 
 #define CONVERT_TIME(ts,psec,usec) {\
-	psec = (unsigned int)ts;\
-	usec = (unsigned int)((ts - (double)psec)*1000000.0);\
+	psec = htonl((unsigned int)ts);\
+	usec = htonl((unsigned int)((ts - (double)psec)*1000000.0));\
 }
 
 int main(int argc, char **argv)
