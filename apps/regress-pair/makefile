@@ -25,6 +25,9 @@ TINC=${WOOFC}/woofc-thread.h
 TOBJ=${WOOFC}/woofc-thread.o
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
+STATINC=regress-matrix.h ssa-decomp.h
+STATOBJ=regress-matrix.o ssa-decomp.o
+
 HAND1=RegressPairReqHandler
 HAND2=RegressPairPredictedHandler
 HAND3=RegressPairMeasuredHandler
@@ -51,6 +54,9 @@ regress-pair-init: regress-pair-init.c regress-pair.h
 regress-matrix.o: regress-matrix.c regress-matrix.h ${MXINC} ${MXLIB}
 	${CC} ${CFLAGS} -c regress-matrix.c
 
+ssa-decomp.o: ssa-decomp.c ssa-decomp.h ${MXINC} ${MXLIB}
+	${CC} ${CFLAGS} -c ssa-decomp.c
+
 ${HAND1}: regress-pair.h ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -o ${HAND1}_shepherd.o
@@ -58,10 +64,10 @@ ${HAND1}: regress-pair.h ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} 
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND1} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
-${HAND2}: regress-pair.h ${HAND2}.c regress-matrix.o regress-matrix.h ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${MXINC}
+${HAND2}: regress-pair.h ${HAND2}.c ${STATINC} ${STATOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${MXINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND2}/g' ${SHEP_SRC} > ${HAND2}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND2}_shepherd.c -o ${HAND2}_shepherd.o
-	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o regress-matrix.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${MXLIB} ${DLIB} ${LALIB} ${LIBS}
+	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o ${STATOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${MXLIB} ${DLIB} ${LALIB} ${LIBS}
 	mkdir -p cspot; cp ${HAND2} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
