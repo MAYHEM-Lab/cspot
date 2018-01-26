@@ -199,6 +199,7 @@ fflush(stdout);
 Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 {
 	int i;
+	int j;
 	int err;
 	int mcount;
 	double p_ts;
@@ -215,30 +216,32 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 	}
 
 	i = 0;
+	j = 0;
 	m_ts = meas_series->data[i*2+0];
 	next_ts = meas_series->data[(i+1)*2+0];
 	p_ts = pred_series->data[i*2+0];
 	while((i+1) < meas_series->ydim) {
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
-			matched_array->data[i*2+0] = pred_series->data[i*2+1];
-			matched_array->data[i*2+1] = meas_series->data[(i+1)*2+1];
+			matched_array->data[j*2+0] = pred_series->data[j*2+1];
+			matched_array->data[j*2+1] = meas_series->data[(i+1)*2+1];
 			v_ts = next_ts;
 		} else {
-			matched_array->data[i*2+0] = pred_series->data[i*2+1];
-			matched_array->data[i*2+1] = meas_series->data[i*2+1];
+			matched_array->data[j*2+0] = pred_series->data[j*2+1];
+			matched_array->data[j*2+1] = meas_series->data[i*2+1];
 			v_ts = m_ts;
 		}
 
 printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
-i,p_ts,matched_array->data[i*2+0],
-v_ts,matched_array->data[i*2+1]);
+j,p_ts,matched_array->data[j*2+0],
+v_ts,matched_array->data[j*2+1]);
 fflush(stdout);
 		
 		i++;
-		if(i >= pred_series->ydim) {
+		j++;
+		if(j >= pred_series->ydim) {
 			return(matched_array);
 		}
-		p_ts = pred_series->data[i*2+0];
+		p_ts = pred_series->data[j*2+0];
 		m_ts = meas_series->data[i*2+0];
 		next_ts = meas_series->data[(i+1)*2+0];
 		
@@ -254,10 +257,10 @@ fflush(stdout);
 			break;
 		}
 	}
-	matched_array->data[i*2+0] = pred_series->data[i*2+1];
-	matched_array->data[i*2+1] = meas_series->data[i*2+1];
+	matched_array->data[j*2+0] = pred_series->data[j*2+1];
+	matched_array->data[j*2+1] = meas_series->data[i*2+1];
 
-printf("i: %d, predsize: %d\n",i,pred_series->ydim);
+printf("i: %d, predsize: %d\n",j,pred_series->ydim);
 
 
 	return(matched_array);
@@ -366,11 +369,14 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	}
 
 
+	if(seq_no == 0) {
+		seq_no = 1;
+	}
 	for(i=0; i < smoothed->ydim; i++) {
 		err = WooFGet(measured_name,(void *)&m_rv,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get measured rv at %lu from %s\n",
-				seq_no,
+			fprintf(stderr,"couldn't get measured rv at %lu (%d) from %s\n",
+				seq_no,i,
 				measured_name);
 			goto out;
 		}
