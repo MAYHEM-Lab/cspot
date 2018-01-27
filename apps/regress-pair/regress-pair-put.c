@@ -24,7 +24,7 @@ char putbuf2[4096];
 
 #define CONVERT_TIME(ts,psec,usec) {\
 	psec = htonl((unsigned int)ts);\
-	usec = htonl((unsigned int)((ts - (double)psec)*1000000.0));\
+	usec = htonl((unsigned int)((ts - (double)ntohl(psec))*1000000.0));\
 }
 
 int main(int argc, char **argv)

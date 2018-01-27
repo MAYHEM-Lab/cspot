@@ -40,7 +40,7 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 	j = 0;
 	m_ts = meas_series->data[i*2+0];
 	next_ts = meas_series->data[(i+1)*2+0];
-	p_ts = pred_series->data[i*2+0];
+	p_ts = pred_series->data[j*2+0];
 	while((i+1) < meas_series->ydim) {
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
 			matched_array->data[j*2+0] = pred_series->data[j*2+1];
@@ -62,6 +62,14 @@ fflush(stdout);
 		if(j >= pred_series->ydim) {
 			return(matched_array);
 		}
+if(pred_series->data[j*2+0] <= p_ts) {
+fprintf(stderr,"PANIC: pred series out of order p: %10.0f next: %10.0f\n",
+p_ts,pred_series->data[j*2+0]);
+fflush(stderr);
+FreeArray2D(matched_array);
+return(NULL);
+}
+
 		p_ts = pred_series->data[j*2+0];
 		m_ts = meas_series->data[i*2+0];
 		next_ts = meas_series->data[(i+1)*2+0];
@@ -80,8 +88,6 @@ fflush(stdout);
 	}
 	matched_array->data[j*2+0] = pred_series->data[j*2+1];
 	matched_array->data[j*2+1] = meas_series->data[i*2+1];
-
-printf("i: %d, predsize: %d\n",j,pred_series->ydim);
 
 
 	return(matched_array);
@@ -197,6 +203,13 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 		p_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
 		m_ts = (double)ntohl(m_rv.tv_sec)+(double)(ntohl(m_rv.tv_usec) / 1000000.0);
 		if(m_ts < p_ts) {
+			if(measured_size < count) {
+				fprintf(stderr,
+"BestCoeff: MISMATCH: p: %lu %f m: %lu %f count: %d measured size: %d\n",
+ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_size);
+				fflush(stderr);
+				goto out;
+			}
 			break;
 		}
 		seq_no--;
@@ -253,6 +266,13 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 			goto out;
 		}
 		p_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
+		if(i > 0) {
+			if(pred_series->data[(i-1)*2+0] > p_ts) {
+fprintf(stderr,"PANIC: out of order predicted seq_no (p_seq_no: %lu) at %lu, prev: %10.0f curr: %10.0f\n",
+p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
+				goto out;
+			}
+		}
 		pred_series->data[i*2+0] = p_ts;
 		pred_series->data[i*2+1] = p_rv.value.d;
 		count--;
@@ -437,7 +457,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 				if(WooFInvalid(seq_no)) {
 					fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
 				}
-printf("ERROR: %lu %lu predicted: %f prediction: %f error: %f\n", rv->tv_sec,rv->tv_usec,rv->value.d,pred,error);
+printf("ERROR: %lu %lu predicted: %f prediction: %f error: %f\n", ntohl(rv->tv_sec),
+ntohl(rv->tv_usec),rv->value.d,pred,error);
 fflush(stdout);
 			} else {
 				fprintf(stderr,"measured seq_no %lu invalid from %s\n", seq_no,measured_name);
