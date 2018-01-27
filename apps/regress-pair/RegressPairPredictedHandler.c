@@ -214,7 +214,8 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	 */
 	unsmoothed = MakeArray2D(measured_size,2);
 	if(unsmoothed == NULL) {
-		fprintf(stderr,"BestCoeff: no space for unsmoothed series\n");
+		fprintf(stderr,"BestCoeff: no space for unsmoothed series size %d\n",
+			measured_size);
 		goto out;
 	}
 
@@ -279,6 +280,10 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 		fprintf(stderr,"BestCoeff: couldn't get mse for unsmoothed regression\n");
 		goto out;
 	}
+	free(coeff);
+	coeff=NULL;
+	FreeArray2D(match_array);
+	match_array = NULL;
 
 	for(l = 1; l <= MAXLAGS; l++) {
 		smoothed = SSASmoothSeries(unsmoothed,l);
@@ -287,7 +292,6 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 				l);
 			break;
 		}
-		FreeArray2D(match_array);
 		match_array = ComputeMatchArray(pred_series,smoothed);
 		if(match_array == NULL) {
 			fprintf(stderr,"BestCoeff: couldn't get match at lags %d\n",
@@ -296,7 +300,6 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 		}
 		FreeArray2D(smoothed);
 		smoothed = NULL;
-		free(coeff);
 		coeff = RegressMatrix(match_array);
 		if(coeff == NULL) {
 			fprintf(stderr,"BestCoeff: couldn't get regressin for lags %d\n",
@@ -317,6 +320,10 @@ fflush(stdout);
 			best_intercept = coeff[0];
 			best_mse = mse;
 		}
+		free(coeff);
+		coeff = NULL;
+		FreeArray2D(match_array);
+		match_array = NULL;
 		
 	}
 		

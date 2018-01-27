@@ -270,8 +270,8 @@ Array1D *SSADecomposition(Array1D *series, int L, int start, int end)
 	SortEigenVectors(ev,V);
 
 	min_split = JenksSplitEigen(ev);
-printf("min_split: %d\n",min_split);
-fflush(stdout);
+//printf("min_split: %d\n",min_split);
+//fflush(stdout);
 
 
 
@@ -615,11 +615,11 @@ int JenksSplitEigen(Array1D *ev)
 			min_dev = class_dev;
 		}
 		gof = (global_dev - class_dev) / global_dev;
-		printf("split: %d, class: %f, min_split: %d gof: %f\n",
-			split,
-			class_dev,
-			min_split,
-			gof);
+//printf("split: %d, class: %f, min_split: %d gof: %f\n",
+//			split,
+//			class_dev,
+//			min_split,
+//			gof);
 		fflush(stdout);
 	}
 
