@@ -1,6 +1,6 @@
 #!/bin/bash
 
-COUNTBACK=3
+COUNTBACK=5
 
 DAY3=$((3600*$COUNTBACK))
 CIMAS=$1
@@ -29,7 +29,7 @@ FIRSTNUCTS=`head -n 1 $NUC | awk '{print $1}' | sed 's/\./ /' | awk '{print $1}'
 echo NUC
 
 for NUCTS in `awk '{print $1}' $NUC | sed 's/\./ /' | awk '{print $1}'` ; do
-	if ( test $NUCTS -gt $((FIRSTNUCTS+$DAY3)) ) ; then
+	if ( test $NUCTS -gt $(($FIRSTNUCTS+$DAY3)) ) ; then
 		break
 	fi
 	LINE=`grep $NUCTS $NUC`
@@ -39,12 +39,33 @@ done
 echo CIMAS
 
 for CIMASTS in `awk '{print $1}' $CIMAS | sed 's/\./ /' | awk '{print $1}'` ; do
-	if ( test $CIMASTS -gt $((FIRSTNUCTS+$DAY3)) ) ; then
+	if ( test $CIMASTS -gt $(($FIRSTNUCTS+$DAY3)) ) ; then
 		break
 	fi
 	LINE=`grep $CIMASTS $CIMAS`
 	echo $LINE | ./regress-pair-put -W $WOOF -L -s 'p'
 done
 
+for NUCTS in `awk '{print $1}' $NUC | sed 's/\./ /' | awk '{print $1}'` ; do
+	if ( test $NUCTS -le $(($FIRSTNUCTS+$DAY3)) ) ; then
+		continue
+	fi
+	if ( test $NUCTS -gt $(($FIRSTNUCTS+DAY3+3600)) ) ; then
+		break
+	fi
+	LINE=`grep $NUCTS $NUC`
+	echo $LINE | ./regress-pair-put -W $WOOF -L -s 'm'
+done
+
+for CIMASTS in `awk '{print $1}' $CIMAS | sed 's/\./ /' | awk '{print $1}'` ; do
+	if ( test $CIMASTS -le $(($FIRSTNUCTS+$DAY3)) ) ; then
+		continue
+	fi
+	if ( test $CIMASTS -gt $(($FIRSTNUCTS+$DAY3+3600)) ) ; then
+		break
+	fi
+	LINE=`grep $CIMASTS $CIMAS`
+	echo $LINE | ./regress-pair-put -W $WOOF -L -s 'p'
+done
 
 

@@ -291,24 +291,24 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 
 	m_seq_no = WooFGetLatestSeqno(measured_name);
 	if(WooFInvalid(m_seq_no)) {
-		fprintf(stderr,"no latest seq no in %s\n",
+		fprintf(stderr,"BestCoeff: no latest seq no in %s\n",
 			measured_name);
 		goto out;
 	}
 	p_seq_no = WooFGetLatestSeqno(predicted_name);
-	if(WooFInvalid(m_seq_no)) {
-		fprintf(stderr,"no latest seq no in %s\n",
+	if(WooFInvalid(p_seq_no)) {
+		fprintf(stderr,"BestCoeff: no latest seq no in %s\n",
 			predicted_name);
 		goto out;
 	}
 
 	if((int)(p_seq_no - count_back) <= 0) {
-		fprintf(stderr,"not enough history for %d countback in %s, seq_no: %lu\n",
+		fprintf(stderr,"BestCoeff: not enough history for %d countback in %s, seq_no: %lu\n",
 			count_back,predicted_name,p_seq_no);
 		goto out;
 	}
 	if((int)(m_seq_no - count_back) <= 0) {
-		fprintf(stderr,"not enough history for %d countback in %s\n",
+		fprintf(stderr,"BestCoeff: not enough history for %d countback in %s\n",
 			count_back,measured_name);
 		goto out;
 	}
@@ -319,7 +319,7 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	count = count_back;
 	err = WooFGet(predicted_name,(void *)&p_rv,(p_seq_no - count));
 	if(err < 0) {
-		fprintf(stderr,"couldn't get earliest at %lu in %s\n",
+		fprintf(stderr,"BestCoeff: couldn't get earliest at %lu in %s\n",
 			p_seq_no-count,predicted_name);
 		goto out;
 	}
@@ -333,7 +333,7 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	while((int)seq_no > 0) {
 		err = WooFGet(measured_name,(void *)&m_rv,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get measured at %lu in %s\n",
+			fprintf(stderr,"BestCoeff: couldn't get measured at %lu in %s\n",
 				seq_no,measured_name);
 			goto out;
 		}
@@ -348,7 +348,7 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	}
 
 	if((int)seq_no < 0) {
-		fprintf(stderr,"couldn't find ts earliesr than %10.0f in %s\n",
+		fprintf(stderr,"BestCoeff: couldn't find ts earliesr than %10.0f in %s\n",
 			p_ts,measured_name);
 		goto out;
 	}
@@ -358,13 +358,13 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	 */
 	smoothed = MakeArray2D(measured_size,2);
 	if(smoothed == NULL) {
-		fprintf(stderr,"no space for smoothed series\n");
+		fprintf(stderr,"BestCoeff: no space for smoothed series\n");
 		goto out;
 	}
 
 	pred_series = MakeArray2D(count_back,2);
 	if(pred_series == NULL) {
-		fprintf(stderr,"no space for pred series\n");
+		fprintf(stderr,"BestCoeff: no space for pred series\n");
 		goto out;
 	}
 
@@ -375,7 +375,7 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	for(i=0; i < smoothed->ydim; i++) {
 		err = WooFGet(measured_name,(void *)&m_rv,seq_no);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get measured rv at %lu (%d) from %s\n",
+			fprintf(stderr,"BestCoeff: couldn't get measured rv at %lu (%d) from %s\n",
 				seq_no,i,
 				measured_name);
 			goto out;
@@ -390,7 +390,7 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	for(i=0; i < pred_series->ydim; i++) {
 		err = WooFGet(predicted_name,&p_rv,p_seq_no-count);
 		if(err < 0) {
-			fprintf(stderr,"couldn't get predicted rv at %lu from %s\n",
+			fprintf(stderr,"BestCoeff: couldn't get predicted rv at %lu from %s\n",
 				p_seq_no-count,
 				predicted_name);
 			goto out;
@@ -403,14 +403,14 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 
 	match_array = ComputeMatchArray(pred_series,smoothed);
 	if(match_array == NULL) {
-		fprintf(stderr,"could get match array for %s %lu %s %lu\n",
+		fprintf(stderr,"BestCoeff: could get match array for %s %lu %s %lu\n",
 			predicted_name,p_seq_no,measured_name,m_seq_no);
 		goto out;
 	}
 
 	coeff = RegressMatrix(match_array);
 	if(coeff == NULL) {
-		fprintf(stderr,"couldn't compute reg. coefficients from %s and %s\n",
+		fprintf(stderr,"BestCoeff: couldn't compute reg. coefficients from %s and %s\n",
 			predicted_name,measured_name);
 		goto out;
 	}
