@@ -566,15 +566,19 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	REGRESSVAL *rv = (REGRESSVAL *)ptr;
 	REGRESSINDEX ri;
 	REGRESSVAL p_rv;
+	REGRESSVAL ev;
+	REGRESSVAL mv;
 	REGRESSCOEFF coeff_rv;
 	char index_name[4096+64];
 	char measured_name[4096+64];
 	char predicted_name[4096+64];
 	char coeff_name[4096+64];
 	char result_name[4096+64];
+	char error_name[4096+64];
 	int count_back;
 	unsigned long seq_no;
-	double *matches;
+	unsigned long c_seq_no;
+	unsigned long m_seq_no;
 	double p;
 	double m;
 	int i;
@@ -582,6 +586,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	struct timeval tm;
 	Array2D *match_array;
 	double *coeff;
+	double pred;
+	double error;
 
 #ifdef DEBUG
         fd = fopen("/cspot/pred-handler.log","a+");
@@ -595,7 +601,44 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	MAKE_EXTENDED_NAME(measured_name,rv->woof_name,"measured");
 	MAKE_EXTENDED_NAME(predicted_name,rv->woof_name,"predicted");
 	MAKE_EXTENDED_NAME(result_name,rv->woof_name,"result");
+	MAKE_EXTENDED_NAME(error_name,rv->woof_name,"errors");
 	MAKE_EXTENDED_NAME(coeff_name,rv->woof_name,"coeff");
+
+	/*
+	 * start by computing the forecasting error if possible
+	 */
+	c_seq_no = WooFGetLatestSeqno(coeff_name);
+	m_seq_no = WooFGetLatestSeqno(measured_name);
+	if((c_seq_no > 0) && (m_seq_no > 0)) {
+		/*
+		 * get the latest set of coefficients
+		 */
+		seq_no = WooFGet(coeff_name,(void *)&coeff_rv,c_seq_no);
+		if(!WooFInvalid(seq_no)) {
+			/*
+			 * get the latest measurement
+			 */
+			seq_no = WooFGet(measured_name,(void *)&mv,m_seq_no);
+			if(!WooFInvalid(seq_no)) {
+				pred = (coeff_rv.slope * mv.value.d) + coeff_rv.intercept;
+				error = rv->value.d - pred;
+				ev.value.d = error;
+				ev.tv_sec = rv->tv_sec;
+				ev.tv_usec = rv->tv_usec;
+				memcpy(ev.woof_name,rv->woof_name,sizeof(ev.woof_name));
+				seq_no = WooFPut(error_name,NULL,&ev);
+				if(WooFInvalid(seq_no)) {
+					fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
+				}
+printf("ERROR: %lu %lu predicted: %f prediction: %f error: %f\n", rv->tv_sec,rv->tv_usec,rv->value.d,pred,error);
+fflush(stdout);
+			} else {
+				fprintf(stderr,"measured seq_no %lu invalid from %s\n", seq_no,measured_name);
+			}
+		} else {
+				fprintf(stderr,"coeff seq_no %lu invalid from %s\n", seq_no,coeff_name);
+		}
+	}
 
 
 	/*

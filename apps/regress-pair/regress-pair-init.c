@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 	char measured_name[4096+64];
 	char index_name[4096+64];
 	char result_name[4096+64];
+	char error_name[4096+64];
 	char coeff_name[4096+64];
 	int count_back;
 	unsigned long seq_no;
@@ -85,6 +86,7 @@ int main(int argc, char **argv)
 	MAKE_EXTENDED_NAME(coeff_name,wname,"coeff");
 	MAKE_EXTENDED_NAME(result_name,wname,"result");
 	MAKE_EXTENDED_NAME(index_name,wname,"index");
+	MAKE_EXTENDED_NAME(error_name,wname,"errors");
 	
 
 	if(Namelog_dir[0] != 0) {
@@ -133,6 +135,16 @@ int main(int argc, char **argv)
 	if(err < 0) {
 		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
 			result_name,
+			history_size);
+		fflush(stderr);
+		exit(1);
+	}
+
+	err = WooFCreate(error_name,sizeof(REGRESSVAL),history_size);
+
+	if(err < 0) {
+		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
+			error_name,
 			history_size);
 		fflush(stderr);
 		exit(1);
