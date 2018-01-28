@@ -20,6 +20,7 @@ struct regress_value_stc
 	char type;
 	Hval value;
 	char ip_addr[25];
+	unsigned long seq_no;
 	unsigned int tv_sec;
 	unsigned int tv_usec;
 	unsigned int pad_1;
@@ -36,6 +37,7 @@ struct regress_coeff_stc
 	double slope;
 	double intercept;
 };
+
 
 typedef struct regress_index_stc REGRESSINDEX;
 typedef struct regress_value_stc REGRESSVAL;

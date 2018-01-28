@@ -32,6 +32,8 @@ int main(int argc, char **argv)
 	char result_name[4096+64];
 	char error_name[4096+64];
 	char coeff_name[4096+64];
+	char progress_name[4096+64];
+	char finished_name[4096+64];
 	int count_back;
 	unsigned long seq_no;
 
@@ -87,6 +89,8 @@ int main(int argc, char **argv)
 	MAKE_EXTENDED_NAME(result_name,wname,"result");
 	MAKE_EXTENDED_NAME(index_name,wname,"index");
 	MAKE_EXTENDED_NAME(error_name,wname,"errors");
+	MAKE_EXTENDED_NAME(progress_name,wname,"progress");
+	MAKE_EXTENDED_NAME(finished_name,wname,"finished");
 	
 
 	if(Namelog_dir[0] != 0) {
@@ -99,7 +103,7 @@ int main(int argc, char **argv)
 	/*
 	 * first create the woofs to hold the data
 	 */
-	err = WooFCreate(wname,sizeof(REGRESSVAL),500); /* 500 to speed match */
+	err = WooFCreate(wname,sizeof(REGRESSVAL),history_size); 
 
 	if(err < 0) {
 		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
@@ -159,6 +163,27 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+
+	err = WooFCreate(progress_name,sizeof(unsigned long),history_size);
+
+	if(err < 0) {
+		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
+			coeff_name,
+			history_size);
+		fflush(stderr);
+		exit(1);
+	}
+
+	err = WooFCreate(finished_name,sizeof(unsigned long),history_size);
+
+	if(err < 0) {
+		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
+			coeff_name,
+			history_size);
+		fflush(stderr);
+		exit(1);
+	}
+
 
 	err = WooFCreate(index_name,sizeof(REGRESSINDEX),10); /* only 10 for index */
 

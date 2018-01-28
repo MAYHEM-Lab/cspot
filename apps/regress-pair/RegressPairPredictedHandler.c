@@ -62,7 +62,7 @@ fflush(stdout);
 		if(j >= pred_series->ydim) {
 			return(matched_array);
 		}
-if(pred_series->data[j*2+0] <= p_ts) {
+if(pred_series->data[j*2+0] < p_ts) {
 fprintf(stderr,"PANIC: pred series out of order p: %10.0f next: %10.0f\n",
 p_ts,pred_series->data[j*2+0]);
 fflush(stderr);
@@ -386,6 +386,66 @@ out:
 	return(-1);
 }
 
+int NextReadyPrediction(char *request, unsigned long last_finished, REGRESSVAL *out_rv)
+{
+	unsigned long seq_no;
+	unsigned long next; // next one after last_finished
+	REGRESSVAL rv;
+	int err;
+
+	/*
+	 * find the prediction request that is next after the last one finished
+	 */
+	seq_no = WooFGetLatestSeqno(request);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"bad latest in next ready\n");
+		return(-1);
+	}
+
+	next = 0;
+	while(seq_no > 0) {
+		err = WooFGet(request,(void *)&rv,seq_no);
+		if(err < 0) {
+			fprintf(stderr,"bad latest in next ready\n");
+				return(-1);
+		}
+
+		/*
+		 * is this a predicted request?
+		 */
+		if(rv.series_type != 'p') {
+			seq_no--;
+			continue;
+		}
+
+		/*
+		 * yes, is it after the last finished?
+		 */
+		if(seq_no > last_finished) {
+			/*
+			 * remember it
+			 */
+			next = seq_no;
+			seq_no--;
+			continue;
+		}
+		/*
+		 * not after last finished.  If there was one before it, use it
+		 */
+		if(next > 0) {
+			rv.seq_no = next;
+			*out_rv = rv;
+			return(1);
+		} else {
+			return(0);
+		}
+	}
+
+	return(0);
+}
+		
+
+
 
 
 int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
@@ -393,6 +453,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	REGRESSVAL *rv = (REGRESSVAL *)ptr;
 	REGRESSINDEX ri;
 	REGRESSVAL p_rv;
+	REGRESSVAL next_rv;
 	REGRESSVAL ev;
 	REGRESSVAL mv;
 	REGRESSCOEFF coeff_rv;
@@ -402,10 +463,13 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	char coeff_name[4096+64];
 	char result_name[4096+64];
 	char error_name[4096+64];
+	char finished_name[4096+64];
+	char progress_name[4096+64];
 	int count_back;
 	unsigned long seq_no;
 	unsigned long c_seq_no;
 	unsigned long m_seq_no;
+	unsigned long p_seq_no;
 	double p;
 	double m;
 	int i;
@@ -430,6 +494,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	MAKE_EXTENDED_NAME(result_name,rv->woof_name,"result");
 	MAKE_EXTENDED_NAME(error_name,rv->woof_name,"errors");
 	MAKE_EXTENDED_NAME(coeff_name,rv->woof_name,"coeff");
+	MAKE_EXTENDED_NAME(progress_name,rv->woof_name,"progress");
+	MAKE_EXTENDED_NAME(finished_name,rv->woof_name,"finished");
 
 	/*
 	 * start by computing the forecasting error if possible
@@ -457,8 +523,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 				if(WooFInvalid(seq_no)) {
 					fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
 				}
-printf("ERROR: %lu %lu predicted: %f prediction: %f error: %f\n", ntohl(rv->tv_sec),
-ntohl(rv->tv_usec),rv->value.d,pred,error);
+printf("ERROR: %lu predicted: %f prediction: %f meas: %f error: %f slope: %f int: %f\n", ntohl(rv->tv_sec),
+rv->value.d,pred,mv.value.d,error,coeff_rv.slope,coeff_rv.intercept);
 fflush(stdout);
 			} else {
 				fprintf(stderr,"measured seq_no %lu invalid from %s\n", seq_no,measured_name);
@@ -478,6 +544,7 @@ fflush(stdout);
 	if(err < 0) {
 		fprintf(stderr,
 			"RegressPairPredictedHandler couldn't get count back from %s\n",index_name);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 	memcpy(coeff_rv.woof_name,rv->woof_name,sizeof(coeff_rv.woof_name));
@@ -487,6 +554,7 @@ fflush(stdout);
 		fprintf(stderr,"couldn't get latest seq_no from %s\n",
 			predicted_name);
 		fflush(stderr);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 
@@ -495,6 +563,7 @@ fflush(stdout);
 		fprintf(stderr,"couldn't get latest record from %s\n",
 			predicted_name);
 		fflush(stderr);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 
@@ -503,6 +572,7 @@ fflush(stdout);
 
 	if(err < 0) {
 		fprintf(stderr,"couldn't get best regression coefficient\n");
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 
@@ -514,8 +584,54 @@ fflush(stdout);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,
 			"RegressPairPredictedHandler: couldn't put result to %s\n",result_name);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 
+	/*
+	 * get the sequence number for the last handler that is in progress
+	 */
+	seq_no = WooFGetLatestSeqno(progress_name);
+	err = WooFGet(progress_name,&p_seq_no,seq_no);
+	if(err < 0) {
+		fprintf(stderr,
+			"RegressPairPredictedHandler: couldn't get progress seq_no %s\n",progress_name);
+	}
+	/*
+	 * if it is this handler, try and get the next one from the request list
+	 */
+	if(p_seq_no <= rv->seq_no) {
+		/*
+		 * get the next one
+		 */
+		err = NextReadyPrediction(rv->woof_name,rv->seq_no,&next_rv);
+		/*
+		 * if there is a next one, add it to the progress list and put it to the predicted WooF
+		 */
+		if(err > 0) {
+			seq_no = WooFPut(progress_name,NULL,&next_rv.seq_no);
+			if(!WooFInvalid(seq_no)) {
+				seq_no = WooFPut(predicted_name,"RegressPairPredictedHandler",&next_rv);
+				if(WooFInvalid(seq_no)) {
+					fprintf(stderr,"bad seq_no on continuing put\n");
+					return(-1);
+				}
+			} else {
+				fprintf(stderr,"bad seq_no on continuing progress put\n");
+				return(-1);
+			}
+		} else {
+			fprintf(stderr,"err on get for last finished seq_no %lu\n",rv->seq_no);
+		}
+	}
+
+	/*
+	 * do this last to prevent request handler from firing before progress reflects new launch
+	 */
+	seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,
+			"RegressPairPredictedHandler: couldn't put finished to %s\n",finished_name);
+	}
 	return(1);
 }

@@ -37,6 +37,7 @@ for NUCTS in `awk '{print $1}' $NUC | sed 's/\./ /' | awk '{print $1}'` ; do
 	LINE=`grep $NUCTS $NUC`
 	echo $LINE | ./regress-pair-put -W $WOOF -L -s 'm'
 	CURRTS=$NUCTS
+	sleep 0.1
 done
 
 
@@ -46,9 +47,10 @@ for CIMASTS in `awk '{print $1}' $CIMAS | sed 's/\./ /' | awk '{print $1}'` ; do
 	fi
 	LINE=`grep $CIMASTS $CIMAS`
 	echo $LINE | ./regress-pair-put -W $WOOF -L -s 'p'
+	sleep 0.1
 done
 
-CNT=0
+CNT=1
 while ( test $CURRTS -le $LASTNUCTS ) ; do
 
 	for NUCTS in `awk '{print $1}' $NUC | sed 's/\./ /' | awk '{print $1}'` ; do
@@ -62,7 +64,7 @@ while ( test $CURRTS -le $LASTNUCTS ) ; do
 		LINE=`grep $NUCTS $NUC`
 		echo $LINE | ./regress-pair-put -W $WOOF -L -s 'm'
 		CURRTS=$NUCTS
-		sleep 0.25
+		sleep 0.1
 	done
 
 	for CIMASTS in `awk '{print $1}' $CIMAS | sed 's/\./ /' | awk '{print $1}'` ; do
@@ -74,7 +76,7 @@ while ( test $CURRTS -le $LASTNUCTS ) ; do
 		fi
 		LINE=`grep $CIMASTS $CIMAS`
 		echo $LINE | ./regress-pair-put -W $WOOF -L -s 'p'
-		sleep 1
+		sleep 0.1
 	done
 	CNT=$(($CNT+1))
 
