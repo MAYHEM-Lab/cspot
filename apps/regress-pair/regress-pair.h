@@ -36,6 +36,7 @@ struct regress_coeff_stc
 	unsigned int pad_2;
 	double slope;
 	double intercept;
+	double measure;
 };
 
 

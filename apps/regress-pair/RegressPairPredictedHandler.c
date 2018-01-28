@@ -124,7 +124,7 @@ int MSE(double slope, double intercept, Array2D *match_array, double *out_mse)
 	
 
 int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_back,
-	double *out_slope, double *out_intercept)
+	double *out_slope, double *out_intercept, double *out_value)
 {
 	int i;
 	int l;
@@ -150,6 +150,8 @@ int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_bac
 	double best_mse;
 	double best_slope;
 	double best_intercept;
+	double best_value;
+	double last_value;
 
 	m_seq_no = WooFGetLatestSeqno(measured_name);
 	if(WooFInvalid(m_seq_no)) {
@@ -294,6 +296,8 @@ p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
 
 	best_slope = coeff[1];
 	best_intercept = coeff[0];
+	i = match_array->ydim - 1;
+	best_value = match_array->data[i*2+1];
 	err = MSE(best_slope,best_intercept,match_array,&mse);
 	best_mse = mse;
 	if(err < 0) {
@@ -318,6 +322,8 @@ p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
 					l);
 			break;
 		}
+		i = match_array->ydim - 1;
+		last_value = match_array->data[i*2+1];
 		FreeArray2D(smoothed);
 		smoothed = NULL;
 		coeff = RegressMatrix(match_array);
@@ -333,12 +339,13 @@ p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
 			break;
 		}
 		if(mse < best_mse) {
-printf("better mse at lags %d: %f %f\n",
-l,mse,best_mse);
+printf("better mse at lags %d: %f %f, best val %f\n",
+l,mse,best_mse,last_value);
 fflush(stdout);
 			best_slope = coeff[1];
 			best_intercept = coeff[0];
 			best_mse = mse;
+			best_value = last_value;
 		}
 		free(coeff);
 		coeff = NULL;
@@ -350,6 +357,7 @@ fflush(stdout);
 
 	*out_slope = best_slope;
 	*out_intercept = best_intercept;
+	*out_value = best_value;
 	if(coeff != NULL) {
 		free(coeff);
 	}
@@ -540,7 +548,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		 */
 		seq_no = WooFGet(coeff_name,(void *)&coeff_rv,c_seq_no);
 		if(!WooFInvalid(seq_no)) {
-			pred = (coeff_rv.slope * mv.value.d) + coeff_rv.intercept;
+//			pred = (coeff_rv.slope * mv.value.d) + coeff_rv.intercept;
+			pred = (coeff_rv.slope * coeff_rv.measure) + coeff_rv.intercept;
 			error = rv->value.d - pred;
 			ev.value.d = error;
 			ev.tv_sec = rv->tv_sec;
@@ -551,7 +560,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 				fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
 			}
 printf("ERROR: %lu predicted: %f prediction: %f meas: %f error: %f slope: %f int: %f\n", ntohl(rv->tv_sec),
-rv->value.d,pred,mv.value.d,error,coeff_rv.slope,coeff_rv.intercept);
+rv->value.d,pred,coeff_rv.measure,error,coeff_rv.slope,coeff_rv.intercept);
 fflush(stdout);
 		} else {
 				fprintf(stderr,"coeff seq_no %lu invalid from %s\n", seq_no,coeff_name);
@@ -592,7 +601,7 @@ fflush(stdout);
 	}
 
 	err = BestRegressionCoeff(predicted_name,measured_name,ri.count_back,
-		&coeff_rv.slope,&coeff_rv.intercept);
+		&coeff_rv.slope,&coeff_rv.intercept,&coeff_rv.measure);
 
 	if(err < 0) {
 		fprintf(stderr,"couldn't get best regression coefficient\n");
