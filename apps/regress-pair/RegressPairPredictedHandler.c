@@ -479,6 +479,8 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	double *coeff;
 	double pred;
 	double error;
+	double p_ts;
+	double m_ts;
 
 #ifdef DEBUG
         fd = fopen("/cspot/pred-handler.log","a+");
@@ -502,33 +504,55 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	 */
 	c_seq_no = WooFGetLatestSeqno(coeff_name);
 	m_seq_no = WooFGetLatestSeqno(measured_name);
+
+	p_ts = (double)ntohl(rv->tv_sec)+(double)(ntohl(rv->tv_usec) / 1000000.0);
 	if((c_seq_no > 0) && (m_seq_no > 0)) {
+
+		/*
+		 * walk back to find the last measurement immediately before the
+		 * predicted value
+		 */
+		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
+		while((err > 0) && (m_seq_no > 0)) {
+			m_ts = (double)ntohl(mv.tv_sec)+(double)(ntohl(mv.tv_usec) / 1000000.0);
+			if(m_ts < p_ts) {
+				break;
+			}
+			m_seq_no--;
+			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
+		}
+
+		if(err < 0) {
+			fprintf(stderr,"couldn't find valid measurement for request %lu\n",
+				rv->seq_no);
+			seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
+			return(-1);
+		}
+		if(m_seq_no == 0) {
+			fprintf(stderr,"couldn't find meas ts earlier that %10.0f, using %10.0f\n",
+					p_ts,m_ts);
+		}
+			
+			
+			
 		/*
 		 * get the latest set of coefficients
 		 */
 		seq_no = WooFGet(coeff_name,(void *)&coeff_rv,c_seq_no);
 		if(!WooFInvalid(seq_no)) {
-			/*
-			 * get the latest measurement
-			 */
-			seq_no = WooFGet(measured_name,(void *)&mv,m_seq_no);
-			if(!WooFInvalid(seq_no)) {
-				pred = (coeff_rv.slope * mv.value.d) + coeff_rv.intercept;
-				error = rv->value.d - pred;
-				ev.value.d = error;
-				ev.tv_sec = rv->tv_sec;
-				ev.tv_usec = rv->tv_usec;
-				memcpy(ev.woof_name,rv->woof_name,sizeof(ev.woof_name));
-				seq_no = WooFPut(error_name,NULL,&ev);
-				if(WooFInvalid(seq_no)) {
-					fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
-				}
+			pred = (coeff_rv.slope * mv.value.d) + coeff_rv.intercept;
+			error = rv->value.d - pred;
+			ev.value.d = error;
+			ev.tv_sec = rv->tv_sec;
+			ev.tv_usec = rv->tv_usec;
+			memcpy(ev.woof_name,rv->woof_name,sizeof(ev.woof_name));
+			seq_no = WooFPut(error_name,NULL,&ev);
+			if(WooFInvalid(seq_no)) {
+				fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
+			}
 printf("ERROR: %lu predicted: %f prediction: %f meas: %f error: %f slope: %f int: %f\n", ntohl(rv->tv_sec),
 rv->value.d,pred,mv.value.d,error,coeff_rv.slope,coeff_rv.intercept);
 fflush(stdout);
-			} else {
-				fprintf(stderr,"measured seq_no %lu invalid from %s\n", seq_no,measured_name);
-			}
 		} else {
 				fprintf(stderr,"coeff seq_no %lu invalid from %s\n", seq_no,coeff_name);
 		}
