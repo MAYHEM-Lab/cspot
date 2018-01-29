@@ -607,6 +607,8 @@ int JenksSplitEigen(Array1D *ev)
 	int min_split;
 	double gof;
 
+return(1);
+
 	global_dev = JenksDevEigen(ev,0);
 	for(split = 1; split < ev->ydim-1; split++) {
 		class_dev = JenksDevEigen(ev,split); 

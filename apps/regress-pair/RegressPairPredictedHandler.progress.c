@@ -16,8 +16,6 @@
 
 FILE *fd;
 
-#define SLEEPTIME (1)
-
 
 Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 {
@@ -125,13 +123,14 @@ int MSE(double slope, double intercept, Array2D *match_array, double *out_mse)
 #define MAXLAGS (15)
 	
 
-int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *measured_name, int count_back,
+int BestRegressionCoeff(char *predicted_name, char *measured_name, int count_back,
 	double *out_slope, double *out_intercept, double *out_value)
 {
 	int i;
 	int l;
 	int err;
 	unsigned long m_seq_no;
+	unsigned long p_seq_no;
 	unsigned long seq_no;
 	int count;
 	double p_ts;
@@ -158,6 +157,12 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 	if(WooFInvalid(m_seq_no)) {
 		fprintf(stderr,"BestCoeff: no latest seq no in %s\n",
 			measured_name);
+		goto out;
+	}
+	p_seq_no = WooFGetLatestSeqno(predicted_name);
+	if(WooFInvalid(p_seq_no)) {
+		fprintf(stderr,"BestCoeff: no latest seq no in %s\n",
+			predicted_name);
 		goto out;
 	}
 
@@ -449,14 +454,6 @@ int NextReadyPrediction(char *request, unsigned long last_finished, REGRESSVAL *
 		
 
 
-void FinishPredicted(char *finished_name, unsigned long wf_seq_no)
-{
-	unsigned long seq_no = wf_seq_no+1;
-	(void)WooFPut(finished_name,NULL,(void *)&seq_no);
-printf("PREDICTED finished %lu\n",wf_seq_no);
-fflush(stdout);
-	return;
-}
 
 
 int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
@@ -480,7 +477,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	unsigned long seq_no;
 	unsigned long c_seq_no;
 	unsigned long m_seq_no;
-	unsigned long f_seq_no;
+	unsigned long p_seq_no;
 	double p;
 	double m;
 	int i;
@@ -492,9 +489,6 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	double error;
 	double p_ts;
 	double m_ts;
-
-printf("PREDICTED started for %lu\n",wf_seq_no);
-fflush(stdout);
 
 #ifdef DEBUG
         fd = fopen("/cspot/pred-handler.log","a+");
@@ -511,26 +505,21 @@ fflush(stdout);
 	while(1) {
 		seq_no = WooFGetLatestSeqno(finished_name);
 		if(WooFInvalid(seq_no) || (seq_no == 0)) {
-			sleep(SLEEPTIME);
+			sleep(sleeptime);
 			continue;
 		}
-		seq_no = WooFGet(finished_name,(void *)&f_seq_no,seq_no);
+		seq_no = WooFGet(finished_name,(void *)&f_seq_no);
 		if(WooFInvalid(seq_no) || (seq_no == 0)) {
 			sleep(SLEEPTIME);
 			continue;
 		}
-		if(f_seq_no != wf_seq_no) {
+		if((f_seq_no+1) < wf_seq_no) {
 			sleep(SLEEPTIME);
 			continue;
 		}
-		break;
 	}
-printf("PREDICTED AWAKE for %lu\n",wf_seq_no);
-fflush(stdout);
+	seq_no = WooFGet(finished_name,&f_seq_no,seq_no);
 
-	/*
-	 * my turn
-	 */
 	MAKE_EXTENDED_NAME(index_name,rv->woof_name,"index");
 	MAKE_EXTENDED_NAME(measured_name,rv->woof_name,"measured");
 	MAKE_EXTENDED_NAME(predicted_name,rv->woof_name,"predicted");
@@ -565,7 +554,7 @@ fflush(stdout);
 		if(err < 0) {
 			fprintf(stderr,"couldn't find valid measurement for request %lu\n",
 				rv->seq_no);
-			FinishPredicted(finished_name,wf_seq_no);
+			seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 			return(-1);
 		}
 		if(m_seq_no == 0) {
@@ -609,35 +598,94 @@ fflush(stdout);
 	if(err < 0) {
 		fprintf(stderr,
 			"RegressPairPredictedHandler couldn't get count back from %s\n",index_name);
-		FinishPredicted(finished_name,wf_seq_no);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 	memcpy(coeff_rv.woof_name,rv->woof_name,sizeof(coeff_rv.woof_name));
 
-	err = BestRegressionCoeff(predicted_name,wf_seq_no,measured_name,ri.count_back,
+	seq_no = WooFGetLatestSeqno(predicted_name);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"couldn't get latest seq_no from %s\n",
+			predicted_name);
+		fflush(stderr);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
+		return(-1);
+	}
+
+	err = WooFGet(predicted_name,&p_rv,seq_no);
+	if(err < 0) {
+		fprintf(stderr,"couldn't get latest record from %s\n",
+			predicted_name);
+		fflush(stderr);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
+		return(-1);
+	}
+
+	err = BestRegressionCoeff(predicted_name,measured_name,ri.count_back,
 		&coeff_rv.slope,&coeff_rv.intercept,&coeff_rv.measure);
 
 	if(err < 0) {
 		fprintf(stderr,"couldn't get best regression coefficient\n");
-		FinishPredicted(finished_name,wf_seq_no);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
 	}
 
-	coeff_rv.tv_sec = rv->tv_sec;
-	coeff_rv.tv_usec = rv->tv_usec;
+	coeff_rv.tv_sec = p_rv.tv_sec;
+	coeff_rv.tv_usec = p_rv.tv_usec;
 printf("SLOPE: %f int: %f\n",coeff_rv.slope,coeff_rv.intercept);
 fflush(stdout);
 	seq_no = WooFPut(coeff_name,NULL,(void *)&coeff_rv);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,
-			"RegressPairPredictedHandler: couldn't put coeff to %s\n",coeff_name);
-		FinishPredicted(finished_name,wf_seq_no);
+			"RegressPairPredictedHandler: couldn't put result to %s\n",result_name);
+		seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
 		return(-1);
+	}
+
+	/*
+	 * get the sequence number for the last handler that is in progress
+	 */
+	seq_no = WooFGetLatestSeqno(progress_name);
+	err = WooFGet(progress_name,&p_seq_no,seq_no);
+	if(err < 0) {
+		fprintf(stderr,
+			"RegressPairPredictedHandler: couldn't get progress seq_no %s\n",progress_name);
+	}
+	/*
+	 * if it is this handler, try and get the next one from the request list
+	 */
+	if(p_seq_no <= rv->seq_no) {
+		/*
+		 * get the next one
+		 */
+		err = NextReadyPrediction(rv->woof_name,rv->seq_no,&next_rv);
+		/*
+		 * if there is a next one, add it to the progress list and put it to the predicted WooF
+		 */
+		if(err > 0) {
+			seq_no = WooFPut(progress_name,NULL,&next_rv.seq_no);
+			if(!WooFInvalid(seq_no)) {
+				seq_no = WooFPut(predicted_name,"RegressPairPredictedHandler",&next_rv);
+				if(WooFInvalid(seq_no)) {
+					fprintf(stderr,"bad seq_no on continuing put\n");
+					return(-1);
+				}
+			} else {
+				fprintf(stderr,"bad seq_no on continuing progress put\n");
+				return(-1);
+			}
+		} else {
+			fprintf(stderr,"err on get for last finished seq_no %lu, err: %d\n",rv->seq_no,err);
+		}
 	}
 
 	/*
 	 * do this last to prevent request handler from firing before progress reflects new launch
 	 */
-	FinishPredicted(finished_name,wf_seq_no);
+	seq_no = WooFPut(finished_name,NULL,(void *)&rv->seq_no);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,
+			"RegressPairPredictedHandler: couldn't put finished to %s\n",finished_name);
+	}
 	return(1);
 }

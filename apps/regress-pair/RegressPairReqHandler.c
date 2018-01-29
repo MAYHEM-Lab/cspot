@@ -36,6 +36,13 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	fclose(fd);
 #endif	
 
+	MAKE_EXTENDED_NAME(finished_name,rv->woof_name,"finished");
+	/*
+	 * enable the first one
+	 */
+	if(wf_seq_no == 1) {
+		WooFPut(finished_name,NULL,&(wf_seq_no));
+	}
 	if(rv->series_type == 'm') {
 		MAKE_EXTENDED_NAME(target_name,rv->woof_name,"measured");
 		seq_no = WooFPut(target_name,
@@ -47,6 +54,17 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		}
 	}
 
+	if(rv->series_type == 'p') {
+		MAKE_EXTENDED_NAME(target_name,rv->woof_name,"predicted");
+		seq_no = WooFPut(target_name,
+				 "RegressPairPredictedHandler",
+				 ptr);
+		if(WooFInvalid(seq_no)) {
+			fprintf(stderr,
+	"RegressPairReqHandler couldn't put predicted value\n");
+		}
+	}
+#if 0
 	if(rv->series_type == 'p') {
 		MAKE_EXTENDED_NAME(target_name,rv->woof_name,"predicted");
 		MAKE_EXTENDED_NAME(progress_name,rv->woof_name,"progress");
@@ -79,6 +97,7 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 			}
 		}
 	}
+#endif
 
 	return(1);
 }
