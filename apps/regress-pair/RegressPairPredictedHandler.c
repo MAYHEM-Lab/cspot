@@ -25,6 +25,7 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 	int j;
 	int err;
 	int mcount;
+	int k;
 	double p_ts;
 	double m_ts;
 	double v_ts;
@@ -40,17 +41,33 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 
 	i = 0;
 	j = 0;
+	k = 0;
 	m_ts = meas_series->data[i*2+0];
 	next_ts = meas_series->data[(i+1)*2+0];
 	p_ts = pred_series->data[j*2+0];
 	while((i+1) < meas_series->ydim) {
+		/*
+		 * deal with drop out in the measured series
+		 */
+		if(fabs(next_ts-m_ts) > 1200) {
+			/* assumes that next_ts is bigger than p_ts and m_ts is smaller */
+printf("PREDICTED: drop out: p: %10.0f m: %10.10f n: %10.10f\n",p_ts,m_ts,next_ts);
+fflush(stdout); 
+			while(fabs(next_ts-p_ts) > 3700) {
+				j++;
+				if(j >= pred_series->ydim) {
+					break;
+				}
+				p_ts = pred_series->data[j*2+0];
+			}
+		}
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
-			matched_array->data[j*2+0] = pred_series->data[j*2+1];
-			matched_array->data[j*2+1] = meas_series->data[(i+1)*2+1];
+			matched_array->data[k*2+0] = pred_series->data[j*2+1];
+			matched_array->data[k*2+1] = meas_series->data[(i+1)*2+1];
 			v_ts = next_ts;
 		} else {
-			matched_array->data[j*2+0] = pred_series->data[j*2+1];
-			matched_array->data[j*2+1] = meas_series->data[i*2+1];
+			matched_array->data[k*2+0] = pred_series->data[j*2+1];
+			matched_array->data[k*2+1] = meas_series->data[i*2+1];
 			v_ts = m_ts;
 		}
 
@@ -62,10 +79,12 @@ fflush(stdout);
 		
 		i++;
 		j++;
+		k++;
 		if(j >= pred_series->ydim) {
-printf("MATCHED SHORT: j: %d, i: %d, pydim: %lu mydim: %lu\n",
-j,i,pred_series->ydim,meas_series->ydim);
+printf("MATCHED SHORT: j: %d, i: %d, k: %d pydim: %lu mydim: %lu\n",
+j,i,k,pred_series->ydim,meas_series->ydim);
 fflush(stdout);
+			matched_array->ydim = k;
 			return(matched_array);
 		}
 if(pred_series->data[j*2+0] < p_ts) {
@@ -93,11 +112,14 @@ return(NULL);
 		}
 	}
 
-printf("MATCHED END: j: %d, i: %d, pydim: %lu mydim: %lu\n",
-j,i,pred_series->ydim,meas_series->ydim);
+printf("MATCHED END: j: %d, i: %d, k: %d, pydim: %lu mydim: %lu\n",
+j,i,k,pred_series->ydim,meas_series->ydim);
 fflush(stdout);
-	matched_array->data[j*2+0] = pred_series->data[j*2+1];
-	matched_array->data[j*2+1] = meas_series->data[i*2+1];
+	if(j < pred_series->ydim) {
+		matched_array->data[k*2+0] = pred_series->data[j*2+1];
+		matched_array->data[k*2+1] = meas_series->data[i*2+1];
+	}
+	matched_array->ydim = k;
 
 
 	return(matched_array);
