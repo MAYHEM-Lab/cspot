@@ -54,6 +54,7 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 			v_ts = m_ts;
 		}
 
+
 printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
 j,p_ts,matched_array->data[j*2+0],
 v_ts,matched_array->data[j*2+1]);
@@ -62,6 +63,9 @@ fflush(stdout);
 		i++;
 		j++;
 		if(j >= pred_series->ydim) {
+printf("MATCHED SHORT: j: %d, i: %d, pydim: %lu mydim: %lu\n",
+j,i,pred_series->ydim,meas_series->ydim);
+fflush(stdout);
 			return(matched_array);
 		}
 if(pred_series->data[j*2+0] < p_ts) {
@@ -88,6 +92,10 @@ return(NULL);
 			break;
 		}
 	}
+
+printf("MATCHED END: j: %d, i: %d, pydim: %lu mydim: %lu\n",
+j,i,pred_series->ydim,meas_series->ydim);
+fflush(stdout);
 	matched_array->data[j*2+0] = pred_series->data[j*2+1];
 	matched_array->data[j*2+1] = meas_series->data[i*2+1];
 
