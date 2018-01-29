@@ -136,6 +136,7 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 	int count;
 	double p_ts;
 	double m_ts;
+	double now_ts;
 	double next_ts;
 	REGRESSVAL p_rv;
 	REGRESSVAL m_rv;
@@ -173,6 +174,17 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 	}
 
 	/*
+	 * get the current time stamp
+	 */
+	err = WooFGet(predicted_name,(void *)&p_rv,p_seq_no);
+	if(err < 0) {
+		fprintf(stderr,"BestCoeff: couldn't get now at %lu in %s\n",
+			p_seq_no,predicted_name);
+		goto out;
+	}
+	now_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
+
+	/*
 	 * get the earliest value from the predicted series
 	 */
 	count = count_back;
@@ -183,6 +195,7 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 		goto out;
 	}
 
+	p_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
 	/*
 	 * walk back in the measured series and look for entry that is
 	 * immediately before predicted value in terms of time stamp
@@ -197,8 +210,14 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 			goto out;
 		}
 
-		p_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
 		m_ts = (double)ntohl(m_rv.tv_sec)+(double)(ntohl(m_rv.tv_usec) / 1000000.0);
+		/*
+		 * if this measurement is too late, skip
+		 */
+		if(m_ts > now_ts) {
+			seq_no--;
+			continue;
+		}
 		if(m_ts < p_ts) {
 			if(measured_size < count) {
 				fprintf(stderr,
