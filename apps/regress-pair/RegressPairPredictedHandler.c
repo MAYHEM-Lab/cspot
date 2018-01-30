@@ -164,7 +164,7 @@ Array2D *MakeArrayFromWooF(char *woof_name, unsigned long start_seq_no, unsigned
 	REGRESSVAL rv;
 	Array2D *ar;
 
-	size = (int)(start_seq_no - end_seq_no);
+	size = (int)(end_seq_no - start_seq_no);
 
 	ar = MakeArray2D(size,2);
 	if(ar == NULL) {
@@ -727,7 +727,6 @@ fflush(stdout);
 	 * get the data from the measured woof for the time period between p_ts and e_ts
 	 */
 	if(m_seq_no > 0) {
-		end_seq_no = m_seq_no;
 		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		while((err > 0) && (m_seq_no > 0)) {
 			MAKETS(m_ts,&mv);
@@ -759,6 +758,22 @@ fflush(stdout);
 printf("PREDICTED: no drop out between %10.10f and %10.10f at seqno %lu\n",
 e_ts,p_ts);
 fflush(stdout);
+		end_seq_no = m_seq_no;
+		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
+		while((err > 0) && (m_seq_no > 0)) {
+			MAKETS(m_ts,&mv);
+			if(m_ts <= e_ts) {
+				break;
+			}
+			m_seq_no--;
+			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
+		}
+		if(err < 0) {
+			fprintf(stderr,"couldn't find valid measurement for request end %lu %lu\n",
+				rv->seq_no,m_seq_no);
+			FinishPredicted(finished_name,wf_seq_no);
+			return(-1);
+		}
 		start_seq_no = m_seq_no;
 	}
 	
