@@ -37,6 +37,7 @@ struct regress_coeff_stc
 	double slope;
 	double intercept;
 	double measure;
+	int lags;
 };
 
 
