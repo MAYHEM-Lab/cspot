@@ -496,6 +496,64 @@ int NextReadyPrediction(char *request, unsigned long last_finished, REGRESSVAL *
 	return(0);
 }
 		
+int HasDropOut(char *name, double start, double end, double interval)
+{
+	unsigned long seq_no;
+	unsigned long l_seq_no;
+	REGRESSVAL rv;
+	double ts;
+	double next_ts;
+	int err;
+
+	l_seq_no = seq_no = WooFGetLatestSeqno(name);
+	if(WooFInvalid(seq_no)) {
+		return(1);
+	}
+	if(seq_no == 0) {
+		return(1);
+	}
+
+	err = WooFGet(name,&rv,seq_no);
+	if(err < 0) {
+		return(1);
+	}
+	ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
+	while(ts > start) {
+		seq_no--;
+		if(seq_no == 0) {
+			return(1);
+		}
+		err = WooFGet(name,&rv,seq_no);
+		if(err < 0) {
+			return(1);
+		}
+		ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
+	}
+
+	seq_no++;
+	next_ts = ts;
+	while(next_ts < end) {
+		err = WooFGet(name,&rv,seq_no);
+		if(err < 0) {
+			return(1);
+		}
+		next_ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
+		if(fabs(next_ts - ts) > interval) {
+			return(1);
+		}
+printf("PREDICTED: diff: %lu\n",fabs(next_ts-ts));
+fflush(stdout);
+		ts = next_ts;
+		seq_no++;
+		if(seq_no > l_seq_no) {
+			return(0);
+		}
+	}
+
+	return(0);
+}
+		
+
 
 
 void FinishPredicted(char *finished_name, unsigned long wf_seq_no)
@@ -541,6 +599,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	double error;
 	double p_ts;
 	double m_ts;
+	double e_ts;
 
 printf("PREDICTED started for %lu\n",wf_seq_no);
 fflush(stdout);
@@ -595,12 +654,37 @@ fflush(stdout);
 	m_seq_no = WooFGetLatestSeqno(measured_name);
 
 	p_ts = (double)ntohl(rv->tv_sec)+(double)(ntohl(rv->tv_usec) / 1000000.0);
-	if((c_seq_no > 0) && (m_seq_no > 0)) {
+	/*
+	 * get the count back from the index
+	 */
+	seq_no = WooFGetLatestSeqno(index_name); 
 
-		/*
-		 * walk back to find the last measurement immediately before the
-		 * predicted value
-		 */
+	err = WooFGet(index_name,(void *)&ri,seq_no);
+	if(err < 0) {
+		fprintf(stderr,
+			"RegressPairPredictedHandler couldn't get count back from %s\n",index_name);
+		FinishPredicted(finished_name,wf_seq_no);
+		return(-1);
+	}
+
+	if((int)(wf_seq_no - ri.count_back) <= 0) {
+		fprintf(stderr,"not enough history at seq_no %lu\n",wf_seq_no);
+		FinishPredicted(finished_name,wf_seq_no);
+		return(-1);
+	}
+
+	err = WooFGet(predicted_name,&ev,(wf_seq_no - ri.count_back));
+	if(err < 0) {
+		fprintf(stderr,"couldn't get earliest ts in prtedicted series at %lu\n",
+				wf_seq_no-ri.count_back);
+		FinishPredicted(finished_name,wf_seq_no);
+		return(-1);
+	}
+	
+	
+	e_ts = (double)ntohl(ev.tv_sec)+(double)(ntohl(ev.tv_usec) / 1000000.0);
+
+	if(m_seq_no > 0) {
 		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		while((err > 0) && (m_seq_no > 0)) {
 			m_ts = (double)ntohl(mv.tv_sec)+(double)(ntohl(mv.tv_usec) / 1000000.0);
@@ -610,7 +694,6 @@ fflush(stdout);
 			m_seq_no--;
 			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		}
-
 		if(err < 0) {
 			fprintf(stderr,"couldn't find valid measurement for request %lu\n",
 				rv->seq_no);
@@ -620,9 +703,25 @@ fflush(stdout);
 		if(m_seq_no == 0) {
 			fprintf(stderr,"couldn't find meas ts earlier that %10.0f, using %10.0f\n",
 					p_ts,m_ts);
+			FinishPredicted(finished_name,wf_seq_no);
+			return(-1);
 		}
-			
-			
+		if(HasDropOut(measured_name,e_ts,p_ts,1200)) {
+			fprintf(stderr,"predhandler %lu has dropout\n",wf_seq_no);
+printf("PREDICTED predhandler %lu has dropout\n",wf_seq_no);
+fflush(stdout);
+			FinishPredicted(finished_name,wf_seq_no);
+			return(-1);
+		}
+printf("PREDICTED: no drop out between %10.10f and %10.10f at seqno %lu\n",
+e_ts,p_ts);
+fflush(stdout);
+	}
+	
+	if((c_seq_no > 0) && (m_seq_no > 0)) {
+
+
+
 			
 		/*
 		 * get the latest set of coefficients
@@ -649,18 +748,6 @@ fflush(stdout);
 	}
 
 
-	/*
-	 * get the count back from the index
-	 */
-	seq_no = WooFGetLatestSeqno(index_name); 
-
-	err = WooFGet(index_name,(void *)&ri,seq_no);
-	if(err < 0) {
-		fprintf(stderr,
-			"RegressPairPredictedHandler couldn't get count back from %s\n",index_name);
-		FinishPredicted(finished_name,wf_seq_no);
-		return(-1);
-	}
 	memcpy(coeff_rv.woof_name,rv->woof_name,sizeof(coeff_rv.woof_name));
 
 	err = BestRegressionCoeff(predicted_name,wf_seq_no,measured_name,ri.count_back,
