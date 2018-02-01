@@ -32,6 +32,7 @@ while ( test $CNT -lt 500 ) ; do
 	if ( test $LASTSEQNO -gt 0 ) ; then
 		if ( test $LASTM -le $LAST ) ; then
 			CNT=$(($CNT+1))
+			OFFSET=$(($OFFSET-1))
 			continue
 		fi
 		echo "updating $LASTM $MEAS (seqno $(($SEQNO - $OFFSET)))"
