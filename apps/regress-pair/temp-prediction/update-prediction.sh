@@ -22,7 +22,7 @@ LASTTIME=`$BIN/regress-pair-get -W $WOOF -s 'p' | awk '{print $3}' | awk -F '.' 
 for LASTP in `tail -n 500 $FILE | awk '{print $1}'` ; do
 	if ( test "$LASTTIME" = "0" ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
-		echo $LINE | $BIN/regress-pair-put -W $WOOF -L -s 'p'
+		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
 echo "cold start $LINE"
 		sleep 0.1
 		continue

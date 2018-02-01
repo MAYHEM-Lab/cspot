@@ -25,20 +25,23 @@ fi
 SEQNO=`$BIN/senspot-get -W $SWOOF | awk '{print $6}'`
 
 CNT=0
+OFFSET=500
 while ( test $CNT -lt 500 ) ; do
-	LINE=`$BIN/senspot-get -W $SWOOF -S $(($SEQNO - $CNT))`
+	LINE=`$BIN/senspot-get -W $SWOOF -S $(($SEQNO - $OFFSET))`
 	LASTM=`echo $LINE | awk '{print $3}' | awk -F '.' '{print $1}'`
 	if ( test $LASTSEQNO -gt 0 ) ; then
-		if ( test $LASTM -gt $LAST ) ; then
-			break
+		if ( test $LASTM -le $LAST ) ; then
+			CNT=$(($CNT+1))
+			continue
 		fi
-		echo "updating $LASTM $MEAS (seqno $(($SEQNO - $CNT)))"
+		echo "updating $LASTM $MEAS (seqno $(($SEQNO - $OFFSET)))"
 	else
-		echo "initial put of $LASTM $MEAS (seqno $(($SEQNO - $CNT)))"
+		echo "initial put of $LASTM $MEAS (seqno $(($SEQNO - $OFFSET)))"
 	fi
 	MEAS=`echo $LINE | awk '{print $1}'`
 	echo $LASTM $MEAS | $BIN/regress-pair-put -W $WOOF -s 'm'
 	CNT=$(($CNT+1))
+	OFFSET=$(($OFFSET-1))
 done
 
 
