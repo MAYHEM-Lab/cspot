@@ -658,6 +658,9 @@ fflush(stdout);
 	MAKE_EXTENDED_NAME(finished_name,rv->woof_name,"finished");
 	while(1) {
 		seq_no = WooFGetLatestSeqno(finished_name);
+		if(wf_seq_no == 1) {
+			break;
+		}
 		if(WooFInvalid(seq_no) || (seq_no == 0)) {
 			sleep(SLEEPTIME);
 			continue;
