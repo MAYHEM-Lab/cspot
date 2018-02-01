@@ -23,11 +23,9 @@ for LASTP in `tail -n 500 $FILE | awk '{print $1}'` ; do
 	if ( test "$LASTTIME" = "0" ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
-echo "cold start $LINE"
 		sleep 0.1
 		continue
 	fi
-echo $LASTP $LASTTIME
 	if ( test $LASTP -gt $LASTTIME ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
