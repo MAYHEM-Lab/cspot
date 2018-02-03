@@ -53,8 +53,6 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 		 */
 		if(fabs(next_ts-m_ts) > 1200) {
 			/* assumes that next_ts is bigger than p_ts and m_ts is smaller */
-printf("PREDICTED: drop out: p: %10.0f m: %10.10f n: %10.10f\n",p_ts,m_ts,next_ts);
-fflush(stdout); 
 			while(fabs(next_ts-p_ts) > 3700) {
 				j++;
 				if(j >= pred_series->ydim) {
@@ -154,7 +152,7 @@ int MSE(double slope, double intercept, Array2D *match_array, double *out_mse)
 }
 
 	
-#define MAXLAGS (15)
+#define MAXLAGS (30)
 
 Array2D *MakeArrayFromWooF(char *woof_name, unsigned long start_seq_no, unsigned long end_seq_no)
 {
@@ -594,7 +592,7 @@ void FinishPredicted(char *finished_name, unsigned long wf_seq_no)
 {
 	unsigned long seq_no = wf_seq_no+1;
 	(void)WooFPut(finished_name,NULL,(void *)&seq_no);
-printf("PREDICTED finished %lu\n",wf_seq_no);
+printf("PREDICTED (%s) finished %lu\n",finished_name,wf_seq_no);
 fflush(stdout);
 	return;
 }
@@ -641,7 +639,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	double pred_time;
 	double measure;
 
-printf("PREDICTED started for %lu\n",wf_seq_no);
+printf("PREDICTED (%s) started for %lu\n",rv->woof_name,wf_seq_no);
 fflush(stdout);
 
 #ifdef DEBUG
@@ -676,7 +674,7 @@ fflush(stdout);
 		}
 		break;
 	}
-printf("PREDICTED AWAKE for %lu\n",wf_seq_no);
+printf("PREDICTED (%s) AWAKE for %lu\n",rv->woof_name,wf_seq_no);
 fflush(stdout);
 
 	/*
@@ -753,14 +751,11 @@ fflush(stdout);
 		}
 		if(HasDropOut(measured_name,e_ts,p_ts,1200)) {
 			fprintf(stderr,"predhandler %lu has dropout\n",wf_seq_no);
-printf("PREDICTED predhandler %lu has dropout\n",wf_seq_no);
+printf("PREDICTED (%s) predhandler %lu has dropout\n",measured_name,wf_seq_no);
 fflush(stdout);
 			FinishPredicted(finished_name,wf_seq_no);
 			return(-1);
 		}
-printf("PREDICTED: no drop out between %10.10f and %10.10f at seqno %lu\n",
-e_ts,p_ts);
-fflush(stdout);
 		end_seq_no = m_seq_no;
 		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		while((err > 0) && (m_seq_no > 0)) {
@@ -829,7 +824,7 @@ fflush(stdout);
 			if(WooFInvalid(seq_no)) {
 				fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
 			}
-printf("ERROR: %lu predicted: %f prediction: %f meas: %10.10f %f error: %f slope: %f int: %f\n", ntohl(rv->tv_sec),
+printf("ERROR: (%s) %lu predicted: %f prediction: %f meas: %10.10f %f error: %f slope: %f int: %f\n", rv->woof_name, ntohl(rv->tv_sec),
 rv->value.d,pred,pred_time,measure,error,coeff_rv.slope,coeff_rv.intercept);
 fflush(stdout);
 		} else {
@@ -854,8 +849,6 @@ fflush(stdout);
 
 	coeff_rv.tv_sec = rv->tv_sec;
 	coeff_rv.tv_usec = rv->tv_usec;
-printf("SLOPE: %f int: %f\n",coeff_rv.slope,coeff_rv.intercept);
-fflush(stdout);
 	seq_no = WooFPut(coeff_name,NULL,(void *)&coeff_rv);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,

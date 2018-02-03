@@ -6,6 +6,7 @@
 
 #include "mioregress.h"
 
+
 /*
  * y values (predicted) in first column
  * x values in second column
@@ -70,6 +71,9 @@ PrintArray1D(y);
 	coeff[0] = b->data[0];
 	coeff[1] = b->data[1];
 
+printf("RSquared: %f\n",RSquared(x,b,y));
+fflush(stdout);
+
 
 	FreeArray2D(x);
 	FreeArray2D(y);
@@ -80,8 +84,3 @@ PrintArray1D(y);
 
 
 	
-
-	
-
-
-
