@@ -368,6 +368,8 @@ p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
 		goto out;
 	}
 
+printf("(%s) regressing... ",predicted_name);
+fflush(stdout);
 	coeff = RegressMatrix(match_array);
 	if(coeff == NULL) {
 		fprintf(stderr,"BestCoeff: couldn't compute reg. coefficients from %s and %s\n",
@@ -421,7 +423,8 @@ p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
 			break;
 		}
 		if(mse < best_mse) {
-printf("better mse at lags %d: %f %f, best val %f\n",
+printf("(%s)better mse at lags %d: %f %f, best val %f\n",
+predicted_name,
 l,mse,best_mse,last_value);
 fflush(stdout);
 			best_slope = coeff[1];

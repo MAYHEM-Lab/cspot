@@ -48,10 +48,12 @@ double *RegressMatrix(Array2D *matches)
 		return(NULL);
 	}
 
+/*
 printf("x: ");
 PrintArray2D(x);
 printf("y: ");
 PrintArray1D(y);
+*/
 
 	/*
 	 * destructive of x
