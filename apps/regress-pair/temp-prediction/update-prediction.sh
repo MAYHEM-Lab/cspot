@@ -28,12 +28,21 @@ for LASTP in `tail -n 500 $FILE | awk '{print $1}'` ; do
 	fi
 	if ( test -z "$LASTTIME" ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
+echo "empty put of $LINE"
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
 		sleep 0.1
 		continue
 	fi
 	if ( test $LASTP -gt $LASTTIME ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
+		TEMP=`echo $LINE | awk '{print $2}'`
+		if ( test "$TEMP" = "-999" ) ; then
+			continue
+		fi
+		if ( test "$TEMP" = "-1" ) ; then
+			continue
+		fi
+echo "update put of $LINE"
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
 		sleep 0.1
 	fi

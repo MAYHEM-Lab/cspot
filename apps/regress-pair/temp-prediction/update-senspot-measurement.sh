@@ -35,12 +35,17 @@ while ( test $CNT -lt 500 ) ; do
 			OFFSET=$(($OFFSET-1))
 			continue
 		fi
+		MEAS=`echo $LINE | awk '{print $1}'`
 		echo "updating $LASTM $MEAS (seqno $(($SEQNO - $OFFSET)))"
 	else
+		MEAS=`echo $LINE | awk '{print $1}'`
 		echo "initial put of $LASTM $MEAS (seqno $(($SEQNO - $OFFSET)))"
 	fi
 	MEAS=`echo $LINE | awk '{print $1}'`
-	echo $LASTM $MEAS | $BIN/regress-pair-put -W $WOOF -s 'm'
+	if ( ! test -z "$MEAS" ) ; then
+		echo $LASTM $MEAS | $BIN/regress-pair-put -W $WOOF -s 'm'
+		sleep 0.5
+	fi
 	CNT=$(($CNT+1))
 	OFFSET=$(($OFFSET-1))
 done

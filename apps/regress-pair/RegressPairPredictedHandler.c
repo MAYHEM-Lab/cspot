@@ -72,18 +72,22 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 		}
 
 
+/*
 printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
 j,p_ts,matched_array->data[j*2+0],
 v_ts,matched_array->data[j*2+1]);
 fflush(stdout);
+*/
 		
 		i++;
 		j++;
 		k++;
 		if(j >= pred_series->ydim) {
+/*
 printf("MATCHED SHORT: j: %d, i: %d, k: %d pydim: %lu mydim: %lu\n",
 j,i,k,pred_series->ydim,meas_series->ydim);
 fflush(stdout);
+*/
 			matched_array->ydim = k;
 			return(matched_array);
 		}
@@ -112,9 +116,11 @@ return(NULL);
 		}
 	}
 
+/*
 printf("MATCHED END: j: %d, i: %d, k: %d, pydim: %lu mydim: %lu\n",
 j,i,k,pred_series->ydim,meas_series->ydim);
 fflush(stdout);
+*/
 	if(j < pred_series->ydim) {
 		matched_array->data[k*2+0] = pred_series->data[j*2+1];
 		matched_array->data[k*2+1] = meas_series->data[i*2+1];
@@ -573,6 +579,10 @@ int HasDropOut(char *name, double start, double end, double interval)
 		}
 		next_ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
 		if(fabs(next_ts - ts) > interval) {
+/*
+printf("DROPOUT: %10.10f and %10.10f\n",next_ts,ts);
+fflush(stdout);
+*/
 			return(1);
 		}
 		ts = next_ts;

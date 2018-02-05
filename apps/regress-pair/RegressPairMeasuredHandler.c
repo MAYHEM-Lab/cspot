@@ -57,8 +57,10 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	result_rv.tv_sec = rv->tv_sec;
 	result_rv.tv_usec = rv->tv_usec;
 	result_rv.series_type = 'r';
+/*
 printf("PRED: %lu %f measured: %f\n",ntohl(rv->tv_sec),ntohl(rv->tv_usec),pred,rv->value.d);
 fflush(stdout);
+*/
 
 	seq_no = WooFPut(result_name,NULL,(void *)&result_rv);
 	if(WooFInvalid(seq_no)) {

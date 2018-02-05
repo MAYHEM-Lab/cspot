@@ -17,6 +17,7 @@ double *RegressMatrix(Array2D *matches)
 	int j;
 	int c;
 	Array2D *x;
+	Array2D *cx;
 	Array2D *b;
 	Array2D *y;
 	unsigned long size;
@@ -39,6 +40,12 @@ double *RegressMatrix(Array2D *matches)
 		x->data[i*2+0] = 1.0; /* so we get a y-intercept */
 		x->data[i*2+1] = matches->data[i*2+1]; /* x data in second column */
 		y->data[i] = matches->data[i*2+0]; /* x data in first column */
+	}
+
+	cx = CopyArray2D(x);
+	if(cx == NULL) {
+		FreeArray2D(x);
+		return(NULL);
 	}
 
 printf("x: ");
@@ -71,11 +78,12 @@ PrintArray1D(y);
 	coeff[0] = b->data[0];
 	coeff[1] = b->data[1];
 
-printf("RSquared: %f\n",RSquared(x,b,y));
+printf("RSquared: %f\n",RSquared(cx,b,y));
 fflush(stdout);
 
 
 	FreeArray2D(x);
+	FreeArray2D(cx);
 	FreeArray2D(y);
 	FreeArray2D(b);
 
