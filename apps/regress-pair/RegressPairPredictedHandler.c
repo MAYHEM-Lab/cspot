@@ -550,24 +550,35 @@ int HasDropOut(char *name, double start, double end, double interval)
 
 	l_seq_no = seq_no = WooFGetLatestSeqno(name);
 	if(WooFInvalid(seq_no)) {
+printf("HASDROPOUT: bad last seqno\n");
+fflush(stdout);
 		return(1);
 	}
 	if(seq_no == 0) {
+printf("HASDROPOUT: last seqno is 0\n");
+fflush(stdout);
 		return(1);
 	}
 
 	err = WooFGet(name,&rv,seq_no);
 	if(err < 0) {
+printf("HASDROPOUT: (%s) error getting seqno %lu\n",name);
+fflush(stdout);
 		return(1);
 	}
 	ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
 	while(ts > start) {
 		seq_no--;
 		if(seq_no == 0) {
+printf("HASDROPOUT: (%s) reached seqno 0 for start %10.0f and ts %10.0f\n",name,
+start,ts);
+fflush(stdout);
 			return(1);
 		}
 		err = WooFGet(name,&rv,seq_no);
 		if(err < 0) {
+printf("HASDROPOUT: (%s) error reading seqno %lu\n",name,seq_no);
+fflush(stdout);
 			return(1);
 		}
 		ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
@@ -578,14 +589,15 @@ int HasDropOut(char *name, double start, double end, double interval)
 	while(next_ts < end) {
 		err = WooFGet(name,&rv,seq_no);
 		if(err < 0) {
+printf("HASDROPOUT: (%s) error 2 reading seqno %lu\n",name,seq_no);
+fflush(stdout);
 			return(1);
 		}
 		next_ts = (double)ntohl(rv.tv_sec)+(double)(ntohl(rv.tv_usec) / 1000000.0);
 		if(fabs(next_ts - ts) > interval) {
-/*
-printf("DROPOUT: %10.10f and %10.10f\n",next_ts,ts);
+printf("HASDROPOUT: (%s) %10.10f and %10.10f\n",name,next_ts,ts);
 fflush(stdout);
-*/
+
 			return(1);
 		}
 		ts = next_ts;
@@ -652,8 +664,6 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	double pred_time;
 	double measure;
 
-printf("PREDICTED (%s) started for %lu\n",rv->woof_name,wf_seq_no);
-fflush(stdout);
 
 #ifdef DEBUG
         fd = fopen("/cspot/pred-handler.log","a+");
@@ -667,6 +677,10 @@ fflush(stdout);
 	 * poll for one before me to finish
 	 */
 	MAKE_EXTENDED_NAME(finished_name,rv->woof_name,"finished");
+	seq_no = WooFGetLatestSeqno(finished_name);
+	seq_no = WooFGet(finished_name,(void *)&f_seq_no,seq_no);
+printf("PREDICTED (%s) started for %lu, current seqno: %lu\n",rv->woof_name,wf_seq_no,f_seq_no);
+fflush(stdout);
 	while(1) {
 		seq_no = WooFGetLatestSeqno(finished_name);
 		if(wf_seq_no == 1) {

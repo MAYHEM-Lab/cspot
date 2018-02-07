@@ -59,6 +59,10 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		seq_no = WooFPut(target_name,
 				 "RegressPairPredictedHandler",
 				 ptr);
+/*
+printf("REQ: just put %lu to predicted\n",seq_no);
+fflush(stdout);
+*/
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,
 	"RegressPairReqHandler couldn't put predicted value\n");

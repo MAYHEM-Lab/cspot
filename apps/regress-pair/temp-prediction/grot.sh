@@ -24,8 +24,9 @@ fi
 
 SEQNO=`$BIN/senspot-get -W $SWOOF | awk '{print $6}'`
 
+LAST=0
 CNT=0
-OFFSET=1000
+OFFSET=9000
 while ( test $OFFSET -ge 0 ) ; do
 	LINE=`$BIN/senspot-get -W $SWOOF -S $(($SEQNO - $OFFSET))`
 	LASTM=`echo $LINE | awk '{print $3}' | awk -F '.' '{print $1}'`
@@ -44,7 +45,6 @@ while ( test $OFFSET -ge 0 ) ; do
 	MEAS=`echo $LINE | awk '{print $1}'`
 	if ( ! test -z "$MEAS" ) ; then
 		echo $LASTM $MEAS | $BIN/regress-pair-put -W $WOOF -s 'm'
-		sleep 0.1
 	fi
 	CNT=$(($CNT+1))
 	OFFSET=$(($OFFSET-1))
