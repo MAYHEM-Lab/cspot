@@ -13,6 +13,7 @@ git clone https://richwolski@github.com/MAYHEM-Lab/ssa-changepoint.git
 cd euca-cutils; make
 cd ..
 cd mio; make
+cd ..
 cd distributions; make
 cd ..
 cd matrix; ./install-matrix.sh
