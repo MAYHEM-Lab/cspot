@@ -32,7 +32,7 @@ HAND1=RegressPairReqHandler
 HAND2=RegressPairPredictedHandler
 HAND3=RegressPairMeasuredHandler
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH}
+CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH}
 
 all: regress-pair-put regress-pair-get regress-pair-init ${HAND1} ${HAND2} ${HAND3}
 
