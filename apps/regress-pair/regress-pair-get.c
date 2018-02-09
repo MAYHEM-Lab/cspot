@@ -159,6 +159,9 @@ int main(int argc, char **argv)
 		seq_no = WooFGetLatestSeqno(sname);
 	}
 
+printf("seq_no: %lu\n",seq_no);
+fflush(stdout);
+
 	err = WooFGet(sname,&rv,seq_no);
 
 	if(err < 0) {

@@ -511,6 +511,11 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	el_id->seq_no = wfs->seq_no;
 	el_id->busy = 1;
 
+printf("WooFAppend: about to set head for name %s, head: %lu, next: %lu, size: %lu\n",
+wfs->filename,wfs->head,next,wfs->history_size);
+fflush(stdout);
+
+
 	/*
 	 * update circular buffer
 	 */
