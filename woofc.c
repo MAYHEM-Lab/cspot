@@ -538,6 +538,12 @@ fflush(stdout);
 	 * we don't know whether the WooF will be consumed -- V it in this case
 	 */
 	if(hand_name == NULL) {
+		/*
+		 * mark the woof as done for purposes of sync
+		 */
+#if DONEFLAG
+		wfs->done = 1;
+#endif
 		V(&wfs->tail_wait);
 		return(seq_no);
 	}
@@ -792,6 +798,89 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	return(err);
 }
 
+#if DONEFLAG
+int WooFHandlerDone(char *wf_name, unsigned long seq_no)
+{
+	WOOF *wf;
+	unsigned long el_size;
+	char wf_namespace[2048];
+	int err;
+	char ns_ip[25];
+	char my_ip[25];
+	int retval;
+
+#ifdef DEBUG
+	printf("WooFHandlerDone: called %s %lu\n",wf_name,seq_no);
+	fflush(stdout);
+#endif
+
+
+	memset(ns_ip,0,sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
+	if(err < 0) {
+		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
+		if(err < 0) {
+			fprintf(stderr,"WooFGet: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip,0,sizeof(my_ip));
+	err = WooFLocalIP(my_ip,sizeof(my_ip));
+	if(err < 0) {
+		fprintf(stderr,"WooFGet: no local IP\n");
+		exit(1);
+	}
+
+	memset(wf_namespace,0,sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote get
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * if the name space paths do not match or they do but the IP addresses don't this
+	 * is remote
+	 *
+	 */
+	if((err >= 0) && 
+		((strcmp(WooF_namespace,wf_namespace) != 0) ||
+		 (strcmp(my_ip,ns_ip) != 0))) {
+		retval = WooFMsgGetDone(wf_name,seq_no);
+		return(retval);
+	}
+
+	if(WooF_dir[0] == 0) {
+		fprintf(stderr,"WooFHandlerDone: must init system\n");
+		fflush(stderr);
+		return(-1);
+	}
+#ifdef DEBUG
+	printf("WooFHandlerDone: namespace: %s,  WooF_dir: %s, name: %s\n",
+		WooF_namespace,WooF_dir,wf_name);
+	fflush(stdout);
+#endif
+	wf = WooFOpen(wf_name);
+
+	if(wf == NULL) {
+		return(-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFHandlerDone: WooF %s open\n",wf_name);
+	fflush(stdout);
+#endif
+	if(wf->shared->done == 1) {
+		retval = 1;
+	} else {
+		retval = 0;
+	}
+
+	WooFFree(wf);
+	return(retval);
+}
+
+#endif
 
 unsigned long WooFGetLatestSeqno(char *wf_name)
 {

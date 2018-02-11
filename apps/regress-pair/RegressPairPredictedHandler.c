@@ -8,6 +8,7 @@
 #include <semaphore.h>
 #include <sys/time.h>
 
+#include "redblack.h"
 #include "regress-pair.h"
 #include "regress-matrix.h"
 #include "ssa-decomp.h"
@@ -19,6 +20,8 @@ FILE *fd;
 #define SLEEPTIME (1)
 
 #define MAKETS(ts,rv) (ts = (double)ntohl((rv)->tv_sec)+(double)(ntohl((rv)->tv_usec) / 1000000.0))
+
+#define MAXINTERVAL (1200.0)
 
 
 Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
@@ -48,6 +51,7 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 	next_ts = meas_series->data[(i+1)*2+0];
 	p_ts = pred_series->data[j*2+0];
 	while((i+1) < meas_series->ydim) {
+#if 0
 		/*
 		 * deal with drop out in the measured series
 		 */
@@ -61,6 +65,7 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 				p_ts = pred_series->data[j*2+0];
 			}
 		}
+#endif
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
 			matched_array->data[k*2+0] = pred_series->data[j*2+1];
 			matched_array->data[k*2+1] = meas_series->data[(i+1)*2+1];
@@ -72,16 +77,45 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 		}
 
 
-/*
 printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
 j,p_ts,matched_array->data[j*2+0],
 v_ts,matched_array->data[j*2+1]);
 fflush(stdout);
-*/
 		
+		if(fabs(v_ts - p_ts) > MAXINTERVAL) {
+printf("DROPPING(%d) match for pred ts %10.0f and meas ts %10.0f\n",
+k,p_ts,v_ts);
+fflush(stdout);
+			if(v_ts > p_ts) { // move predictions forward
+				while(v_ts > p_ts) {
+					j++;
+					if(j >= pred_series->ydim) {
+						break;
+					}
+					p_ts = pred_series->data[j*2+0];
+				}
+				if(j >= pred_series->ydim) {
+					break;
+				}
+			} else {
+				while(v_ts < p_ts) { // move meas forward
+					i++;
+					if((i+1) >= meas_series->ydim) {
+						break;
+					}
+					m_ts = next_ts;
+					next_ts = meas_series->data[(i+1)*2+0];
+					v_ts = next_ts;
+				}
+				if((i+1) >= meas_series->ydim) {
+					break;
+				}
+			}
+			continue; /* go back and try again */
+		}
+		k++;
 		i++;
 		j++;
-		k++;
 		if(j >= pred_series->ydim) {
 /*
 printf("MATCHED SHORT: j: %d, i: %d, k: %d pydim: %lu mydim: %lu\n",
@@ -158,7 +192,7 @@ int MSE(double slope, double intercept, Array2D *match_array, double *out_mse)
 }
 
 	
-#define MAXLAGS (30)
+#define MAXLAGS (12)
 
 Array2D *MakeArrayFromWooF(char *woof_name, unsigned long start_seq_no, unsigned long end_seq_no)
 {
@@ -221,6 +255,9 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 	double best_value;
 	double last_value;
 	int best_lags;
+	RB *sorted_meas = NULL;
+	RB *sorted_pred = NULL;
+	RB *rb;
 
 	m_seq_no = WooFGetLatestSeqno(measured_name);
 	if(WooFInvalid(m_seq_no)) {
@@ -267,6 +304,11 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 	 * walk back in the measured series and look for entry that is
 	 * immediately before predicted value in terms of time stamp
 	 */
+	sorted_meas = RBInitD();
+	if(sorted_meas == NULL) {
+		fprintf(stderr,"BestCoeff: couldn't get space for sorted_meas\n");
+		goto out;
+	}
 	seq_no = m_seq_no;
 	measured_size = 0;
 	while((int)seq_no > 0) {
@@ -291,12 +333,15 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 "BestCoeff: MISMATCH: p: %lu %f m: %lu %f count: %d measured size: %d\n",
 ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_size);
 				fflush(stderr);
+/*
 				goto out;
+*/
 			}
 			break;
 		}
 		seq_no--;
 		measured_size++;
+		RBInsertD(sorted_meas,m_ts,m_rv.value);
 	}
 
 	if((int)seq_no < 0) {
@@ -322,22 +367,19 @@ ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_s
 	}
 
 
-	if(seq_no == 0) {
-		seq_no = 1;
-	}
-	for(i=0; i < unsmoothed->ydim; i++) {
-		err = WooFGet(measured_name,(void *)&m_rv,seq_no);
-		if(err < 0) {
-			fprintf(stderr,"BestCoeff: couldn't get measured rv at %lu (%d) from %s\n",
-				seq_no,i,
-				measured_name);
-			goto out;
-		}
-		m_ts = (double)ntohl(m_rv.tv_sec)+(double)(ntohl(m_rv.tv_usec) / 1000000.0);
+	i = 0;
+	RB_FORWARD(sorted_meas,rb) {
+		m_ts = K_D(rb->key);
 		unsmoothed->data[i*2+0] = m_ts;
-		unsmoothed->data[i*2+1] = m_rv.value.d;
-		seq_no++;
+		unsmoothed->data[i*2+1] = rb->value.d;
+		i++;
 	} 
+
+	sorted_pred = RBInitD();
+	if(sorted_pred == NULL) {
+		fprintf(stderr,"BestCoeff: no space for sorted predictions\n");
+		goto out;
+	}
 
 	count = count_back;
 	for(i=0; i < pred_series->ydim; i++) {
@@ -349,17 +391,21 @@ ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_s
 			goto out;
 		}
 		p_ts = (double)ntohl(p_rv.tv_sec)+(double)(ntohl(p_rv.tv_usec) / 1000000.0);
-		if(i > 0) {
-			if(pred_series->data[(i-1)*2+0] > p_ts) {
-fprintf(stderr,"PANIC: out of order predicted seq_no (p_seq_no: %lu) at %lu, prev: %10.0f curr: %10.0f\n",
-p_seq_no-count,p_seq_no,pred_series->data[(i-1)*2+0],p_ts);
-				goto out;
-			}
-		}
-		pred_series->data[i*2+0] = p_ts;
-		pred_series->data[i*2+1] = p_rv.value.d;
+		RBInsertD(sorted_pred,p_ts,p_rv.value);
 		count--;
 	} 
+
+	i=0;
+	RB_FORWARD(sorted_pred,rb) {
+		pred_series->data[i*2+0] = K_D(rb->key);
+		pred_series->data[i*2+1] = rb->value.d;
+		i++;
+	}
+
+	RBDestroyD(sorted_meas);
+	sorted_meas = NULL;
+	RBDestroyD(sorted_pred);
+	sorted_pred = NULL;
 
 	match_array = ComputeMatchArray(pred_series,unsmoothed);
 	if(match_array == NULL) {
@@ -476,6 +522,12 @@ out:
 	}
 	if(coeff != NULL) {
 		free(coeff);
+	}
+	if(sorted_meas != NULL) {
+		RBDestroyD(sorted_meas);
+	}
+	if(sorted_pred != NULL) {
+		RBDestroyD(sorted_pred);
 	}
 	fflush(stderr);
 	return(-1);
@@ -616,12 +668,10 @@ fflush(stdout);
 void FinishPredicted(char *finished_name, unsigned long wf_seq_no)
 {
 	unsigned long seq_no = wf_seq_no+1;
-	(void)WooFPut(finished_name,NULL,(void *)&seq_no);
 printf("PREDICTED (%s) finished %lu\n",finished_name,wf_seq_no);
 fflush(stdout);
 	return;
 }
-
 
 int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 {
@@ -647,6 +697,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	unsigned long f_seq_no;
 	unsigned long start_seq_no;
 	unsigned long end_seq_no;
+	unsigned long prev_seq_no;
 	double p;
 	double m;
 	int i;
@@ -663,6 +714,9 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	Array2D *s_array;
 	double pred_time;
 	double measure;
+	RB *sorted_meas;
+	RB *rb;
+	int mcount;
 
 
 #ifdef DEBUG
@@ -673,34 +727,10 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
         fclose(fd);
 #endif  
 
-	/*
-	 * poll for one before me to finish
-	 */
-	MAKE_EXTENDED_NAME(finished_name,rv->woof_name,"finished");
-	seq_no = WooFGetLatestSeqno(finished_name);
-	seq_no = WooFGet(finished_name,(void *)&f_seq_no,seq_no);
-printf("PREDICTED (%s) started for %lu, current seqno: %lu\n",rv->woof_name,wf_seq_no,f_seq_no);
+
+printf("PREDICTED (%s) START for %lu\n",rv->woof_name,wf_seq_no);
 fflush(stdout);
-	while(1) {
-		seq_no = WooFGetLatestSeqno(finished_name);
-		if(wf_seq_no == 1) {
-			break;
-		}
-		if(WooFInvalid(seq_no) || (seq_no == 0)) {
-			sleep(SLEEPTIME);
-			continue;
-		}
-		seq_no = WooFGet(finished_name,(void *)&f_seq_no,seq_no);
-		if(WooFInvalid(seq_no) || (seq_no == 0)) {
-			sleep(SLEEPTIME);
-			continue;
-		}
-		if(f_seq_no != wf_seq_no) {
-			sleep(SLEEPTIME);
-			continue;
-		}
-		break;
-	}
+
 printf("PREDICTED (%s) AWAKE for %lu\n",rv->woof_name,wf_seq_no);
 fflush(stdout);
 
@@ -730,7 +760,7 @@ fflush(stdout);
 	err = WooFGet(index_name,(void *)&ri,seq_no);
 	if(err < 0) {
 		fprintf(stderr,
-			"RegressPairPredictedHandler couldn't get count back from %s\n",index_name);
+			"RegressPairPredictedHandler couldn't get count back from %s at %lu\n",index_name,seq_no);
 		FinishPredicted(finished_name,wf_seq_no);
 		return(-1);
 	}
@@ -750,70 +780,76 @@ fflush(stdout);
 	}
 	
 	MAKETS(e_ts,&ev);
+
+	sorted_meas = RBInitD();
+	if(sorted_meas == NULL) {
+		fprintf(stderr,"RegressPairPredictedHandler no space for rb\n");
+		fflush(stderr);
+		FinishPredicted(finished_name,wf_seq_no);
+		return(-1);
+	}
 	
 	/*
 	 * get the data from the measured woof for the time period between p_ts and e_ts
 	 */
 	if(m_seq_no > 0) {
+		mcount = 0;
 		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		while((err > 0) && (m_seq_no > 0)) {
 			MAKETS(m_ts,&mv);
-			if(m_ts < p_ts) {
+			if(m_ts > p_ts) {
+				m_seq_no--;
+				err = WooFGet(measured_name,(void *)&mv,m_seq_no);
+				continue;
+			}
+			if(m_ts < e_ts) {
 				break;
 			}
+			/*
+			 * could be out of order
+			 */
+			RBInsertD(sorted_meas,m_ts,mv.value);
+			mcount++;
 			m_seq_no--;
 			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		}
 		if(err < 0) {
 			fprintf(stderr,"couldn't find valid measurement for request %lu\n",
 				rv->seq_no);
+			RBDestroyD(sorted_meas);
 			FinishPredicted(finished_name,wf_seq_no);
 			return(-1);
 		}
 		if(m_seq_no == 0) {
 			fprintf(stderr,"couldn't find meas ts earlier that %10.0f, using %10.0f\n",
 					p_ts,m_ts);
+			RBDestroyD(sorted_meas);
 			FinishPredicted(finished_name,wf_seq_no);
-			return(-1);
 		}
-		if(HasDropOut(measured_name,e_ts,p_ts,1200)) {
-			fprintf(stderr,"predhandler %lu has dropout\n",wf_seq_no);
-printf("PREDICTED (%s) predhandler %lu has dropout\n",measured_name,wf_seq_no);
-fflush(stdout);
-			FinishPredicted(finished_name,wf_seq_no);
-			return(-1);
-		}
-		end_seq_no = m_seq_no;
-		err = WooFGet(measured_name,(void *)&mv,m_seq_no);
-		while((err > 0) && (m_seq_no > 0)) {
-			MAKETS(m_ts,&mv);
-			if(m_ts <= e_ts) {
-				break;
-			}
-			m_seq_no--;
-			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
-		}
-		if(err < 0) {
-			fprintf(stderr,"couldn't find valid measurement for request end %lu %lu\n",
-				rv->seq_no,m_seq_no);
-			FinishPredicted(finished_name,wf_seq_no);
-			return(-1);
-		}
-		start_seq_no = m_seq_no;
+
+		
 	}
 	
-	if((c_seq_no > 0) && (m_seq_no > 0)) {
+	if((c_seq_no > 0) && (mcount > 0)) {
 
 		/*
 		 * get the latest measurement data and put it in array for smoothing
 		 */
-		pred_array = MakeArrayFromWooF(measured_name,start_seq_no,end_seq_no);
+		pred_array = MakeArray2D(mcount,2);
 		if(pred_array == NULL) {
 			fprintf(stderr,"couldn't make array from %s from %lu to %lu\n",
 				measured_name,start_seq_no,end_seq_no);
 			FinishPredicted(finished_name,wf_seq_no);
 			return(-1);
 		}
+		i = 0;
+		RB_FORWARD(sorted_meas,rb) {
+			pred_array->data[i*2+0] = K_D(rb->key);
+			pred_array->data[i*2+1] = rb->value.d;
+			i++;
+		}
+		RBDestroyD(sorted_meas);
+			
 		/*
 		 * get the latest set of coefficients
 		 */
@@ -890,3 +926,4 @@ fflush(stdout);
 	FinishPredicted(finished_name,wf_seq_no);
 	return(1);
 }
+

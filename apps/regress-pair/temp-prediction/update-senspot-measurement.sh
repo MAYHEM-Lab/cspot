@@ -1,7 +1,7 @@
 #/bin/bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
-BIN=/smartedge/bin
+BIN=/mnt/test
 
 WOOF=$1
 SWOOF=$2
@@ -16,16 +16,30 @@ if ( test -z "$SWOOF" ) ; then
 	exit 1
 fi
 
-LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $5}'`
 LAST=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $3}' | awk -F '.' '{print $1}'`
+
+LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+
+
 if ( test "$LASTSEQNO" = "seq_no:" ) ; then
 	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+fi
+if ( test "$LASTSEQNO" = " seq_no:" ) ; then
+	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+fi
+
+if ( test "$LASTSEQNO" = "seq_no: " ) ; then
+	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+fi
+
+if ( test -z "$LASTSEQNO" ) ; then
+	LASTSEQNO=0
 fi
 
 SEQNO=`$BIN/senspot-get -W $SWOOF | awk '{print $6}'`
 
 CNT=0
-OFFSET=1000
+OFFSET=100
 while ( test $OFFSET -ge 0 ) ; do
 	LINE=`$BIN/senspot-get -W $SWOOF -S $(($SEQNO - $OFFSET))`
 	LASTM=`echo $LINE | awk '{print $3}' | awk -F '.' '{print $1}'`
@@ -44,7 +58,7 @@ while ( test $OFFSET -ge 0 ) ; do
 	MEAS=`echo $LINE | awk '{print $1}'`
 	if ( ! test -z "$MEAS" ) ; then
 		echo $LASTM $MEAS | $BIN/regress-pair-put -W $WOOF -s 'm'
-		sleep 0.1
+#		sleep 0.1
 	fi
 	CNT=$(($CNT+1))
 	OFFSET=$(($OFFSET-1))

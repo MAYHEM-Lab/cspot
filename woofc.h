@@ -15,6 +15,9 @@ struct woof_shared_stc
 	unsigned long head;
 	unsigned long tail;
 	unsigned long element_size;
+#ifdef DONEFLAG
+	unsigned long done;
+#endif
 };
 
 typedef struct woof_shared_stc WOOF_SHARED;
@@ -50,6 +53,7 @@ unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
 unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
+int WooFHandlerDone(char *wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 
 #define DEFAULT_WOOF_DIR "./cspot/"

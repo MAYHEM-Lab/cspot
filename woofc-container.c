@@ -36,6 +36,7 @@ static int WooFDone;
 
 
 #define WOOF_CONTAINER_FORKERS (5)
+sema ForkerThrottle;
 
 void WooFShutdown(int sig)
 {
@@ -188,6 +189,8 @@ int WooFContainerInit()
 
 	Name_id = name_id;
 
+	InitSem(&ForkerThrottle,WOOF_CONTAINER_FORKERS);
+
 	for(i=0; i < WOOF_CONTAINER_FORKERS; i++ ) {
 		err = pthread_create(&tid,NULL,WooFForker,NULL);
 		if(err < 0) {
@@ -217,9 +220,33 @@ void WooFExit()
 void *WooFReaper(void *arg)
 {
 	int status;
+	int i;
+	struct timespec tspec;
+	struct timeval then;
+	struct timeval now;
+	
+
 	while(1) {
-		while(waitpid(-1,&status,WNOHANG) > 0);
-		sleep(1);
+		gettimeofday(&now,NULL);
+		for(i=0; i < WOOF_CONTAINER_FORKERS; i++) {
+			while(waitpid(-1,&status,WNOHANG) > 0) {
+				/*
+				 * Pd in Forker just before the fork
+				 */
+				then = now;
+				gettimeofday(&now,NULL);
+				V(&ForkerThrottle);
+			}
+		}
+		if(then.tv_sec == now.tv_sec) {
+			tspec.tv_sec = 0;
+			tspec.tv_nsec = 5000000;
+		} else {
+			tspec.tv_sec = 1;
+			tspec.tv_nsec = 0;
+		}
+		nanosleep(&tspec,NULL);
+		then = now;
 	}
 
 	pthread_exit(NULL);
@@ -303,7 +330,6 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 		log_tail = LogTail(Name_log,last_seq_no,Name_log->size);
-//		V(&Name_log->mutex);
 
 
 		if(log_tail == NULL) {
@@ -585,6 +611,11 @@ exit(1);
 				ce->hpd[1] = pd[1];
 			}
 		}
+
+		/*
+		 * block here not to overload the machine
+		 */
+		P(&ForkerThrottle);
 			
 		pid = fork();
 		if(pid == 0) {

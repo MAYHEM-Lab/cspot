@@ -321,6 +321,13 @@ int main(int argc, char **argv, char **envp)
 			st,seq_no);
 		fflush(stdout);
 	#endif
+#ifdef DONEFLAG
+		/*
+		 * set the done flag in case there is a sync on
+		 */
+		wfs->done = 1;
+#endif
+
 		free(farg);
 	#ifdef DEBUG
 		fprintf(stdout,"WooFShepherd: called free, seq_no: %lu\n",seq_no);

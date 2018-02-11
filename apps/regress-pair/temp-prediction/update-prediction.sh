@@ -2,7 +2,7 @@
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
-BIN=/smartedge/bin
+BIN=/mnt/test
 
 WOOF=$1
 FILE=$2
@@ -23,14 +23,12 @@ for LASTP in `tail -n 1000 $FILE | awk '{print $1}'` ; do
 	if ( test "$LASTTIME" = "0" ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
-		sleep 0.1
 		continue
 	fi
 	if ( test -z "$LASTTIME" ) ; then
 		LINE=`grep $LASTP $FILE | tail -n 1`
 echo "empty put of $LINE"
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
-		sleep 0.1
 		continue
 	fi
 	if ( test $LASTP -gt $LASTTIME ) ; then
@@ -44,7 +42,6 @@ echo "empty put of $LINE"
 		fi
 echo "update put of $LINE"
 		echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
-		sleep 0.1
 	fi
 done
 

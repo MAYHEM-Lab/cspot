@@ -113,6 +113,23 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	err = WooFCreate(index_name,sizeof(REGRESSINDEX),10); /* only 10 for index */
+
+	if(err < 0) {
+		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
+			index_name,
+			10);
+		fflush(stderr);
+		exit(1);
+	}
+
+	ri.count_back = count_back;
+	seq_no = WooFPut(index_name,NULL,(void *)&ri);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"regress-pair-init: couldn't write index\n");
+		fflush(stderr);
+	}
+
 
 	err = WooFCreate(pred_name,sizeof(REGRESSVAL),history_size);
 
@@ -185,22 +202,6 @@ int main(int argc, char **argv)
 	}
 
 
-	err = WooFCreate(index_name,sizeof(REGRESSINDEX),10); /* only 10 for index */
-
-	if(err < 0) {
-		fprintf(stderr,"regress-pair-init failed for %s with history size %lu\n",
-			index_name,
-			10);
-		fflush(stderr);
-		exit(1);
-	}
-
-	ri.count_back = count_back;
-	seq_no = WooFPut(index_name,NULL,(void *)&ri);
-	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"regress-pair-init: couldn't write index\n");
-		fflush(stderr);
-	}
 	
 
 	exit(0);
