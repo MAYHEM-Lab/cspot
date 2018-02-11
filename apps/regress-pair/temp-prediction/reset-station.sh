@@ -7,7 +7,7 @@ STATIONFILE=$4
 EXPWOOF=$5
 
 BIN=/smartedge/bin
-WOOFDIR=/smartedge/fresnostate
+WOOFDIR=`pwd`
 
 if ( test -z "$WOOF" ) ; then
 	echo  "reset-station.sh woof-name woof-size countback station-file explain-woof"
@@ -83,6 +83,7 @@ while ( test $SEQNO -le $ESEQNO ) ; do
 	VALUE=`echo $LINE | awk '{print $1}'`
 	echo "priming $WOOF with measured $TS $VALUE"
 	echo $TS $VALUE | $BIN/regress-pair-put -W $WOOF -s 'm'
+	sleep 0.05
 	SEQNO=$(($SEQNO+1))
 done
 	
@@ -91,5 +92,6 @@ while ( test $CNT -gt 0 ) ; do
 	LINE=`tail -n $CNT $STATIONFILE | head -n 1`
 	echo "priming $WOOF with predicted $LINE"
 	echo $LINE | $BIN/regress-pair-put -W $WOOF -s 'p'
+	sleep 0.05
 	CNT=$(($CNT-1))
 done
