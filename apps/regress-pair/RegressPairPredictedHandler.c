@@ -77,12 +77,6 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 		}
 
 
-/*
-printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
-j,p_ts,matched_array->data[j*2+0],
-v_ts,matched_array->data[j*2+1]);
-fflush(stdout);
-*/
 		
 		if(fabs(v_ts - p_ts) > MAXINTERVAL) {
 printf("DROPPING(%d) match for pred ts %10.0f and meas ts %10.0f\n",
@@ -115,6 +109,11 @@ fflush(stdout);
 			}
 			continue; /* go back and try again */
 		}
+printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
+j,p_ts,matched_array->data[j*2+0],
+v_ts,matched_array->data[j*2+1]);
+fflush(stdout);
+
 		k++;
 		i++;
 		j++;
@@ -332,8 +331,8 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 		if(m_ts < p_ts) {
 			if(measured_size < count) {
 				fprintf(stderr,
-"BestCoeff: MISMATCH: p: %lu %f m: %lu %f count: %d measured size: %d, seq_no: %lu\n",
-ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_size, seq_no);
+"BestCoeff: MISMATCH: p: %lu %f m: %lu %f count: %d measured size: %d, seq_no: %lu (%s)\n",
+ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_size, seq_no,measured_name);
 				fflush(stderr);
 /*
 				goto out;
