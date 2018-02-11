@@ -34,7 +34,7 @@ HAND3=RegressPairMeasuredHandler
 
 CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH}
 
-all: regress-pair-put regress-pair-get regress-pair-init ${HAND1} ${HAND2} ${HAND3}
+all: regress-pair-put regress-pair-get regress-pair-init regress-pair-update ${HAND1} ${HAND2} ${HAND3}
 
 regress-pair-put: regress-pair-put.c regress-pair.h
 	${CC} ${CFLAGS} -o regress-pair-put regress-pair-put.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -50,6 +50,11 @@ regress-pair-init: regress-pair-init.c regress-pair.h
 	${CC} ${CFLAGS} -o regress-pair-init regress-pair-init.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp regress-pair-init ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp regress-pair-init ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
+regress-pair-update: regress-pair-update.c regress-pair.h
+	${CC} ${CFLAGS} -o regress-pair-update regress-pair-update.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp regress-pair-update ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp regress-pair-update ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 regress-matrix.o: regress-matrix.c regress-matrix.h ${MXINC} ${MXLIB}
 	${CC} ${CFLAGS} -c regress-matrix.c
