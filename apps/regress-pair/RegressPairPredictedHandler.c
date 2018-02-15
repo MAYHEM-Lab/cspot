@@ -19,8 +19,6 @@ FILE *fd;
 
 #define SLEEPTIME (1)
 
-#define MAKETS(ts,rv) (ts = (double)ntohl((rv)->tv_sec)+(double)(ntohl((rv)->tv_usec) / 1000000.0))
-
 #define MAXINTERVAL (1200.0)
 
 
@@ -193,7 +191,6 @@ int MSE(double slope, double intercept, Array2D *match_array, double *out_mse)
 }
 
 	
-#define MAXLAGS (12)
 
 Array2D *MakeArrayFromWooF(char *woof_name, unsigned long start_seq_no, unsigned long end_seq_no)
 {
@@ -227,7 +224,7 @@ Array2D *MakeArrayFromWooF(char *woof_name, unsigned long start_seq_no, unsigned
 	
 
 int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *measured_name, int count_back,
-	double *out_slope, double *out_intercept, double *out_value, int *out_lags)
+	double *out_slope, double *out_intercept, double *out_value, int *out_lags, unsigned long *out_seq_no)
 {
 	int i;
 	int l;
@@ -259,6 +256,7 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 	RB *sorted_meas = NULL;
 	RB *sorted_pred = NULL;
 	RB *rb;
+	unsigned long earliest_seq_no;
 
 	m_seq_no = WooFGetLatestSeqno(measured_name);
 	if(WooFInvalid(m_seq_no)) {
@@ -350,6 +348,8 @@ ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_s
 			p_ts,measured_name);
 		goto out;
 	}
+
+	earliest_seq_no = seq_no;
 
 	/*
 	 * start with unsmoothed series
@@ -492,6 +492,7 @@ fflush(stdout);
 	*out_intercept = best_intercept;
 	*out_value = best_value;
 	*out_lags = best_lags;
+	*out_seq_no = earliest_seq_no;
 	if(coeff != NULL) {
 		free(coeff);
 	}
@@ -707,6 +708,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	Array2D *match_array;
 	double *coeff;
 	double pred;
+	double actual;
 	double error;
 	double p_ts;
 	double m_ts;
@@ -865,6 +867,7 @@ fflush(stdout);
 			 */
 			if(coeff_rv.lags > 0) {
 				s_array = SSASmoothSeries(pred_array,coeff_rv.lags);
+				actual = pred_array->data[(pred_array->ydim-1)*2+1];
 				FreeArray2D(pred_array);
 				if(s_array == NULL) {
 					fprintf(stderr,"couldn't create mooth array, lags %d form %lu to %lu\n",
@@ -874,6 +877,7 @@ fflush(stdout);
 				}
 			} else {
 				s_array = pred_array;
+				actual = pred_array->data[(pred_array->ydim-1)*2+1];
 			}
 			measure = s_array->data[(s_array->ydim-1)*2+1];
 			pred = (coeff_rv.slope * measure) + coeff_rv.intercept;
@@ -888,8 +892,8 @@ fflush(stdout);
 			if(WooFInvalid(seq_no)) {
 				fprintf(stderr,"error seq_no %lu invalid on put\n", seq_no);
 			}
-printf("ERROR: (%s) %lu predicted: %f prediction: %f meas: %10.10f %f error: %f slope: %f int: %f\n", rv->woof_name, ntohl(rv->tv_sec),
-rv->value.d,pred,pred_time,measure,error,coeff_rv.slope,coeff_rv.intercept);
+printf("ERROR: (%s) %lu predicted: %f prediction: %f measure: %10.10f %f, actual: %f error: %f slope: %f int: %f\n", rv->woof_name, ntohl(rv->tv_sec),
+rv->value.d,pred,pred_time,measure,actual,error,coeff_rv.slope,coeff_rv.intercept);
 fflush(stdout);
 		} else {
 				fprintf(stderr,"coeff seq_no %lu invalid from %s\n", seq_no,coeff_name);
@@ -903,7 +907,8 @@ fflush(stdout);
 	memcpy(coeff_rv.woof_name,rv->woof_name,sizeof(coeff_rv.woof_name));
 
 	err = BestRegressionCoeff(predicted_name,wf_seq_no,measured_name,ri.count_back,
-		&coeff_rv.slope,&coeff_rv.intercept,&coeff_rv.measure,&coeff_rv.lags);
+		&coeff_rv.slope,&coeff_rv.intercept,
+		&coeff_rv.measure,&coeff_rv.lags, &coeff_rv.earliest_seq_no);
 
 	if(err < 0) {
 		fprintf(stderr,"couldn't get best regression coefficient\n");

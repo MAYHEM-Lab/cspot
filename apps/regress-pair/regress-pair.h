@@ -1,5 +1,5 @@
-#ifndef SENSPOT_H
-#define SENSPOT_H
+#ifndef REGRESS_PAIR_H
+#define REGRESS_PAIR_H
 
 #include "hval.h"
 #include <string.h>
@@ -11,6 +11,7 @@
 struct regress_index_stc
 {
 	int count_back;
+	int max_lags;
 };
 
 struct regress_value_stc
@@ -38,6 +39,7 @@ struct regress_coeff_stc
 	double intercept;
 	double measure;
 	int lags;
+	unsigned long earliest_seq_no;
 };
 
 
@@ -45,11 +47,13 @@ typedef struct regress_index_stc REGRESSINDEX;
 typedef struct regress_value_stc REGRESSVAL;
 typedef struct regress_coeff_stc REGRESSCOEFF;
 
+#define MAKETS(ts,rv) (ts = (double)ntohl((rv)->tv_sec)+(double)(ntohl((rv)->tv_usec) / 1000000.0))
+
 #define MAKE_EXTENDED_NAME(ename,wname,str) {\
         memset(ename,0,sizeof(ename));\
         sprintf(ename,"%s.%s",wname,str);\
 }
 
+#define MAXLAGS (12)
 
 #endif
-

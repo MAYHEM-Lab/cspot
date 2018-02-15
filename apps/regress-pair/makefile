@@ -76,10 +76,10 @@ ${HAND2}: regress-pair.h ${HAND2}.c ${STATINC} ${STATOBJ} ${SHEP_SRC} ${WINC} ${
 	mkdir -p cspot; cp ${HAND2} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
-${HAND3}: regress-pair.h ${HAND3}.c regress-matrix.o regress-matrix.h ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${MXINC}
+${HAND3}: regress-pair.h ${HAND3}.c ${STATINC} ${STATOBJ} regress-matrix.h ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${MXINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND3}/g' ${SHEP_SRC} > ${HAND3}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND3}_shepherd.c -o ${HAND3}_shepherd.o
-	${CC} ${CFLAGS} -o ${HAND3} ${HAND3}.c ${HAND3}_shepherd.o regress-matrix.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${MXLIB} ${DLIB} ${LALIB} ${LIBS}
+	${CC} ${CFLAGS} -o ${HAND3} ${HAND3}.c ${HAND3}_shepherd.o ${STATOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${MXLIB} ${DLIB} ${LALIB} ${LIBS}
 	mkdir -p cspot; cp ${HAND3} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND3} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 

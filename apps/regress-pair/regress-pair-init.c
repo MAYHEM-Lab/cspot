@@ -8,9 +8,10 @@
 #include "woofc.h"
 #include "regress-pair.h"
 
-#define ARGS "W:s:c:"
+#define ARGS "W:s:c:l:"
 char *Usage = "regress-pair-init -W woof_name\n\
 \t-c count-back (number of predicted elements to regress)\n\
+\t-l max lags to try\n\
 \t-s (history size in number of elements)\n";
 
 char NameSpace[4096];
@@ -35,6 +36,7 @@ int main(int argc, char **argv)
 	char progress_name[4096+64];
 	char finished_name[4096+64];
 	int count_back;
+	int lags;
 	unsigned long seq_no;
 
 	unsigned long history_size;
@@ -42,6 +44,7 @@ int main(int argc, char **argv)
 	memset(wname,0,sizeof(wname));
 	history_size = 0;
 	count_back = -1;
+	lags = MAXLAGS;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -53,6 +56,9 @@ int main(int argc, char **argv)
 				break;
 			case 'c':
 				count_back = atoi(optarg);
+				break;
+			case 'l':
+				lags = atoi(optarg);
 				break;
 			default:
 				fprintf(stderr,
@@ -78,6 +84,13 @@ int main(int argc, char **argv)
 
 	if(count_back < 0) {
 		fprintf(stderr,"must specify non-zero count back for predicted series\n");
+		fprintf(stderr,"%s",Usage);
+		fflush(stderr);
+		exit(1);
+	}
+
+	if(lags < 0) {
+		fprintf(stderr,"max lags must be > 0\n");
 		fprintf(stderr,"%s",Usage);
 		fflush(stderr);
 		exit(1);
@@ -124,6 +137,7 @@ int main(int argc, char **argv)
 	}
 
 	ri.count_back = count_back;
+	ri.max_lags = lags;
 	seq_no = WooFPut(index_name,NULL,(void *)&ri);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"regress-pair-init: couldn't write index\n");
