@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <time.h>
 
+
 #include "log.h"
 #include "woofc.h"
 #include "woofc-access.h"
@@ -37,6 +38,8 @@ static int WooFDone;
 
 #define WOOF_CONTAINER_FORKERS (5)
 sema ForkerThrottle;
+pthread_mutex_t Tlock;
+int Tcount;
 
 void WooFShutdown(int sig)
 {
@@ -190,6 +193,8 @@ int WooFContainerInit()
 	Name_id = name_id;
 
 	InitSem(&ForkerThrottle,WOOF_CONTAINER_FORKERS);
+	pthread_mutex_init(&Tlock,NULL);
+	Tcount = WOOF_CONTAINER_FORKERS;
 
 	for(i=0; i < WOOF_CONTAINER_FORKERS; i++ ) {
 		err = pthread_create(&tid,NULL,WooFForker,NULL);
@@ -236,6 +241,11 @@ void *WooFReaper(void *arg)
 				then = now;
 				gettimeofday(&now,NULL);
 				V(&ForkerThrottle);
+pthread_mutex_lock(&Tlock);
+Tcount++;
+printf("Reaper: count after increment: %d\n",Tcount);
+fflush(stdout);
+pthread_mutex_unlock(&Tlock);
 			}
 		}
 		if(then.tv_sec == now.tv_sec) {
@@ -615,7 +625,16 @@ exit(1);
 		/*
 		 * block here not to overload the machine
 		 */
+pthread_mutex_lock(&Tlock);
+printf("Forker calling P with Tcount %d\n",Tcount);
+fflush(stdout);
+pthread_mutex_unlock(&Tlock);
 		P(&ForkerThrottle);
+pthread_mutex_lock(&Tlock);
+Tcount--;
+printf("Forker awake, after decrement %d\n",Tcount);
+fflush(stdout);
+pthread_mutex_unlock(&Tlock);
 			
 		pid = fork();
 		if(pid == 0) {
@@ -869,7 +888,14 @@ exit(1);
 			LogFree(log_tail); 
 		}
 
-		while(waitpid(-1,&status,WNOHANG) > 0);
+		while(waitpid(-1,&status,WNOHANG) > 0) {
+			V(&ForkerThrottle);
+pthread_mutex_lock(&Tlock);
+Tcount++;
+printf("Parent: count after increment: %d\n",Tcount);
+fflush(stdout);
+pthread_mutex_unlock(&Tlock);
+		}
 	}
 
 	fprintf(stderr,"WooFForker namespace: %s exiting\n",WooF_namespace);
