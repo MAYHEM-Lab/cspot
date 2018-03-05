@@ -156,8 +156,13 @@ int main(int argc, char **argv)
 		sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
 	}
 	putenv(putbuf1);
-	sprintf(Wname,"%s/%s",NameSpace,Fname);
-	sprintf(Wname2,"%s/%s",NameSpace2,Fname);
+
+	if(UseNameSpace == 1) {
+		sprintf(Wname,"%s",Fname);
+	} else {
+		sprintf(Wname,"%s/%s",NameSpace,Fname);
+		sprintf(Wname2,"%s/%s",NameSpace2,Fname);
+	}
 
 
 	WooFInit();
