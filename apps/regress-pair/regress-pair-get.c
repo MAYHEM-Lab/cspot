@@ -67,7 +67,7 @@ void RegressPairPrintAll(REGRESSVAL *r_rv, unsigned long r_seq_no,
 	fprintf(stdout,"pred: %f %10.10f %lu | ",
 			p_rv->value.d,p_ts,p_seq_no);
 	fprintf(stdout,"meas: %f %10.10f %lu\n",
-			m_rv->value.d,m_ts,p_seq_no);
+			m_rv->value.d,m_ts,m_seq_no);
 	fflush(stdout);
 
 }
