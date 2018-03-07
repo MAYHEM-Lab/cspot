@@ -8,7 +8,7 @@ mkdir -p /src
 cd /src
 git clone git://github.com/zeromq/czmq.git
 cd czmq
-./autogen.sh && ./configure && make check
-make install
+./autogen.sh && ./configure && make -j12 check
+make -j12 install
 ldconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
