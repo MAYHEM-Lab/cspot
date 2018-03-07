@@ -10,12 +10,10 @@ SLIB=${WOOFC}/lsema.o
 LIBS=${WOOFC}/uriparser2/liburiparser2.a -lpthread -lm -lczmq
 LOBJ=${WOOFC}/log.o ${WOOFC}/host.o ${WOOFC}/event.o
 LINC=${WOOFC}/log.h ${WOOFC}/host.h ${WOOFC}/event.h
-WINC=${WOOFC}/woofc.h ${WOOFC}/woofc-access.h
-WOBJ=${WOOFC}/woofc.o ${WOOFC}/woofc-access.o
-WHINC=${WOOFC}/woofc-host.h
-WHOBJ=${WOOFC}/woofc-host.o
-TINC=${WOOFC}/woofc-thread.h
-TOBJ=${WOOFC}/woofc-thread.o
+WINC=${WOOFC}/woofc.h ${WOOFC}/woofc-access.h ${WOOFC}/woofc-cache.h
+WOBJ=${WOOFC}/woofc.o ${WOOFC}/woofc-access.o ${WOOFC}/woofc-cache.o
+WHINC=${WOOFC}/woofc-host.h 
+WHOBJ=${WOOFC}/woofc-host.o 
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 HAND1=hw

@@ -5,7 +5,7 @@
 #include "lsema.h"
 #include "log.h"
 
-int WooFInit(unsigned long host_id);
+int WooFInit();
 void WooFExit();
 
 

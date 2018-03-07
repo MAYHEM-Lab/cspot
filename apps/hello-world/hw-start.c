@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "woofc.h"
+#include "woofc-host.h"
 #include "hw.h"
 
 #define ARGS "f:N:H:"
