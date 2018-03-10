@@ -48,19 +48,16 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 	m_ts = meas_series->data[i*2+0];
 	next_ts = meas_series->data[(i+1)*2+0];
 	p_ts = pred_series->data[j*2+0];
-
-	/*
-	 * straddle the predicted time value
-	 */
-	while((i+1) < meas_series->ydim) {
-		if((m_ts <= p_ts) && (next_ts >= p_ts)) {
+	while(j < pred_series->ydim) {
+		if(m_ts <= p_ts) {
 			break;
 		}
-		i++;
-		m_ts = meas_series->data[i*2+0];
-		next_ts = meas_series->data[(i+1)*2+0];
+		j++;
+		p_ts = pred_series->data[j*2+0];
 	}
-	while((i+1) < meas_series->ydim) {
+
+	while(((i+1) < meas_series->ydim) && (j < pred_series->ydim)) {
+//printf("p_ts: %10.0f, next_ts: %10.0f, m_ts: %10.0f\n",p_ts,next_ts,m_ts);
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
 			matched_array->data[k*2+0] = pred_series->data[j*2+1];
 			matched_array->data[k*2+1] = meas_series->data[(i+1)*2+1];
