@@ -55,9 +55,7 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 		j++;
 		p_ts = pred_series->data[j*2+0];
 	}
-
 	while(((i+1) < meas_series->ydim) && (j < pred_series->ydim)) {
-//printf("p_ts: %10.0f, next_ts: %10.0f, m_ts: %10.0f\n",p_ts,next_ts,m_ts);
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
 			matched_array->data[k*2+0] = pred_series->data[j*2+1];
 			matched_array->data[k*2+1] = meas_series->data[(i+1)*2+1];
@@ -102,8 +100,8 @@ fflush(stdout);
 			continue; /* go back and try again */
 		}
 printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
-j,p_ts,matched_array->data[j*2+0],
-v_ts,matched_array->data[j*2+1]);
+j,p_ts,matched_array->data[k*2+0],
+v_ts,matched_array->data[k*2+1]);
 fflush(stdout);
 
 		k++;
@@ -217,7 +215,7 @@ Array2D *MakeArrayFromWooF(char *woof_name, unsigned long start_seq_no, unsigned
 	
 	
 
-int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *measured_name, int count_back,
+int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *measured_name, int count_back, int max_lags,
 	double *out_slope, double *out_intercept, double *out_value, int *out_lags, unsigned long *out_seq_no)
 {
 	int i;
@@ -434,7 +432,8 @@ fflush(stdout);
 	FreeArray2D(match_array);
 	match_array = NULL;
 
-	for(l = 1; l <= MAXLAGS; l++) {
+	for(l = 1; l <= max_lags; l++) {
+//	for(l = max_lags; l <= max_lags; l++) {
 		smoothed = SSASmoothSeries(unsmoothed,l);
 		if(smoothed == NULL) {
 			fprintf(stderr,"BestCoeff: couldn't get smoothed array at lags %d\n",
@@ -900,7 +899,7 @@ fflush(stdout);
 	 */
 	memcpy(coeff_rv.woof_name,rv->woof_name,sizeof(coeff_rv.woof_name));
 
-	err = BestRegressionCoeff(predicted_name,wf_seq_no,measured_name,ri.count_back,
+	err = BestRegressionCoeff(predicted_name,wf_seq_no,measured_name,ri.count_back,ri.max_lags,
 		&coeff_rv.slope,&coeff_rv.intercept,
 		&coeff_rv.measure,&coeff_rv.lags, &coeff_rv.earliest_seq_no);
 
