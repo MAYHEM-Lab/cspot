@@ -48,22 +48,19 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 	m_ts = meas_series->data[i*2+0];
 	next_ts = meas_series->data[(i+1)*2+0];
 	p_ts = pred_series->data[j*2+0];
+
+	/*
+	 * straddle the predicted time value
+	 */
 	while((i+1) < meas_series->ydim) {
-#if 0
-		/*
-		 * deal with drop out in the measured series
-		 */
-		if(fabs(next_ts-m_ts) > 1200) {
-			/* assumes that next_ts is bigger than p_ts and m_ts is smaller */
-			while(fabs(next_ts-p_ts) > 3700) {
-				j++;
-				if(j >= pred_series->ydim) {
-					break;
-				}
-				p_ts = pred_series->data[j*2+0];
-			}
+		if((m_ts <= p_ts) && (next_ts >= p_ts)) {
+			break;
 		}
-#endif
+		i++;
+		m_ts = meas_series->data[i*2+0];
+		next_ts = meas_series->data[(i+1)*2+0];
+	}
+	while((i+1) < meas_series->ydim) {
 		if(fabs(p_ts-next_ts) < fabs(p_ts-m_ts)) {
 			matched_array->data[k*2+0] = pred_series->data[j*2+1];
 			matched_array->data[k*2+1] = meas_series->data[(i+1)*2+1];
