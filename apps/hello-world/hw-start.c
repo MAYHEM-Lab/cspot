@@ -7,7 +7,7 @@
 #include "woofc-host.h"
 #include "hw.h"
 
-#define ARGS "f:N:H:"
+#define ARGS "f:N:H:W:"
 char *Usage = "hw -f woof_name\n\
 \t-H namelog-path to host wide namelog\n\
 \t-N namespace\n";
@@ -31,6 +31,7 @@ int main(int argc, char **argv)
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'f':
+			case 'W':
 				strncpy(Fname,optarg,sizeof(Fname));
 				break;
 			case 'N':
