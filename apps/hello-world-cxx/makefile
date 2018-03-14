@@ -36,5 +36,5 @@ ${HAND1}: ${HAND1}.cpp ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SIN
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 clean:
-	rm -f hw-start hw-client ${HAND1}
+	rm -f hw-start ${HAND1}
 
