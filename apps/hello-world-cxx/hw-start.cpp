@@ -18,6 +18,11 @@ const char *Usage = "hw -f woof_name\n\
 #include <iostream>
 #include <string>
 
+void putenv(const char* arg, const std::string& val)
+{
+	::putenv(&((arg + ("=" + val))[0]));
+}
+
 int main(int argc, char **argv)
 {
 	std::string ns;
@@ -36,10 +41,8 @@ int main(int argc, char **argv)
 				namelog_dir = std::string(optarg);
 				break;
 			default:
-				fprintf(stderr,
-				"unrecognized command %c\n",(char)c);
-				fprintf(stderr,"%s",Usage);
-				exit(1);
+				std::cerr << "unrecognized command " << (char)c << '\n' << Usage << std::flush;
+				return 1;
 		}
 	}
 
@@ -49,32 +52,31 @@ int main(int argc, char **argv)
 	}
 
 	if(!namelog_dir.empty()) {
-		putenv(&(("WOOF_NAMELOG_DIR=" + namelog_dir)[0]));
+		putenv("WOOF_NAMELOG_DIR", namelog_dir);
 	}
 
-	std::string wname;
 	if(!ns.empty()) {
-		wname = "woofc://" + ns + "/" + fname;
-		putenv(&(("WOOFC_DIR=" + ns)[0]));
+		putenv("WOOFC_DIR", ns);
+		ns = "woofc://" + ns + "/" + fname;
 	} else {
-		wname = fname;
+		ns = fname;
 	}
 
 	WooFInit();
 
-	auto err = WooFCreate(wname.c_str(), sizeof(HW_EL), 5);
+	auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
 	if(err < 0) {
-		std::cerr << "couldn't create woof from " << wname << '\n';
-		exit(1);
+		std::cerr << "couldn't create woof from " << ns << '\n';
+		return 1;
 	}
 
-	HW_EL el{};
+	HW_EL el {};
 	strncpy(el.string, "my first bark", sizeof(el.string));
 
-	auto ndx = WooFPut(wname.c_str(), "hw", (void *)&el);
+	auto ndx = WooFPut(ns.c_str(), "hw", (void *)&el);
 
 	if(WooFInvalid(err)) {
-		std::cerr << "first WooFPut failed for " << wname << '\n';
+		std::cerr << "first WooFPut failed for " << ns << '\n';
 		return 1;
 	}
 }
