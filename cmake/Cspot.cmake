@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
+project(cspot C)
 
 set(DIR_OF_CSPOT_CMAKE ${CMAKE_CURRENT_LIST_DIR})  
 
@@ -47,9 +48,17 @@ set_target_properties(cspot PROPERTIES
     INTERFACE_LINK_LIBRARIES "mio;woof;woof_log;woof_host;pthread;m;czmq;euca_utils;${WOOFC}/uriparser2/liburiparser2.a;${WOOFC}/lsema.o"
 )
 
-function(cspot_add_handler handler_name)
-    add_library(${handler_name}_shepherd "${WOOFC}/woofc-shepherd.c")
-    target_link_libraries(${handler_name}_shepherd PUBLIC cspot)
-    target_compile_definitions(${handler_name}_shepherd PUBLIC WOOF_HANDLER_NAME=${handler_name})
-    target_link_libraries(${handler_name} PUBLIC ${handler_name}_shepherd)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/cspot/)
+
+function(cspot_add_handler handler)
+    add_executable(${handler}_shepherd "${WOOFC}/woofc-shepherd.c")
+    target_link_libraries(${handler}_shepherd PUBLIC cspot)
+    target_link_libraries(${handler}_shepherd PUBLIC ${handler})
+    target_compile_definitions(${handler}_shepherd PUBLIC "WOOF_HANDLER_NAME=${handler}")
+
+    add_custom_command(TARGET ${handler}_shepherd POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${handler}_shepherd> ${CMAKE_BINARY_DIR}/cspot/
+        COMMAND ${CMAKE_COMMAND} -E copy ${WOOFC}/woofc-container ${CMAKE_BINARY_DIR}/cspot/
+        COMMAND ${CMAKE_COMMAND} -E copy ${WOOFC}/woofc-namespace-platform ${CMAKE_BINARY_DIR}/cspot/
+    )
 endfunction()

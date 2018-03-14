@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 	HW_EL el {};
 	strncpy(el.string, "my first bark", sizeof(el.string));
 
-	auto ndx = WooFPut(ns.c_str(), "hw", (void *)&el);
+	auto ndx = WooFPut(ns.c_str(), "hw_shepherd", (void *)&el);
 
 	if(WooFInvalid(err)) {
 		std::cerr << "first WooFPut failed for " << ns << '\n';
