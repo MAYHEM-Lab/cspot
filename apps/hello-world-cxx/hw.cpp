@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #include "woofc.h"
-#include "hw.h"
+#include "hw.hpp"
 
 #include <iostream>
 #include <string>

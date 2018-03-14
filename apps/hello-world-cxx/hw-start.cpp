@@ -10,8 +10,9 @@ extern "C"
 {
 #include "woofc.h"
 #include "woofc-host.h"
-#include "hw.h"
 }
+
+#include "hw.hpp"
 
 const char* args = "f:N:H:W:";
 const char *Usage = R"__(hw -f woof_name
