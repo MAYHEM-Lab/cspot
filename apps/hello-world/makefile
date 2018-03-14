@@ -22,11 +22,14 @@ HAND1=hw
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: hw-start ${HAND1}
+all: hw-start hw-client ${HAND1}
 
 hw-start: hw-start.c hw.h
 	${CC} ${CFLAGS} -o hw-start hw-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp hw-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
+hw-client: hw-client.c hw.h
+	${CC} ${CFLAGS} -o hw-client hw-client.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
@@ -35,5 +38,5 @@ ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 clean:
-	rm -f hw-start ${HAND1}
+	rm -f hw-start hw-client ${HAND1}
 

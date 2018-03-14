@@ -24,6 +24,8 @@ char Namelog_name[2048];
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
 
+extern int WOOF_HANDLER_NAME(WOOF *wf,unsigned long seq_no,void *farg);
+
 
 
 int main(int argc, char **argv, char **envp)
@@ -206,9 +208,9 @@ int main(int argc, char **argv, char **envp)
 
 	strncpy(full_name,wf_dir,sizeof(full_name));
 	if(full_name[strlen(full_name)-1] != '/') {
-		strncat(full_name,"/",sizeof(full_name)-strlen(full_name));
+		strncat(full_name,"/",sizeof(full_name)-strlen(full_name)-1);
 	}
-	strncat(full_name,wf_name,sizeof(full_name)-strlen(full_name));
+	strncat(full_name,wf_name,sizeof(full_name)-strlen(full_name)-1);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WooF name: %s\n",full_name);
 	fflush(stdout);
@@ -274,7 +276,7 @@ int main(int argc, char **argv, char **envp)
 
 		farg = (unsigned char *)malloc(wfs->element_size);
 		if(farg == NULL) {
-			fprintf(stderr,"WooFShepherd: no space for farg of size %d\n",
+			fprintf(stderr,"WooFShepherd: no space for farg of size %lu\n",
 					wfs->element_size);
 			fflush(stderr);
 			return(-1);
