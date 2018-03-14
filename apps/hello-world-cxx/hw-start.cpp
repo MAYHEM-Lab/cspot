@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <iostream>
+#include <string>
+
 extern "C"
 {
 #include "woofc.h"
@@ -10,13 +13,11 @@ extern "C"
 #include "hw.h"
 }
 
-#define ARGS "f:N:H:W:"
-const char *Usage = "hw -f woof_name\n\
-\t-H namelog-path to host wide namelog\n\
-\t-N namespace\n";
+const char* args = "f:N:H:W:";
+const char *Usage = R"__(hw -f woof_name
+	-H namelog-path to host wide namelog
+	-N namespace)__";
 
-#include <iostream>
-#include <string>
 
 void putenv(const char* arg, const std::string& val)
 {
@@ -28,7 +29,8 @@ int main(int argc, char **argv)
 	std::string ns;
 	std::string fname;
 	std::string namelog_dir;
-	for(int c = getopt(argc,argv,ARGS); c != EOF; c = getopt(argc,argv,ARGS)) {
+
+	for(int c = getopt(argc,argv,args); c != EOF; c = getopt(argc,argv,args)) {
 		switch(c) {
 			case 'f':
 			case 'W':
@@ -41,13 +43,13 @@ int main(int argc, char **argv)
 				namelog_dir = std::string(optarg);
 				break;
 			default:
-				std::cerr << "unrecognized command " << (char)c << '\n' << Usage << std::flush;
+				std::cerr << "unrecognized command " << (char)c << '\n' << Usage << '\n';
 				return 1;
 		}
 	}
 
 	if(fname.empty()) {
-		std::cerr << "must specify filename for woof\n" << Usage << std::flush;
+		std::cerr << "must specify filename for woof\n" << Usage << '\n';
 		return 1;
 	}
 
@@ -79,5 +81,7 @@ int main(int argc, char **argv)
 		std::cerr << "first WooFPut failed for " << ns << '\n';
 		return 1;
 	}
+
+	std::cout << "Seqnum: " << ndx << '\n';
 }
 
