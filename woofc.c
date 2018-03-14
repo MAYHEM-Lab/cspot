@@ -32,7 +32,7 @@ typedef struct woof_open_cache_stc WOOF_OPEN_CACHE_EL;
 void WooFDrop(WOOF *wf);
 
 
-int WooFCreate(char *name,
+int WooFCreate(const char *name,
 	       unsigned long element_size,
 	       unsigned long history_size)
 {
@@ -230,7 +230,7 @@ int WooFCreate(char *name,
 }
 
 
-WOOF *WooFOpen(char *name)
+WOOF *WooFOpen(const char *name)
 {
 	WOOF *wf;
 	WOOF_SHARED *wfs;
@@ -383,7 +383,7 @@ void WooFDrop(WOOF *wf)
 }
 
 
-unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
+unsigned long WooFAppend(WOOF *wf, const char *hand_name, void *element)
 {
 	MIO *mio;
 	MIO *lmio;
@@ -550,10 +550,10 @@ fflush(stdout);
 		return(seq_no);
 	}
 
-	memset(ev->namespace,0,sizeof(ev->namespace));
-	strncpy(ev->namespace,WooF_namespace,sizeof(ev->namespace));
+	memset(ev->woofc_namespace,0,sizeof(ev->woofc_namespace));
+	strncpy(ev->woofc_namespace,WooF_namespace,sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-	printf("WooFAppend: namespace: %s\n",ev->namespace);
+	printf("WooFAppend: namespace: %s\n",ev->woofc_namespace);
 	fflush(stdout);
 #endif
 
@@ -628,7 +628,7 @@ fflush(stdout);
 }
 
 		
-unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
+unsigned long WooFPut(const char *wf_name, const char *hand_name, void *element)
 {
 	WOOF *wf;
 	unsigned long seq_no;
@@ -716,7 +716,7 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 }
 
 
-int WooFGet(char *wf_name, void *element, unsigned long seq_no)
+int WooFGet(const char *wf_name, void *element, unsigned long seq_no)
 {
 	WOOF *wf;
 	unsigned long el_size;

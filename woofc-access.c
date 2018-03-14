@@ -26,7 +26,7 @@ WOOF_CACHE *WooF_cache;
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
-unsigned int WooFPortHash(char *namespace)
+unsigned int WooFPortHash(const char *namespace)
 {
         unsigned long h = 5381;
         unsigned long a = 33;
@@ -43,7 +43,7 @@ unsigned int WooFPortHash(char *namespace)
 }
 
 
-int WooFValidURI(char *str) 
+int WooFValidURI(const char *str) 
 {
 	char *prefix;
 	/*
@@ -61,7 +61,7 @@ int WooFValidURI(char *str)
 /*
  * convert URI to namespace path
  */
-int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
+int WooFURINameSpace(const char *woof_uri_str, char *woof_namespace, int len)
 {
 	struct URI *uri;
 	int i;
@@ -89,7 +89,7 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
 /*
  * extract namespace from full woof_name
  */
-int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
+int WooFNameSpaceFromURI(const char *woof_uri_str, char *woof_namespace, int len)
 {
 	struct URI *uri;
 	int i;
@@ -134,7 +134,7 @@ int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
 	return(-1);
 }
 
-int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
+int WooFNameFromURI(const char *woof_uri_str, char *woof_name, int len)
 {
 	struct URI *uri;
 	int i;
@@ -196,7 +196,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 /*
  * returns IP address to avoid DNS issues
  */
-int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
+int WooFIPAddrFromURI(const char *woof_uri_str, char *woof_ip, int len)
 {
 	struct URI *uri;
 	int i;
@@ -261,7 +261,7 @@ int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
 	
 }
 
-int WooFPortFromURI(char *woof_uri_str, int *woof_port)
+int WooFPortFromURI(const char *woof_uri_str, int *woof_port)
 {
 	struct URI *uri;
 	int err;
@@ -330,12 +330,12 @@ int WooFLocalIP(char *ip_str, int len)
 	exit(1);
 }
 
-int WooFLocalName(char *woof_name, char *local_name, int len)
+int WooFLocalName(const char *woof_name, char *local_name, int len)
 {
 	return(WooFNameFromURI(woof_name,local_name,len));
 }
 
-static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
+static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 {
 	zsock_t *server;
 	zpoller_t *resp_poll;
@@ -1519,7 +1519,7 @@ void *WooFMsgThread(void *arg)
 	pthread_exit(NULL);
 }
 		
-int WooFMsgServer (char *namespace)
+int WooFMsgServer (const char *namespace)
 {
 
 	int port;
@@ -1618,7 +1618,7 @@ int WooFMsgServer (char *namespace)
 
 	
 
-unsigned long WooFMsgGetElSize(char *woof_name)
+unsigned long WooFMsgGetElSize(const char *woof_name)
 {
 	char endpoint[255];
 	char namespace[2048];
@@ -2046,7 +2046,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	}
 }
 
-unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size)
+unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size)
 {
 	char endpoint[255];
 	char namespace[2048];

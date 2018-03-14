@@ -1,4 +1,5 @@
 CC=gcc
+CXX=g++
 DEP=../../..
 WOOFC=../..
 UINC=${DEP}/euca-cutils
@@ -21,11 +22,12 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 HAND1=hw
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
+CXX_FLAGS= -std=c++11 -g -I${UINC} -I${MINC} -I${SINC}
 
 all: hw-start hw-client ${HAND1}
 
-hw-start: hw-start.c hw.h
-	${CC} ${CFLAGS} -o hw-start hw-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+hw-start: hw-start.cpp hw.h
+	${CXX} ${CXX_FLAGS} -o hw-start hw-start.cpp ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp hw-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 hw-client: hw-client.c hw.h
