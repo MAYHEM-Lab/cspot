@@ -33,9 +33,9 @@ hw-start: hw-start.cpp hw.h
 hw-client: hw-client.c hw.h
 	${CC} ${CFLAGS} -o hw-client hw-client.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -DWOOF_HANDLER_NAME=${HAND1} -o ${HAND1}_shepherd.o
-	${CC} ${CFLAGS} -o ${HAND1} ${HAND1}.c ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+${HAND1}: ${HAND1}.cpp ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	${CC} ${CFLAGS} -c ${SHEP_SRC} -DWOOF_HANDLER_NAME=${HAND1} -o ${HAND1}_shepherd.o
+	${CXX} ${CXX_FLAGS} -o ${HAND1} ${HAND1}.cpp ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 clean:
