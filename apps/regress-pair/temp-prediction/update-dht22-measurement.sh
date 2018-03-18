@@ -16,20 +16,20 @@ if ( test -z "$SWOOF" ) ; then
 	exit 1
 fi
 
-LAST=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $3}' | awk -F '.' '{print $1}'`
+LAST=`$BIN/regress-pair-get -W $WOOF -s 'p' | awk '{print $3}' | awk -F '.' '{print $1}'`
 
-LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'p' | awk '{print $6}'`
 
 
 if ( test "$LASTSEQNO" = "seq_no:" ) ; then
-	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'p' | awk '{print $6}'`
 fi
 if ( test "$LASTSEQNO" = " seq_no:" ) ; then
-	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'p' | awk '{print $6}'`
 fi
 
 if ( test "$LASTSEQNO" = "seq_no: " ) ; then
-	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'm' | awk '{print $6}'`
+	LASTSEQNO=`$BIN/regress-pair-get -W $WOOF -s 'p' | awk '{print $6}'`
 fi
 
 if ( test -z "$LASTSEQNO" ) ; then
