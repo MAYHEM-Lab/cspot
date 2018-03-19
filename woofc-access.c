@@ -346,8 +346,20 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 	/*
 	 * get a socket to the server
 	 */
-	server = zsock_new_req(endpoint);
-	if(server == NULL) {
+	//server = zsock_new_req(endpoint);
+
+	server = zsock_new(ZMQ_REQ);
+
+ 	zcert_t* client_cert = zcert_load("/keys/client_cert");
+ 	assert(client_cert);
+ 	const char *server_key = "UkCxC]?G.Pb]5HX61Sig!2c4XyHdy>O55kUiQGpU";
+
+ 	zcert_apply (client_cert, server);
+	zsock_set_curve_serverkey (server, server_key);
+
+	int res = zsock_attach(server, endpoint, false);
+
+	if(server == NULL || res != 0) {
 		fprintf(stderr,"ServerRequest: no server connection to %s\n",
 			endpoint);
 		fflush(stderr);
@@ -363,6 +375,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: no poller for reply from %s\n",
 			endpoint);
 		fflush(stderr);
+		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zmsg_destroy(&msg);
 		return(NULL);
@@ -376,6 +389,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg send to %s failed\n",
 			endpoint);
 		fflush(stderr);
+		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		zmsg_destroy(&msg);
@@ -392,6 +406,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 			fprintf(stderr,"ServerRequest: msg recv from %s failed\n",
 				endpoint);
 			fflush(stderr);
+			zcert_destroy (&client_cert);
 			zsock_destroy(&server);
 			zpoller_destroy(&resp_poll);
 			return(NULL);
@@ -403,6 +418,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg recv timeout from %s after %d msec\n",
 				endpoint,WOOF_MSG_REQ_TIMEOUT);
 		fflush(stderr);
+		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return(NULL);
@@ -410,6 +426,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg recv interrupted from %s\n",
 				endpoint);
 		fflush(stderr);
+		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return(NULL);
@@ -417,6 +434,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg recv failed from %s\n",
 				endpoint);
 		fflush(stderr);
+		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return(NULL);
@@ -1438,15 +1456,18 @@ void *WooFMsgThread(void *arg)
 	 * pattern blocks indefinitely on network partition
 	 */
 
+    //zauth_configure_curve (auth, "*", ".curve");
+
 	/*
 	 * create a reply zsock and connect it to the back end of the proxy in the msg server
 	 */
 	receiver = zsock_new_rep(">inproc://workers");
+	assert(receiver);
+
 	if(receiver == NULL) {
 		perror("WooFMsgThread: couldn't open receiver");
 		pthread_exit(NULL);
 	} 
-
 
 #ifdef DEBUG
 	printf("WooFMsgThread: about to call receive\n");
@@ -1514,8 +1535,10 @@ void *WooFMsgThread(void *arg)
 		 */
 		msg = zmsg_recv(receiver);
 	}
+	//zactor_destroy (&auth);
 
 	zsock_destroy(&receiver);
+	printf("bye");
 	pthread_exit(NULL);
 }
 		
@@ -1528,11 +1551,6 @@ int WooFMsgServer (const char *namespace)
 	char endpoint[255];
 	pthread_t tids[WOOF_MSG_THREADS];
 	int i;
-
-	zsock_t *frontend;
-	zsock_t *workers;
-	zmsg_t *msg;
-
 	
 
 	if(namespace[0] == 0) {
@@ -1572,6 +1590,33 @@ int WooFMsgServer (const char *namespace)
 		exit(1);
 	}
 
+	zactor_t *auth = zactor_new (zauth, NULL);
+	assert (auth);
+
+	zstr_sendx (auth, "VERBOSE", NULL);
+	zsock_wait (auth);
+	zstr_sendx (proxy, "VERBOSE", NULL);
+    zsock_wait (proxy);
+
+	zstr_sendx (proxy, "DOMAIN", "FRONTEND", "global", NULL);
+	zsock_wait (proxy);
+
+	assert(zsys_has_curve ());
+
+	zcert_t *server_cert = zcert_load("/keys/server_cert");
+	const char *public_key = zcert_public_txt (server_cert);
+	const char *secret_key = zcert_secret_txt (server_cert);
+	
+	printf("key: %s\n", public_key);
+	zstr_sendx (proxy, "CURVE", "FRONTEND", public_key, secret_key, NULL);
+	zsock_wait (proxy);	
+
+	zstr_sendx (proxy, "DOMAIN", "FRONTEND", "global", NULL);
+	zsock_wait (proxy);
+
+	zstr_sendx (auth, "CURVE", "/pubkeys", NULL);
+	zsock_wait (auth);
+
 	/*
 	 * create and bind endpoint with port has to frontend zsock
 	 */
@@ -1587,6 +1632,9 @@ int WooFMsgServer (const char *namespace)
 	 */
 	zstr_sendx(proxy,"BACKEND","DEALER","inproc://workers",NULL);
 	zsock_wait(proxy);
+
+	//zcert_apply (client_cert, faucet);
+ 	//zsock_set_curve_serverkey (faucet, public_key);
 
 	/*
 	 * create a single thread for now.  The DEALER pattern can handle multiple threads, however

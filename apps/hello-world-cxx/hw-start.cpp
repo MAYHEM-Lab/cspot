@@ -19,7 +19,6 @@ const char *Usage = R"__(hw -f woof_name
 	-H namelog-path to host wide namelog
 	-N namespace)__";
 
-
 void putenv(const char* arg, const std::string& val)
 {
 	::putenv(&((arg + ("=" + val))[0]));
@@ -55,30 +54,30 @@ int main(int argc, char **argv)
 	}
 
 	if(!namelog_dir.empty()) {
-		putenv("WOOF_NAMELOG_DIR", namelog_dir);
+		putenv("WOOFC_NAMELOG_DIR", namelog_dir);
 	}
 
 	if(!ns.empty()) {
 		putenv("WOOFC_DIR", ns);
-		ns = "woofc://" + ns + "/" + fname;
+		ns = "woof://" + ns + "/" + fname;
 	} else {
 		ns = fname;
 	}
 
 	WooFInit();
 
-	auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
+	/*auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
 	if(err < 0) {
 		std::cerr << "couldn't create woof from " << ns << '\n';
 		return 1;
-	}
+	}*/
 
 	HW_EL el {};
 	strncpy(el.string, "my first bark", sizeof(el.string));
 
 	auto ndx = WooFPut(ns.c_str(), "hw_shepherd", (void *)&el);
 
-	if(WooFInvalid(err)) {
+	if(false){//WooFInvalid(err)) {
 		std::cerr << "first WooFPut failed for " << ns << '\n';
 		return 1;
 	}

@@ -19,9 +19,10 @@ TOBJ=woofc-thread.o
 URIINC=./uriparser2
 URILIB=./uriparser2/liburiparser2.a
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
+CXX_FLAGS=-g -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
 
-all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
+all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image woofc-keygen
 
 abd: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
@@ -51,6 +52,9 @@ woofc-shepherd.o: woofc-shepherd.c woofc.h
 
 woofc-thread.o: woofc-thread.c woofc-thread.h
 	${CC} ${CFLAGS} -c woofc-thread.c
+
+woofc-keygen: woofc-keygen.cpp
+	${CXX} ${CXX_FLAGS} woofc-keygen.cpp -o woofc-keygen ${LIBS}
 
 woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
 	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}

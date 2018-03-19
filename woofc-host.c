@@ -323,6 +323,8 @@ void *WooFContainerLauncher(void *arg)
 			 -e WOOF_HOST_IP=%s\
 			 -p %d:%d\
 			 -v %s:%s\
+			 -v /keys:/keys\
+			 -v /pubkeys:/pubkeys\
 			 -v %s:/cspot-namelog\
 			 cspot-docker-centos7\
 			 %s/%s",

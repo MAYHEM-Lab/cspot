@@ -380,7 +380,7 @@ void *WooFForker(void *arg)
 			   (ev[first].seq_no > last_seq_no)) {
 				/* now walk forward looking for FIRING */
 #ifdef DEBUG
-	printf("WooFForker: considering %s %lu\n",ev[first].namespace,ev[first].seq_no);
+	printf("WooFForker: considering %s %lu\n",ev[first].woofc_namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
 				firing = (first - 1);
