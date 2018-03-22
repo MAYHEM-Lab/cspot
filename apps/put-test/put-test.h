@@ -16,6 +16,7 @@ typedef struct put_test_stc PT_EL;
 struct payload_stc
 {
 	unsigned long exp_seq_no;
+	struct timeval tm;
 };
 
 typedef struct payload_stc PL;

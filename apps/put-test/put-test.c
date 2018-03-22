@@ -3,17 +3,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "c:f:s:N:H:Lt:"
+#define ARGS "c:f:s:N:H:Lt:S"
 char *Usage = "put-test -f woof_name for experiment (matching recv side)\n\
 \t-H namelog-path\n\
 \t-s size (payload size)\n\
 \t-c count (number of payloads to send)\n\
 \t-L use same namespace for source and target\n\
 \t-N target namespace (as a URI)\n\
+\t-S <run simple test with no handler>\n\
 \t-t threads\n";
 
 char Fname[4096];
@@ -24,6 +26,7 @@ char putbuf1[4096];
 char putbuf2[4096];
 int UseLocal;
 int Threads;
+int Simple;
 
 #define MAX_RETRIES 20
 
@@ -37,9 +40,9 @@ void *PutThread(void *arg)
 {
 	PT_EL *el = (PT_EL *)arg;
 	unsigned long e_seq_no;
-	void *payload;
+	PL *payload;
 
-	payload = malloc(Size);
+	payload = (PL *)malloc(Size);
 	if(payload == NULL) {
 		exit(1);
 	}
@@ -55,7 +58,12 @@ void *PutThread(void *arg)
 
 		pthread_mutex_unlock(&Lock);
 
-		e_seq_no = WooFPut(el->target_name,"recv",payload);
+		gettimeofday(&payload->tm,NULL);
+		if(Simple == 0) {
+			e_seq_no = WooFPut(el->target_name,"recv",payload);
+		} else {
+			e_seq_no = WooFPut(el->target_name,NULL,payload);
+		}
 		if(WooFInvalid(e_seq_no)) {
 			free(payload);
 			pthread_exit(NULL);
@@ -93,6 +101,8 @@ int main(int argc, char **argv)
 	int retries;
 	pthread_t *tids;
 	void *status;
+	PL s_pl;
+	PL e_pl;
 	
 
 	Size = 0;
@@ -122,6 +132,9 @@ int main(int argc, char **argv)
 				break;
 			case 't':
 				Threads = atoi(optarg);
+				break;
+			case 'S':
+				Simple = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -185,7 +198,7 @@ int main(int argc, char **argv)
 	
 
 	/*
-	 * start the experiment
+	 * start the experiment -- creates woofs on recv side
 	 */
 	seq_no = WooFPut(arg_name,"recv_start",&el);
 	if(WooFInvalid(seq_no)) {
@@ -193,7 +206,6 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
-
 
 	/*
 	 * wait for the recv side to create its timing log
@@ -227,7 +239,15 @@ int main(int argc, char **argv)
 		pl = (PL *)payload_buf;
 		pl->exp_seq_no = seq_no;
 		for(i=0; i < Count; i++) {
-			e_seq_no = WooFPut(el.target_name,"recv",pl);
+			gettimeofday(&pl->tm,NULL);
+			if(Simple == 1) {
+				e_seq_no = WooFPut(el.target_name,NULL,pl);
+			} else {
+				e_seq_no = WooFPut(el.target_name,"recv",pl);
+			}
+		}
+		if(e_seq_no > Max_seq_no) {
+			Max_seq_no = e_seq_no;
 		}
 		free(payload_buf);
 	} else {
@@ -249,52 +269,86 @@ int main(int argc, char **argv)
 		e_seq_no = Max_seq_no;
 	}
 
-		
-
-
-	/*
-	 * now poll looking for end of the log
-	 */
-	retries = 0;
-	do {
-		sleep(1);
-		/*
-		 * log record woof contains one more record than the target
-		 */
-		err = WooFGet(el.log_name,&elog,e_seq_no + 1);
-		if(err > 0) {
-			break;
+	
+	if(Simple == 1) {
+		payload_buf = malloc(Size);
+		if(payload_buf == NULL) {
+			exit(1);
 		}
-		retries++;
-	} while(retries < MAX_RETRIES);
+		err = WooFGet(el.target_name,payload_buf,1);
+		if(err < 0) {
+			fprintf(stderr,"couldn't get start ts\n");
+			exit(1);
+		}
+		memcpy(&s_pl,payload_buf,sizeof(PL));
+		err = WooFGet(el.target_name,payload_buf,Max_seq_no);
+		if(err < 0) {
+			fprintf(stderr,"couldn't get end ts\n");
+			exit(1);
+		}
+		memcpy(&e_pl,payload_buf,sizeof(PL));
+		free(payload_buf);
+	} else {
 
-	if(retries >= MAX_RETRIES) {
-		fprintf(stderr,"put-test: failed to see end of experiment\n");
-		fflush(stderr);
-		exit(1);
+			
+
+
+		/*
+		 * now poll looking for end of the log
+		 */
+		retries = 0;
+		do {
+			sleep(1);
+			/*
+			 * log record woof contains one more record than the target
+			 */
+			err = WooFGet(el.log_name,&elog,e_seq_no + 1);
+			if(err > 0) {
+				break;
+			}
+			retries++;
+		} while(retries < MAX_RETRIES);
+
+		if(retries >= MAX_RETRIES) {
+			fprintf(stderr,"put-test: failed to see end of experiment\n");
+			fflush(stderr);
+			exit(1);
+		}
+
+		memcpy(&stop_tm,&(elog.tm),sizeof(struct timeval));
+
+		/*
+		 * get the start time
+		 */
+		err = WooFGet(el.log_name,&elog,2);
+		if(err < 0) {
+			fprintf(stderr,"put-test: failed to get start of experiment\n");
+			fflush(stderr);
+			exit(1);
+		}
+		memcpy(&start_tm,&(elog.tm),sizeof(struct timeval));
 	}
 
-	memcpy(&stop_tm,&(elog.tm),sizeof(struct timeval));
-
-	/*
-	 * get the start time
-	 */
-	err = WooFGet(el.log_name,&elog,2);
-	if(err < 0) {
-		fprintf(stderr,"put-test: failed to get start of experiment\n");
-		fflush(stderr);
-		exit(1);
-	}
-	memcpy(&start_tm,&(elog.tm),sizeof(struct timeval));
-
-	elapsed = (double)(stop_tm.tv_sec * 1000000 + stop_tm.tv_usec) -
+	if(Simple == 0) {
+		elapsed = (double)(stop_tm.tv_sec * 1000000 + stop_tm.tv_usec) -
 			(double)(start_tm.tv_sec * 1000000 + start_tm.tv_usec); 
-	elapsed = elapsed / 1000000.0;
+		elapsed = elapsed / 1000000.0;
 
-	bw = (double)(Size * (Count-1)) / elapsed;
-	bw = bw / 1000000.0;
+		bw = (double)(Size * (Count-1)) / elapsed;
+		bw = bw / 1000000.0;
 
-	printf("woof: %s bw: %f MB/s\n",arg_name,bw);
+		printf("woof: %s elapsed: %fs, puts: %lu, bw: %f MB/s %f puts/s\n",
+			arg_name,elapsed,Max_seq_no,bw,(double)Max_seq_no/elapsed);
+	} else {
+printf("s: %lu, e: %lu max: %lu\n",s_pl.tm.tv_sec,e_pl.tm.tv_sec,Max_seq_no);
+		elapsed = (double)(e_pl.tm.tv_sec * 1000000 + e_pl.tm.tv_usec) -
+			(double)(s_pl.tm.tv_sec * 1000000 + s_pl.tm.tv_usec); 
+		elapsed = elapsed / 1000000.0;
+		bw = (double)(Size * Max_seq_no) / elapsed;
+		bw = bw / 1000000.0;
+		printf("woof: %s elapsed: %fs, puts: %lu, bw: %f MB/s %f puts/s\n",
+			arg_name,elapsed,Max_seq_no,bw,(double)Max_seq_no/elapsed);
+	}
 	fflush(stdout);
 
 	return(1);
