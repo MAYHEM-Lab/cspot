@@ -270,29 +270,25 @@ int main(int argc, char **argv)
 	}
 
 	
-	if(Simple == 1) {
-		payload_buf = malloc(Size);
-		if(payload_buf == NULL) {
-			exit(1);
-		}
-		err = WooFGet(el.target_name,payload_buf,1);
-		if(err < 0) {
-			fprintf(stderr,"couldn't get start ts\n");
-			exit(1);
-		}
-		memcpy(&s_pl,payload_buf,sizeof(PL));
-		err = WooFGet(el.target_name,payload_buf,Max_seq_no);
-		if(err < 0) {
-			fprintf(stderr,"couldn't get end ts\n");
-			exit(1);
-		}
-		memcpy(&e_pl,payload_buf,sizeof(PL));
-		free(payload_buf);
-	} else {
+	payload_buf = malloc(Size);
+	if(payload_buf == NULL) {
+		exit(1);
+	}
+	err = WooFGet(el.target_name,payload_buf,1);
+	if(err < 0) {
+		fprintf(stderr,"couldn't get start ts\n");
+		exit(1);
+	}
+	memcpy(&s_pl,payload_buf,sizeof(PL));
+	err = WooFGet(el.target_name,payload_buf,Max_seq_no);
+	if(err < 0) {
+		fprintf(stderr,"couldn't get end ts\n");
+		exit(1);
+	}
+	memcpy(&e_pl,payload_buf,sizeof(PL));
+	free(payload_buf);
 
-			
-
-
+	if(Simple == 0){
 		/*
 		 * now poll looking for end of the log
 		 */
@@ -336,6 +332,9 @@ int main(int argc, char **argv)
 
 		bw = (double)(Size * (Count-1)) / elapsed;
 		bw = bw / 1000000.0;
+		elapsed = (double)(e_pl.tm.tv_sec * 1000000 + e_pl.tm.tv_usec) -
+			(double)(s_pl.tm.tv_sec * 1000000 + s_pl.tm.tv_usec); 
+		elapsed = elapsed / 1000000.0;
 
 		printf("woof: %s elapsed: %fs, puts: %lu, bw: %f MB/s %f puts/s\n",
 			arg_name,elapsed,Max_seq_no,bw,(double)Max_seq_no/elapsed);
