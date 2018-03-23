@@ -339,7 +339,6 @@ int main(int argc, char **argv)
 		printf("woof: %s elapsed: %fs, puts: %lu, bw: %f MB/s %f puts/s\n",
 			arg_name,elapsed,Max_seq_no,bw,(double)Max_seq_no/elapsed);
 	} else {
-printf("s: %lu, e: %lu max: %lu\n",s_pl.tm.tv_sec,e_pl.tm.tv_sec,Max_seq_no);
 		elapsed = (double)(e_pl.tm.tv_sec * 1000000 + e_pl.tm.tv_usec) -
 			(double)(s_pl.tm.tv_sec * 1000000 + s_pl.tm.tv_usec); 
 		elapsed = elapsed / 1000000.0;
