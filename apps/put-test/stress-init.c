@@ -6,7 +6,7 @@
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "c:f:s:N:H:"
+#define ARGS "c:W:s:N:H:"
 char *Usage = "stress_init -W woof_name for stress test\n\
 \t-H namelog-path\n\
 \t-N target namespace (as a URI)\n\
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
-				strncpy(Wname,optarg,sizeof(Fname));
+				strncpy(Wname,optarg,sizeof(Wname));
 				break;
 			case 'N':
 				strncpy(NameSpace,optarg,sizeof(NameSpace));

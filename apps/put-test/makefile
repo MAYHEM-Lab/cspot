@@ -26,7 +26,7 @@ HAND5=stress_handler
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: bw-test put-test recv-init invoke-test stress-test ${HAND1} ${HAND2} ${HAND3} ${HAND4} ${HAND5}
+all: bw-test put-test recv-init invoke-test stress-init stress-test ${HAND1} ${HAND2} ${HAND3} ${HAND4} ${HAND5}
 
 put-test: put-test.c put-test.h
 	${CC} ${CFLAGS} -o put-test put-test.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
