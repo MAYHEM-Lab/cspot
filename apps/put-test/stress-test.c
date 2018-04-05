@@ -92,10 +92,15 @@ void *GetThread(void *arg)
 				}
 				break;
 			}
-			elapsed=(st.fielded.tv_sec * 1000000.0 + st.fielded.tv_usec) -
-				(st.posted.tv_sec * 1000000.0 + st.posted.tv_usec);
-			elapsed = elapsed / 1000;
-			printf("seq_no %lu elapsed %f\n",seq_no,elapsed);
+			if(retries == 30) {
+				printf("FAIL to get seq_no %lu\n",seq_no);
+				fflush(stdout);
+			} else {
+				elapsed=(st.fielded.tv_sec * 1000000.0 + st.fielded.tv_usec) -
+					(st.posted.tv_sec * 1000000.0 + st.posted.tv_usec);
+				elapsed = elapsed / 1000;
+				printf("seq_no %lu elapsed %f\n",seq_no,elapsed);
+			}
 		} else {
 			pthread_mutex_unlock(&Glock);
 		}

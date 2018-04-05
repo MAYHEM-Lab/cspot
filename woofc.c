@@ -1129,6 +1129,9 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	 */
 	if((seq_no < oldest) || (seq_no > youngest)) {
 		V(&wfs->mutex);
+		fprintf(stdout,"WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
+			seq_no,oldest,youngest);
+		fflush(stdout);
 		return(-1);
 	}
 
