@@ -67,18 +67,6 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
-	memset(local_ns,0,sizeof(local_ns));
-	err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
-	if(err < 0) {
-		fprintf(stderr,"must specify namespace for experiment as URI\n");
-		fprintf(stderr,"%s",Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
-	sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
-	putenv(putbuf1);
-
 	WooFInit();
 
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");

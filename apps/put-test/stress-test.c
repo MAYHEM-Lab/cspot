@@ -8,7 +8,7 @@
 #include "put-test.h"
 #include "dlist.h"
 
-#define ARGS "c:f:s:N:H:g:p:"
+#define ARGS "c:W:s:N:H:g:p:"
 char *Usage = "stress-test -W woof_name for stress test\n\
 \t-H namelog-path\n\
 \t-N target namespace (as a URI)\n\
@@ -164,20 +164,6 @@ int main(int argc, char **argv)
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
 	}
-
-	memset(local_ns,0,sizeof(local_ns));
-	err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
-	if(err < 0) {
-		fprintf(stderr,"must specify namespace for experiment as URI\n");
-		fprintf(stderr,"%s",Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
-	sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
-	putenv(putbuf1);
-
-	WooFInit();
 
 	Pending = DlistInit();
 	if(Pending == NULL) {
