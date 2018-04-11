@@ -1,7 +1,0 @@
-Forker calling P with Tcount 5
-Forker awake, after decrement 4
-timestamp: 1523478103114
-from woof test at 1
-next WooF: woof://169.231.234.223/home/centos/cspot/apps/timestamp/cspot/test
-put object to WooF test at 1
-Reaper: count after increment: 5
