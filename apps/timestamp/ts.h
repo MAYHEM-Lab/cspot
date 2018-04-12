@@ -1,10 +1,13 @@
 #ifndef TS_H
 #define TS_H
 
+#include <stdint.h>
+
 struct obj_stc
 {
-	long ts[16];
-	size_t head;
+	uint64_t ts[16];
+	uint8_t head;
+	uint8_t stop;
 	char woof[16][256];
 };
 

@@ -79,12 +79,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	memset(el.ts, 16, sizeof(long));
 	el.head = 0;
 	int i;
 	for (i = 0; i < 16; i++) {
 		memset(el.woof, 256, sizeof(char));
 	}
+	el.stop = 3;
 	strcpy(el.woof[0], "woof://169.231.234.218/home/centos/cspot/apps/timestamp/cspot/test");
 	strcpy(el.woof[1], "woof://169.231.234.223/home/centos/cspot/apps/timestamp/cspot/test");
 	strcpy(el.woof[2], "woof://169.231.234.211/home/centos/cspot/apps/timestamp/cspot/test");
