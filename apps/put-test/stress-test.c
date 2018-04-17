@@ -8,13 +8,14 @@
 #include "put-test.h"
 #include "dlist.h"
 
-#define ARGS "c:W:s:N:H:g:p:"
+#define ARGS "c:W:s:N:H:g:p:P:"
 char *Usage = "stress-test -W woof_name for stress test\n\
 \t-H namelog-path\n\
 \t-N target namespace (as a URI)\n\
 \t-s number of puts\n\
 \t-g get threads\n\
-\t-p put threads\n";
+\t-p put threads\n\
+\t-P payload size\n";
 
 char Wname[4096];
 char Iname[4096];
@@ -30,21 +31,33 @@ pthread_mutex_t Glock;
 
 Dlist *Pending;
 int Done;
+int Payload_size;
 
 void *PutThread(void *arg)
 {
-	ST_EL st;
+	ST_EL *st;
 	char Iname[4096];
 	unsigned long seq_no;
+	char *payload;
+	int i;
 
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
-	strcpy(st.woof_name,Wname);
+	payload = (char *)malloc(Payload_size);
+	if(payload == NULL) {
+		exit(1);
+	}
+	for(i=0; i < Payload_size; i++) {
+		payload[i] = 75;
+	}
+	st = (ST_EL *)payload;
+	memset(st,0,sizeof(ST_EL));
+	strcpy(st->woof_name,Wname);
 	pthread_mutex_lock(&Plock);
 	while(PutRemaining > 0) {
 		PutRemaining--;
 		pthread_mutex_unlock(&Plock);
-		gettimeofday(&st.posted,NULL);
-		seq_no = WooFPut(Iname,"stress_handler",&st);
+		gettimeofday(&st->posted,NULL);
+		seq_no = WooFPut(Iname,"stress_handler",st);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
@@ -60,6 +73,7 @@ void *PutThread(void *arg)
 
 	pthread_mutex_unlock(&Plock);
 
+	free(payload);
 	pthread_exit(NULL);
 }
 
@@ -144,6 +158,9 @@ int main(int argc, char **argv)
 			case 'p':
 				pt = atoi(optarg);
 				break;
+			case 'P':
+				Payload_size = atoi(optarg);
+				break;
 			default:
 				fprintf(stderr,
 				"unrecognized command %c\n",(char)c);
@@ -169,6 +186,10 @@ int main(int argc, char **argv)
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
 	}
+
+	if(Payload_size < sizeof(ST_EL)) {
+		Payload_size = sizeof(ST_EL);
+	} 
 
 	Pending = DlistInit();
 	if(Pending == NULL) {
