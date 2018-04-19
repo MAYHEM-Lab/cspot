@@ -6,10 +6,11 @@
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "c:W:s:N:H:"
+#define ARGS "P:W:s:N:H:"
 char *Usage = "stress_init -W woof_name for stress test\n\
 \t-H namelog-path\n\
 \t-N target namespace (as a URI)\n\
+\t-P payload size\n\
 \t-s woof size\n";
 
 char Wname[4096];
@@ -26,6 +27,7 @@ int main(int argc, char **argv)
 	int err;
 	char local_ns[1024];
 	int woof_size = 0;
+	int payload_size = sizeof(ST_EL);
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -40,6 +42,9 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				woof_size = atoi(optarg);
+				break;
+			case 'P':
+				payload_size = atoi(optarg);
 				break;
 			default:
 				fprintf(stderr,
@@ -72,11 +77,15 @@ int main(int argc, char **argv)
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
 	MAKE_EXTENDED_NAME(Oname,Wname,"output");
 
+	if(payload_size < sizeof(ST_EL)) {
+		payload_size = sizeof(ST_EL);
+	}
+
 
 	/*
 	 * create a local woof to hold time stamps for stress test
 	 */
-	err = WooFCreate(Iname,sizeof(ST_EL),woof_size);
+	err = WooFCreate(Iname,payload_size,woof_size);
 	if(err < 0) {
 		fprintf(stderr,"stress-init: can't init %s\n",Iname);
 		fflush(stderr);
