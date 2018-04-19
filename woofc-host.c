@@ -572,6 +572,12 @@ int main(int argc, char **argv, char **envp)
 	sprintf(putbuf3,"WOOFC_NAMESPACE=%s",name_space);
 	putenv(putbuf3);
 
+#if IS_PLATFORM
+	printf("starting platform listening to port %lu\n",
+		WooFPortHash(name_space));
+	fflush(stdout);
+#endif
+
 //	fclose(stdin);
 
 	CatchSignals();
