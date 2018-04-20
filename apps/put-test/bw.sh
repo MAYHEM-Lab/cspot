@@ -37,6 +37,6 @@ while ( test $CNT -lt $BATCHCOUNT ) ; do
 	CNT=$(($CNT+1))
 done
 BW=`echo $TOTAL $PAYLOAD $COUNT | awk '{print ($2*$3)/($1/1000.0)}'`
-BEST=`echo $PAYLOAD $MIN | awk '{print ($1 / ($2 / 1000.0)}'`
+BEST=`echo $PAYLOAD $MIN | awk '{print $1 / ($2 / 1000.0)}'`
 echo payload: $PAYLOAD count: $COUNT time: $TOTAL bw: $BW bytes/s min: $MIN best: $BEST bytes/s
 
