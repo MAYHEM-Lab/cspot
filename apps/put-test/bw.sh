@@ -28,9 +28,9 @@ MIN=9999999999
 while ( test $CNT -lt $BATCHCOUNT ) ; do
 	SUM4=`./stress-test -W woof://$HERE/zzzstress -s 4 -g 1 -p 1 -P $PAYLOAD | grep elapsed | awk '{print $4}'`
 	MIN=`echo $SUM4 | awk -v min=$MIN '{if($1 < min){print $1}else{print min}}'`
-	MIN=`echo $SUM4 | awk -v min=$MIN '{if($2 < min){print $1}else{print min}}'`
-	MIN=`echo $SUM4 | awk -v min=$MIN '{if($3 < min){print $1}else{print min}}'`
-	MIN=`echo $SUM4 | awk -v min=$MIN '{if($4 < min){print $1}else{print min}}'`
+	MIN=`echo $SUM4 | awk -v min=$MIN '{if($2 < min){print $2}else{print min}}'`
+	MIN=`echo $SUM4 | awk -v min=$MIN '{if($3 < min){print $3}else{print min}}'`
+	MIN=`echo $SUM4 | awk -v min=$MIN '{if($4 < min){print $4}else{print min}}'`
 	SUM=`echo $SUM4 | awk '{print $1+$2+$3+$4}'`
 #echo SUM4: $SUM4 SUM: $SUM
 	TOTAL=`echo $TOTAL $SUM  | awk '{print $1+$2}'`
