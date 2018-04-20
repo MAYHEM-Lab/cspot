@@ -19,7 +19,6 @@ int ts(WOOF *wf, unsigned long seq_no, void *ptr) {
 	TS_EL *el = (TS_EL *)ptr;
 	fprintf(stdout, "from woof %s at %lu\n", wf->shared->filename, seq_no);
 	el->ts[el->head] = ts;
-	WooFPut(wf->shared->filename, NULL, (void *)el);
 	el->head++;
 	if (el->head == el->stop) {
 		fprintf(stdout, "Reach the last stop\n");

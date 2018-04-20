@@ -99,7 +99,7 @@ void *GetThread(void *arg)
 			while(retries < 30) {
 				err = WooFGet(Oname,&st,seq_no);
 				if(err < 0) {
-					printf("get of seq_no %lu failed, retrying\n");
+					printf("get of seq_no %lu failed, retrying\n",seq_no);
 					sleep(1);
 					retries++;
 					continue;
