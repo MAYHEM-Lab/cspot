@@ -266,7 +266,7 @@ WOOF *WooFOpen(char *name)
 	if(WooFValidURI(name)) {
 		err = WooFNameFromURI(name,fname,sizeof(fname));
 		if(err < 0) {
-			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
+			fprintf(stderr,"WooFOpen: bad name in URI %s\n",
 				name);
 			fflush(stderr);
 			return(NULL);
