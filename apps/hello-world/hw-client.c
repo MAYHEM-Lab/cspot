@@ -8,7 +8,7 @@
 #include "hw.h"
 
 #define ARGS "W:"
-char *Usage = "hw -W woof_name\n";
+const char *Usage = "hw -W woof_name\n";
 
 char Wname[4096];
 

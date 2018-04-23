@@ -18,9 +18,9 @@ typedef struct woof_cache_stc WOOF_CACHE;
 
 WOOF_CACHE *WooFCacheInit(int max_size);
 void WooFCacheFree(WOOF_CACHE *wc);
-int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload);
-void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name);
-void WooFCacheRemove(WOOF_CACHE *wc, char *name);
+int WooFCacheInsert(WOOF_CACHE *wc, const char *woof_name, void *payload);
+void *WooFCacheFind(WOOF_CACHE *wc, const char *woof_name);
+void WooFCacheRemove(WOOF_CACHE *wc, const char *name);
 int WooFCacheFull(WOOF_CACHE *wc);
 void *WooFCacheAge(WOOF_CACHE *wc);
 

@@ -1,18 +1,19 @@
 #ifndef WOOFC_ACCESS_H
 #define WOOFC_ACCESS_H
 
-int WooFValidURI(char *str);
-int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len);
-int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len);
-int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len);
-unsigned int WooFPortHash(char *namespace);
+int WooFValidURI(const char *str);
+int WooFNameSpaceFromURI(const char *woof_uri_str, char *woof_namespace, int len);
+int WooFNameFromURI(const char *woof_uri_str, char *woof_name, int len);
+int WooFIPAddrFromURI(const char *woof_uri_str, char *woof_ip, int len);
+unsigned int WooFPortHash(const char *woof_ns);
 int WooFLocalIP(char *ip_str, int len);
+int WooFPortFromURI(const char *woof_uri_str, int *woof_port);
 
-unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size);
-unsigned long WooFMsgGetElSize(char *woof_name);
-int WooFMsgServer (char *namespace);
+unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size);
+unsigned long WooFMsgGetElSize(const char *woof_name);
+int WooFMsgServer (const char *woof_ns);
 
-int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
+int WooFURINameSpace(const char *woof_uri_str, char *woof_namespace, int len);
 
 /*
  * 2 minute timeout

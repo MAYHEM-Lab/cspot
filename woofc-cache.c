@@ -85,7 +85,7 @@ void WooFCacheFree(WOOF_CACHE *wc)
 /*
  * take an arbitrary payload because what we want to cache for a WOOF may differ
  */
-int WooFCacheInsert(WOOF_CACHE *wc, char *woof_name, void *payload)
+int WooFCacheInsert(WOOF_CACHE *wc, const char *woof_name, void *payload)
 {
 	char *name;
 	RB *rb;
@@ -192,7 +192,7 @@ void WooFCacheDelete(WOOF_CACHE *wc, DlistNode *dln)
 	return;
 }
 
-void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name)
+void *WooFCacheFind(WOOF_CACHE *wc, const char *woof_name)
 {
 	RB *rb;
 	DlistNode *dln;
@@ -204,7 +204,7 @@ void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name)
 	}
 
 	pthread_mutex_lock(&wc->lock);
-	rb = RBFindS(wc->rb,woof_name);
+	rb = RBFindS(wc->rb,(char*)woof_name); //TODO: modify RBFindS to take argument as const
 	if(rb == NULL) {
 		pthread_mutex_unlock(&wc->lock);
 		return(NULL);
@@ -220,13 +220,13 @@ void *WooFCacheFind(WOOF_CACHE *wc, char *woof_name)
 
 	
 	
-void WooFCacheRemove(WOOF_CACHE *wc, char *name)
+void WooFCacheRemove(WOOF_CACHE *wc, const char *name)
 {
 	RB *rb;
 	DlistNode *dln;
 
 	pthread_mutex_lock(&wc->lock);
-        rb = RBFindS(wc->rb,name);
+        rb = RBFindS(wc->rb, (char*)name);
         if(rb != NULL) {
                 dln = (DlistNode *)rb->value.v;
                 WooFCacheDelete(wc,dln);

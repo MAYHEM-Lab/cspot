@@ -38,13 +38,13 @@ struct element_stc
 
 typedef struct element_stc ELID;
 
-int WooFCreate(char *name,
+int WooFCreate(const char *name,
                unsigned long element_size,
                unsigned long history_size);
-WOOF *WooFOpen(char *name);
-unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
-int WooFGet(char *wf_name, void *element, unsigned long seq_no);
-unsigned long WooFAppend(WOOF *wf, char *wf_handler, void *element);
+WOOF *WooFOpen(const char *name);
+unsigned long WooFPut(const char *wf_name, const char *wf_handler, void *element);
+int WooFGet(const char *wf_name, void *element, unsigned long seq_no);
+unsigned long WooFAppend(WOOF *wf, const char *wf_handler, void *element);
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no);
 int WooFReadTail(WOOF *wf, void *elements, int element_count);
 unsigned long WooFGetLatestSeqno(char *wf_name);
@@ -53,7 +53,7 @@ unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
 unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
-int WooFHandlerDone(char *wf_name, unsigned long seq_no);
+int WooFHandlerDone(const char *wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF *wf);
 

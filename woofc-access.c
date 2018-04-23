@@ -17,6 +17,7 @@
 #include "woofc.h"	/* for WooFPut */
 #include "woofc-cache.h"
 #include "woofc-access.h"
+#include "woofc-auth.h"
 
 extern char Host_ip[25];
 
@@ -26,7 +27,7 @@ WOOF_CACHE *WooF_cache;
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
-unsigned int WooFPortHash(char *namespace)
+unsigned int WooFPortHash(const char *namespace)
 {
         unsigned long h = 5381;
         unsigned long a = 33;
@@ -43,7 +44,7 @@ unsigned int WooFPortHash(char *namespace)
 }
 
 
-int WooFValidURI(char *str) 
+int WooFValidURI(const char *str) 
 {
 	char *prefix;
 	/*
@@ -61,7 +62,7 @@ int WooFValidURI(char *str)
 /*
  * convert URI to namespace path
  */
-int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
+int WooFURINameSpace(const char *woof_uri_str, char *woof_namespace, int len)
 {
 	struct URI *uri;
 	int i;
@@ -89,7 +90,7 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len)
 /*
  * extract namespace from full woof_name
  */
-int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
+int WooFNameSpaceFromURI(const char *woof_uri_str, char *woof_namespace, int len)
 {
 	struct URI *uri;
 	int i;
@@ -134,7 +135,7 @@ int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len)
 	return(-1);
 }
 
-int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
+int WooFNameFromURI(const char *woof_uri_str, char *woof_name, int len)
 {
 	struct URI *uri;
 	int i;
@@ -196,7 +197,7 @@ int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len)
 /*
  * returns IP address to avoid DNS issues
  */
-int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
+int WooFIPAddrFromURI(const char *woof_uri_str, char *woof_ip, int len)
 {
 	struct URI *uri;
 	int i;
@@ -261,7 +262,7 @@ int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len)
 	
 }
 
-int WooFPortFromURI(char *woof_uri_str, int *woof_port)
+int WooFPortFromURI(const char *woof_uri_str, int *woof_port)
 {
 	struct URI *uri;
 	int err;
@@ -330,12 +331,12 @@ int WooFLocalIP(char *ip_str, int len)
 	exit(1);
 }
 
-int WooFLocalName(char *woof_name, char *local_name, int len)
+int WooFLocalName(const char *woof_name, char *local_name, int len)
 {
 	return(WooFNameFromURI(woof_name,local_name,len));
 }
 
-static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
+static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 {
 	zsock_t *server;
 	zpoller_t *resp_poll;
@@ -346,8 +347,20 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 	/*
 	 * get a socket to the server
 	 */
-	server = zsock_new_req(endpoint);
-	if(server == NULL) {
+	//server = zsock_new_req(endpoint);
+
+	server = zsock_new(ZMQ_REQ);
+
+ 	zcert_t* cc = GetPrivateKeyObject();
+ 	assert(cc);
+ 	const char *server_key = WooFAuthGetPublicKey(endpoint);
+
+ 	zcert_apply (cc, server);
+	zsock_set_curve_serverkey (server, server_key);
+
+	int res = zsock_attach(server, endpoint, false);
+
+	if(server == NULL || res != 0) {
 		fprintf(stderr,"ServerRequest: no server connection to %s\n",
 			endpoint);
 		fflush(stderr);
@@ -392,6 +405,7 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 			fprintf(stderr,"ServerRequest: msg recv from %s failed\n",
 				endpoint);
 			fflush(stderr);
+
 			zsock_destroy(&server);
 			zpoller_destroy(&resp_poll);
 			return(NULL);
@@ -787,7 +801,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
-unsigned long WooFMsgGetLatestSeqno(char *woof_name)
+unsigned long WooFMsgGetLatestSeqno(const char *woof_name)
 {
 	char endpoint[255];
 	char namespace[2048];
@@ -1438,15 +1452,18 @@ void *WooFMsgThread(void *arg)
 	 * pattern blocks indefinitely on network partition
 	 */
 
+    //zauth_configure_curve (auth, "*", ".curve");
+
 	/*
 	 * create a reply zsock and connect it to the back end of the proxy in the msg server
 	 */
 	receiver = zsock_new_rep(">inproc://workers");
+	assert(receiver);
+
 	if(receiver == NULL) {
 		perror("WooFMsgThread: couldn't open receiver");
 		pthread_exit(NULL);
 	} 
-
 
 #ifdef DEBUG
 	printf("WooFMsgThread: about to call receive\n");
@@ -1478,6 +1495,7 @@ void *WooFMsgThread(void *arg)
 	fflush(stdout);
 #endif
 
+	zmsg_print(msg);
 		switch(tag) {
 			case WOOF_MSG_PUT:
 				WooFProcessPut(msg,receiver);
@@ -1514,12 +1532,14 @@ void *WooFMsgThread(void *arg)
 		 */
 		msg = zmsg_recv(receiver);
 	}
+	//zactor_destroy (&auth);
 
 	zsock_destroy(&receiver);
+	printf("bye");
 	pthread_exit(NULL);
 }
 		
-int WooFMsgServer (char *namespace)
+int WooFMsgServer (const char *namespace)
 {
 
 	int port;
@@ -1528,11 +1548,6 @@ int WooFMsgServer (char *namespace)
 	char endpoint[255];
 	pthread_t tids[WOOF_MSG_THREADS];
 	int i;
-
-	zsock_t *frontend;
-	zsock_t *workers;
-	zmsg_t *msg;
-
 	
 
 	if(namespace[0] == 0) {
@@ -1572,6 +1587,33 @@ int WooFMsgServer (char *namespace)
 		exit(1);
 	}
 
+	zactor_t *auth = zactor_new (zauth, NULL);
+	assert (auth);
+
+	zstr_sendx (auth, "VERBOSE", NULL);
+	zsock_wait (auth);
+	zstr_sendx (proxy, "VERBOSE", NULL);
+    zsock_wait (proxy);
+
+	zstr_sendx (proxy, "DOMAIN", "FRONTEND", "global", NULL);
+	zsock_wait (proxy);
+
+	assert(zsys_has_curve ());
+
+	zcert_t *server_cert = zcert_load("/keys/server_cert");
+	const char *public_key = zcert_public_txt (server_cert);
+	const char *secret_key = zcert_secret_txt (server_cert);
+	
+	printf("key: %s\n", public_key);
+	zstr_sendx (proxy, "CURVE", "FRONTEND", public_key, secret_key, NULL);
+	zsock_wait (proxy);	
+
+	zstr_sendx (proxy, "DOMAIN", "FRONTEND", "global", NULL);
+	zsock_wait (proxy);
+
+	zstr_sendx (auth, "CURVE", "/pubkeys", NULL);
+	zsock_wait (auth);
+
 	/*
 	 * create and bind endpoint with port has to frontend zsock
 	 */
@@ -1587,6 +1629,9 @@ int WooFMsgServer (char *namespace)
 	 */
 	zstr_sendx(proxy,"BACKEND","DEALER","inproc://workers",NULL);
 	zsock_wait(proxy);
+
+	//zcert_apply (client_cert, faucet);
+ 	//zsock_set_curve_serverkey (faucet, public_key);
 
 	/*
 	 * create a single thread for now.  The DEALER pattern can handle multiple threads, however
@@ -1618,7 +1663,7 @@ int WooFMsgServer (char *namespace)
 
 	
 
-unsigned long WooFMsgGetElSize(char *woof_name)
+unsigned long WooFMsgGetElSize(const char *woof_name)
 {
 	char endpoint[255];
 	char namespace[2048];
@@ -2046,7 +2091,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	}
 }
 
-unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size)
+unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size)
 {
 	char endpoint[255];
 	char namespace[2048];

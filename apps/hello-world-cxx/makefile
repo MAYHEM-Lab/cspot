@@ -1,4 +1,5 @@
 CC=gcc
+CXX=g++
 DEP=../../..
 WOOFC=../..
 UINC=${DEP}/euca-cutils
@@ -21,21 +22,19 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 HAND1=hw
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
+CXX_FLAGS= -std=c++11 -g -I${UINC} -I${MINC} -I${SINC}
 
-all: hw-start hw-client ${HAND1}
+all: hw-start ${HAND1}
 
-hw-start: hw-start.c hw.h
-	${CC} ${CFLAGS} -o hw-start hw-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+hw-start: hw-start.cpp hw.hpp
+	${CXX} ${CXX_FLAGS} -o hw-start hw-start.cpp ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp hw-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
-hw-client: hw-client.c hw.h
-	${CC} ${CFLAGS} -o hw-client hw-client.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -DWOOF_HANDLER_NAME=${HAND1} -o ${HAND1}_shepherd.o
-	${CC} ${CFLAGS} -o ${HAND1} ${HAND1}.c ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+${HAND1}: ${HAND1}.cpp ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	${CC} ${CFLAGS} -c ${SHEP_SRC} -DWOOF_HANDLER_NAME=${HAND1} -o ${HAND1}_shepherd.o
+	${CXX} ${CXX_FLAGS} -o ${HAND1} ${HAND1}.cpp ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 clean:
-	rm -f hw-start hw-client ${HAND1}
+	rm -f hw-start ${HAND1}
 
