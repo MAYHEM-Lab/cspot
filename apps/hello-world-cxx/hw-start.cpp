@@ -78,9 +78,9 @@ int main(int argc, char **argv)
 	WooFInit();
 	WooFAuthInit();
 	std::cout << "using key from " << privkey_path << '\n';
-	SetPrivateKeyFile(privkey_path.c_str());
+	WoofAuthSetPrivateKeyFile(privkey_path.c_str());
 	std::cout << "Using public key: " << pubkey << '\n';
-	SetWooFPublicKey(ns.c_str(), pubkey.c_str());
+	WooFAuthSetPublicKey(ns.c_str(), pubkey.c_str());
 
 	/*auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
 	if(err < 0) {

@@ -27,12 +27,12 @@ static woof_auth_ctx* global_ctx;
 
 extern "C"
 {
-	void SetPrivateKeyFile(const char* path)
+	void WoofAuthSetPrivateKeyFile(const char* path)
 	{
 		global_ctx->client_cert = zcert_load(path);
 	}
 
-	void SetWooFPublicKey(const char* woofname, const char* pubkey)
+	void WooFAuthSetPublicKey(const char* woofname, const char* pubkey)
 	{
 		char ip_str[25] = {};
 		char ns[255] = {};
@@ -52,7 +52,7 @@ extern "C"
 		global_ctx->public_keys.emplace(endpoint, pubkey);
 	}
 
-	void* GetPrivateKeyObject()
+	void* WoofAuthGetPrivateKeyObject()
 	{
 		return global_ctx->client_cert;
 	}

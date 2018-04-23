@@ -351,7 +351,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 
 	server = zsock_new(ZMQ_REQ);
 
- 	zcert_t* cc = GetPrivateKeyObject();
+ 	zcert_t* cc = WoofAuthGetPrivateKeyObject();
  	assert(cc);
  	const char *server_key = WooFAuthGetPublicKey(endpoint);
 

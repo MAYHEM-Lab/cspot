@@ -6,9 +6,9 @@ void WooFAuthDeinit();
 /**
  * Reads the private key from the given file
  */
-void SetPrivateKeyFile(const char* path);
+void WoofAuthSetPrivateKeyFile(const char* path);
 
-void SetWooFPublicKey(const char* woofname, const char* pubkey);
+void WooFAuthSetPublicKey(const char* woofname, const char* pubkey);
 
-void* GetPrivateKeyObject();
+void* WoofAuthGetPrivateKeyObject();
 const char* WooFAuthGetPublicKey(const char* woofname);
