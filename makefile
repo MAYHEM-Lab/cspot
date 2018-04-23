@@ -11,7 +11,7 @@ LIBS=-lpthread -lm -lczmq
 LOBJ=log.o host.o event.o
 LINCS=log.h host.h event.h
 WINCS=woofc.h woofc-access.h woofc-cache.h
-WOBJ=woofc.o woofc-access.o woofc-cache.o
+WOBJ=woofc.o woofc-access.o woofc-cache.o woofc-auth.o
 WHOBJ=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
@@ -20,9 +20,9 @@ URIINC=./uriparser2
 URILIB=./uriparser2/liburiparser2.a
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
-CXX_FLAGS=-g -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
+CXX_FLAGS=-g -fno-exceptions -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
 
-all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image woofc-keygen
+all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image woofc-keygen woofc-auth.o
 
 abd: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
@@ -47,6 +47,9 @@ woofc-cache.o: woofc-cache.c woofc-cache.h
 woofc-host.o: woofc-host.c woofc.h
 	${CC} ${CFLAGS} -c woofc-host.c
 
+woofc-auth.o: woofc-auth.cpp woofc-auth.h
+	${CXX} ${CXX_FLAGS} -c woofc-auth.cpp
+
 woofc-shepherd.o: woofc-shepherd.c woofc.h
 	${CC} ${CFLAGS} -c woofc-shepherd.c
 
@@ -57,10 +60,10 @@ woofc-keygen: woofc-keygen.cpp
 	${CXX} ${CXX_FLAGS} woofc-keygen.cpp -o woofc-keygen ${LIBS}
 
 woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
-	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}
+	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS} -lstdc++ 
 
 woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
-	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}
+	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS} -lstdc++ 
 
 event.o: event.c event.h
 	${CC} ${CFLAGS} -c event.c

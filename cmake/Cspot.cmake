@@ -24,6 +24,12 @@ set_target_properties(woof PROPERTIES
     INTERFACE_LINK_LIBRARIES "${WOOFC}/woofc.o;${WOOFC}/woofc-access.o;${WOOFC}/woofc-cache.o"
 )
 
+add_library(woof_auth INTERFACE IMPORTED)
+set_target_properties(woof_auth PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}"
+    INTERFACE_LINK_LIBRARIES "${WOOFC}/woofc-auth.o"
+)
+
 add_library(woof_host INTERFACE IMPORTED)
 set_target_properties(woof_host PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}"
@@ -45,7 +51,7 @@ set_target_properties(woof_log PROPERTIES
 add_library(cspot INTERFACE IMPORTED)
 set_target_properties(cspot PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}"
-    INTERFACE_LINK_LIBRARIES "mio;woof;woof_log;woof_host;pthread;m;czmq;euca_utils;${WOOFC}/uriparser2/liburiparser2.a;${WOOFC}/lsema.o"
+    INTERFACE_LINK_LIBRARIES "mio;woof;woof_log;woof_host;woof_auth;pthread;m;czmq;euca_utils;${WOOFC}/uriparser2/liburiparser2.a;${WOOFC}/lsema.o"
 )
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/cspot/)

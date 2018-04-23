@@ -10,14 +10,17 @@ extern "C"
 {
 #include "woofc.h"
 #include "woofc-host.h"
+	#include "woofc-auth.h"
 }
 
 #include "hw.hpp"
 
-const char* args = "f:N:H:W:";
+const char* args = "f:N:H:i:p:W";
 const char *Usage = R"__(hw -f woof_name
 	-H namelog-path to host wide namelog
-	-N namespace)__";
+	-N namespace
+	-i private key path
+	-p woof public key)__";
 
 void putenv(const char* arg, const std::string& val)
 {
@@ -29,6 +32,8 @@ int main(int argc, char **argv)
 	std::string ns;
 	std::string fname;
 	std::string namelog_dir;
+	std::string privkey_path = "/keys/client_cert";
+	std::string pubkey = "UkCxC]?G.Pb]5HX61Sig!2c4XyHdy>O55kUiQGpU";
 
 	for(int c = getopt(argc,argv,args); c != EOF; c = getopt(argc,argv,args)) {
 		switch(c) {
@@ -41,6 +46,12 @@ int main(int argc, char **argv)
 				break;
 			case 'H':
 				namelog_dir = std::string(optarg);
+				break;
+			case 'i':
+				privkey_path = std::string(optarg);
+				break;
+			case 'p':
+				pubkey = std::string(optarg);
 				break;
 			default:
 				std::cerr << "unrecognized command " << (char)c << '\n' << Usage << '\n';
@@ -65,6 +76,11 @@ int main(int argc, char **argv)
 	}
 
 	WooFInit();
+	WooFAuthInit();
+	std::cout << "using key from " << privkey_path << '\n';
+	SetPrivateKeyFile(privkey_path.c_str());
+	std::cout << "Using public key: " << pubkey << '\n';
+	SetWooFPublicKey(ns.c_str(), pubkey.c_str());
 
 	/*auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
 	if(err < 0) {
@@ -83,5 +99,7 @@ int main(int argc, char **argv)
 	}
 
 	std::cout << "Seqnum: " << ndx << '\n';
+
+	WooFAuthDeinit();
 }
 

@@ -679,7 +679,7 @@ unsigned long WooFPut(const char *wf_name, const char *hand_name, void *element)
 		 (strcmp(my_ip,ns_ip) != 0))) {
 		el_size = WooFMsgGetElSize(wf_name);
 		if(el_size != (unsigned long)-1) {
-			seq_no = WooFMsgPut(wf_name,hand_name,element,el_size);
+			seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
 			return(seq_no);
 		} else {
 			fprintf(stderr,"WooFPut: couldn't get element size for %s\n",

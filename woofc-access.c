@@ -17,6 +17,7 @@
 #include "woofc.h"	/* for WooFPut */
 #include "woofc-cache.h"
 #include "woofc-access.h"
+#include "woofc-auth.h"
 
 extern char Host_ip[25];
 
@@ -350,11 +351,11 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 
 	server = zsock_new(ZMQ_REQ);
 
- 	zcert_t* client_cert = zcert_load("/keys/client_cert");
- 	assert(client_cert);
- 	const char *server_key = "UkCxC]?G.Pb]5HX61Sig!2c4XyHdy>O55kUiQGpU";
+ 	zcert_t* cc = GetPrivateKeyObject();
+ 	assert(cc);
+ 	const char *server_key = WooFAuthGetPublicKey(endpoint);
 
- 	zcert_apply (client_cert, server);
+ 	zcert_apply (cc, server);
 	zsock_set_curve_serverkey (server, server_key);
 
 	int res = zsock_attach(server, endpoint, false);
@@ -375,7 +376,6 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: no poller for reply from %s\n",
 			endpoint);
 		fflush(stderr);
-		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zmsg_destroy(&msg);
 		return(NULL);
@@ -389,7 +389,6 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg send to %s failed\n",
 			endpoint);
 		fflush(stderr);
-		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		zmsg_destroy(&msg);
@@ -406,7 +405,7 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 			fprintf(stderr,"ServerRequest: msg recv from %s failed\n",
 				endpoint);
 			fflush(stderr);
-			zcert_destroy (&client_cert);
+
 			zsock_destroy(&server);
 			zpoller_destroy(&resp_poll);
 			return(NULL);
@@ -418,7 +417,6 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg recv timeout from %s after %d msec\n",
 				endpoint,WOOF_MSG_REQ_TIMEOUT);
 		fflush(stderr);
-		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return(NULL);
@@ -426,7 +424,6 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg recv interrupted from %s\n",
 				endpoint);
 		fflush(stderr);
-		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return(NULL);
@@ -434,7 +431,6 @@ static zmsg_t *ServerRequest(const char *endpoint, zmsg_t *msg)
 		fprintf(stderr,"ServerRequest: msg recv failed from %s\n",
 				endpoint);
 		fflush(stderr);
-		zcert_destroy (&client_cert);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return(NULL);
@@ -805,7 +801,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
-unsigned long WooFMsgGetLatestSeqno(char *woof_name)
+unsigned long WooFMsgGetLatestSeqno(const char *woof_name)
 {
 	char endpoint[255];
 	char namespace[2048];
@@ -1499,6 +1495,7 @@ void *WooFMsgThread(void *arg)
 	fflush(stdout);
 #endif
 
+	zmsg_print(msg);
 		switch(tag) {
 			case WOOF_MSG_PUT:
 				WooFProcessPut(msg,receiver);
