@@ -24,7 +24,7 @@ char Namelog_name[2048];
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
 
-extern int recv_start(WOOF *wf,unsigned long seq_no,void *farg);
+extern int invoke_handler(WOOF *wf,unsigned long seq_no,void *farg);
 
 
 
@@ -60,7 +60,7 @@ int main(int argc, char **argv, char **envp)
 	unsigned long my_log_seq_no; /* needed for logging cause */
 	unsigned long namelog_size;
 	int err;
-	char *st = "recv_start";
+	char *st = "invoke_handler";
 	int i;
 	struct timeval timeout;
 	fd_set readfd;
@@ -317,7 +317,7 @@ int main(int argc, char **argv, char **envp)
 		fprintf(stdout,"WooFShepherd: invoking %s, seq_no: %lu\n",st,seq_no);
 		fflush(stdout);
 	#endif
-		err = recv_start(wf,seq_no,(void *)farg);
+		err = invoke_handler(wf,seq_no,(void *)farg);
 	#ifdef DEBUG
 		fprintf(stdout,"WooFShepherd: %s done with seq_no: %lu\n",
 			st,seq_no);

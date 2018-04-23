@@ -32,9 +32,9 @@ HAND1=RegressPairReqHandler
 HAND2=RegressPairPredictedHandler
 HAND3=RegressPairMeasuredHandler
 
-CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH}
+CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/
 
-all: regress-pair-put regress-pair-get regress-pair-init regress-pair-update ${HAND1} ${HAND2} ${HAND3}
+all: regress-pair-put regress-pair-get regress-pair-init regress-pair-update ${HAND1} ${HAND2} ${HAND3} ssa-decomp
 
 regress-pair-put: regress-pair-put.c regress-pair.h
 	${CC} ${CFLAGS} -o regress-pair-put regress-pair-put.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -61,6 +61,9 @@ regress-matrix.o: regress-matrix.c regress-matrix.h ${MXINC} ${MXLIB}
 
 ssa-decomp.o: ssa-decomp.c ssa-decomp.h ${MXINC} ${MXLIB}
 	${CC} ${CFLAGS} -c ssa-decomp.c
+
+ssa-decomp: ssa-decomp.c ssa-decomp.h ${MXINC} ${MXLIB}
+	${CC} ${CFLAGS} -DSTANDALONE ssa-decomp.c ${DLIB} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS} ${MXLIB} ${LALIB}
 
 ${HAND1}: regress-pair.h ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c

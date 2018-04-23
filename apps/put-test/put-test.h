@@ -16,6 +16,7 @@ typedef struct put_test_stc PT_EL;
 struct payload_stc
 {
 	unsigned long exp_seq_no;
+	struct timeval tm;
 };
 
 typedef struct payload_stc PL;
@@ -27,6 +28,21 @@ struct exp_log_stc
 };
 
 typedef struct exp_log_stc EX_LOG;
+
+struct stress_stc
+{
+	char woof_name[1024];
+	unsigned long seq_no;
+	struct timeval posted;
+	struct timeval fielded;
+};
+
+typedef struct stress_stc ST_EL;
+
+#define MAKE_EXTENDED_NAME(ename,wname,str) {\
+        memset(ename,0,sizeof(ename));\
+        sprintf(ename,"%s.%s",wname,str);\
+}
 
 
 #endif
