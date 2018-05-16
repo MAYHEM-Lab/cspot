@@ -14,14 +14,14 @@ int python_handler(WOOF *wf, unsigned long seq_no, void *ptr) {
     Py_Initialize();
 
     // get python module and function name   
-    pName = PyString_FromString("python_handler");
+    pName = PyString_FromString("PYTHON_MODULE");
     pModule = PyImport_Import(pName);
     Py_DECREF(pName);
     if (pModule != NULL) {
         pFunc = PyObject_GetAttrString(pModule, "python_handler");
         if (pFunc && PyCallable_Check(pFunc)) {
             // set args
-            pArgs = PyTuple_New(2);
+            pArgs = PyTuple_New(3);
 
             // woof structure
             pValue = Py_BuildValue("{s:s,s:i,s:i,s:i,s:i,s:i}",
@@ -37,6 +37,11 @@ int python_handler(WOOF *wf, unsigned long seq_no, void *ptr) {
             // woof seq_no
             pValue = PyInt_FromLong(seq_no);
             PyTuple_SetItem(pArgs, 1, pValue);
+
+            // woof raw data as string
+            //pValue = PyString_FromStringAndSize((char *)ptr, wf->shared->element_size);
+            pValue = PyString_FromString((char *)ptr);
+            PyTuple_SetItem(pArgs, 2, pValue);
 
             // call function
             pValue = PyObject_CallObject(pFunc, pArgs);
@@ -61,7 +66,7 @@ int python_handler(WOOF *wf, unsigned long seq_no, void *ptr) {
         Py_DECREF(pModule);
     } else {
         PyErr_Print();
-        fprintf(stderr, "Failed to load \"%s\"\n", "python_handler");
+        fprintf(stderr, "Failed to load \"%s\"\n", "PYTHON_MODULE");
         return 1;
     }
     Py_Finalize();

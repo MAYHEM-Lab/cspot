@@ -5,7 +5,6 @@
 
 #include "woofc.h"
 #include "woofc-host.h"
-#include "python_handler.h"
 
 #define ARGS "f:N:H:W:"
 char *Usage = "start -f woof_name\n\
@@ -25,7 +24,6 @@ int main(int argc, char **argv)
 {
 	int c;
 	int err;
-	PY_EL el;
 	unsigned long ndx;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -72,18 +70,21 @@ int main(int argc, char **argv)
 	WooFInit();
 
 
-	err = WooFCreate(Wname,sizeof(PY_EL),5);
+	err = WooFCreate(Wname,1024,5);
 	if(err < 0) {
 		fprintf(stderr,"couldn't create woof from %s\n",Wname);
 		fflush(stderr);
 		exit(1);
 	}
 
-	memset(el.string,0,sizeof(el.string));
-	strncpy(el.string,"my first bark",sizeof(el.string));
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	unsigned long long ts = (unsigned long long)(tv.tv_sec) * 1000 + (unsigned long long)(tv.tv_usec) / 1000;
+	char el[1024];
+	memset(el,0,1024);
+	sprintf(el, "{\"timestamp\": %llu, \"client\": \"start\"}", ts);
 
-	ndx = WooFPut(Wname,"python_handler",(void *)&el);
-	ndx = WooFPut(Wname,"python_handler",(void *)&el);
+	ndx = WooFPut(Wname,"hw",(void *)&el);
 
 	if(WooFInvalid(err)) {
 		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
