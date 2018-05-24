@@ -21,19 +21,15 @@ HAND1=hw
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${PYINC} -L${PYLIB}
 
-all: ${HAND1} start
-
-start: start.c 
-	${CC} ${CFLAGS} -o start start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	mkdir -p cspot; cp start ./cspot; cp ../../../woofc-container ./cspot; cp ../../../woofc-namespace-platform ./cspot
+all: ${HAND1}
 
 ${HAND1}: ${HAND1}.py ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/PYTHON_MODULE/${HAND1}/g' ../../python_handler.c > python_handler.c 
 	sed 's/WOOF_HANDLER_NAME/python_handler/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
 	${CC} ${CFLAGS} -c ${HAND1}_shepherd.c -o ${HAND1}_shepherd.o
 	${CC} ${CFLAGS} -o ${HAND1} python_handler.c ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../../woofc-container ./cspot; cp ../../../woofc-namespace-platform ./cspot; cp ./${HAND1}.py ./cspot
+	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../../woofc-container ./cspot; cp ../../../woofc-namespace-platform ./cspot; cp ./${HAND1}.py ./cspot; cp start.py ./cspot; cp ../../libwoof.so ./cspot
 
 clean:
-	rm -rf start ${HAND1} *.o *.pyc ./cspot python_handler.c ${HAND1}_shepherd.c
+	rm -rf ${HAND1} *.o *.pyc ./cspot python_handler.c ${HAND1}_shepherd.c
 

@@ -25,6 +25,9 @@ all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-contai
 
 abd: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
+python: libwoof.so
+	cp libwoof.so ./python-ext
+
 log-test: ${LOBJ} ${LINCS} log-test.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test log-test.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
 
@@ -33,6 +36,23 @@ log-test-thread: ${LOBJ} ${LINCS} log-test-thread.c ${SLIB}
 
 log.o: log.c log.h host.h event.h
 	${CC} ${CFLAGS} -c log.c
+
+libwoof.so: woofc.c woofc.h
+	${CC} ${CFLAGS} -fPIC -c woofc.c -o pic-woofc.o
+	${CC} ${CFLAGS} -fPIC -c woofc-access.c -o pic-woofc-access.o
+	${CC} ${CFLAGS} -fPIC -c woofc-cache.c -o pic-woofc-cache.o
+	${CC} ${CFLAGS} -fPIC -c woofc-host.c -o pic-woofc-host.o
+	${CC} ${CFLAGS} -fPIC -c log.c -o pic-log.o
+	${CC} ${CFLAGS} -fPIC -c host.c -o pic-host.o
+	${CC} ${CFLAGS} -fPIC -c event.c -o pic-event.o
+	${CC} ${CFLAGS} -fPIC -c lsema.c -o pic-lsema.o
+	${CC} ${CFLAGS} -fPIC -c ../mio/mio.c -o pic-mio.o
+	${CC} ${CFLAGS} -fPIC -c ../mio/mymalloc.c -o pic-mymalloc.o
+	cd ../euca-cutils; make; cd ../cspot;
+	${CC} ${CFLAGS} -fPIC -c ../euca-cutils/dlist.c -o pic-dlist.o
+	${CC} ${CFLAGS} -fPIC -c ../euca-cutils/redblack.c -o pic-redblack.o
+	ar -cr pic-libutils.a ../euca-cutils/textlist.o pic-dlist.o pic-redblack.o ../euca-cutils/simple_input.o ../euca-cutils/convert_time.o
+	${CC} ${CFLAGS} -shared -o libwoof.so pic-*.o ${LIBS} pic-libutils.a ${URILIB}
 
 woofc.o: woofc.c woofc.h
 	${CC} ${CFLAGS} -c woofc.c
@@ -80,5 +100,5 @@ force-docker:
 	cd Docker-build; docker build --no-cache -t cspot-docker-centos7 .
 
 clean:
-	rm -f *.o log-test
+	rm -f *.o log-test *.so
 
