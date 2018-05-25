@@ -37,7 +37,8 @@ log-test-thread: ${LOBJ} ${LINCS} log-test-thread.c ${SLIB}
 log.o: log.c log.h host.h event.h
 	${CC} ${CFLAGS} -c log.c
 
-libwoof.so: woofc.c woofc.h
+libwoof.so: woofc.c woofc.h woof-pyinit.c
+	${CC} ${CFLAGS} -fPIC -c woof-pyinit.c -o pic-woof-pyinit.o
 	${CC} ${CFLAGS} -fPIC -c woofc.c -o pic-woofc.o
 	${CC} ${CFLAGS} -fPIC -c woofc-access.c -o pic-woofc-access.o
 	${CC} ${CFLAGS} -fPIC -c woofc-cache.c -o pic-woofc-cache.o
