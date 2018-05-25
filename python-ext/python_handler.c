@@ -22,9 +22,8 @@ int python_handler(WOOF *wf, unsigned long seq_no, void *ptr) {
         if (pFunc && PyCallable_Check(pFunc)) {
             // set args
             pArgs = PyTuple_New(3);
-
             // woof structure
-            pValue = Py_BuildValue("{s:s,s:i,s:i,s:i,s:i,s:i}",
+            pValue = Py_BuildValue("{s:s,s:K,s:k,s:k,s:k,s:k}",
                 "filename", wf->shared->filename,
                 "seq_no", wf->shared->seq_no,
                 "history_size", wf->shared->history_size,

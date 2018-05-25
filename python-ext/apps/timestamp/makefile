@@ -16,7 +16,7 @@ WHINC=${WOOFC}/woofc-host.h
 WHOBJ=${WOOFC}/woofc-host.o 
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 PYINC=/usr/include/python2.7/
-PYLIB=-L/usr/lib/python2.7/ -lpython2.7
+PYLIB=/usr/lib/python2.7/ -lpython2.7
 HAND1=ts
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${PYINC} -L${PYLIB}
