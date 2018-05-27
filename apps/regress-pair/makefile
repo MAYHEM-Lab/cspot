@@ -12,9 +12,9 @@ MLIB=${DEP}/mio/mio.o ${DEP}/mio/mymalloc.o
 MXLIB=${DEP}/matrix/mioregress.o ${DEP}/matrix/mioarray.o
 DLIB=${DEP}/distributions/normal.o
 LALIBPATH=${DEP}/matrix/lapack-3.8.0
-LALIB=-llapacke -llapack -lblas -lgfortran
+LALIB=-llapacke -llapack -ltatlas -lgfortran
 SLIB=${WOOFC}/lsema.o
-LIBS=${WOOFC}/uriparser2/liburiparser2.a -lpthread -lm -lczmq -lpthread
+LIBS=${WOOFC}/uriparser2/liburiparser2.a -lpthread -lm -lczmq -lpthread -ltatlas
 LOBJ=${WOOFC}/log.o ${WOOFC}/host.o ${WOOFC}/event.o
 LINC=${WOOFC}/log.h ${WOOFC}/host.h ${WOOFC}/event.h
 WINC=${WOOFC}/woofc.h ${WOOFC}/woofc-access.h ${WOOFC}/woofc-cache.h
@@ -32,7 +32,7 @@ HAND1=RegressPairReqHandler
 HAND2=RegressPairPredictedHandler
 HAND3=RegressPairMeasuredHandler
 
-CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/
+CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/ -L/usr/lib64/atlas
 
 all: regress-pair-put regress-pair-get regress-pair-init regress-pair-update ${HAND1} ${HAND2} ${HAND3} ssa-decomp
 
