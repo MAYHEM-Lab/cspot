@@ -1,7 +1,7 @@
 CC=gcc
-DEP=../../..
-WOOFC=../..
-URIDIR=../../uriparser2
+DEP=../../../..
+WOOFC=../../..
+URIDIR=../../../uriparser2
 UINC=${DEP}/euca-cutils
 MINC=${DEP}/mio
 SINC=${WOOFC}
@@ -29,7 +29,6 @@ ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${SINC} liburiparser2.a ${WOBJ}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
 	${CC} ${CFLAGS} -fPIC -c ${HAND1}_shepherd.c -o ${HAND1}_shepherd.o
 	${CC} ${CFLAGS} -o ${HAND1} ${HAND1}.c ${HAND1}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 lib${HAND1}.so: ${HAND1}.c libutils.a liburiparser2.a ${WOJB} ${SLIB} ${WHOBJ} ${LOBJ} ${MLIB} ${ULIB}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c

@@ -75,28 +75,26 @@ int main(int argc, char **argv)
 		putenv(putbuf1);
 	} else {
 		strncpy(Wname,Fname,sizeof(Wname));
-	}
-
-	WooFInit();
-
-
-	err = WooFCreate(Wname,sizeof(HW_EL),5);
-	if(err < 0) {
-		fprintf(stderr,"couldn't create woof from %s\n",Wname);
-		fflush(stderr);
-		exit(1);
+		WooFInit();
+		err = WooFCreate(Wname,sizeof(HW_EL),5);
+		if(err < 0) {
+			fprintf(stderr,"couldn't create woof from %s\n",Wname);
+			fflush(stderr);
+			exit(1);
+		}
 	}
 	
 	el.client = stamp();
 	ndx = WooFPut(Wname,"hw",(void *)&el);
 
+	fprintf(stdout, "put %d\n", ndx);
+	fflush(stdout);
 	if(WooFInvalid(err)) {
 		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
 		fflush(stderr);
 		exit(1);
 	}
 
-	pthread_exit(NULL);
 	return(0);
 }
 
