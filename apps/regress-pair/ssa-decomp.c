@@ -407,6 +407,9 @@ Array1D *SSADecomposition(Array1D *series, int L, int start, int end)
 	FreeArray2D(U);
 	FreeArray2D(V_t);
 	FreeArray1D(ev);
+	FreeArray2D(D);
+	FreeArray2D(D2);
+	FreeArray2D(Dm2);
 
 #if 0
 	return(Y);
