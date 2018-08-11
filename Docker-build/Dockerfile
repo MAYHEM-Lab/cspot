@@ -29,3 +29,7 @@ RUN /bin/bash -l -c '\
     cp liblapack.a /usr/local/lib && cp librefblas.a /usr/local/lib && \
     cd LAPACKE && make && cd .. && cp liblapacke.a /usr/local/lib && \
     cd ../ && rm -rf ${LAPACK}'
+# install python36 for AWS Lambda execution
+RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
+    yum update && \
+    yum install -y python36u python36u-libs python36u-devel python36u-pip \
