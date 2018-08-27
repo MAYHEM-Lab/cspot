@@ -322,7 +322,7 @@ void *WooFContainerLauncher(void *arg)
 			"-e WOOFC_DIR=%s "
 			"-e WOOF_NAME_ID=%lu "
 			"-e WOOF_NAMELOG_NAME=%s "
-			"-e WOOF_HOST_IP=%s ", 
+			"-e WOOF_HOST_IP=%s ",
 			 WooF_namespace,
 			 pathp,
 			 Name_id,
@@ -348,30 +348,10 @@ void *WooFContainerLauncher(void *arg)
 			sprintf(launch_string + strlen(launch_string), "-M ");
 		}
 
+#ifdef DEBUG
 		fprintf(stdout, "\tcommand: '%s'\n", launch_string);
 		fflush(stdout);
-
-		// sprintf(launch_string, "docker run -t\
-		// 	 -e LD_LIBRARY_PATH=/usr/local/lib\
-		// 	 -e WOOFC_NAMESPACE=%s\
-		// 	 -e WOOFC_DIR=%s\
-		// 	 -e WOOF_NAME_ID=%lu\
-		// 	 -e WOOF_NAMELOG_NAME=%s\
-		// 	 -e WOOF_HOST_IP=%s\
-		// 	 -p %d:%d\
-		// 	 -v %s:%s\
-		// 	 -v %s:/cspot-namelog\
-		// 	 cspot-docker-centos7\
-		// 	 %s/%s %s",
-		// 		WooF_namespace,
-		// 		pathp,
-		// 		Name_id,
-		// 		Namelog_name,
-		// 		Host_ip,
-		// 		port,port,
-		// 		WooF_dir,pathp,
-		// 		WooF_namelog_dir, /* all containers find namelog in /cspot-namelog */
-		// 		pathp,"woofc-container",flags);
+#endif 
 
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {
