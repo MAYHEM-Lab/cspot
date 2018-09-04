@@ -4,7 +4,7 @@
 HERE=`pwd`
 cd ..
 git clone https://github.com/richwolski/euca-cutils.git
-git clone https://ckrintz@github.com/MAYHEM-Lab/mio.git
+git clone https://$USER@github.com/MAYHEM-Lab/mio.git
 
 cd euca-cutils; make
 cd ..

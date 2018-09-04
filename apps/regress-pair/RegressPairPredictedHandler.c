@@ -321,8 +321,8 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 		if(m_ts < p_ts) {
 			if(measured_size < count) {
 				fprintf(stderr,
-"BestCoeff: MISMATCH: p: %lu %f m: %lu %f count: %d measured size: %d, seq_no: %lu (%s)\n",
-ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_size, seq_no,measured_name);
+"BestCoeff: MISMATCH: p: %lu %f m: %lu %f count: %d measured size: %d, p_seq_no: %lu, m_seq_no: %lu (%s)\n",
+ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_size, p_seq_no-count_back, seq_no,measured_name);
 				fflush(stderr);
 /*
 				goto out;

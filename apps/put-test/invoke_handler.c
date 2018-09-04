@@ -23,7 +23,7 @@ int invoke_handler(WOOF *wf, unsigned long seq_no, void *ptr)
 		  (double)(start->tv_sec + (start->tv_usec / 1000000.0));
 	elapsed = elapsed * 1000;
 
-	printf("%f ms\n",elapsed);
+	printf("invoke_handler: %f ms\n",elapsed);
 	fflush(stdout);
 
 	return(1);

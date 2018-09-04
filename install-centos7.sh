@@ -2,7 +2,7 @@
 
 
 HERE=`pwd`
-yum -y install docker gcc-gfortran
+yum -y install docker gcc-gfortran python-devel python34-devel
 cd ..
 git clone git@github.com:richwolski/euca-cutils.git
 git clone git@github.com:MAYHEM-Lab/mio.git

@@ -266,7 +266,7 @@ WOOF *WooFOpen(const char *name)
 	if(WooFValidURI(name)) {
 		err = WooFNameFromURI(name,fname,sizeof(fname));
 		if(err < 0) {
-			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
+			fprintf(stderr,"WooFOpen: bad name in URI %s\n",
 				name);
 			fflush(stderr);
 			return(NULL);
@@ -1129,6 +1129,9 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	 */
 	if((seq_no < oldest) || (seq_no > youngest)) {
 		V(&wfs->mutex);
+		fprintf(stdout,"WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
+			seq_no,oldest,youngest);
+		fflush(stdout);
 		return(-1);
 	}
 

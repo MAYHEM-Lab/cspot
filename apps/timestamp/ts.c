@@ -1,0 +1,42 @@
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <time.h>
+
+#include "woofc.h"
+#include "ts.h"
+
+uint64_t stamp() {
+	struct timespec spec;
+	clock_gettime(CLOCK_REALTIME, &spec);
+        return (uint64_t)spec.tv_sec * 1000 + (uint64_t)spec.tv_nsec / 1e6;
+}
+
+int ts(WOOF *wf, unsigned long seq_no, void *ptr) {
+	uint64_t ts = stamp();
+	fprintf(stdout, "timestamp: %lld\n", ts);
+
+	TS_EL *el = (TS_EL *)ptr;
+	fprintf(stdout, "from woof %s at %lu\n", wf->shared->filename, seq_no);
+	el->ts[el->head] = ts;
+	el->head++;
+	if (el->head == el->stop) {
+		fprintf(stdout, "Reach the last stop\n");
+		int i;
+		for (i = 0; i < el->stop; i++) {
+			fprintf(stdout, "timestamp of %s: %lld\n", el->woof[i], el->ts[i]);
+		}
+	} else {
+		// put el back to woof
+		fprintf(stdout, "next WooF: %s\n", el->woof[el->head]);
+		seq_no = WooFPut(el->woof[el->head], "ts", (void *)el);
+		if (WooFInvalid(seq_no)) {
+			fprintf(stderr, "couldn't put object to WooF %s\n", wf->shared->filename);
+		} else {
+			fprintf(stdout, "put object to WooF %s at %ld\n", wf->shared->filename, seq_no);
+		}
+	}
+	fflush(stderr);
+	fflush(stdout);
+	return(1);
+}

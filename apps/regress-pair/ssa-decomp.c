@@ -407,6 +407,9 @@ Array1D *SSADecomposition(Array1D *series, int L, int start, int end)
 	FreeArray2D(U);
 	FreeArray2D(V_t);
 	FreeArray1D(ev);
+	FreeArray2D(D);
+	FreeArray2D(D2);
+	FreeArray2D(Dm2);
 
 #if 0
 	return(Y);
@@ -675,6 +678,87 @@ Array2D *SSASmoothSeries(Array2D *time_series, int lags)
 
 
 #ifdef STANDALONE
+
+
+
+int SignalRange(char *range, int *start, int *end)
+{
+	char buf[4096];
+	int s;
+	int e;
+	char *cursor;
+	int i;
+
+	
+	memset(buf,0,sizeof(buf));
+	cursor = range;
+	i = 0;
+	while(*cursor != 0) {
+		if(isspace(*cursor)) {
+			cursor++;
+			continue;
+		}
+		if(*cursor == '-') {
+			break;
+		}
+		if(isdigit(*cursor)) {
+			buf[i] = *cursor;
+			i++;
+			if(i == 4096) {
+				break;
+			}
+		}
+		cursor++;
+	}
+
+	if(i == 4096) {
+		return(-1);
+	}
+
+	if(i == 0) {
+		s = -1;
+	} else {
+		s = atoi(buf);
+	}
+
+	cursor++;
+	memset(buf,0,sizeof(buf));
+	i = 0;
+	while(*cursor != 0) {
+		if(isspace(*cursor)) {
+			cursor++;
+			continue;
+		}
+		if(isdigit(*cursor)) {
+			buf[i] = *cursor;
+			i++;
+			if(i == 4096) {
+				break;
+			}
+		}
+		cursor++;
+	}
+
+	if(i == 4096) {
+		return(-1);
+	}
+
+	/*
+	 * only one value signifies end of range -- not start
+	 */
+	if(i == 0) {
+		e = s;
+		s = -1;
+	} else {
+		e = atoi(buf);
+	}
+
+	*start = s;
+	*end = e;
+
+	return(1);
+}
+		
 #define ARGS "x:l:N:e:p:m:"
 char *Usage = "usage: ssa-decomp -x xfile\n\
 \t-e range of signal series (start - end || end)\n\

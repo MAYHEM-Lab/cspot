@@ -11,7 +11,7 @@
 #define ARGS "W:LS:s:"
 char *Usage = "regress-pair-get -W woof_name for get\n\
 \t-L use same namespace for source and target\n\
-\t-s series_type ('r' result, 'm' measurement, 'p' predicted, 'a' all)\n\
+\t-s series_type ('r' result, 'm' measurement, 'p' predicted, 'e' error, 'a' all)\n\
 \t-S seq_no <sequence number to get, latest if missing)\n";
 
 char Wname[4096];
@@ -129,7 +129,8 @@ int main(int argc, char **argv)
 	if((series_type != 'm') &&
 	   (series_type != 'p') &&
 	   (series_type != 'r') &&
-	   (series_type != 'a')) {
+	   (series_type != 'a') &&
+	   (series_type != 'e')) {
 		fprintf(stderr,
 		"series type must be m, p, or r\n");
 		fprintf(stderr,"%s",Usage);
@@ -141,6 +142,8 @@ int main(int argc, char **argv)
 		MAKE_EXTENDED_NAME(sname,wname,"measured");
 	} else if(series_type == 'p') {
 		MAKE_EXTENDED_NAME(sname,wname,"predicted");
+	} else if(series_type == 'e') {
+		MAKE_EXTENDED_NAME(sname,wname,"errors");
 	} else {
 		MAKE_EXTENDED_NAME(sname,wname,"result");
 	}
@@ -159,8 +162,6 @@ int main(int argc, char **argv)
 		seq_no = WooFGetLatestSeqno(sname);
 	}
 
-printf("seq_no: %lu\n",seq_no);
-fflush(stdout);
 
 	err = WooFGet(sname,&rv,seq_no);
 

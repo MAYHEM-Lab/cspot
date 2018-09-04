@@ -21,9 +21,10 @@ char Host_ip[25];
 char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 
-#define DEBUG
-
 #define WOOF_SHEPHERD_TIMEOUT (15)
+
+
+extern int recv(WOOF *wf,unsigned long seq_no,void *farg);
 
 
 
@@ -207,9 +208,9 @@ int main(int argc, char **argv, char **envp)
 
 	strncpy(full_name,wf_dir,sizeof(full_name));
 	if(full_name[strlen(full_name)-1] != '/') {
-		strncat(full_name,"/",sizeof(full_name)-strlen(full_name));
+		strncat(full_name,"/",sizeof(full_name)-strlen(full_name)-1);
 	}
-	strncat(full_name,wf_name,sizeof(full_name)-strlen(full_name));
+	strncat(full_name,wf_name,sizeof(full_name)-strlen(full_name)-1);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: WooF name: %s\n",full_name);
 	fflush(stdout);
@@ -275,7 +276,7 @@ int main(int argc, char **argv, char **envp)
 
 		farg = (unsigned char *)malloc(wfs->element_size);
 		if(farg == NULL) {
-			fprintf(stderr,"WooFShepherd: no space for farg of size %d\n",
+			fprintf(stderr,"WooFShepherd: no space for farg of size %lu\n",
 					wfs->element_size);
 			fflush(stderr);
 			return(-1);
@@ -298,9 +299,10 @@ int main(int argc, char **argv, char **envp)
 		 */
 		el_id->busy = 0;
 	#ifdef DEBUG
-		fprintf(stdout,"WooFShepherd: marked el done at %lu and signalling\n",ndx);
+		fprintf(stdout,"WooFShepherd: marked el done at %lu and signalling, ino: %lu\n",ndx,wf->ino);
 		fflush(stdout);
 	#endif
+
 
 		V(&wfs->tail_wait);
 
@@ -321,6 +323,13 @@ int main(int argc, char **argv, char **envp)
 			st,seq_no);
 		fflush(stdout);
 	#endif
+#ifdef DONEFLAG
+		/*
+		 * set the done flag in case there is a sync on
+		 */
+		wfs->done = 1;
+#endif
+
 		free(farg);
 	#ifdef DEBUG
 		fprintf(stdout,"WooFShepherd: called free, seq_no: %lu\n",seq_no);
@@ -329,6 +338,10 @@ int main(int argc, char **argv, char **envp)
 		/* LOGGING
 		 * log either event success or failure here
 		 */
+
+#ifndef CACHE_ON
+		break; // for no caching case
+#endif
 
 		/*
 		 * block waiting on a read of a new seq_no and ndx
@@ -368,7 +381,9 @@ int main(int argc, char **argv, char **envp)
 		}
 
 		err = read(0,&seq_no,sizeof(seq_no));
-		if(err <= 0) {
+		if(err == 0) { //EOF means container doesn't need this process
+			break;
+		} else if(err < 0) {
 			fprintf(stderr,"WooFShepherd: bad read of stdin for seq_no\n");
 			perror("WooFShepherd: bad read");
 			break;
@@ -390,13 +405,15 @@ int main(int argc, char **argv, char **envp)
 
 	}
 
+#ifdef CACHE_ON
 	close(0);
+#endif
 
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
-	WooFFree(wf);
+	WooFDrop(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);
