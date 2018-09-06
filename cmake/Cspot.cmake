@@ -42,10 +42,22 @@ set_target_properties(woof_log PROPERTIES
     INTERFACE_LINK_LIBRARIES "${WOOFC}/log.o;${WOOFC}/host.o;${WOOFC}/event.o"
 )
 
+add_library(cwpack INTERFACE IMPORTED)
+set_target_properties(cwpack PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}/cwpack"
+    INTERFACE_LINK_LIBRARIES "${WOOFC}/cwpack/cwpack.o"
+)
+
+add_library(woof_mpack INTERFACE IMPORTED)
+set_target_properties(woof_mpack PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}"
+    INTERFACE_LINK_LIBRARIES "${WOOFC}/msgpack-ep.o;cwpack"
+)
+
 add_library(cspot INTERFACE IMPORTED)
 set_target_properties(cspot PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}"
-    INTERFACE_LINK_LIBRARIES "mio;woof;woof_log;woof_host;pthread;m;czmq;euca_utils;${WOOFC}/uriparser2/liburiparser2.a;${WOOFC}/lsema.o"
+    INTERFACE_LINK_LIBRARIES "mio;woof;woof_log;woof_host;woof_mpack;pthread;m;czmq;euca_utils;${WOOFC}/uriparser2/liburiparser2.a;${WOOFC}/lsema.o"
 )
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/cspot/)

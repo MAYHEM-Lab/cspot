@@ -322,6 +322,7 @@ void *WooFContainerLauncher(void *arg)
 			 -e WOOF_NAMELOG_NAME=%s\
 			 -e WOOF_HOST_IP=%s\
 			 -p %d:%d\
+			 -p %d:%d\
 			 -v %s:%s\
 			 -v %s:/cspot-namelog\
 			 cspot-docker-centos7\
@@ -332,6 +333,7 @@ void *WooFContainerLauncher(void *arg)
 				Namelog_name,
 				Host_ip,
 				port,port,
+				port - 10000, port - 10000,
 				WooF_dir,pathp,
 				WooF_namelog_dir, /* all containers find namelog in /cspot-namelog */
 				pathp,"woofc-container");

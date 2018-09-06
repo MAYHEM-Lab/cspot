@@ -18,6 +18,8 @@
 #include "woofc-cache.h"
 #include "woofc-access.h"
 
+#include "msgpack-ep.h"
+
 extern char Host_ip[25];
 
 WOOF_CACHE *WooF_cache;
@@ -1599,6 +1601,14 @@ int WooFMsgServer (const char *namespace)
 			exit(1);
 		}
 	}
+
+	pthread_t* mtid;
+	err = pthread_create(&mtid, NULL, WooFMsgPackThread, &port);
+	if (err < 0) {
+		fprintf(stderr,"WooFMsgServer: couldn't create thread %d\n",i);
+		exit(1);
+	}
+	pthread_join(mtid, NULL);
 
 	/*
 	 * right now, there is no way for these threads to exit so the msg server will block

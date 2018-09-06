@@ -5,12 +5,12 @@ int WooFValidURI(const char *str);
 int WooFNameSpaceFromURI(const char *woof_uri_str, char *woof_namespace, int len);
 int WooFNameFromURI(const char *woof_uri_str, char *woof_name, int len);
 int WooFIPAddrFromURI(const char *woof_uri_str, char *woof_ip, int len);
-unsigned int WooFPortHash(const char *namespace);
+unsigned int WooFPortHash(const char *name_space);
 int WooFLocalIP(char *ip_str, int len);
 
 unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size);
 unsigned long WooFMsgGetElSize(const char *woof_name);
-int WooFMsgServer (const char *namespace);
+int WooFMsgServer (const char *name_space);
 
 int WooFURINameSpace(const char *woof_uri_str, char *woof_namespace, int len);
 

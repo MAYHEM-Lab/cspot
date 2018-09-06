@@ -12,6 +12,7 @@ LOBJ=log.o host.o event.o
 LINCS=log.h host.h event.h
 WINCS=woofc.h woofc-access.h woofc-cache.h
 WOBJ=woofc.o woofc-access.o woofc-cache.o
+MPOBJ=msgpack-ep.o cwpack/cwpack.o
 WHOBJ=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
@@ -20,6 +21,7 @@ URIINC=./uriparser2
 URILIB=./uriparser2/liburiparser2.a
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
+CXX_FLAGS=-g -fno-exceptions -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
 
 all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
@@ -73,11 +75,17 @@ woofc-shepherd.o: woofc-shepherd.c woofc.h
 woofc-thread.o: woofc-thread.c woofc-thread.h
 	${CC} ${CFLAGS} -c woofc-thread.c
 
-woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
-	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}
+woofc-container: woofc-container.c ${LOBJ} ${WOBJ} ${SLIB} ${WINCS} ${SINCS} ${UINCS} ${LINCS} ${URILIB} ${MPOBJ}
+	${CC} ${CFLAGS} woofc-container.c -o woofc-container ${MLIB} ${LOBJ} ${WOBJ} ${MPOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS} -lstdc++
 
 woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} ${UINCS} ${LINCS} ${URILIB}
-	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS}
+	${CC} ${CFLAGS} -DIS_PLATFORM woofc-host.c -o woofc-namespace-platform ${MLIB} ${LOBJ} ${WOBJ} ${MPOBJ} ${SLIB} ${ULIB} ${URILIB} ${LIBS} -lstdc++
+
+cwpack/cwpack.o: cwpack/cwpack.c cwpack/cwpack.h cwpack/cwpack_defines.h
+	${CC} ${CFLAGS} -c -o cwpack/cwpack.o -Icwpack cwpack/cwpack.c
+
+msgpack-ep.o: msgpack-ep.cpp msgpack-ep.h
+	${CXX} ${CXX_FLAGS} -Icwpack -c msgpack-ep.cpp
 
 event.o: event.c event.h
 	${CC} ${CFLAGS} -c event.c

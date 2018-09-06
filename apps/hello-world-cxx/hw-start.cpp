@@ -10,6 +10,7 @@ extern "C"
 {
 #include "woofc.h"
 #include "woofc-host.h"
+#include "woofc-access.h"
 }
 
 #include "hw.hpp"
