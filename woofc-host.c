@@ -274,7 +274,6 @@ void *WooFContainerLauncher(void *arg)
 	container_count = ca->container_count;
 	free(ca);
 
-
 #ifdef DEBUG
 	fprintf(stdout,"WooFContainerLauncher started\n");
 	fflush(stdout);
@@ -305,36 +304,56 @@ void *WooFContainerLauncher(void *arg)
 			exit(1);
 		}
 
-		launch_string = (char *)malloc(2048);
+		launch_string = (char *)malloc(1024 * 8); 
 		if(launch_string == NULL) {
 			exit(1);
 		}
 
-		memset(launch_string,0,2048);
+		memset(launch_string,0,4096);
 
 		port = WooFPortHash(WooF_namespace);
 
-		sprintf(launch_string, "docker run -t\
-			 -e LD_LIBRARY_PATH=/usr/local/lib\
-			 -e WOOFC_NAMESPACE=%s\
-			 -e WOOFC_DIR=%s\
-			 -e WOOF_NAME_ID=%lu\
-			 -e WOOF_NAMELOG_NAME=%s\
-			 -e WOOF_HOST_IP=%s\
-			 -p %d:%d\
-			 -v %s:%s\
-			 -v %s:/cspot-namelog\
-			 cspot-docker-centos7\
-			 %s/%s",
-				WooF_namespace,
-				pathp,
-				Name_id,
-				Namelog_name,
-				Host_ip,
-				port,port,
-				WooF_dir,pathp,
-				WooF_namelog_dir, /* all containers find namelog in /cspot-namelog */
-				pathp,"woofc-container");
+		// begin constructing the launch string 
+		sprintf(launch_string + strlen(launch_string),
+			"docker run -t "
+			"--rm " // option tells the container to remove itself when it is stopped
+			"--name CSPOTWorker-%s-%d "
+			"-e LD_LIBRARY_PATH=/usr/local/lib "
+			"-e WOOFC_NAMESPACE=%s "
+			"-e WOOFC_DIR=%s "
+			"-e WOOF_NAME_ID=%lu "
+			"-e WOOF_NAMELOG_NAME=%s "
+			"-e WOOF_HOST_IP=%s ",
+			 pathp + 1 /*pathp starts with a / */, count, // container name = {namespace dir}-{count}
+			 WooF_namespace,
+			 pathp,
+			 Name_id,
+			 Namelog_name,
+			 Host_ip);
+
+		if (count == 0) {
+			sprintf(launch_string + strlen(launch_string), 
+				"-p %d:%d ", port, port);
+		}
+
+		sprintf(launch_string + strlen(launch_string), 
+			"-v %s:%s "
+			"-v %s:/cspot-namelog "
+			"cspot-docker-centos7 "
+			"%s/%s ",
+			WooF_dir,pathp,
+			WooF_namelog_dir, /* all containers find namelog in /cspot-namelog */
+			pathp,"woofc-container"
+			);
+
+		if (count == 0) {
+			sprintf(launch_string + strlen(launch_string), "-M ");
+		}
+
+#ifdef DEBUG
+		fprintf(stdout, "\tcommand: '%s'\n", launch_string);
+		fflush(stdout);
+#endif 
 
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {
@@ -406,62 +425,42 @@ char *SignalFgetS(char *buffer, int size, FILE *fd)
 		
 void CleanUpDocker(int status, void *arg)
 {
-	FILE *fd;
-	int port;
-	char command[255];
-	char ps_line[4096];
-	char port_str[255];
-	char temp_buf[255];
-	int i;
-	char docker_id[255];
-	char c;
 
-	memset(command,0,sizeof(command));
-
-	port = WooFPortHash(WooF_namespace); // namespace port
-	sprintf(port_str,"%d/tcp",port);
-	strncpy(command,"/usr/bin/docker ps",sizeof(command));
-
-	fd = popen(command,"r");
-	if(fd == NULL) {
-		fprintf(stderr,"CleanUpDocker: popen for docker ps failed\n");
-		return;
+	// find the base container name
+	char *pathp = strrchr(WooF_dir,'/');
+	if(pathp == NULL) {
+		fprintf(stderr,"couldn't find leaf dir in %s\n",
+			WooF_dir);
+		exit(1);
 	}
-	memset(ps_line,0,sizeof(ps_line));
-	memset(docker_id,0,sizeof(docker_id));
 
-	/*
-	 * loop through the docker ps output looking for the namespace port ID
-	 */
-	while(SignalFgetS(ps_line,sizeof(ps_line),fd) != NULL) {
-		/*
-		 * is the port in the docker ps line?
-		 */
-		if(strstr(ps_line,port_str) != NULL) {
-			i = 0;
-			while((i < sizeof(docker_id)) && (ps_line[i] != 0) && (ps_line[i] != ' ')) {
-				docker_id[i] = ps_line[i];
-				i++;
-			}
-			pclose(fd);
-			memset(command,0,sizeof(command));
-			sprintf(command,"/usr/bin/docker kill %s",docker_id);
-			fd = popen(command,"r");
-			if(fd == NULL) {
-				fprintf(stderr,
-					"CleanUpDocker: kill failed for %s\n",
-						docker_id);
-				fflush(stderr);
-				return;
-			}
-			fread(&c,1,1,fd); /* wait until there is output */
-			pclose(fd);	
-			return;
+	// kill all containers that match the pattern
+	int count = 0;
+	while (count < 100) {
+		// general docker command template
+		char command_fmt[512];
+		snprintf(command_fmt, sizeof(command_fmt) - 1,
+			"/usr/bin/docker %s CSPOTWorker-%s-%d 2>&1\n", "%s", pathp+1, count);
+
+		char command[512];
+		snprintf(command, sizeof(command) - 1, command_fmt, "stop -t 2");
+
+		FILE* fd = popen(command, "r");
+		if (fd == NULL) {
+			fprintf(stderr, "error: failed to open handle on the output\n");
+			exit(1);
 		}
-		memset(ps_line,0,sizeof(ps_line));
-	}
 
-	return;
+		char result[4096];
+		memset(result, 0, sizeof(result));
+		int read_bytes = read(fileno(fd), result, sizeof(result));
+		if (strstr(result, "No such container") != NULL || read_bytes == 0) {
+			fprintf(stderr, "Done. Closed %d worker docker containers\n", count);
+			return ;
+		}
+
+		count ++;
+	}
 }
 
 void sig_int_handler(int signal)
