@@ -6,3 +6,4 @@ woofc-namespace-platform
 woofc-container
 hello
 .idea/
+build/

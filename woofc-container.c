@@ -21,6 +21,8 @@ char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
 
+#define ARGS "M"
+
 WOOF_CACHE *WooF_handler_cache;
 struct woof_fork_cache_stc
 {
@@ -907,8 +909,18 @@ pthread_mutex_unlock(&Tlock);
 int main(int argc, char ** argv)
 {
 	int err;
+	char c;
+	int message_server = 0;
 
 	WooFContainerInit();
+
+	while((c = getopt(argc,argv,ARGS)) != EOF) {
+		switch(c) {
+			case 'M':
+				message_server = 1;
+				break;
+		}
+	}
 
 #ifdef DEBUG
 	printf("woofc-container: about to start message server with namespace %s\n",
@@ -919,9 +931,15 @@ int main(int argc, char ** argv)
 	/*
 	 * start the msg server for this container
 	 * 
-	 * for now, this doesn't ever return
+	 * for now, this doesn't ever return 
 	 */
-	err = WooFMsgServer(WooF_namespace);
+	if (message_server) {
+		fprintf(stdout, "woofc-container: started message server\n");
+		err = WooFMsgServer(WooF_namespace);
+	} else {
+		fprintf(stdout, "woofc-container: message server disabled. not listening.\n");
+	}
+	fflush(stdout);
 
 	pthread_exit(NULL);
 }
