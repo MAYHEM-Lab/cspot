@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 
 	if(!ns.empty()) {
 		putenv("WOOFC_DIR", ns);
-		ns = "woofc://" + ns + "/" + fname;
+		ns = "woof://" + ns + "/" + fname;
 	} else {
 		ns = fname;
 	}

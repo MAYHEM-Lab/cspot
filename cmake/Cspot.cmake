@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.6)
 project(cspot C)
 
-include(Other.cmake)
+set(DIR_OF_CSPOT_CMAKE ${CMAKE_CURRENT_LIST_DIR})  
+include(${DIR_OF_CSPOT_CMAKE}/Other.cmake)
 
 add_library(mio INTERFACE IMPORTED)
 set_target_properties(mio PROPERTIES
