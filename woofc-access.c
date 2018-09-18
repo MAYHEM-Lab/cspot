@@ -28,20 +28,14 @@ WOOF_CACHE *WooF_cache;
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
-unsigned int WooFPortHash(const char *namespace)
+unsigned int WooFPortHash(const char *ns)
 {
-        unsigned long h = 5381;
-        unsigned long a = 33;
-        unsigned long i;
-
-        for(i=0; i < strlen(namespace); i++) {
-                h = ((h*a) + namespace[i]); /* no mod p due to wrap */
-        }
-
-	/*
-	 * hash namespace to port number between 50000 and 60000
-	 */
-        return(50000 + (h%10000));
+    uint64_t h = 5381;
+    uint64_t a = 33;
+    for(size_t i = 0; i < strlen(ns); i++) {
+        h = ((h*a) + ns[i]);
+    }
+    return {uint16_t(50000 + (h % 10000))};	
 }
 
 
