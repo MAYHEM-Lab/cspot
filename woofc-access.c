@@ -35,7 +35,7 @@ unsigned int WooFPortHash(const char *ns)
     for(size_t i = 0; i < strlen(ns); i++) {
         h = ((h*a) + ns[i]);
     }
-    return {uint16_t(50000 + (h % 10000))};	
+    return uint16_t(50000 + (h % 10000));	
 }
 
 
