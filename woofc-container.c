@@ -911,10 +911,12 @@ pthread_mutex_unlock(&Tlock);
 int main(int argc, char ** argv)
 {
 	int err;
-	char c;
+	int c;
 	int message_server = 0;
 
 	WooFContainerInit();
+
+	fprintf(stderr, "container init returned\n");
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {

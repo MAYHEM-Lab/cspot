@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	memset(el.string,0,sizeof(el.string));
 	strncpy(el.string,"my first bark",sizeof(el.string));
 
-	ndx = WooFPut(Wname,"hw",(void *)&el);
+	ndx = WooFPut(Wname,"hw_shepherd",(void *)&el);
 
 	if(WooFInvalid(err)) {
 		fprintf(stderr,"first WooFPut failed for %s\n",Wname);

@@ -353,7 +353,7 @@ void *WooFContainerLauncher(void *arg)
 #ifdef DEBUG
 		fprintf(stdout, "\tcommand: '%s'\n", launch_string);
 		fflush(stdout);
-#endif 
+#endif
 
 		err = pthread_create(&tid,NULL,WooFDockerThread,(void *)launch_string);
 		if(err < 0) {

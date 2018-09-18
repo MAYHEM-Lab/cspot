@@ -361,6 +361,11 @@ WOOF *WooFOpen(const char *name)
 		}
 	}
 
+#ifdef DEBUG
+	printf("WooFOpen: done %s\n",local_name);
+	fflush(stdout);
+#endif
+
 	return(wf);
 }
 

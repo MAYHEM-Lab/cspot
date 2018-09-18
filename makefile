@@ -20,8 +20,8 @@ TOBJ=woofc-thread.o
 URIINC=./uriparser2
 URILIB=./uriparser2/liburiparser2.a
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
-CXX_FLAGS=-g -fno-exceptions -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG -Wall -Wextra
+CXX_FLAGS=-g -fno-exceptions -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG -Wall -Wextra
 
 all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
