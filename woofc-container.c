@@ -379,29 +379,30 @@ void *WooFForker(void *arg)
 			 */
 			if((ev[first].type == TRIGGER) &&
 			   (strncmp(ev[first].namespace,WooF_namespace,sizeof(ev[first].namespace)) == 0) &&
-			   (ev[first].seq_no > last_seq_no)) {
+			   (ev[first].seq_no > (unsigned long long)last_seq_no)) {
 				/* now walk forward looking for FIRING */
 #ifdef DEBUG
-	printf("WooFForker: considering %s %lu\n",ev[first].namespace,ev[first].seq_no);
+	printf("WooFForker: considering %s %llu\n",ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
 				firing = (first - 1);
 				if(firing >= log_tail->size) {
 					firing = log_tail->size - 1;
 				} 
-				trigger_seq_no = ev[first].seq_no; /* for FIRING dependency */
+				trigger_seq_no = (unsigned long)ev[first].seq_no; /* for FIRING dependency */
 				firing_found = 0;
 				while(firing != log_tail->tail) {
 					if((ev[firing].type == TRIGGER_FIRING) && 
 					   (strncmp(ev[firing].namespace,WooF_namespace,sizeof(ev[firing].namespace)) == 0) &&
-					   (ev[firing].cause_seq_no == trigger_seq_no)) {
+					   (ev[firing].cause_seq_no ==
+(unsigned long long)trigger_seq_no)) {
 						/* found FIRING */
 						firing_found = 1;
 #ifdef DEBUG
-	printf("WooFForker: found firing for %s %lu\n",ev[first].namespace,ev[first].seq_no);
+	printf("WooFForker: found firing for %s %llu\n",ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
-						last_seq_no = ev[first].seq_no;
+						last_seq_no = (unsigned long)ev[first].seq_no;
 						break;
 					}
 					firing = firing - 1;
@@ -411,7 +412,7 @@ void *WooFForker(void *arg)
 				}
 				if(firing_found == 0) {
 #ifdef DEBUG
-	printf("WooFForker: no firing found for %s %lu\n",ev[first].namespace,ev[first].seq_no);
+	printf("WooFForker: no firing found for %s %llu\n",ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
 					/* there is a TRIGGER with no FIRING */
@@ -466,7 +467,7 @@ exit(1);
 		 */
 
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker (%lu): namespace: %s accepted and firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %lu\n",
+		fprintf(stdout,"WooFForker (%lu): namespace: %s accepted and firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %llu\n",
 			pthread_self(),
 			WooF_namespace,
 			ev[first].woofc_name,
@@ -487,11 +488,11 @@ exit(1);
 			exit(1);
 		}
 		fev->cause_host = Name_id;
-		fev->cause_seq_no = trigger_seq_no;
+		fev->cause_seq_no = (unsigned long long)trigger_seq_no;
 		memset(fev->namespace,0,sizeof(fev->namespace));
 		strncpy(fev->namespace,WooF_namespace,sizeof(fev->namespace));
 #ifdef DEBUG
-	printf("WooFForker: logging TRIGGER_FIRING for %s %lu\n",
+	printf("WooFForker: logging TRIGGER_FIRING for %s %llu\n",
 			ev[first].namespace,ev[first].seq_no);
 	fflush(stdout);
 #endif
@@ -785,7 +786,7 @@ pthread_mutex_unlock(&Tlock);
 			fprintf(stderr,"WooFForker: no space for eenvp %d\n",i);
 			exit(1);
 		}
-		sprintf(pbuf,"WOOF_NAMELOG_SEQNO=%lu",ev[first].seq_no);
+		sprintf(pbuf,"WOOF_NAMELOG_SEQNO=%llu",ev[first].seq_no);
 		eenvp[i] = pbuf;
 		i++;
 
@@ -881,9 +882,9 @@ pthread_mutex_unlock(&Tlock);
 			/*
 			 * remember its sequence number for next time
 			 */
-			last_seq_no = ev[first].seq_no; 		/* log seq_no */
+			last_seq_no = (unsigned long)ev[first].seq_no; 		/* log seq_no */
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s seq_no: %lu, handler: %s\n",
+		fprintf(stdout,"WooFForker: namespace: %s seq_no: %llu, handler: %s\n",
 			WooF_namespace,ev[first].seq_no, ev[first].woofc_handler);
 		fflush(stdout);
 #endif
