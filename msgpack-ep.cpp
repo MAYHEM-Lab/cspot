@@ -200,11 +200,17 @@ extern "C"
 
 		auto sock = socket(AF_INET, SOCK_STREAM, 0);
 
+		if (sock <= 0)
+		{
+			perror("socket error");
+			return nullptr;
+		}
+
 		sockaddr_in address;
 
 		address.sin_family = AF_INET;
     	address.sin_addr.s_addr = INADDR_ANY;
-    	address.sin_port = htons( port++ );
+    	address.sin_port = htons(port);
 
 		if (bind(sock, (sockaddr *)&address, sizeof address) < 0)
 		{
@@ -217,6 +223,8 @@ extern "C"
 			perror("listen error");
 			return nullptr;
 		}
+
+		std::cerr << "listening on " << port << '\n';
 
 		while(true)
 		{
