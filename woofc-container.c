@@ -7,7 +7,6 @@
 #include <signal.h>
 #include <time.h>
 
-
 #include "log.h"
 #include "woofc.h"
 #include "woofc-access.h"

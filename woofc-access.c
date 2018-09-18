@@ -30,9 +30,10 @@ WOOF_CACHE *WooF_cache;
  */
 unsigned int WooFPortHash(const char *ns)
 {
+    size_t i = 0;
     uint64_t h = 5381;
     uint64_t a = 33;
-    for(size_t i = 0; i < strlen(ns); i++) {
+    for(i = 0; i < strlen(ns); i++) {
         h = ((h*a) + ns[i]);
     }
     return (uint16_t)(50000 + (h % 10000));	
