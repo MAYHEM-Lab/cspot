@@ -74,10 +74,7 @@ int main(int argc, char **argv)
     WooFInit();
 
     put_elem elem{};
-    timeval tm{};
-    gettimeofday(&tm, nullptr);
-    uint64_t now = tm.tv_sec * 1000 + tm.tv_usec / 1000;
-    elem.stamps[0] = now;
+    elem.stamps[0] = get_time();
 
     auto err = WooFPut(ns.c_str(), "fwd1_fun", &elem);
     if(err < 0) {

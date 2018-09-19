@@ -8,7 +8,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <sys/time.h>
 
 using handler_t = int (&)(WOOF* wf, unsigned long seq, void* data);
 
@@ -18,10 +17,7 @@ extern int my_index;
 extern "C" int fwd(WOOF*, unsigned long, void* data)
 {
     auto elem = *reinterpret_cast<put_elem*>(data);
-    timeval tm;
-    gettimeofday(&tm, nullptr);
-    uint64_t now = tm.tv_sec * 1000 + tm.tv_usec / 1000;
-    elem.stamps[my_index] = now;
+    elem.stamps[my_index] = get_time();
 
     if (next_hop == "")
     {
