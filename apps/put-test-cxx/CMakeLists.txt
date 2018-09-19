@@ -3,9 +3,10 @@ project(cspot-put-cpp CXX)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Cspot.cmake)
 
+set(CMAKE_CXX_STANDARD 11)
 add_library(put-common common.hpp stub.cpp)
 target_link_libraries(put-common PUBLIC cspot)
-target_compile_features(put-common PUBLIC cxx_std_11)
+#target_compile_features(put-common PUBLIC cxx_std_11)
 
 add_executable(put-start start.cpp)
 target_link_libraries(put-start PUBLIC put-common)
