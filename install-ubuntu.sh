@@ -19,11 +19,11 @@ fi
 HERE=`pwd`
 apt install docker gfortran
 cd ..
-git clone https://github.com/richwolski/euca-cutils.git
-git clone https://$USER@github.com/MAYHEM-Lab/mio.git
-git clone https://$USER@github.com/MAYHEM-Lab/distributions.git
-git clone https://$USER@github.com/MAYHEM-Lab/matrix.git
-git clone https://$USER@github.com/MAYHEM-Lab/ssa-changepoint.git
+git clone git@github.com:richwolski/euca-cutils.git
+git clone git@github.com:MAYHEM-Lab/mio.git
+git clone git@github.com:MAYHEM-Lab/matrix.git
+git clone git@github.com:MAYHEM-Lab/distributions.git
+git clone git@github.com:MAYHEM-Lab/ssa-changepoint.git
 
 cd euca-cutils; make
 cd ..
