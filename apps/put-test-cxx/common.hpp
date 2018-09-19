@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#include <math.h>
-#include <stdio.h>
 #include <time.h>
 struct put_elem
 {
@@ -17,7 +15,7 @@ inline uint64_t get_time()
 
     clock_gettime(CLOCK_REALTIME, &spec);
 
-    return spec.tv_sec * 1000 + spec.tv_nsec / 1000000;
+    return uint64_t(spec.tv_sec) * 1000 + uint64_t(spec.tv_nsec) / 1000000;
 }
 
 #endif
