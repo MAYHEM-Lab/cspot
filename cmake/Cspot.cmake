@@ -54,14 +54,14 @@ set_target_properties(cspot PROPERTIES
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/cspot/)
 
-function(cspot_add_handler handler)
-    add_executable(${handler}_shepherd "${WOOFC}/woofc-shepherd.c")
-    target_link_libraries(${handler}_shepherd PUBLIC cspot)
-    target_link_libraries(${handler}_shepherd PUBLIC ${handler})
-    target_compile_definitions(${handler}_shepherd PUBLIC "WOOF_HANDLER_NAME=${handler}")
+function(cspot_add_handler handler name)
+    add_executable(${handler}_fun "${WOOFC}/woofc-shepherd.c")
+    target_link_libraries(${handler}_fun PUBLIC cspot)
+    target_link_libraries(${handler}_fun PUBLIC ${handler})
+    target_compile_definitions(${handler}_fun PUBLIC "WOOF_HANDLER_NAME=${name}")
 
-    add_custom_command(TARGET ${handler}_shepherd POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${handler}_shepherd> ${CMAKE_BINARY_DIR}/cspot/
+    add_custom_command(TARGET ${handler}_fun POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${handler}_fun> ${CMAKE_BINARY_DIR}/cspot/
         COMMAND ${CMAKE_COMMAND} -E copy ${WOOFC}/woofc-container ${CMAKE_BINARY_DIR}/cspot/
         COMMAND ${CMAKE_COMMAND} -E copy ${WOOFC}/woofc-namespace-platform ${CMAKE_BINARY_DIR}/cspot/
     )

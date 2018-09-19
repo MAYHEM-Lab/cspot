@@ -1,12 +1,15 @@
 #ifndef WOOFC
 #define WOOFC
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 #include "mio.h"
 #include "lsema.h"
 #include "log.h"
 
-struct woof_shared_stc
-{
+struct woof_shared_stc {
 	char filename[2048];
 	sema mutex;
 	sema tail_wait;
@@ -30,8 +33,7 @@ struct woof_stc {
 
 typedef struct woof_stc WOOF;
 
-struct element_stc
-{
+struct element_stc {
 	unsigned long busy;
 	unsigned long long seq_no;
 };
@@ -39,8 +41,8 @@ struct element_stc
 typedef struct element_stc ELID;
 
 int WooFCreate(const char *name,
-               unsigned long element_size,
-               unsigned long history_size);
+			   unsigned long element_size,
+			   unsigned long history_size);
 WOOF *WooFOpen(const char *name);
 unsigned long WooFPut(const char *wf_name, const char *wf_handler, void *element);
 int WooFGet(const char *wf_name, void *element, unsigned long seq_no);
@@ -62,6 +64,11 @@ void WooFDrop(WOOF *wf);
 #define DEFAULT_HOST_ID (0)
 #define DEFAULT_WOOF_LOG_SIZE (10000)
 #define WOOFNAMESIZE (256)
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

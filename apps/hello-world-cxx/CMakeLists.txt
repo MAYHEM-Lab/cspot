@@ -6,7 +6,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Cspot.cmake)
 add_library(hw hw.hpp hw.cpp)
 target_link_libraries(hw PUBLIC cspot)
 set_property(TARGET hw PROPERTY CXX_STANDARD 11)
-cspot_add_handler(hw)
+cspot_add_handler(hw hw)
 
 add_executable(hw-start hw-start.cpp hw.hpp)
 target_link_libraries(hw-start PUBLIC cspot)
