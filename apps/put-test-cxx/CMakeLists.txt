@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.2)
 project(cspot-put-cpp CXX)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Cspot.cmake)
 
 add_library(put-common common.hpp stub.cpp)
 target_link_libraries(put-common PUBLIC cspot)
-set_property(TARGET put-common PROPERTY CXX_STANDARD 11)
+target_compile_features(put-common PUBLIC cxx_std_11)
 
 add_executable(put-start start.cpp)
 target_link_libraries(put-start PUBLIC put-common)
