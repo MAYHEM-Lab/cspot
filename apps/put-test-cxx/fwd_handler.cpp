@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <fstream>
 
 using handler_t = int (&)(WOOF* wf, unsigned long seq, void* data);
 
@@ -21,11 +22,13 @@ extern "C" int fwd(WOOF*, unsigned long, void* data)
 
     if (next_hop == "")
     {
+    	std::ofstream out{"data.txt"}
         // done
         for (auto t : elem.stamps)
         {
-            std::cout << t << '\n';
+            out << t << ',';
         }
+        out << std::endl;
         return 0;
     }
 
