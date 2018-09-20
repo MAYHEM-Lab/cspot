@@ -22,7 +22,7 @@ extern "C" int fwd(WOOF*, unsigned long, void* data)
 
     if (next_hop == "")
     {
-    	std::ofstream out{"/put-test-cxx/data.txt"};
+    	std::ofstream out{"/put-test-cxx/data.txt", std::ios_base::app};
         // done
         for (auto t : elem.stamps)
         {
