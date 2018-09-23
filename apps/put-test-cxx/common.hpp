@@ -6,7 +6,7 @@
 #include <time.h>
 struct put_elem
 {
-    uint64_t stamps[5];
+    uint64_t stamps[6];
 };
 
 inline uint64_t get_time()
