@@ -5,8 +5,8 @@
 //int my_index = 4;
 
 // 3 step
-//std::string next_hop;
-//int my_index = 2;
-
 std::string next_hop;
-int my_index = 3;
+int my_index = 2;
+
+//std::string next_hop;
+//int my_index = 3;
