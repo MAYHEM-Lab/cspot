@@ -29,13 +29,14 @@ int main(int argc, char **argv)
 	int err;
 	char wname[4096];
 	char ping_woof[4096];
-	char pong_woof[4096];
+	char status_woof[4096];
 	char master_ip[IPSTRLEN+1];
 	char slave_ip[IPSTRLEN+1];
 	char client_ip[IPSTRLEN+1];
 	STATE state;
 	STATUS status;
 	char start_state[255];
+	unsigned long seq_no;
 
 	unsigned long history_size;
 
@@ -127,9 +128,7 @@ int main(int argc, char **argv)
 
 
 	MAKE_EXTENDED_NAME(ping_woof,wname,"ping");
-	MAKE_EXTENDED_NAME(pong_woof,wname,"pong");
 	MAKE_EXTENDED_NAME(status_woof,wname,"status");
-	
 
 	WooFInit();
 
@@ -181,7 +180,7 @@ int main(int argc, char **argv)
 	}
 
 	memset(&state,0,sizoef(state));
-	strncpy(stats.wname,wname,sizeof(status.wname));
+	strncpy(status.wname,wname,sizeof(status.wname));
 	if(status.local == 'M') {
 		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
 		state.my_state = 'M';
@@ -201,9 +200,9 @@ int main(int argc, char **argv)
 	state.other_color = 'G';
 	state.client_color = 'G';
 
-	seq_no = WooFPut(state_woof,NULL,(void *)&state);
+	seq_no = WooFPut(wname,NULL,(void *)&state);
 	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"state put failed to %s\n",state_woof);
+		fprintf(stderr,"state put failed to %s\n",wname);
 		fflush(stderr);
 	}
 		
