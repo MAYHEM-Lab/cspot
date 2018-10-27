@@ -31,10 +31,9 @@ typedef struct woof_open_cache_stc WOOF_OPEN_CACHE_EL;
 #define WOOF_OPEN_CACHE_MAX (100)
 void WooFDrop(WOOF *wf);
 
-
 int WooFCreate(char *name,
-	       unsigned long element_size,
-	       unsigned long history_size)
+			   unsigned long element_size,
+			   unsigned long history_size)
 {
 	WOOF_SHARED *wfs;
 	MIO *mio;
@@ -50,112 +49,130 @@ int WooFCreate(char *name,
 	int renamed;
 	double r;
 
-	if(name == NULL) {
-		return(-1);
+	if (name == NULL)
+	{
+		return (-1);
 	}
-
 
 	/*
 	 * each element gets a seq_no and log index so we can handle
 	 * function cancel if we wrap
 	 */
-	space = ((history_size+1) * (element_size +sizeof(ELID))) + 
+	space = ((history_size + 1) * (element_size + sizeof(ELID))) +
 			sizeof(WOOF_SHARED);
 
-	if(WooF_dir == NULL) {
-		fprintf(stderr,"WooFCreate: must init system\n");
+	if (WooF_dir == NULL)
+	{
+		fprintf(stderr, "WooFCreate: must init system\n");
 		fflush(stderr);
 		exit(1);
 	}
 
 	is_local = 0;
-	memset(local_name,0,sizeof(local_name));
-	memset(ip_str,0,sizeof(ip_str));
+	memset(local_name, 0, sizeof(local_name));
+	memset(ip_str, 0, sizeof(ip_str));
 	/*
 	 * if it is a woof:// spec, check to see if the path matches the namespace
 	 *
 	 * if it does, it is local => use WooF_dir
 	 */
-	if(WooFValidURI(name)) {
-		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
-		if(err < 0) {
-			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
-				name);
+	if (WooFValidURI(name))
+	{
+		err = WooFNameSpaceFromURI(name, local_name, sizeof(local_name));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFCreate: bad namespace in URI %s\n",
+					name);
 			fflush(stderr);
-			return(-1);
+			return (-1);
 		}
 		/*
 		 * check to see if there is a host spec
 		 */
-		err = WooFIPAddrFromURI(name,ip_str,sizeof(ip_str));
-		if(err < 0) {
-			strncpy(ip_str,Host_ip,sizeof(ip_str));
+		err = WooFIPAddrFromURI(name, ip_str, sizeof(ip_str));
+		if (err < 0)
+		{
+			strncpy(ip_str, Host_ip, sizeof(ip_str));
 		}
-		if((strcmp(WooF_namespace,local_name) == 0) &&
-		   (strcmp(Host_ip,ip_str) == 0)) {
+		if ((strcmp(WooF_namespace, local_name) == 0) &&
+			(strcmp(Host_ip, ip_str) == 0))
+		{
 			/*
 			 * woof spec for local name space, use WooF_dir
 			 */
 			is_local = 1;
-			memset(local_name,0,sizeof(local_name));
-			strncpy(local_name,WooF_dir,sizeof(local_name));
-			if(local_name[strlen(local_name)-1] != '/') {
-				strncat(local_name,"/",1);
+			memset(local_name, 0, sizeof(local_name));
+			strncpy(local_name, WooF_dir, sizeof(local_name));
+			if (local_name[strlen(local_name) - 1] != '/')
+			{
+				strncat(local_name, "/", 1);
 			}
-			err = WooFNameFromURI(name,fname,sizeof(fname));
-			if(err < 0) {
-				fprintf(stderr,"WooFCreate: bad name in URI %s\n",
-					name);
+			err = WooFNameFromURI(name, fname, sizeof(fname));
+			if (err < 0)
+			{
+				fprintf(stderr, "WooFCreate: bad name in URI %s\n",
+						name);
 				fflush(stderr);
-				return(-1);
+				return (-1);
 			}
-			strncat(local_name,fname,sizeof(fname));
+			strncat(local_name, fname, sizeof(fname));
 		}
-	} else { /* not URI spec so must be local */
-		is_local = 1;
-		strncpy(local_name,WooF_dir,sizeof(local_name));
-		if(local_name[strlen(local_name)-1] != '/') {
-			strncat(local_name,"/",1);
-		}
-		strncat(local_name,name,sizeof(local_name));
 	}
-		
-	if(is_local == 0) {
-		fprintf(stderr,"WooFCreate: non-local create of %s not supported (yet)\n",
-			name);
+	else
+	{ /* not URI spec so must be local */
+		is_local = 1;
+		strncpy(local_name, WooF_dir, sizeof(local_name));
+		if (local_name[strlen(local_name) - 1] != '/')
+		{
+			strncat(local_name, "/", 1);
+		}
+		strncat(local_name, name, sizeof(local_name));
+	}
+
+	if (is_local == 0)
+	{
+		fprintf(stderr, "WooFCreate: non-local create of %s not supported (yet)\n",
+				name);
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 
 #ifdef NOTRIGHTNOW
 	/*
 	 * here is where a remote create message would go
 	 */
-	if(WooFValidURI(name) && (is_local == 0)) {
-		err = WooFNameSpaceFromURI(name,local_name,sizeof(local_name));
-		if(err < 0) {
-			fprintf(stderr,"WooFCreate: bad namespace in URI %s\n",
-				name);
+	if (WooFValidURI(name) && (is_local == 0))
+	{
+		err = WooFNameSpaceFromURI(name, local_name, sizeof(local_name));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFCreate: bad namespace in URI %s\n",
+					name);
 			fflush(stderr);
-			return(-1);
+			return (-1);
 		}
-		if(local_name[strlen(local_name)-1] != '/') {
-			strncat(local_name,"/",1);
+		if (local_name[strlen(local_name) - 1] != '/')
+		{
+			strncat(local_name, "/", 1);
 		}
-		err = WooFNameFromURI(name,fname,sizeof(fname));
-		if(err < 0) {
-			fprintf(stderr,"WooFCreate: bad name in URI %s\n",
-				name);
+		err = WooFNameFromURI(name, fname, sizeof(fname));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFCreate: bad name in URI %s\n",
+					name);
 			fflush(stderr);
-			return(-1);
+			return (-1);
 		}
-		strncat(local_name,fname,sizeof(fname));
-	} else { /* assume this is WooF_dir local */
-		strncpy(local_name,WooF_dir,sizeof(local_name));
-		if(local_name[strlen(local_name)-1] != '/') {
-			strncat(local_name,"/",1);
+		strncat(local_name, fname, sizeof(fname));
+	}
+	else
+	{ /* assume this is WooF_dir local */
+		strncpy(local_name, WooF_dir, sizeof(local_name));
+		if (local_name[strlen(local_name) - 1] != '/')
+		{
+			strncat(local_name, "/", 1);
 		}
-		strncat(local_name,name,sizeof(local_name));
+		strncat(local_name, name, sizeof(local_name));
 	}
 #endif
 
@@ -166,69 +183,76 @@ int WooFCreate(char *name,
 	 */
 
 	renamed = 0;
-	if(stat(local_name,&sbuf) >= 0) {
-		memset(temp_name,0,sizeof(temp_name));
+	if (stat(local_name, &sbuf) >= 0)
+	{
+		memset(temp_name, 0, sizeof(temp_name));
 		r = drand48();
-		sprintf(temp_name,"%s.%10.10f",local_name,r);
-		rename(local_name,temp_name);
+		sprintf(temp_name, "%s.%10.10f", local_name, r);
+		rename(local_name, temp_name);
 		renamed = 1;
 #ifdef DEBUG
-	printf("WooFCreate: renamed %s to %s\n",local_name,temp_name);
-	fflush(stdout);
+		printf("WooFCreate: renamed %s to %s\n", local_name, temp_name);
+		fflush(stdout);
 #endif
 	}
-		
 
-	mio = MIOOpen(local_name,"w+",space);
-	if(mio == NULL) {
-		fprintf(stderr,"WooFCreate: couldn't open %s with space %lu\n",local_name,space);
+	mio = MIOOpen(local_name, "w+", space);
+	if (mio == NULL)
+	{
+		fprintf(stderr, "WooFCreate: couldn't open %s with space %lu\n", local_name, space);
 		fflush(stderr);
-		rename(temp_name,local_name);
-		return(-1);
+		rename(temp_name, local_name);
+		return (-1);
 	}
 #ifdef DEBUG
-	if(stat(local_name,&obuf) >= 0) {
-		printf("WooFCreate: opened %s with inode %lu\n",local_name,obuf.st_ino);
-	} else {
-		printf("WooFCreate: opened %s\n",local_name);
+	if (stat(local_name, &obuf) >= 0)
+	{
+		printf("WooFCreate: opened %s with inode %lu\n", local_name, obuf.st_ino);
+	}
+	else
+	{
+		printf("WooFCreate: opened %s\n", local_name);
 	}
 	fflush(stdout);
 #endif
 
-	if(renamed == 1) {
+	if (renamed == 1)
+	{
 #ifdef DEBUG
-	printf("WooFCreate: attempting unlick of %s\n",temp_name);
-	fflush(stdout);
+		printf("WooFCreate: attempting unlick of %s\n", temp_name);
+		fflush(stdout);
 #endif
 		err = unlink(temp_name);
-		if(err < 0) {
-			fprintf(stderr,"WooFCreate: couldn't dispose of %s\n",temp_name);
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFCreate: couldn't dispose of %s\n", temp_name);
 			fflush(stderr);
 		}
 	}
 
-
 	wfs = (WOOF_SHARED *)MIOAddr(mio);
-	memset(wfs,0,sizeof(WOOF_SHARED));
+	memset(wfs, 0, sizeof(WOOF_SHARED));
 
-	if(WooFValidURI(name)) {
-		strncpy(wfs->filename,fname,sizeof(wfs->filename));
-	} else {
-		strncpy(wfs->filename,name,sizeof(wfs->filename));
+	if (WooFValidURI(name))
+	{
+		strncpy(wfs->filename, fname, sizeof(wfs->filename));
+	}
+	else
+	{
+		strncpy(wfs->filename, name, sizeof(wfs->filename));
 	}
 
 	wfs->history_size = history_size;
 	wfs->element_size = element_size;
 	wfs->seq_no = 1;
 
-	InitSem(&wfs->mutex,1);
-	InitSem(&wfs->tail_wait,history_size);
+	InitSem(&wfs->mutex, 1);
+	InitSem(&wfs->tail_wait, history_size);
 
 	MIOClose(mio);
 
-	return(1);
+	return (1);
 }
-
 
 WOOF *WooFOpen(char *name)
 {
@@ -242,72 +266,86 @@ WOOF *WooFOpen(char *name)
 	WOOF_OPEN_CACHE_EL *wel;
 	WOOF_OPEN_CACHE_EL *pel;
 
-	if(name == NULL) {
-		return(NULL);
+	if (name == NULL)
+	{
+		return (NULL);
 	}
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFOpen: must init system\n");
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFOpen: must init system\n");
 		fflush(stderr);
 		exit(1);
 	}
 
 #ifdef CACHE_ON
-	if(WooF_open_cache == NULL) {
+	if (WooF_open_cache == NULL)
+	{
 		WooF_open_cache = WooFCacheInit(WOOF_OPEN_CACHE_MAX);
 	}
 #endif
 
-	memset(local_name,0,sizeof(local_name));
-	strncpy(local_name,WooF_dir,sizeof(local_name));
-	if(local_name[strlen(local_name)-1] != '/') {
-		strncat(local_name,"/",1);
+	memset(local_name, 0, sizeof(local_name));
+	strncpy(local_name, WooF_dir, sizeof(local_name));
+	if (local_name[strlen(local_name) - 1] != '/')
+	{
+		strncat(local_name, "/", 1);
 	}
-	if(WooFValidURI(name)) {
-		err = WooFNameFromURI(name,fname,sizeof(fname));
-		if(err < 0) {
-			fprintf(stderr,"WooFOpen: bad name in URI %s\n",
-				name);
+	if (WooFValidURI(name))
+	{
+		err = WooFNameFromURI(name, fname, sizeof(fname));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFOpen: bad name in URI %s\n",
+					name);
 			fflush(stderr);
-			return(NULL);
+			return (NULL);
 		}
-		strncat(local_name,fname,sizeof(fname));
-	} else { /* assume this is WooF_dir local */
-		strncat(local_name,name,sizeof(local_name));
+		strncat(local_name, fname, sizeof(fname));
+	}
+	else
+	{ /* assume this is WooF_dir local */
+		strncat(local_name, name, sizeof(local_name));
 	}
 #ifdef DEBUG
-	printf("WooFOpen: trying to open %s\n",local_name);
+	printf("WooFOpen: trying to open %s\n", local_name);
 	fflush(stdout);
 #endif
 
-	if(stat(local_name,&sbuf) < 0) {
-		fprintf(stderr,"WooFOpen: couldn't open woof: %s\n",local_name);
+	if (stat(local_name, &sbuf) < 0)
+	{
+		fprintf(stderr, "WooFOpen: couldn't open woof: %s\n", local_name);
 		fflush(stderr);
-		return(NULL);
+		return (NULL);
 	}
 
 	/*
 	 * here is the HACK for open woof caching
 	 */
-	if(WooF_open_cache != NULL) {
-		wel = WooFCacheFind(WooF_open_cache,local_name);
-		if(wel != NULL) {
+	if (WooF_open_cache != NULL)
+	{
+		wel = WooFCacheFind(WooF_open_cache, local_name);
+		if (wel != NULL)
+		{
 			/*
 			 * if the woof hasn't been recreated
 			 * it is still "good"
 			 */
-			if(wel->ino == sbuf.st_ino) {
+			if (wel->ino == sbuf.st_ino)
+			{
 #ifdef DEBUG
-	printf("WooFOpen: found cached woof for %s\n",local_name);
-	fflush(stdout);
+				printf("WooFOpen: found cached woof for %s\n", local_name);
+				fflush(stdout);
 #endif
-				return(wel->wf);
-			} else {
+				return (wel->wf);
+			}
+			else
+			{
 #ifdef DEBUG
-	printf("WooFOpen: expiring cached woof for %s\n",local_name);
-	fflush(stdout);
+				printf("WooFOpen: expiring cached woof for %s\n", local_name);
+				fflush(stdout);
 #endif
-				WooFCacheRemove(WooF_open_cache,local_name);
+				WooFCacheRemove(WooF_open_cache, local_name);
 				WooFDrop(wel->wf);
 				free(wel);
 			}
@@ -315,59 +353,66 @@ WOOF *WooFOpen(char *name)
 	}
 
 	mio = MIOReOpen(local_name);
-	if(mio == NULL) {
-		return(NULL);
+	if (mio == NULL)
+	{
+		return (NULL);
 	}
 #ifdef DEBUG
-	printf("WooFOpen: opened %s\n",local_name);
+	printf("WooFOpen: opened %s\n", local_name);
 	fflush(stdout);
 #endif
 
 	wf = (WOOF *)malloc(sizeof(WOOF));
-	if(wf == NULL) {
+	if (wf == NULL)
+	{
 		MIOClose(mio);
-		return(NULL);
+		return (NULL);
 	}
-	memset(wf,0,sizeof(WOOF));
+	memset(wf, 0, sizeof(WOOF));
 
 	wf->shared = (WOOF_SHARED *)MIOAddr(mio);
 	wf->mio = mio;
 	wf->ino = sbuf.st_ino;
 
-	if(WooF_open_cache != NULL) {
+	if (WooF_open_cache != NULL)
+	{
 		wel = (WOOF_OPEN_CACHE_EL *)malloc(sizeof(WOOF_OPEN_CACHE_EL));
-		if((wel != NULL) && (stat(local_name,&sbuf) >= 0)) {
+		if ((wel != NULL) && (stat(local_name, &sbuf) >= 0))
+		{
 			wel->wf = wf;
 			wel->ino = sbuf.st_ino;
 		}
 #ifdef DEBUG
-	printf("WooFOpen: inserting cached woof for %s\n",local_name);
-	fflush(stdout);
+		printf("WooFOpen: inserting cached woof for %s\n", local_name);
+		fflush(stdout);
 #endif
-		err = WooFCacheInsert(WooF_open_cache,local_name,(void *)wel);
+		err = WooFCacheInsert(WooF_open_cache, local_name, (void *)wel);
 		/*
 		 * try only once on failure
 		 */
-		if(err < 0) {
+		if (err < 0)
+		{
 			pel = (WOOF_OPEN_CACHE_EL *)WooFCacheAge(WooF_open_cache);
-			if(pel != NULL) {
+			if (pel != NULL)
+			{
 				WooFDrop(pel->wf);
 				free(pel);
 			}
-			err = WooFCacheInsert(WooF_open_cache,local_name,(void *)wel);
-			if(err < 0) {
+			err = WooFCacheInsert(WooF_open_cache, local_name, (void *)wel);
+			if (err < 0)
+			{
 				free(wel);
 			}
 		}
 	}
 
-	return(wf);
+	return (wf);
 }
-
 
 void WooFFree(WOOF *wf)
 {
-	if(WooF_open_cache == NULL) {
+	if (WooF_open_cache == NULL)
+	{
 		MIOClose(wf->mio);
 		free(wf);
 	}
@@ -381,7 +426,6 @@ void WooFDrop(WOOF *wf)
 	free(wf);
 	return;
 }
-
 
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
@@ -404,7 +448,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	EVENT *ev;
 	unsigned long ls;
 #ifdef DEBUG
-	printf("WooFAppend: called %s %s\n",wf->shared->filename,hand_name);
+	printf("WooFAppend: called %s %s\n", wf->shared->filename, hand_name);
 	fflush(stdout);
 #endif
 
@@ -417,16 +461,21 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	 * when called for first time on namespace to start, should be NULL
 	 */
 	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
-	if(namelog_seq_no != NULL) {
+	if (namelog_seq_no != NULL)
+	{
 		my_log_seq_no = (unsigned long)atol(namelog_seq_no);
-	} else {
+	}
+	else
+	{
 		my_log_seq_no = 1;
 	}
 
-	if(hand_name != NULL) {
-		ev = EventCreate(TRIGGER,Name_id);
-		if(ev == NULL) {
-			fprintf(stderr,"WooFAppend: couldn't create log event\n");
+	if (hand_name != NULL)
+	{
+		ev = EventCreate(TRIGGER, Name_id);
+		if (ev == NULL)
+		{
+			fprintf(stderr, "WooFAppend: couldn't create log event\n");
 			exit(1);
 		}
 		ev->cause_host = Name_id;
@@ -434,7 +483,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	}
 
 #ifdef DEBUG
-	printf("WooFAppend: checking for empty slot, ino: %lu\n",wf->ino);
+	printf("WooFAppend: checking for empty slot, ino: %lu\n", wf->ino);
 	fflush(stdout);
 #endif
 
@@ -444,7 +493,6 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	printf("WooFAppend: got empty slot\n");
 	fflush(stdout);
 #endif
-	
 
 #ifdef DEBUG
 	printf("WooFAppend: adding element\n");
@@ -481,7 +529,6 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 
-
 #if 0
 	while((el_id->busy == 1) && (next == wfs->tail)) {
 #ifdef DEBUG
@@ -501,28 +548,28 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	 * write the element
 	 */
 #ifdef DEBUG
-	printf("WooFAppend: writing element 0x%x\n",el_id);
+	printf("WooFAppend: writing element 0x%x\n", el_id);
 	fflush(stdout);
 #endif
-	memcpy(ptr,element,wfs->element_size);
+	memcpy(ptr, element, wfs->element_size);
 	/*
 	 * and elemant meta data after it
 	 */
 	el_id->seq_no = wfs->seq_no;
 	el_id->busy = 1;
 
-/*
+	/*
 printf("WooFAppend: about to set head for name %s, head: %lu, next: %lu, size: %lu\n",
 wfs->filename,wfs->head,next,wfs->history_size);
 fflush(stdout);
 */
 
-
 	/*
 	 * update circular buffer
 	 */
 	ndx = wfs->head = next;
-	if(next == wfs->tail) {
+	if (next == wfs->tail)
+	{
 		wfs->tail = (wfs->tail + 1) % wfs->history_size;
 	}
 	seq_no = wfs->seq_no;
@@ -539,7 +586,8 @@ fflush(stdout);
 	 * semaphore for the WooF.  Without a handler, the tail is immediately available since
 	 * we don't know whether the WooF will be consumed -- V it in this case
 	 */
-	if(hand_name == NULL) {
+	if (hand_name == NULL)
+	{
 		/*
 		 * mark the woof as done for purposes of sync
 		 */
@@ -547,87 +595,87 @@ fflush(stdout);
 		wfs->done = 1;
 #endif
 		V(&wfs->tail_wait);
-		return(seq_no);
+		return (seq_no);
 	}
 
-	memset(ev->namespace,0,sizeof(ev->namespace));
-	strncpy(ev->namespace,WooF_namespace,sizeof(ev->namespace));
+	memset(ev->namespace, 0, sizeof(ev->namespace));
+	strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
 #ifdef DEBUG
-	printf("WooFAppend: namespace: %s\n",ev->namespace);
+	printf("WooFAppend: namespace: %s\n", ev->namespace);
 	fflush(stdout);
 #endif
 
 	ev->woofc_ndx = ndx;
 #ifdef DEBUG
-	printf("WooFAppend: ndx: %lu\n",ev->woofc_ndx);
+	printf("WooFAppend: ndx: %lu\n", ev->woofc_ndx);
 	fflush(stdout);
 #endif
 	ev->woofc_seq_no = seq_no;
 #ifdef DEBUG
-	printf("WooFAppend: seq_no: %lu\n",ev->woofc_seq_no);
+	printf("WooFAppend: seq_no: %lu\n", ev->woofc_seq_no);
 	fflush(stdout);
 #endif
 	ev->woofc_element_size = wfs->element_size;
 #ifdef DEBUG
-	printf("WooFAppend: element_size %lu\n",ev->woofc_element_size);
+	printf("WooFAppend: element_size %lu\n", ev->woofc_element_size);
 	fflush(stdout);
 #endif
 	ev->woofc_history_size = wfs->history_size;
 #ifdef DEBUG
-	printf("WooFAppend: history_size %lu\n",ev->woofc_history_size);
+	printf("WooFAppend: history_size %lu\n", ev->woofc_history_size);
 	fflush(stdout);
 #endif
-	memset(ev->woofc_name,0,sizeof(ev->woofc_name));
-	strncpy(ev->woofc_name,wfs->filename,sizeof(ev->woofc_name));
+	memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
+	strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
 #ifdef DEBUG
-	printf("WooFAppend: name %s\n",ev->woofc_name);
+	printf("WooFAppend: name %s\n", ev->woofc_name);
 	fflush(stdout);
 #endif
-	memset(ev->woofc_handler,0,sizeof(ev->woofc_handler));
-	strncpy(ev->woofc_handler,hand_name,sizeof(ev->woofc_handler));
+	memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
+	strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
 #ifdef DEBUG
-	printf("WooFAppend: handler %s\n",ev->woofc_handler);
+	printf("WooFAppend: handler %s\n", ev->woofc_handler);
 	fflush(stdout);
 #endif
 
 	ev->ino = wf->ino;
 #ifdef DEBUG
-	printf("WooFAppend: ino %lu\n",ev->ino);
+	printf("WooFAppend: ino %lu\n", ev->ino);
 	fflush(stdout);
 #endif
 
 	/*
 	 * log the event so that it can be triggered
 	 */
-	memset(log_name,0,sizeof(log_name));
-	sprintf(log_name,"%s/%s",WooF_namelog_dir,Namelog_name);
+	memset(log_name, 0, sizeof(log_name));
+	sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
 #ifdef DEBUG
-	printf("WooFAppend: logging event to %s\n",log_name);
+	printf("WooFAppend: logging event to %s\n", log_name);
 	fflush(stdout);
 #endif
-	ls = LogEvent(Name_log,ev);
-	if(ls == 0) {
-		fprintf(stderr,"WooFAppend: couldn't log event to log %s\n",
-			log_name);
+	ls = LogEvent(Name_log, ev);
+	if (ls == 0)
+	{
+		fprintf(stderr, "WooFAppend: couldn't log event to log %s\n",
+				log_name);
 		fflush(stderr);
 		EventFree(ev);
-		return(-1);
+		return (-1);
 	}
 
 #ifdef DEBUG
 	printf("WooFAppend: logged %lu for woof %s %s\n",
-		ls,
-		ev->woofc_name,
-		ev->woofc_handler);
+		   ls,
+		   ev->woofc_name,
+		   ev->woofc_handler);
 	fflush(stdout);
 #endif
 
 	EventFree(ev);
 	V(&Name_log->tail_wait);
-	return(seq_no);
+	return (seq_no);
 }
 
-		
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
@@ -639,33 +687,35 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	int err;
 
 #ifdef DEBUG
-	printf("WooFPut: called %s %s\n",wf_name,hand_name);
+	printf("WooFPut: called %s %s\n", wf_name, hand_name);
 	fflush(stdout);
 #endif
 
-
-	memset(ns_ip,0,sizeof(ns_ip));
-	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
 	/*
 	 * if there is no IP address in the URI, use the local IP address
 	 */
-	if(err < 0) {
-		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
-		if(err < 0) {
-			fprintf(stderr,"WooFPut: no local IP\n");
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFPut: no local IP\n");
 			exit(1);
 		}
 	}
 
-	memset(my_ip,0,sizeof(my_ip));
-	err = WooFLocalIP(my_ip,sizeof(my_ip));
-	if(err < 0) {
-		fprintf(stderr,"WooFPut: no local IP\n");
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFPut: no local IP\n");
 		exit(1);
 	}
 
-	memset(wf_namespace,0,sizeof(wf_namespace));
-	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
 	/*
 	 * if this isn't for my namespace, try and remote put
 	 *
@@ -674,47 +724,52 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	 * if namespace paths do not match or they do match but the IP addresses do not match, this is
 	 * a remote put
 	 */
-	if((err >= 0) && 
-		((strcmp(WooF_namespace,wf_namespace) != 0) ||
-		 (strcmp(my_ip,ns_ip) != 0))) {
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
 		el_size = WooFMsgGetElSize(wf_name);
-		if(el_size != (unsigned long)-1) {
-			seq_no = WooFMsgPut(wf_name,hand_name,element,el_size);
-			return(seq_no);
-		} else {
-			fprintf(stderr,"WooFPut: couldn't get element size for %s\n",
-				wf_name);
+		if (el_size != (unsigned long)-1)
+		{
+			seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
+			return (seq_no);
+		}
+		else
+		{
+			fprintf(stderr, "WooFPut: couldn't get element size for %s\n",
+					wf_name);
 			fflush(stderr);
-			return(-1);
+			return (-1);
 		}
 	}
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFPut: local namespace put must init system\n");
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFPut: local namespace put must init system\n");
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 #ifdef DEBUG
 	printf("WooFPut: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
+		   WooF_namespace, WooF_dir, wf_name);
 	fflush(stdout);
 #endif
 	wf = WooFOpen(wf_name);
 
-	if(wf == NULL) {
-		return(-1);
+	if (wf == NULL)
+	{
+		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFPut: WooF %s open\n",wf_name);
+	printf("WooFPut: WooF %s open\n", wf_name);
 	fflush(stdout);
 #endif
-	seq_no = WooFAppend(wf,hand_name,element);
+	seq_no = WooFAppend(wf, hand_name, element);
 
 	WooFFree(wf);
-	return(seq_no);
+	return (seq_no);
 }
-
 
 int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 {
@@ -726,30 +781,32 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	char my_ip[25];
 
 #ifdef DEBUG
-	printf("WooFGet: called %s %lu\n",wf_name,seq_no);
+	printf("WooFGet: called %s %lu\n", wf_name, seq_no);
 	fflush(stdout);
 #endif
 
-
-	memset(ns_ip,0,sizeof(ns_ip));
-	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
-	if(err < 0) {
-		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
-		if(err < 0) {
-			fprintf(stderr,"WooFGet: no local IP\n");
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFGet: no local IP\n");
 			exit(1);
 		}
 	}
 
-	memset(my_ip,0,sizeof(my_ip));
-	err = WooFLocalIP(my_ip,sizeof(my_ip));
-	if(err < 0) {
-		fprintf(stderr,"WooFGet: no local IP\n");
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFGet: no local IP\n");
 		exit(1);
 	}
 
-	memset(wf_namespace,0,sizeof(wf_namespace));
-	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
 	/*
 	 * if this isn't for my namespace, try and remote get
 	 *
@@ -759,45 +816,51 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 	 * is remote
 	 *
 	 */
-	if((err >= 0) && 
-		((strcmp(WooF_namespace,wf_namespace) != 0) ||
-		 (strcmp(my_ip,ns_ip) != 0))) {
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
 		el_size = WooFMsgGetElSize(wf_name);
-		if(el_size != (unsigned long)-1) {
-			err = WooFMsgGet(wf_name,element,el_size,seq_no);
-			return(err);
-		} else {
-			fprintf(stderr,"WooFGet: couldn't get element size for %s\n",
-				wf_name);
+		if (el_size != (unsigned long)-1)
+		{
+			err = WooFMsgGet(wf_name, element, el_size, seq_no);
+			return (err);
+		}
+		else
+		{
+			fprintf(stderr, "WooFGet: couldn't get element size for %s\n",
+					wf_name);
 			fflush(stderr);
-			return(-1);
+			return (-1);
 		}
 	}
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFGet: must init system\n");
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFGet: must init system\n");
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 #ifdef DEBUG
 	printf("WooFGet: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
+		   WooF_namespace, WooF_dir, wf_name);
 	fflush(stdout);
 #endif
 	wf = WooFOpen(wf_name);
 
-	if(wf == NULL) {
-		return(-1);
+	if (wf == NULL)
+	{
+		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFGet: WooF %s open\n",wf_name);
+	printf("WooFGet: WooF %s open\n", wf_name);
 	fflush(stdout);
 #endif
-	err = WooFRead(wf,element,seq_no);
+	err = WooFRead(wf, element, seq_no);
 
 	WooFFree(wf);
-	return(err);
+	return (err);
 }
 
 #if DONEFLAG
@@ -812,30 +875,32 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no)
 	int retval;
 
 #ifdef DEBUG
-	printf("WooFHandlerDone: called %s %lu\n",wf_name,seq_no);
+	printf("WooFHandlerDone: called %s %lu\n", wf_name, seq_no);
 	fflush(stdout);
 #endif
 
-
-	memset(ns_ip,0,sizeof(ns_ip));
-	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
-	if(err < 0) {
-		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
-		if(err < 0) {
-			fprintf(stderr,"WooFGet: no local IP\n");
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFGet: no local IP\n");
 			exit(1);
 		}
 	}
 
-	memset(my_ip,0,sizeof(my_ip));
-	err = WooFLocalIP(my_ip,sizeof(my_ip));
-	if(err < 0) {
-		fprintf(stderr,"WooFGet: no local IP\n");
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFGet: no local IP\n");
 		exit(1);
 	}
 
-	memset(wf_namespace,0,sizeof(wf_namespace));
-	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
 	/*
 	 * if this isn't for my namespace, try and remote get
 	 *
@@ -845,41 +910,47 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no)
 	 * is remote
 	 *
 	 */
-	if((err >= 0) && 
-		((strcmp(WooF_namespace,wf_namespace) != 0) ||
-		 (strcmp(my_ip,ns_ip) != 0))) {
-		retval = WooFMsgGetDone(wf_name,seq_no);
-		return(retval);
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
+		retval = WooFMsgGetDone(wf_name, seq_no);
+		return (retval);
 	}
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFHandlerDone: must init system\n");
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFHandlerDone: must init system\n");
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 #ifdef DEBUG
 	printf("WooFHandlerDone: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
+		   WooF_namespace, WooF_dir, wf_name);
 	fflush(stdout);
 #endif
 	wf = WooFOpen(wf_name);
 
-	if(wf == NULL) {
-		return(-1);
+	if (wf == NULL)
+	{
+		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFHandlerDone: WooF %s open\n",wf_name);
+	printf("WooFHandlerDone: WooF %s open\n", wf_name);
 	fflush(stdout);
 #endif
-	if(wf->shared->done == 1) {
+	if (wf->shared->done == 1)
+	{
 		retval = 1;
-	} else {
+	}
+	else
+	{
 		retval = 0;
 	}
 
 	WooFFree(wf);
-	return(retval);
+	return (retval);
 }
 
 #endif
@@ -894,30 +965,32 @@ unsigned long WooFGetLatestSeqno(char *wf_name)
 	char my_ip[25];
 
 #ifdef DEBUG
-	printf("WooFGetLatestSeqno: called %s\n",wf_name);
+	printf("WooFGetLatestSeqno: called %s\n", wf_name);
 	fflush(stdout);
 #endif
 
-
-	memset(ns_ip,0,sizeof(ns_ip));
-	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
-	if(err < 0) {
-		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
-		if(err < 0) {
-			fprintf(stderr,"WooFGetLatestSeqno: no local IP\n");
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFGetLatestSeqno: no local IP\n");
 			exit(1);
 		}
 	}
 
-	memset(my_ip,0,sizeof(my_ip));
-	err = WooFLocalIP(my_ip,sizeof(my_ip));
-	if(err < 0) {
-		fprintf(stderr,"WooFGetLatestSeqno: no local IP\n");
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFGetLatestSeqno: no local IP\n");
 		exit(1);
 	}
 
-	memset(wf_namespace,0,sizeof(wf_namespace));
-	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
 	/*
 	 * if this isn't for my namespace, try and remote get
 	 *
@@ -927,37 +1000,40 @@ unsigned long WooFGetLatestSeqno(char *wf_name)
 	 * is remote
 	 *
 	 */
-	if((err >= 0) && 
-		((strcmp(WooF_namespace,wf_namespace) != 0) ||
-		 (strcmp(my_ip,ns_ip) != 0))) {
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
 		latest_seq_no = WooFMsgGetLatestSeqno(wf_name);
-		return(latest_seq_no);
+		return (latest_seq_no);
 	}
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFGetLatestSeqno: must init system\n");
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFGetLatestSeqno: must init system\n");
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 #ifdef DEBUG
 	printf("WooFGetLatestSeqno: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
+		   WooF_namespace, WooF_dir, wf_name);
 	fflush(stdout);
 #endif
 	wf = WooFOpen(wf_name);
 
-	if(wf == NULL) {
-		return(-1);
+	if (wf == NULL)
+	{
+		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFGetLatestSeqno: WooF %s open\n",wf_name);
+	printf("WooFGetLatestSeqno: WooF %s open\n", wf_name);
 	fflush(stdout);
 #endif
 	latest_seq_no = WooFLatestSeqno(wf);
 
 	WooFFree(wf);
-	return(latest_seq_no);
+	return (latest_seq_no);
 }
 
 int WooFReadTail(WOOF *wf, void *elements, int element_count)
@@ -972,28 +1048,30 @@ int WooFReadTail(WOOF *wf, void *elements, int element_count)
 	wfs = wf->shared;
 
 	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
-	
+
 	i = 0;
 	lp = (unsigned char *)elements;
 	P(&wfs->mutex);
-		ndx = wfs->head;
-		while(i < element_count) {
-			ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
-			memcpy(lp,ptr,wfs->element_size);
-			lp += wfs->element_size;
-			i++;
-			ndx = ndx - 1;
-			if(ndx >= wfs->history_size) {
-				ndx = 0;
-			}
-			if(ndx == wfs->tail) {
-				break;
-			}
+	ndx = wfs->head;
+	while (i < element_count)
+	{
+		ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
+		memcpy(lp, ptr, wfs->element_size);
+		lp += wfs->element_size;
+		i++;
+		ndx = ndx - 1;
+		if (ndx >= wfs->history_size)
+		{
+			ndx = 0;
 		}
+		if (ndx == wfs->tail)
+		{
+			break;
+		}
+	}
 	V(&wfs->mutex);
 
-	return(i);
-
+	return (i);
 }
 
 unsigned long WooFGetTail(char *wf_name, void *elements, unsigned long element_count)
@@ -1006,30 +1084,32 @@ unsigned long WooFGetTail(char *wf_name, void *elements, unsigned long element_c
 	char my_ip[25];
 
 #ifdef DEBUG
-	printf("WooFGetTail: called %s\n",wf_name);
+	printf("WooFGetTail: called %s\n", wf_name);
 	fflush(stdout);
 #endif
 
-
-	memset(ns_ip,0,sizeof(ns_ip));
-	err = WooFIPAddrFromURI(wf_name,ns_ip,sizeof(ns_ip));
-	if(err < 0) {
-		err = WooFLocalIP(ns_ip,sizeof(ns_ip));
-		if(err < 0) {
-			fprintf(stderr,"WooFGetTail: no local IP\n");
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFGetTail: no local IP\n");
 			exit(1);
 		}
 	}
 
-	memset(my_ip,0,sizeof(my_ip));
-	err = WooFLocalIP(my_ip,sizeof(my_ip));
-	if(err < 0) {
-		fprintf(stderr,"WooFGetTail: no local IP\n");
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFGetTail: no local IP\n");
 		exit(1);
 	}
 
-	memset(wf_namespace,0,sizeof(wf_namespace));
-	err = WooFNameSpaceFromURI(wf_name,wf_namespace,sizeof(wf_namespace));
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
 	/*
 	 * if this isn't for my namespace, try and remote get
 	 *
@@ -1039,45 +1119,51 @@ unsigned long WooFGetTail(char *wf_name, void *elements, unsigned long element_c
 	 * is remote
 	 *
 	 */
-	if((err >= 0) && 
-		((strcmp(WooF_namespace,wf_namespace) != 0) ||
-		 (strcmp(my_ip,ns_ip) != 0))) {
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
 		el_size = WooFMsgGetElSize(wf_name);
-		if(el_size != (unsigned long)-1) {
-			err = WooFMsgGetTail(wf_name,elements,el_size,element_count);
-			return(err);
-		} else {
-			fprintf(stderr,"WooFGetTail: couldn't get element size for %s\n",
-				wf_name);
+		if (el_size != (unsigned long)-1)
+		{
+			err = WooFMsgGetTail(wf_name, elements, el_size, element_count);
+			return (err);
+		}
+		else
+		{
+			fprintf(stderr, "WooFGetTail: couldn't get element size for %s\n",
+					wf_name);
 			fflush(stderr);
-			return(-1);
+			return (-1);
 		}
 	}
 
-	if(WooF_dir[0] == 0) {
-		fprintf(stderr,"WooFGetTail: must init system\n");
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFGetTail: must init system\n");
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 #ifdef DEBUG
 	printf("WooFGetTail: namespace: %s,  WooF_dir: %s, name: %s\n",
-		WooF_namespace,WooF_dir,wf_name);
+		   WooF_namespace, WooF_dir, wf_name);
 	fflush(stdout);
 #endif
 	wf = WooFOpen(wf_name);
 
-	if(wf == NULL) {
-		return(-1);
+	if (wf == NULL)
+	{
+		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFGetTail: WooF %s open\n",wf_name);
+	printf("WooFGetTail: WooF %s open\n", wf_name);
 	fflush(stdout);
 #endif
-	err = WooFReadTail(wf,elements,element_count);
+	err = WooFReadTail(wf, elements, element_count);
 
 	WooFFree(wf);
-	return(err);
+	return (err);
 }
 
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
@@ -1097,42 +1183,44 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 
 	P(&wfs->mutex);
 
-	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID))); 
+	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
 	youngest = el_id->seq_no;
 
 	last_valid = wfs->tail;
-	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID))); 
+	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
 	oldest = el_id->seq_no;
 
-	if(oldest == 0) { /* haven't wrapped yet */
+	if (oldest == 0)
+	{ /* haven't wrapped yet */
 		last_valid++;
-		ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID))); 
+		ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
 		el_id = (ELID *)(ptr + wfs->element_size);
 		oldest = el_id->seq_no;
 	}
 
 #ifdef DEBUG
-	fprintf(stdout,"WooFRead: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu\n",
-		wfs->head,
-		wfs->tail,
-		wfs->history_size,
-		last_valid,
-		seq_no,
-		oldest,
-		youngest);
+	fprintf(stdout, "WooFRead: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu\n",
+			wfs->head,
+			wfs->tail,
+			wfs->history_size,
+			last_valid,
+			seq_no,
+			oldest,
+			youngest);
 #endif
 
 	/*
 	 * is the seq_no between head and tail ndx?
 	 */
-	if((seq_no < oldest) || (seq_no > youngest)) {
+	if ((seq_no < oldest) || (seq_no > youngest))
+	{
 		V(&wfs->mutex);
-		fprintf(stdout,"WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
-			seq_no,oldest,youngest);
+		fprintf(stdout, "WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
+				seq_no, oldest, youngest);
 		fflush(stdout);
-		return(-1);
+		return (-1);
 	}
 
 	/*
@@ -1140,26 +1228,26 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	 */
 	ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
 #ifdef DEBUG
-	fprintf(stdout,"WooFRead: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
-		wfs->head,
-		wfs->tail,
-		wfs->history_size,
-		last_valid,
-		seq_no,
-		oldest,
-		youngest,
-		ndx);
+	fprintf(stdout, "WooFRead: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
+			wfs->head,
+			wfs->tail,
+			wfs->history_size,
+			last_valid,
+			seq_no,
+			oldest,
+			youngest,
+			ndx);
 	fflush(stdout);
 #endif
 	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
 #ifdef DEBUG
-	fprintf(stdout,"WooFRead: seq_no: %lu, found seq_no: %lu\n",seq_no,el_id->seq_no);
+	fprintf(stdout, "WooFRead: seq_no: %lu, found seq_no: %lu\n", seq_no, el_id->seq_no);
 	fflush(stdout);
 #endif
-	memcpy(element,ptr,wfs->element_size);
+	memcpy(element, ptr, wfs->element_size);
 	V(&wfs->mutex);
-	return(1);
+	return (1);
 }
 
 unsigned long WooFEarliest(WOOF *wf)
@@ -1170,12 +1258,12 @@ unsigned long WooFEarliest(WOOF *wf)
 	wfs = wf->shared;
 
 	earliest = (wfs->tail + 1) % wfs->history_size;
-	return(earliest);
+	return (earliest);
 }
 
 unsigned long WooFLatest(WOOF *wf)
 {
-	return(wf->shared->head);
+	return (wf->shared->head);
 }
 
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements)
@@ -1185,8 +1273,9 @@ unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements)
 	unsigned long new;
 	unsigned long wrap;
 
-	if(elements == 0) {
-		return(wfs->head);
+	if (elements == 0)
+	{
+		return (wfs->head);
 	}
 
 	new = ndx - remainder;
@@ -1194,27 +1283,31 @@ unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements)
 	/*
 	 * if we need to wrap around
 	 */
-	if(new >= wfs->history_size) {
+	if (new >= wfs->history_size)
+	{
 		wrap = remainder - ndx;
 		new = wfs->history_size - wrap;
 	}
 
-	return(new);
+	return (new);
 }
-		
+
 unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements)
 {
 	unsigned long new = (ndx + elements) % wf->shared->history_size;
 
-	return(new);
+	return (new);
 }
 
 int WooFInvalid(unsigned long seq_no)
 {
-	if(seq_no == (unsigned long)-1) {
-		return(1);
-	} else {
-		return(0);
+	if (seq_no == (unsigned long)-1)
+	{
+		return (1);
+	}
+	else
+	{
+		return (0);
 	}
 }
 
@@ -1224,7 +1317,5 @@ unsigned long WooFLatestSeqno(WOOF *wf)
 
 	seq_no = wf->shared->seq_no;
 
-	return(seq_no-1);
+	return (seq_no - 1);
 }
-
-	

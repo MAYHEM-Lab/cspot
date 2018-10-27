@@ -18,7 +18,7 @@ struct event_stc
 	char woofc_name[128];
 	char woofc_handler[128];
 	char namespace[1024];
-	unsigned long ino;	// for caching if enabled
+	unsigned long ino; // for caching if enabled
 };
 
 typedef struct event_stc EVENT;
@@ -33,11 +33,9 @@ EVENT *EventCreate(unsigned char type, unsigned long host);
 
 void EventFree(EVENT *ev);
 
-int EventSetCause(EVENT *ev, unsigned long cause_host, 
-                                unsigned long long cause_seq_no);
+int EventSetCause(EVENT *ev, unsigned long cause_host,
+				  unsigned long long cause_seq_no);
 
 double EventIndex(unsigned long host, unsigned long long seq_no);
 
-
 #endif
-
