@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 	char wname[4096];
 	char ping_woof[4096];
 	char status_woof[4096];
+	char pulse_woof[4096];
 	char master_ip[IPSTRLEN+1];
 	char slave_ip[IPSTRLEN+1];
 	char client_ip[IPSTRLEN+1];
@@ -127,8 +128,12 @@ int main(int argc, char **argv)
 	}
 
 
+	memset(ping_woof,0,sizeof(ping_woof));
+	memset(status_woof,0,sizeof(status_woof));
+	memset(pulse_woof,0,sizeof(pulse_woof));
 	MAKE_EXTENDED_NAME(ping_woof,wname,"ping");
 	MAKE_EXTENDED_NAME(status_woof,wname,"status");
+	MAKE_EXTENDED_NAME(pulse_woof,wname,"pulse");
 
 	WooFInit();
 
@@ -139,6 +144,15 @@ int main(int argc, char **argv)
 	if(err < 0) {
 		fprintf(stderr,"master-slave-init failed for %s with history size %lu\n",
 			wname,
+			history_size);
+		fflush(stderr);
+		exit(1);
+	}
+
+	err = WooFCreate(pulse_woof,sizeof(PULSE),history_size); 
+	if(err < 0) {
+		fprintf(stderr,"master-slave-init failed for %s with history size %lu\n",
+			pulse_woof,
 			history_size);
 		fflush(stderr);
 		exit(1);
@@ -212,7 +226,4 @@ int main(int argc, char **argv)
 	exit(0);
 }
 
-	
-
-	
 	

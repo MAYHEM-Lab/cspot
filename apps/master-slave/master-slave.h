@@ -29,6 +29,15 @@ struct pingpong_stc
 }
 typedef struct pingpong_stc PINGPONG;
 
+struct pulse_stc
+{
+	wname[4096];
+	struct timeval tm;
+	unsigned long last_seq_no;
+};
+
+typedef struct pulse_stc PULSE;
+
 #define MAKE_EXTENDED_NAME(ename,wname,str) {\
         memset(ename,0,sizeof(ename));\
         sprintf(ename,"%s.%s",wname,str);\

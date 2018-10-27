@@ -5,10 +5,9 @@
 #include <pthread.h>
 #include <time.h>
 
-#include "woofc.h"
-#include "senspot.h"
+#include "master-slave.h"
 
-#define ARGS "W:H:LT:"
+#define ARGS "W:"
 char *Usage = "master-slave-pulse -W woof_name\n"l
 
 char Wname[4096];
@@ -25,18 +24,12 @@ int main(int argc, char **argv)
 	int i;
 	int err;
 	int uselocal;
-	unsigned char input_buf[4096];
-	char *str;
-	SENSPOT spt;
 	char wname[4096];
-	char hname[4096];
-	char *handler;
-	char type;
+	char pname[4096];
+	unsigned long pseq_no;
 	unsigned long seq_no;
-	struct timeval tm;
+	PULSE pstc;
 
-	handler = NULL;
-	memset(hname,0,sizeof(hname));
 	memset(wname,0,sizeof(wname));
 	uselocal = 0;
 
@@ -45,15 +38,6 @@ int main(int argc, char **argv)
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
 				break;
-			case 'H':
-				strncpy(hname,optarg,sizeof(hname));
-				handler = hname;
-				break;
-			case 'L':
-				uselocal = 1;
-				break;
-			case 'T':
-				type = optarg[0];
 				break;
 			default:
 				fprintf(stderr,
@@ -79,32 +63,30 @@ int main(int argc, char **argv)
 		WooFInit();
 	}
 
-	memset(input_buf,0,sizeof(input_buf));
-	str = fgets(input_buf,sizeof(input_buf),stdin);
+	MAKE_EXTENDED_NAME(ptime,wname,"pulse");
 
-	if(str == NULL) {
-		exit(0);
-	}
-
-	SenspotAssign(&spt,type,input_buf);
-	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
-	gettimeofday(&tm,NULL);
-	spt.tv_sec = htonl(tm.tv_sec);
-	spt.tv_usec = htonl(tm.tv_usec);
-
-	seq_no = WooFPut(wname,handler,(void *)&spt);
-
-	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"senspot-put failed for %s with handler %s type %c and cargo %s\n",
-			wname,
-			handler,
-			type,
-			input_buf);
+	pseq_no = WooFGetLatestSeqno(wname);
+	if(WooFInvalid(pseq_no) {
+		fprintf(stderr,"master-slave-pulse: couldn't get seqno from %s\n",
+			wname);
 		fflush(stderr);
 		exit(1);
 	}
 
+	memset(pstc.wname,0,sizeof(pstc.wname));
+	strncpy(pstc.wname,wname,sizeof(pstc.wname));
+	gettimeofday(&pstc.tm,NULL);
+	pstc.last_seq_no = pseq_no;
+	seq_no = WooFPut(wname,"MSPulseHandler",&pstc);
 
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"master-slave-pulse: couldn't put %lu from %s\n",
+			pseq_no,
+			pname);
+		fflush(stderr);
+		exit(1);
+	}
+	
 	exit(0);
 }
 
