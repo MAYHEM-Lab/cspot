@@ -8,23 +8,23 @@
 #include <pthread.h>
 #include "fsema.h"
 
-
 int InitSem(sema *s, int count)
 {
 	double r = drand48();
 
-	if(s == NULL) {
-		return(-1);
+	if (s == NULL)
+	{
+		return (-1);
 	}
 
-	memset(s->mname,0,sizeof(s->mname));
-	memset(s->wname,0,sizeof(s->wname));
-	sprintf(s->mname,"/tmp/msema%0.10f",r);
-	sprintf(s->wname,"/tmp/wsema%0.10f",r);
+	memset(s->mname, 0, sizeof(s->mname));
+	memset(s->wname, 0, sizeof(s->wname));
+	sprintf(s->mname, "/tmp/msema%0.10f", r);
+	sprintf(s->wname, "/tmp/wsema%0.10f", r);
 	s->value = count;
 	s->waiters = 0;
 
-	return(1);
+	return (1);
 }
 
 void FreeSem(sema *s)
@@ -35,12 +35,13 @@ void FreeSem(sema *s)
 
 int GetLock(char *name)
 {
-	int fd = open(name,O_RDWR|O_CREAT,0600);
-	if(fd < 0) {
-		fprintf(stderr,"PANIC: %s\n",name);
+	int fd = open(name, O_RDWR | O_CREAT, 0600);
+	if (fd < 0)
+	{
+		fprintf(stderr, "PANIC: %s\n", name);
 		exit(1);
 	}
-	return(fd);
+	return (fd);
 }
 
 void P(sema *s)
@@ -48,24 +49,28 @@ void P(sema *s)
 	int mutex = GetLock(s->mname);
 	int wait = GetLock(s->wname);
 
-	flock(mutex,LOCK_EX);
-	
+	flock(mutex, LOCK_EX);
 
 	s->value--;
 
-	while(s->value < 0) {
+	while (s->value < 0)
+	{
 		/*
 		 * maintain semaphore invariant
 		 */
-		if(s->waiters < (-1 * s->value)) {
+		if (s->waiters < (-1 * s->value))
+		{
 			s->waiters++;
-			flock(mutex,LOCK_UN);
-			flock(wait,LOCK_EX);
-			flock(mutex,LOCK_EX);
+			flock(mutex, LOCK_UN);
+			flock(wait, LOCK_EX);
+			flock(mutex, LOCK_EX);
 			s->waiters--;
-		} else {
-			if(s->value == 0) {
-				flock(wait,LOCK_EX);
+		}
+		else
+		{
+			if (s->value == 0)
+			{
+				flock(wait, LOCK_EX);
 			}
 			break;
 		}
@@ -80,30 +85,29 @@ void V(sema *s)
 {
 	int mutex = GetLock(s->mname);
 	int wait = GetLock(s->wname);
-	
-	flock(mutex,LOCK_EX);
+
+	flock(mutex, LOCK_EX);
 
 	s->value++;
 
-	if(s->value <= 0)
+	if (s->value <= 0)
 	{
-		while(s->waiters > (-1 * s->value)) {
-			flock(wait,LOCK_UN);
-			flock(mutex,LOCK_UN);
-			flock(mutex,LOCK_EX);
+		while (s->waiters > (-1 * s->value))
+		{
+			flock(wait, LOCK_UN);
+			flock(mutex, LOCK_UN);
+			flock(mutex, LOCK_EX);
 		}
 	}
 
-	if(s->value == 1) {
-		flock(wait,LOCK_UN);
+	if (s->value == 1)
+	{
+		flock(wait, LOCK_UN);
 	}
-	flock(mutex,LOCK_UN);
+	flock(mutex, LOCK_UN);
 
 	close(mutex);
 	close(wait);
 
 	return;
-		
-		
 }
-

@@ -21,9 +21,7 @@ LOG *Name_log;
 
 static int WooFDone;
 
-
 void *WooFForker(void *arg);
-
 
 /*
  * FIX ME: it would be better if the TRIGGER seq_no gets retired after the launch is successful
@@ -35,19 +33,19 @@ void *WooFHandlerThread(void *arg)
 	char *launch_string = (char *)arg;
 
 #ifdef DEBUG
-	fprintf(stdout,"LAUNCH: %s\n",launch_string);
+	fprintf(stdout, "LAUNCH: %s\n", launch_string);
 	fflush(stdout);
 #endif
 	system(launch_string);
 #ifdef DEBUG
-	fprintf(stdout,"DONE: %s\n",launch_string);
+	fprintf(stdout, "DONE: %s\n", launch_string);
 	fflush(stdout);
 #endif
 
 	free(launch_string);
 
 	pthread_exit(NULL);
-	return(NULL);
+	return (NULL);
 }
 
 void *WooFForker(void *arg)
@@ -64,40 +62,42 @@ void *WooFForker(void *arg)
 	int err;
 	pthread_t tid;
 	int none;
-	EVENT last_event;	/* needed to understand if log tail has changed */
+	EVENT last_event; /* needed to understand if log tail has changed */
 
 	/*
 	 * wait for things to show up in the log
 	 */
-	memset(&last_event,0,sizeof(last_event));
+	memset(&last_event, 0, sizeof(last_event));
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s started\n",
+	fprintf(stdout, "WooFForker: namespace: %s started\n",
 			WooF_namespace);
+	fflush(stdout);
+#endif
+
+#ifdef DEBUG
+	fprintf(stdout, "WooFForker: namespace: %s memset called\n",
+			WooF_namespace);
+	fflush(stdout);
+#endif
+
+	while (WooFDone == 0)
+	{
+#ifdef DEBUG
+		fprintf(stdout, "WooFForker: namespace: %s caling P\n",
+				WooF_namespace);
 		fflush(stdout);
-#endif
-
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: namespace: %s memset called\n",
-			WooF_namespace);
-	fflush(stdout);
-#endif
-
-	while(WooFDone == 0) {
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: namespace: %s caling P\n",
-			WooF_namespace);
-	fflush(stdout);
 #endif
 		P(&Name_log->tail_wait);
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s awake\n",
-			WooF_namespace);
+		fprintf(stdout, "WooFForker: namespace: %s awake\n",
+				WooF_namespace);
 		fflush(stdout);
 #endif
 
 		pthread_yield();
 
-		if(WooFDone == 1) {
+		if (WooFDone == 1)
+		{
 			break;
 		}
 
@@ -106,32 +106,33 @@ void *WooFForker(void *arg)
 		 */
 		P(&Name_log->mutex);
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s, in mutex, size: %lu\n",
-			WooF_namespace,Name_log->size);
+		fprintf(stdout, "WooFForker: namespace: %s, in mutex, size: %lu\n",
+				WooF_namespace, Name_log->size);
 		fflush(stdout);
 #endif
-		log_tail = LogTail(Name_log,last_seq_no,Name_log->size);
+		log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
 		V(&Name_log->mutex);
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s out of mutex with log tail\n",
-			WooF_namespace);
+		fprintf(stdout, "WooFForker: namespace: %s out of mutex with log tail\n",
+				WooF_namespace);
 		fflush(stdout);
 #endif
 
-
-		if(log_tail == NULL) {
+		if (log_tail == NULL)
+		{
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s no tail, continuing\n",
-			WooF_namespace);
-		fflush(stdout);
+			fprintf(stdout, "WooFForker: namespace: %s no tail, continuing\n",
+					WooF_namespace);
+			fflush(stdout);
 #endif
 			continue;
 		}
-		if(log_tail->head == log_tail->tail) {
+		if (log_tail->head == log_tail->tail)
+		{
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s log tail empty, continuing\n",
-				WooF_namespace);
-		fflush(stdout);
+			fprintf(stdout, "WooFForker: namespace: %s log tail empty, continuing\n",
+					WooF_namespace);
+			fflush(stdout);
 #endif
 			LogFree(log_tail);
 			continue;
@@ -139,22 +140,25 @@ void *WooFForker(void *arg)
 
 		ev = (EVENT *)(MIOAddr(log_tail->m_buf) + sizeof(LOG));
 #ifdef DEBUG
-	first = log_tail->head;
-	printf("WooFForker: namespace: %s first: %lu\n",WooF_namespace,first);
-	fflush(stdout);
-	while(first != log_tail->tail) {
-	printf("WooFForker: namespace: %s first %lu, seq_no: %lu, last %lu evns: %s\n",
-			WooF_namespace,first, ev[first].seq_no, last_seq_no, ev[first].namespace);
-	fflush(stdout);
-		if((ev[first].type == TRIGGER) &&
-		   (strncmp(ev[first].namespace,WooF_namespace,sizeof(ev[first].namespace)) == 0)) {
-			break;
+		first = log_tail->head;
+		printf("WooFForker: namespace: %s first: %lu\n", WooF_namespace, first);
+		fflush(stdout);
+		while (first != log_tail->tail)
+		{
+			printf("WooFForker: namespace: %s first %lu, seq_no: %lu, last %lu evns: %s\n",
+				   WooF_namespace, first, ev[first].seq_no, last_seq_no, ev[first].namespace);
+			fflush(stdout);
+			if ((ev[first].type == TRIGGER) &&
+				(strncmp(ev[first].namespace, WooF_namespace, sizeof(ev[first].namespace)) == 0))
+			{
+				break;
+			}
+			first = (first - 1);
+			if (first >= log_tail->size)
+			{
+				first = log_tail->size - 1;
+			}
 		}
-		first = (first-1);
-		if(first >= log_tail->size) {
-			first = log_tail->size - 1;
-		}
-	}
 #endif
 
 		/*
@@ -164,10 +168,12 @@ void *WooFForker(void *arg)
 		none = 0;
 		first = log_tail->head;
 
-		while(first != log_tail->tail) {
-			if((ev[first].type == TRIGGER) &&
-			   (strncmp(ev[first].namespace,WooF_namespace,sizeof(ev[first].namespace)) == 0) &&
-			   (ev[first].seq_no > last_seq_no)) {
+		while (first != log_tail->tail)
+		{
+			if ((ev[first].type == TRIGGER) &&
+				(strncmp(ev[first].namespace, WooF_namespace, sizeof(ev[first].namespace)) == 0) &&
+				(ev[first].seq_no > last_seq_no))
+			{
 				/* found one */
 				break;
 			}
@@ -179,37 +185,41 @@ void *WooFForker(void *arg)
 			 * Note that this may cause spurious wake ups since this container
 			 * can't tell if the others have seen this trigger yet
 			 */
-			if((ev[first].type == TRIGGER) &&
-			   (memcmp(&last_event,&ev[first],sizeof(last_event)) != 0) &&
-			   (strncmp(ev[first].namespace,WooF_namespace,sizeof(ev[first].namespace)) != 0)) {
+			if ((ev[first].type == TRIGGER) &&
+				(memcmp(&last_event, &ev[first], sizeof(last_event)) != 0) &&
+				(strncmp(ev[first].namespace, WooF_namespace, sizeof(ev[first].namespace)) != 0))
+			{
 #ifdef DEBUG
-	printf("WooFForker: namespace: %s found trigger for evns: %s, name: %s, first: %lu, head: %lu, tail: %lu\n",
-		WooF_namespace,ev[first].namespace,ev[first].woofc_name,first,log_tail->head,log_tail->tail);
-	fflush(stdout);
+				printf("WooFForker: namespace: %s found trigger for evns: %s, name: %s, first: %lu, head: %lu, tail: %lu\n",
+					   WooF_namespace, ev[first].namespace, ev[first].woofc_name, first, log_tail->head, log_tail->tail);
+				fflush(stdout);
 #endif
-exit(1);
-				memcpy(&last_event,&ev[first],sizeof(last_event));
+				exit(1);
+				memcpy(&last_event, &ev[first], sizeof(last_event));
 				V(&Name_log->tail_wait);
 				pthread_yield();
 			}
 
 			first = (first - 1);
-			if(first >= log_tail->size) {
-				first=log_tail->size - 1;
+			if (first >= log_tail->size)
+			{
+				first = log_tail->size - 1;
 			}
-			if(first == log_tail->tail) {
+			if (first == log_tail->tail)
+			{
 				none = 1;
 				break;
 			}
-		}  
+		}
 
 		/*
 		 * if no TRIGGERS found
 		 */
-		if(none == 1) {
+		if (none == 1)
+		{
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker log tail empty, continuing\n");
-		fflush(stdout);
+			fprintf(stdout, "WooFForker log tail empty, continuing\n");
+			fflush(stdout);
 #endif
 			LogFree(log_tail);
 			continue;
@@ -219,23 +229,23 @@ exit(1);
 		 */
 
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %lu\n",
-			WooF_namespace,
-			ev[first].woofc_name,
-			ev[first].woofc_handler,
-			ev[first].woofc_seq_no,
-			ev[first].seq_no);
+		fprintf(stdout, "WooFForker: namespace: %s firing woof: %s handler: %s woof_seq_no: %lu log_seq_no: %lu\n",
+				WooF_namespace,
+				ev[first].woofc_name,
+				ev[first].woofc_handler,
+				ev[first].woofc_seq_no,
+				ev[first].seq_no);
 		fflush(stdout);
 #endif
 
-
 		wf = WooFOpen(ev[first].woofc_name);
 
-		if(wf == NULL) {
-			fprintf(stderr,"WooFForker: open failed for WooF at %s, %lu %lu\n",
-				ev[first].woofc_name,
-				ev[first].woofc_element_size,
-				ev[first].woofc_history_size);
+		if (wf == NULL)
+		{
+			fprintf(stderr, "WooFForker: open failed for WooF at %s, %lu %lu\n",
+					ev[first].woofc_name,
+					ev[first].woofc_element_size,
+					ev[first].woofc_history_size);
 			fflush(stderr);
 			exit(1);
 		}
@@ -243,22 +253,23 @@ exit(1);
 		/*
 		 * find the last directory in the path
 		 */
-		pathp = strrchr(WooF_dir,'/');
-		if(pathp == NULL) {
-			fprintf(stderr,"couldn't find leaf dir in %s\n",
-				WooF_dir);
+		pathp = strrchr(WooF_dir, '/');
+		if (pathp == NULL)
+		{
+			fprintf(stderr, "couldn't find leaf dir in %s\n",
+					WooF_dir);
 			exit(1);
 		}
 
-		strncpy(woof_shepherd_dir,pathp,sizeof(woof_shepherd_dir));
+		strncpy(woof_shepherd_dir, pathp, sizeof(woof_shepherd_dir));
 
 		launch_string = (char *)malloc(2048);
-		if(launch_string == NULL) {
+		if (launch_string == NULL)
+		{
 			exit(1);
 		}
 
-		memset(launch_string,0,2048);
-
+		memset(launch_string, 0, 2048);
 
 		sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
 			 export WOOFC_DIR=%s; \
@@ -281,24 +292,25 @@ exit(1);
 				WooF_namelog_dir,
 				Namelog_name,
 				ev[first].seq_no,
-				WooF_dir,ev[first].woofc_handler);
+				WooF_dir, ev[first].woofc_handler);
 
 		/*
 		 * remember its sequence number for next time
 		 *
 		 * needs +1 because LogTail returns the earliest inclusively
 		 */
-		last_seq_no = ev[first].seq_no; 		/* log seq_no */
+		last_seq_no = ev[first].seq_no; /* log seq_no */
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: namespace: %s seq_no: %lu, handler: %s\n",
-			WooF_namespace,ev[first].seq_no, ev[first].woofc_handler);
+		fprintf(stdout, "WooFForker: namespace: %s seq_no: %lu, handler: %s\n",
+				WooF_namespace, ev[first].seq_no, ev[first].woofc_handler);
 		fflush(stdout);
 #endif
-		LogFree(log_tail); 
+		LogFree(log_tail);
 		WooFFree(wf);
 
-		err = pthread_create(&tid,NULL,WooFHandlerThread,(void *)launch_string);
-		if(err < 0) {
+		err = pthread_create(&tid, NULL, WooFHandlerThread, (void *)launch_string);
+		if (err < 0)
+		{
 			/* LOGGING
 			 * log thread create failure here
 			 */
@@ -308,16 +320,9 @@ exit(1);
 	}
 
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker namespace: %s exiting\n",WooF_namespace);
-		fflush(stdout);
+	fprintf(stdout, "WooFForker namespace: %s exiting\n", WooF_namespace);
+	fflush(stdout);
 #endif
 
 	pthread_exit(NULL);
 }
-
-
-
-	
-
-
-	

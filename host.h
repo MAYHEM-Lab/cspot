@@ -33,6 +33,4 @@ void HostListFree(HOSTLIST *hl);
 int HostListAdd(HOSTLIST *hl, unsigned long host_id);
 HOST *HostListFind(HOSTLIST *hl, unsigned long host_id);
 
-
 #endif
-

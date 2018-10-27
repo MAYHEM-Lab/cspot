@@ -49,10 +49,9 @@ struct global_log_stc
 };
 
 typedef struct global_log_stc GLOG;
-	
 
 LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size);
-LOG *LogOpen(char *filename,unsigned long size);
+LOG *LogOpen(char *filename, unsigned long size);
 void LogFree(LOG *log);
 int LogFull(LOG *log);
 unsigned long long LogEvent(LOG *log, EVENT *event);
@@ -63,12 +62,11 @@ void LogPrint(FILE *fd, LOG *log);
 
 PENDING *PendingCreate(char *filename, unsigned long psize);
 void PendingFree(PENDING *pending);
-EVENT *PendingFindEvent(PENDING *pending, 
-	unsigned long host, unsigned long long seq_no);
-EVENT *PendingFindCause(PENDING *pending, 
-	unsigned long host, unsigned long long seq_no);
+EVENT *PendingFindEvent(PENDING *pending,
+						unsigned long host, unsigned long long seq_no);
+EVENT *PendingFindCause(PENDING *pending,
+						unsigned long host, unsigned long long seq_no);
 void PendingPrint(FILE *fd, PENDING *pending);
-
 
 GLOG *GLogCreate(char *filename, unsigned long host_id, unsigned long size);
 int GLogEvent(GLOG *gl, EVENT *event);
@@ -76,6 +74,5 @@ void GLogFree(GLOG *gl);
 void GLogPrint(FILE *fd, GLOG *gl);
 
 int ImportLogTail(GLOG *gl, LOG *ll);
-	
 
 #endif

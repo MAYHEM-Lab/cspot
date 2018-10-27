@@ -12,9 +12,10 @@ HOSTLIST *HostListCreate(char *filename)
 	HOSTLIST *hl;
 	MIO *mio;
 
-	mio = MIOOpen(filename,"w+",HOSTSIZE);
-	if(mio == NULL) {
-		return(NULL);
+	mio = MIOOpen(filename, "w+", HOSTSIZE);
+	if (mio == NULL)
+	{
+		return (NULL);
 	}
 
 	/*
@@ -22,22 +23,23 @@ HOSTLIST *HostListCreate(char *filename)
 	 */
 	hl = (HOSTLIST *)MIOAddr(mio);
 	hl->h_mio = mio;
-	memset(hl->filename,0,sizeof(hl->filename));
-	strcpy(hl->filename,filename);
+	memset(hl->filename, 0, sizeof(hl->filename));
+	strcpy(hl->filename, filename);
 
 	hl->count = 0;
 	hl->hash_size = HASHCOUNT;
 	hl->hash = (HOST *)(MIOAddr(mio) + sizeof(HOSTLIST));
-	memset(hl->hash,0,HASHCOUNT*sizeof(HOST));
+	memset(hl->hash, 0, HASHCOUNT * sizeof(HOST));
 
-	pthread_mutex_init(&hl->lock,NULL);
+	pthread_mutex_init(&hl->lock, NULL);
 
-	return(hl);
+	return (hl);
 }
 
-void HostListFree(HOSTLIST *hl) 
+void HostListFree(HOSTLIST *hl)
 {
-	if(hl == NULL) {
+	if (hl == NULL)
+	{
 		return;
 	}
 
@@ -51,18 +53,20 @@ int HostListAdd(HOSTLIST *hl, unsigned long host_id)
 	unsigned long hash_id;
 	HOST *host_rec;
 
-	if(hl == NULL) {
-		fprintf(stderr,"HostListAdd: NULL for %lu\n",host_id);
+	if (hl == NULL)
+	{
+		fprintf(stderr, "HostListAdd: NULL for %lu\n", host_id);
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 
-	if((hl->count + 1) >= hl->hash_size) {
-		fprintf(stderr,"HostListAdd: count: %lu hash_size: %d\n",
-			hl->count+1,
-			hl->hash_size);
+	if ((hl->count + 1) >= hl->hash_size)
+	{
+		fprintf(stderr, "HostListAdd: count: %lu hash_size: %d\n",
+				hl->count + 1,
+				hl->hash_size);
 		fflush(stderr);
-		return(-1);
+		return (-1);
 	}
 
 	hash_id = host_id % hl->hash_size; /* need better hash function */
@@ -72,19 +76,19 @@ int HostListAdd(HOSTLIST *hl, unsigned long host_id)
 	 * find empty slot
 	 */
 	host_rec = (HOST *)&hl->hash[hash_id];
-	while(host_rec->host_id != 0) {
+	while (host_rec->host_id != 0)
+	{
 		hash_id = (hash_id + 1) % hl->hash_size;
 		host_rec = (HOST *)&hl->hash[hash_id];
 	}
 
 	host_rec->host_id = host_id;
 	hl->count += 1;
-	
+
 	pthread_mutex_unlock(&hl->lock);
 
-	return(1);
+	return (1);
 }
-
 
 HOST *HostListFind(HOSTLIST *hl, unsigned long host_id)
 {
@@ -92,8 +96,9 @@ HOST *HostListFind(HOSTLIST *hl, unsigned long host_id)
 	unsigned long hash_id;
 	unsigned long start_id;
 
-	if(hl == NULL) {
-		return(NULL);
+	if (hl == NULL)
+	{
+		return (NULL);
 	}
 
 	hash_id = host_id % hl->hash_size;
@@ -103,21 +108,23 @@ HOST *HostListFind(HOSTLIST *hl, unsigned long host_id)
 	pthread_mutex_lock(&hl->lock);
 
 	host_rec = (HOST *)&hl->hash[hash_id];
-	while(host_rec->host_id != host_id) {
-		if(host_rec->host_id == 0) {
+	while (host_rec->host_id != host_id)
+	{
+		if (host_rec->host_id == 0)
+		{
 			pthread_mutex_unlock(&hl->lock);
-			return(NULL);
+			return (NULL);
 		}
 		hash_id = (hash_id + 1) % hl->hash_size;
-		if(hash_id == start_id) {
+		if (hash_id == start_id)
+		{
 			pthread_mutex_unlock(&hl->lock);
-			return(NULL);
+			return (NULL);
 		}
 		host_rec = (HOST *)&hl->hash[hash_id];
 	}
 
 	pthread_mutex_unlock(&hl->lock);
 
-	return(host_rec);
+	return (host_rec);
 }
-	

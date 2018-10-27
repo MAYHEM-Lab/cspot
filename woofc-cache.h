@@ -25,4 +25,3 @@ int WooFCacheFull(WOOF_CACHE *wc);
 void *WooFCacheAge(WOOF_CACHE *wc);
 
 #endif
-
