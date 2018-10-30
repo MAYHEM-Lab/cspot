@@ -145,6 +145,7 @@ void DoMaster(STATE *state, STATUS *status)
 	char other_color;
 	unsigned long other_seq_no;
 	unsigned long last_r_seq_no;
+	char client_color;
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
@@ -220,9 +221,42 @@ void DoMaster(STATE *state, STATUS *status)
 	if((other_color == 'G') && (other_seq_no > last_r_seq_no)) {
 		new_state.my_state = r_status.local;
 		new_state.other_color = other_color;
-	} else 
-
+	/*
+	 * sanity check -- shouldn't happen
+	 */
+	} else if((other_color == 'G') && (other_seq_no > r_seq_no)) { 
+		fprintf(stderr,
+		"DoMaster: state error, other green, osn: %lu, rsn: %lu\n",
+			other_seq_no,r_seq_no);
+		fflush(stderr);
+		WooFDrop(l_state_w);
+		WoofDrop(l_status_w);
+		return;
+	} else {
+	/*
+	 * we are up to date with respect to remote side
+	 * or remote side is red
+	 */
+		err = PingPongTest(state,'C');
+		if(err == 0) {
+			client_color = 'R';
+		} else if(err == 1) {
+			client_color = 'G';
+		} else {
+			fprintf(stderr,
+			"DoMaster: pp test to client failed internally\n");
+			fflush(stderr);
+			WooFDrop(l_state_w);
+			WooFDrop(l_status_w);
+			return;
+		}
+		if(client_color == 'G') {
+			new_state.my_state = 'M';
+			new_state.client_color = client_color;
 XXX
+		  
+		
+
 	
 		
 
