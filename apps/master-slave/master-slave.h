@@ -18,6 +18,7 @@ struct status_stc
 {
 	unsigned char local; /* M, S, C */
 	unsigned char remote; /* ~local || C*/
+	unsigned long remote_seq_no; /* last remote seq no gathered */
 };
 typedef struct status_stc STATUS;
 
@@ -28,6 +29,9 @@ struct pingpong_stc
 	char return_woof[1024];
 }
 typedef struct pingpong_stc PINGPONG;
+
+#define PPRETRIES (6)
+#define PPSLEEP (5)
 
 struct pulse_stc
 {
