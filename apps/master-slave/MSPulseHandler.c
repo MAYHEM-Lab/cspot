@@ -55,7 +55,7 @@ int PingPongTest(STATE *state, char target)
 	}
 
 	/* write current seq_no into record */
-	l_pp.seq_no = l_pp_w->shared->seq_no;
+	l_pp.seq_no = WooFLatestSeqno(l_pp_w);
 
 	/* put it and expect a return */
 	p_seq_no = WooFPut(r_pp_woof,"MSPingPongHandler",(void *)&l_pp);
@@ -137,10 +137,15 @@ void DoMaster(STATE *state, STATUS *status)
 	STATUS l_status;
 	STATUS r_status;
 	char l_state_name[255];
+	char r_state_woof[4096];
 	char l_status_name[512];
 	int err;
 	unsigned long my_seq_no;
 	unsigned long s_seq_no;
+	char other_color;
+	unsigned long other_seq_no;
+	unsigned long last_r_seq_no;
+	char client_color;
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
@@ -169,8 +174,94 @@ void DoMaster(STATE *state, STATUS *status)
 	}
 
 	/* get my current state */
+<<<<<<< HEAD
 	my_seq_no = l_state_w->shared->seq_no;
 	err = WooFRead(l_state_w,&curr_state,my_seq_no);
+=======
+	my_seq_no = WooFLatestSeqno(l_state_w);
+	err = WooFRead(l_state_w,&curr_state,my_seq_no);
+	if(err < 0) {
+		fprintf(stderr,
+			"DoMaster: failed to read state from %s\n",
+			l_status_name);
+		WooFDrop(l_state_w);
+		WooFDrop(l_status_w);
+		return;
+	}
+
+	/* now get current remote state */
+	sprintf(r_state_woof,"woof://%s/%s",
+		state->other_ip,
+		l_state_name);
+	other_seq_no = WooFGetLatestSeqno(r_state_woof);
+	if(WooFInvalid(other_seq_no)) {
+		fprintf(stderr,
+			"DoMaster: bad seq no from %s\n",
+				r_state_woof);
+		fflush(stderr);
+		other_color = 'R';
+	} else {
+		other_color = 'G';
+	}
+
+	/* read the last status the remote side wrote to us */
+	last_r_seq_no = WooFLatestSeqno(l_status_w);
+	err = WooFRead(l_status_w,&r_status,last_r_seqno);
+	if(err < 0) {
+		fprintf(stderr,"DoMaster: couldn't read latest from %s\n",
+			l_status_name);
+		fflush(stderr);
+		WooFDrop(l_state_w);
+		WooFDrop(l_status_w);
+		return;
+	}
+
+	memcpy(&new_state,&curr_state,sizeof(new_state));
+	/*
+	 * if latest remote is green and remote seq_no is bigger, 
+	 * assume I have been down and
+	 * believe the other side
+	 */
+	if((other_color == 'G') && (other_seq_no > last_r_seq_no)) {
+		new_state.my_state = r_status.local;
+		new_state.other_color = other_color;
+	/*
+	 * sanity check -- shouldn't happen
+	 */
+	} else if((other_color == 'G') && (other_seq_no > r_seq_no)) { 
+		fprintf(stderr,
+		"DoMaster: state error, other green, osn: %lu, rsn: %lu\n",
+			other_seq_no,r_seq_no);
+		fflush(stderr);
+		WooFDrop(l_state_w);
+		WoofDrop(l_status_w);
+		return;
+	} else {
+	/*
+	 * we are up to date with respect to remote side
+	 * or remote side is red
+	 */
+		err = PingPongTest(state,'C');
+		if(err == 0) {
+			client_color = 'R';
+		} else if(err == 1) {
+			client_color = 'G';
+		} else {
+			fprintf(stderr,
+			"DoMaster: pp test to client failed internally\n");
+			fflush(stderr);
+			WooFDrop(l_state_w);
+			WooFDrop(l_status_w);
+			return;
+		}
+		if(client_color == 'G') {
+			new_state.my_state = 'M';
+			new_state.client_color = client_color;
+XXX
+		  
+		
+
+	
 		
 
 	
