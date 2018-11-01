@@ -174,10 +174,6 @@ void DoMaster(STATE *state, STATUS *status)
 	}
 
 	/* get my current state */
-<<<<<<< HEAD
-	my_seq_no = l_state_w->shared->seq_no;
-	err = WooFRead(l_state_w,&curr_state,my_seq_no);
-=======
 	my_seq_no = WooFLatestSeqno(l_state_w);
 	err = WooFRead(l_state_w,&curr_state,my_seq_no);
 	if(err < 0) {
