@@ -18,7 +18,7 @@ struct status_stc
 {
 	unsigned char local; /* M, S, C */
 	unsigned char remote; /* ~local || C*/
-	unsigned long remote_seq_no; /* last remote seq no gathered */
+	unsigned long remote_seq_no;
 };
 typedef struct status_stc STATUS;
 

@@ -123,29 +123,30 @@ int PingPongTest(STATE *state, char target)
 }
 	
 
-void DoClient(STATE *state, STATUS *status)
+void DoClient(STATE *state)
 {
 	return;
 }
 
-void DoMaster(STATE *state, STATUS *status)
+void DoMaster(STATE *state)
 {
 	WOOF *l_state_w;
 	WOOF *l_status_w;
 	STATE new_state;
-	STATE curr_state;
+	STATE r_state;
 	STATUS l_status;
 	STATUS r_status;
 	char l_state_name[255];
 	char r_state_woof[4096];
+	char r_status_woof[4096];
 	char l_status_name[512];
-	int err;
-	unsigned long my_seq_no;
-	unsigned long s_seq_no;
-	char other_color;
+	unsigned long r_seq_no;
 	unsigned long other_seq_no;
 	unsigned long last_r_seq_no;
+	unsigned long new_seq_no;
+	char other_color;
 	char client_color;
+	int err;
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
@@ -173,19 +174,8 @@ void DoMaster(STATE *state, STATUS *status)
 		return;
 	}
 
-	/* get my current state */
-	my_seq_no = WooFLatestSeqno(l_state_w);
-	err = WooFRead(l_state_w,&curr_state,my_seq_no);
-	if(err < 0) {
-		fprintf(stderr,
-			"DoMaster: failed to read state from %s\n",
-			l_status_name);
-		WooFDrop(l_state_w);
-		WooFDrop(l_status_w);
-		return;
-	}
-
 	/* now get current remote state */
+	memset(r_state_woof,0,sizeof(r_state_woof));
 	sprintf(r_state_woof,"woof://%s/%s",
 		state->other_ip,
 		l_state_name);
@@ -212,22 +202,42 @@ void DoMaster(STATE *state, STATUS *status)
 		return;
 	}
 
-	memcpy(&new_state,&curr_state,sizeof(new_state));
+	memcpy(&new_state,state,sizeof(new_state));
 	/*
 	 * if latest remote is green and remote seq_no is bigger, 
 	 * assume I have been down and
 	 * believe the other side
 	 */
-	if((other_color == 'G') && (other_seq_no > last_r_seq_no)) {
-		new_state.my_state = r_status.local;
-		new_state.other_color = other_color;
+	if((other_color == 'G') && (other_seq_no > r_status.remote_seq_no)) {
+		r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
+		/* if it is really red, believe last */
+		if(WooFInvalid(r_seq_no)) {
+			new_state.my_state = r_status.local;
+			new_state.other_color = 'R';
+			other_color = 'R';
+		} else {
+			new_state.other_color = other_color;
+			if(r_state.my_state == 'M') {
+				new_state.my_state = 'S';
+			} else if(r_state.my_state == 'S') {
+				new_state.my_state = 'M';
+			} else {
+				fprintf(stderr,
+				"DoMaster: bad remote state out of date %s\n",
+					r_state.my_state);
+				fflush(stderr);
+				new_state.other_color = 'R';
+				other_color = 'R';
+			}
+		}
 	/*
 	 * sanity check -- shouldn't happen
 	 */
-	} else if((other_color == 'G') && (other_seq_no > r_seq_no)) { 
+	} else if((other_color == 'G') && 
+			(other_seq_no < r_status.remote_seq_no)) { 
 		fprintf(stderr,
 		"DoMaster: state error, other green, osn: %lu, rsn: %lu\n",
-			other_seq_no,r_seq_no);
+			other_seq_no,r_status.remote_seq_no);
 		fflush(stderr);
 		WooFDrop(l_state_w);
 		WoofDrop(l_status_w);
@@ -250,10 +260,73 @@ void DoMaster(STATE *state, STATUS *status)
 			WooFDrop(l_status_w);
 			return;
 		}
+
+		new_state.other_color = other_color;
+		new_state.client_color = client_color;
 		if(client_color == 'G') {
-			new_state.my_state = 'M';
-			new_state.client_color = client_color;
-XXX
+			/* get current state of other side */
+			r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
+			if(WooFInvalid(r_seq_no)) {
+				/* other side is down */
+				new_state.my_state = 'M';
+				new_state.other_color = 'R';
+				other_color = 'R';
+			} else if(r_state.my_state == 'S') {
+				/* other side is up and a slave */
+				new_state.my_state = 'M';
+			} else if((r_state.my_state == 'M') &&
+			  (strcmp(state->my_ip,r_state.my_ip) < 0)) {
+				/* we are both masters, break tie with ip */
+				new_state.my_state = 'M';
+			} else if((r_state.my_state != 'M') &&
+				  (r_state.my_state != 'S')) {
+					fprintf(stderr,
+				"DoMaster: bad remote state %c\n",
+					r_state.my_state);
+					fflush(stderr);
+				new_state.my_state = 'M';
+				new_state.other_color = 'R';
+				other_color = 'R';
+			} else {
+				new_state.my_state = 'S';
+			}
+		} else /* client is red */ {
+			new_state.my_state = 'S';
+		}
+
+		/* put my new state */
+		new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+
+		/* update status on other side */
+		if(new_state.my_state == 'M') {
+			l_status.remote = 'M'; /* I am remote to other side */
+			l_status.local = 'S';
+		} else {
+			l_status.remote = 'S'; /* I am remote to other side */
+			l_status.local = 'M';
+		}
+		l_status.remote_seq_no = new_seq_no;
+
+		/* make remote woof status name */
+		memset(r_status_woof,0,sizeof(r_status_woof));
+		sprintf(r_status_woof,"woof://%s/%s",
+			new_state.other_ip,
+			l_status_name);
+
+		/* update the other side */
+		r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
+		if(WooFInvalid(r_seq_no)) {
+			fprintf(stderr,"DoMaster: bad status put\n");
+			new_state.other_color = 'R';
+			new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+		}
+				
+		WooFDrop(l_state_w);
+		WooFDrop(l_status_w);
+
+		return;
+}
+				
 		  
 		
 
@@ -266,29 +339,21 @@ XXX
 	return;
 }
 
-void DoSlave(STATE *state, STATUS *status)
+void DoSlave(STATE *state)
 {
 	return;
 }
-
-
 
 
 int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 
 	PULSE *pstc = (PULSE *)ptr;
-	char state_woof[4096];
 	STATE l_state;  /* my state */
-	STATUS l_status;
 	WOOF *l_state_w;
-	WOOF *l_status_w;
 	char l_state_woof[255];
-	char l_status_woof[512];
-	unsigned long seq_no;
+	unsigned long my_seq_no;
 	int err;
-	char other_color;
-	char client_other;
 
 #ifdef DEBUG
 	printf("MSPulseHandler: called on %s with seq_no: %lu, time: %d\n",
@@ -317,20 +382,9 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-	MAKE_EXTENDED_NAME(l_status_woof,l_state_woof,sizeof(l_status_woof));
 
-	/*
-	 * open status woof so we can put new status
-	 */
-	l_status_w = WooFOpen(l_status_woof);
-	if(l_status_w == NULL) {
-		fprintf(stderr,"MSPulseHandler: couldn't open local status woof %s\n",
-			l_status_woof);
-		fflush(stderr);
-		exit(1);
-	}
-
-	err = WooFRead(l_state_w,&l_state,sizeof(l_state));
+	my_seq_no = WooFLatestSeqno(l_state_w);
+	err = WooFRead(l_state_w,&l_state,my_seq_no);
 	if(err < 0 ) {
 		fprintf(stderr,
 			"MSPulseHandler: couldn't get local state from %s\n",
@@ -338,27 +392,18 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 		fflush(stderr);
 		exit(1);
 	}
-	err = WooFRead(l_status_w,&l_status,sizeof(l_status));
-	if(err < 0 ) {
-		fprintf(stderr,
-			"MSPulseHandler: couldn't get local status from %s\n",
-				l_status_woof);
-		fflush(stderr);
-		exit(1);
-	}
-
 	switch(l_state.my_state) {
 		case 'C':
 		case 'c':
-			DoClient(&l_state,&l_status);
+			DoClient(&l_state);
 			break
 		case 'M':
 		case 'm':
-			DoMaster(&l_state,&l_status);
+			DoMaster(&l_state);
 			break;
 		case 'S':
 		case 's':
-			DoSlave(&l_state,&l_status);
+			DoSlave(&l_state);
 			break;
 		default:
 			fprintf(stderr,
