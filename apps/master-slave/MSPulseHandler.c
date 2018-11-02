@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "woofc.h"
-#include "mastr-slave.h"
+#include "woofc-access.h"
+#include "master-slave.h"
 
 int PingPongTest(STATE *state, char target)
 {
@@ -21,22 +23,25 @@ int PingPongTest(STATE *state, char target)
 	int retry_count;
 	int found;
 
-	err = WooFNameFromURI(state.wname,l_name,sizeof(l_name));
+	err = WooFNameFromURI(state->wname,l_name,sizeof(l_name));
 	if(err < 0) {
 		fprintf(stderr,
 			"PingPongTest: couldn't extract local name from %s\n",
-				state.wname);
+				state->wname);
 		fflush(stderr);
 		return(-1);
 	}
-	MAKE_EXTENDED_NAME(&l_pp.return_woof,wname,"pingpong");
+	memset(l_pp.return_woof,0,sizeof(l_pp.return_woof));
+	memset(l_pp_name,0,sizeof(l_pp_name));
+	MAKE_EXTENDED_NAME(l_pp.return_woof,state->wname,"pingpong");
 	MAKE_EXTENDED_NAME(l_pp_name,l_name,"pingpong");
 
 	/* make remore pingpong woof name */
+	memset(r_pp_woof,0,sizeof(r_pp_woof));
 	if(target == 'O') {
-		sprintf(r_pp_woof,"woof://%s/%s",state.other_ip,l_pp_name);
+		sprintf(r_pp_woof,"woof://%s/%s",state->other_ip,l_pp_name);
 	} else if(target == 'C') {
-		sprintf(r_pp_woof,"woof://%s/%s",state.client_ip,l_pp_name);
+		sprintf(r_pp_woof,"woof://%s/%s",state->client_ip,l_pp_name);
 	} else {
 		fprintf(stderr,
 			"PingPongTest: unrecognized target %s\n",target);
