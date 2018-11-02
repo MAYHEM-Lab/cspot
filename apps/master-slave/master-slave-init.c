@@ -30,7 +30,6 @@ int main(int argc, char **argv)
 	char wname[4096];
 	char ping_woof[4096];
 	char status_woof[4096];
-	char pulse_woof[4096];
 	char master_ip[IPSTRLEN+1];
 	char slave_ip[IPSTRLEN+1];
 	char client_ip[IPSTRLEN+1];
@@ -51,7 +50,7 @@ int main(int argc, char **argv)
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
-				strncpy(wname,optarg,sizeof(wname));
+				strncpy((char *)wname,optarg,sizeof(wname));
 				break;
 			case 's':
 				history_size = atol(optarg);
@@ -130,10 +129,8 @@ int main(int argc, char **argv)
 
 	memset(ping_woof,0,sizeof(ping_woof));
 	memset(status_woof,0,sizeof(status_woof));
-	memset(pulse_woof,0,sizeof(pulse_woof));
 	MAKE_EXTENDED_NAME(ping_woof,wname,"ping");
 	MAKE_EXTENDED_NAME(status_woof,wname,"status");
-	MAKE_EXTENDED_NAME(pulse_woof,wname,"pulse");
 
 	WooFInit();
 
@@ -144,15 +141,6 @@ int main(int argc, char **argv)
 	if(err < 0) {
 		fprintf(stderr,"master-slave-init failed for %s with history size %lu\n",
 			wname,
-			history_size);
-		fflush(stderr);
-		exit(1);
-	}
-
-	err = WooFCreate(pulse_woof,sizeof(PULSE),history_size); 
-	if(err < 0) {
-		fprintf(stderr,"master-slave-init failed for %s with history size %lu\n",
-			pulse_woof,
 			history_size);
 		fflush(stderr);
 		exit(1);
@@ -176,8 +164,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	/*
+	 * start status out with local information about remote side */
 	if(strcmp(start_state,"master") == 0) {
-		status.local = 'M';
+		status.local = 'M'; /* from perspective of other side */
 		status.remote = 'S';
 	} else if(strcmp(start_state,"slave") == 0) {
 		status.local = 'S';
@@ -187,14 +177,17 @@ int main(int argc, char **argv)
 		status.remote = 'C';
 	}
 
+	/* assume other wide starts at 1 */
+	status.remote_seq_no = 1;
+
 	seq_no = WooFPut(status_woof,NULL,(void *)&status);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"status put failed to %s\n",status_woof);
 		fflush(stderr);
 	}
 
-	memset(&state,0,sizoef(state));
-	strncpy(status.wname,wname,sizeof(status.wname));
+	memset(&state,0,sizeof(state));
+	strncpy(state.wname,wname,sizeof(state.wname));
 	if(status.local == 'M') {
 		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
 		state.my_state = 'M';
@@ -220,9 +213,6 @@ int main(int argc, char **argv)
 		fflush(stderr);
 	}
 		
-		
-
-
 	exit(0);
 }
 
