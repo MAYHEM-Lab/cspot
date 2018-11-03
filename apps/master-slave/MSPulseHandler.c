@@ -7,6 +7,8 @@
 #include "woofc-access.h"
 #include "master-slave.h"
 
+#define DEBUG
+
 int PingPongTest(STATE *state, char target)
 {
 	PINGPONG l_pp;
@@ -156,7 +158,7 @@ void DoMaster(STATE *state)
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
-			"DoMaster: failed to extract state name from %s\n",
+		"ERROR DoMaster: failed to extract state name from %s\n",
 			state->wname);
 		return;
 	}
@@ -166,14 +168,14 @@ void DoMaster(STATE *state)
 	l_state_w = WooFOpen(l_state_name);
 	if(l_state_w == NULL) {
 		fprintf(stderr,
-			"DoMaster: failed to open state from %s\n",
+			"ERROR DoMaster: failed to open state from %s\n",
 			l_state_name);
 		return;
 	}
 	l_status_w = WooFOpen(l_status_name);
 	if(l_status_w == NULL) {
 		fprintf(stderr,
-			"DoMaster: failed to open status from %s\n",
+			"ERROR DoMaster: failed to open status from %s\n",
 			l_status_name);
 		WooFDrop(l_state_w);
 		return;
@@ -187,7 +189,7 @@ void DoMaster(STATE *state)
 	other_seq_no = WooFGetLatestSeqno(r_state_woof);
 	if(WooFInvalid(other_seq_no)) {
 		fprintf(stderr,
-			"DoMaster: bad seq no from %s\n",
+			"ERROR DoMaster: bad seq no from %s\n",
 				r_state_woof);
 		fflush(stderr);
 		other_color = 'R';
@@ -199,7 +201,8 @@ void DoMaster(STATE *state)
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
 	err = WooFRead(l_status_w,&r_status,last_r_seqno);
 	if(err < 0) {
-		fprintf(stderr,"DoMaster: couldn't read latest from %s\n",
+		fprintf(stderr,
+			"ERROR DoMaster: couldn't read latest from %s\n",
 			l_status_name);
 		fflush(stderr);
 		WooFDrop(l_state_w);
@@ -214,21 +217,42 @@ void DoMaster(STATE *state)
 	 * believe the other side
 	 */
 	if((other_color == 'G') && (other_seq_no > r_status.remote_seq_no)) {
+#ifdef DEBUG
+		fprintf(stdout,
+"DoMaster: other side is green and I'm out of date: me: %lu other: %lu\n",
+			r_status.remote_seq_no,
+			other_seq_no);
+		fflush(stdout);
+#endif
 		r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
 		/* if it is really red, believe last */
 		if(WooFInvalid(r_seq_no)) {
+			fprintf(stderr,
+"ERROR DoMaster: other side goes red on state fetch, setting my state to %c\n",
+				r_status.local);
+			fflush(stdout);
 			new_state.my_state = r_status.local;
 			new_state.other_color = 'R';
 			other_color = 'R';
 		} else {
 			new_state.other_color = other_color;
 			if(r_state.my_state == 'M') {
+#idef DEBUG
+				fprintf(stdout,
+"DoMaster: I'm out of date and other side is master, I'm going slave\n");
+				fflush(stdout);
+#endif
 				new_state.my_state = 'S';
 			} else if(r_state.my_state == 'S') {
+#idef DEBUG
+				fprintf(stdout,
+"DoMaster: I'm out of date and other side is slave, I'm going master\n");
+				fflush(stdout);
+#endif
 				new_state.my_state = 'M';
 			} else {
 				fprintf(stderr,
-				"DoMaster: bad remote state out of date %s\n",
+			"ERROR DoMaster: bad remote state out of date %s\n",
 					r_state.my_state);
 				fflush(stderr);
 				new_state.other_color = 'R';
@@ -241,7 +265,7 @@ void DoMaster(STATE *state)
 	} else if((other_color == 'G') && 
 			(other_seq_no < r_status.remote_seq_no)) { 
 		fprintf(stderr,
-		"DoMaster: state error, other green, osn: %lu, rsn: %lu\n",
+	"ERROR DoMaster: state error, other green, osn: %lu, rsn: %lu\n",
 			other_seq_no,r_status.remote_seq_no);
 		fflush(stderr);
 		WooFDrop(l_state_w);
@@ -259,13 +283,18 @@ void DoMaster(STATE *state)
 			client_color = 'G';
 		} else {
 			fprintf(stderr,
-			"DoMaster: pp test to client failed internally\n");
+		"ERROR DoMaster: pp test to client failed internally\n");
 			fflush(stderr);
 			WooFDrop(l_state_w);
 			WooFDrop(l_status_w);
 			return;
 		}
 
+#ifdef DEBUG
+		fprintf(stdout,
+"DoMaster: client is %s\n",client_color);
+		fflush(stdout);
+#endif
 		new_state.other_color = other_color;
 		new_state.client_color = client_color;
 		if(client_color == 'G') {
@@ -276,26 +305,51 @@ void DoMaster(STATE *state)
 				new_state.my_state = 'M';
 				new_state.other_color = 'R';
 				other_color = 'R';
+#ifdef DEBUG
+				fprintf(stdout,
+"DoMaster: up to date, other side goes red on state fetch\n");
+				fflush(stdout);
+#endif
 			} else if(r_state.my_state == 'S') {
 				/* other side is up and a slave */
 				new_state.my_state = 'M';
+#ifdef DEBUG
+				fprintf(stdout,
+"DoMaster: up to date, other side is green and slave, I'm going master\n");
+				fflush(stdout);
+#endif
 			} else if((r_state.my_state == 'M') &&
 			  (strcmp(state->my_ip,r_state.my_ip) < 0)) {
 				/* we are both masters, break tie with ip */
 				new_state.my_state = 'M';
+#ifdef DEBUG
+				fprintf(stdout,
+"DoMaster: up to date, other is green and master, I break tie, going master\n");
+				fflush(stdout);
+#endif
 			} else if((r_state.my_state != 'M') &&
 				  (r_state.my_state != 'S')) {
 					fprintf(stderr,
-				"DoMaster: bad remote state %c\n",
+				"ERROR DoMaster: bad remote state %c\n",
 					r_state.my_state);
 					fflush(stderr);
 				new_state.my_state = 'M';
 				new_state.other_color = 'R';
 				other_color = 'R';
 			} else {
+#ifdef DEBUG
+				fprintf(stdout,
+"DoMaster: up to date, other side is green and master and smaller, going slave\n");
+				fflush(stdout);
+#endif
 				new_state.my_state = 'S';
 			}
 		} else /* client is red */ {
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: client is red, goiung slave\n");
+			fflush(stdout);
+#endif
 			new_state.my_state = 'S';
 		}
 
@@ -321,7 +375,8 @@ void DoMaster(STATE *state)
 		/* update the other side */
 		r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
 		if(WooFInvalid(r_seq_no)) {
-			fprintf(stderr,"DoMaster: bad status put\n");
+			fprintf(stderr,
+			  "ERROR DoMaster: bad status put\n");
 			new_state.other_color = 'R';
 			new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
 		}
