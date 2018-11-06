@@ -29,7 +29,7 @@ HAND1=MSPulseHandler
 
 CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/ -L/usr/lib64/atlas
 
-all: master-slave-init
+all: master-slave-init ${HAND1}
 
 master-slave-init: master-slave-init.c master-slave.h
 	${CC} ${CFLAGS} -o master-slave-init master-slave-init.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}

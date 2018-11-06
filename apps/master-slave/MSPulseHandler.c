@@ -106,7 +106,7 @@ int PingPongTest(STATE *state, char target)
 			err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
 			if(err < 0) {
 				sleep(PPSLEEP);
-				retry_count+;
+				retry_count++;
 				break;
 			}
 		}
@@ -122,7 +122,7 @@ int PingPongTest(STATE *state, char target)
 	} else {
 		fprintf(stderr,
 			"PingPongTest: pingpong to %s failed after retries\n",
-				r_pp_name);
+				r_pp_woof);
 			fflush(stderr);
 		return(0);
 	}
@@ -280,7 +280,7 @@ void DoClient(STATE *state)
 		fflush(stdout);
 	}
 	if(m2_status_ok == 1) {
-		PrintStatus(&m2_status);
+		PrintStatus(m2_status_woof,&m2_status);
 	} else {
 		printf("DoClient: no status for %s\n",m2_status_woof);
 		fflush(stdout);
@@ -354,7 +354,7 @@ void DoMaster(STATE *state)
 
 	/* read the last status the remote side wrote to us */
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
-	err = WooFRead(l_status_w,&r_status,last_r_seqno);
+	err = WooFRead(l_status_w,&r_status,last_r_seq_no);
 	if(err < 0) {
 		fprintf(stderr,
 			"ERROR DoMaster: couldn't read latest from %s\n",
@@ -392,14 +392,14 @@ void DoMaster(STATE *state)
 		} else {
 			new_state.other_color = other_color;
 			if(r_state.my_state == 'M') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoMaster: I'm out of date and other side is master, I'm going slave\n");
 				fflush(stdout);
 #endif
 				new_state.my_state = 'S';
 			} else if(r_state.my_state == 'S') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoMaster: I'm out of date and other side is slave, I'm going master\n");
 				fflush(stdout);
@@ -606,7 +606,7 @@ void DoSlave(STATE *state)
 
 	/* read the last status the remote side wrote to us */
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
-	err = WooFRead(l_status_w,&r_status,last_r_seqno);
+	err = WooFRead(l_status_w,&r_status,last_r_seq_no);
 	if(err < 0) {
 		fprintf(stderr,
 			"ERROR DoSlave: couldn't read latest from %s\n",
@@ -644,14 +644,14 @@ void DoSlave(STATE *state)
 		} else {
 			new_state.other_color = other_color;
 			if(r_state.my_state == 'M') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoSlave: I'm out of date and other side is master, I'm going slave\n");
 				fflush(stdout);
 #endif
 				new_state.my_state = 'S';
 			} else if(r_state.my_state == 'S') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoSlave: I'm out of date and other side is slave, I'm going master\n");
 				fflush(stdout);
@@ -766,7 +766,7 @@ void DoMaster(STATE *state)
 
 	/* read the last status the remote side wrote to us */
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
-	err = WooFRead(l_status_w,&r_status,last_r_seqno);
+	err = WooFRead(l_status_w,&r_status,last_r_seq_no);
 	if(err < 0) {
 		fprintf(stderr,
 			"ERROR DoMaster: couldn't read latest from %s\n",
@@ -804,14 +804,14 @@ void DoMaster(STATE *state)
 		} else {
 			new_state.other_color = other_color;
 			if(r_state.my_state == 'M') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoMaster: I'm out of date and other side is master, I'm going slave\n");
 				fflush(stdout);
 #endif
 				new_state.my_state = 'S';
 			} else if(r_state.my_state == 'S') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoMaster: I'm out of date and other side is slave, I'm going master\n");
 				fflush(stdout);
@@ -1018,7 +1018,7 @@ void DoSlave(STATE *state)
 
 	/* read the last status the remote side wrote to us */
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
-	err = WooFRead(l_status_w,&r_status,last_r_seqno);
+	err = WooFRead(l_status_w,&r_status,last_r_seq_no);
 	if(err < 0) {
 		fprintf(stderr,
 			"ERROR DoSlave: couldn't read latest from %s\n",
@@ -1056,14 +1056,14 @@ void DoSlave(STATE *state)
 		} else {
 			new_state.other_color = other_color;
 			if(r_state.my_state == 'M') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoSlave: I'm out of date and other side is master, I'm going slave\n");
 				fflush(stdout);
 #endif
 				new_state.my_state = 'S';
 			} else if(r_state.my_state == 'S') {
-#idef DEBUG
+#ifdef DEBUG
 				fprintf(stdout,
 "DoSlave: I'm out of date and other side is slave, I'm going master\n");
 				fflush(stdout);
