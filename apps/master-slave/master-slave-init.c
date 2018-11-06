@@ -164,8 +164,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	/*
-	 * start status out with local information about remote side */
+	/* start status out with local information about remote side */
 	if(strcmp(start_state,"master") == 0) {
 		status.local = 'M'; /* from perspective of other side */
 		status.remote = 'S';
@@ -199,7 +198,10 @@ int main(int argc, char **argv)
 		strncpy(state.other_ip,master_ip,sizeof(state.my_ip));
 		state.other_state = 'M';
 	} else {
-		strncpy(state.my_ip,client_ip,sizeof(state.my_ip));
+		/* use master as "my" for client */
+		strncpy(state.client_ip,client_ip,sizeof(state.client_ip));
+		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
+		strncpy(state.other_ip,slave_ip,sizeof(state.my_ip));
 		state.my_state = 'C';
 	}
 	strncpy(state.client_ip,client_ip,sizeof(state.client_ip));
