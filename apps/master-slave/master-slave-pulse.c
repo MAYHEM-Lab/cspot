@@ -8,7 +8,7 @@
 #include "master-slave.h"
 
 #define ARGS "W:"
-char *Usage = "master-slave-pulse -W woof_name\n"l
+char *Usage = "master-slave-pulse -W woof_name\n";
 
 char Wname[4096];
 char NameSpace[4096];
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 	}
 
 	pseq_no = WooFGetLatestSeqno(wname);
-	if(WooFInvalid(pseq_no) {
+	if(WooFInvalid(pseq_no)) {
 		fprintf(stderr,"master-slave-pulse: couldn't get seqno from %s\n",
 			wname);
 		fflush(stderr);
