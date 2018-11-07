@@ -1,6 +1,15 @@
 #ifndef MASTER_SLAVE_H
 #define MASTER_SLAVE_H
 
+struct pulse_stc
+{
+	char wname[4096];
+	struct timeval tm;
+	unsigned long last_seq_no;
+};
+
+typedef struct pulse_stc PULSE;
+
 #define IPSTRLEN (15)
 
 struct state_stc
