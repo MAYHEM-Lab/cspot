@@ -279,6 +279,7 @@ void LogPrint(FILE *fd, LOG *log)
 {
 	unsigned long curr;
 	EVENT *ev_array;
+	char type[32];
 
 	//	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
 	ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
@@ -289,15 +290,17 @@ void LogPrint(FILE *fd, LOG *log)
 	fprintf(fd, "log tail: %lu\n", log->tail);
 
 	curr = log->head;
+
 	while (curr != log->tail)
 	{
 		fprintf(fd,
-				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
+				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu type: %u\n",
 				curr,
 				ev_array[curr].host,
 				ev_array[curr].seq_no,
 				ev_array[curr].cause_host,
-				ev_array[curr].cause_seq_no);
+				ev_array[curr].cause_seq_no,
+				ev_array[curr].type);
 		fflush(fd);
 		curr = curr - 1;
 		if (curr >= log->size)
