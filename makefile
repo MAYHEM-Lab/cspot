@@ -34,6 +34,9 @@ log-test: ${LOBJ} ${LINCS} log-test.c ${SLIB}
 log-test-thread: ${LOBJ} ${LINCS} log-test-thread.c ${SLIB}
 	${CC} ${CFLAGS} -o log-test-thread log-test-thread.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
 
+log-dump: ${LOBJ} ${LINCS} log-dump.c ${SLIB}
+	${CC} ${CFLAGS} -o log-dump log-dump.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
+
 log.o: log.c log.h host.h event.h
 	${CC} ${CFLAGS} -c log.c
 
