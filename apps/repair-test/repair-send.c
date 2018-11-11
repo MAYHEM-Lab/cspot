@@ -61,12 +61,19 @@ int main(int argc, char **argv)
 		ndx = WooFPut(Wname, NULL, (void *)&el);
 	}
 
-	if (WooFInvalid(err))
+	if (WooFInvalid(ndx))
 	{
-		fprintf(stderr, "first WooFPut failed for %s\n", Wname);
+		fprintf(stderr, "WooFPut failed for %s\n", Wname);
 		fflush(stderr);
 		exit(1);
 	}
 
+	err = WooFGet(Wname, &el, ndx);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFGet failed for %s\n", Wname);
+		fflush(stderr);
+		exit(1);
+	}
 	return (0);
 }

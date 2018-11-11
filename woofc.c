@@ -482,7 +482,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	}
 	else
 	{
-		ev = EventCreate(PUT, Name_id);
+		ev = EventCreate(APPEND, Name_id);
 	}
 	if (ev == NULL)
 	{
@@ -1203,6 +1203,9 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	unsigned long last_valid;
 	unsigned long ndx;
 	ELID *el_id;
+	char log_name[4096];
+	EVENT *ev;
+	unsigned long ls;
 
 	wfs = wf->shared;
 
@@ -1274,6 +1277,80 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 #endif
 	memcpy(element, ptr, wfs->element_size);
 	V(&wfs->mutex);
+
+	ev = EventCreate(READ, Name_id);
+	/* TODO: consider remote get situation here */
+	EventSetCause(ev, Name_id, 1);
+
+	memset(ev->namespace, 0, sizeof(ev->namespace));
+	strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+#ifdef DEBUG
+	printf("WooFRead: namespace: %s\n", ev->namespace);
+	fflush(stdout);
+#endif
+
+	ev->woofc_ndx = ndx;
+#ifdef DEBUG
+	printf("WooFRead: ndx: %lu\n", ev->woofc_ndx);
+	fflush(stdout);
+#endif
+	ev->woofc_seq_no = seq_no;
+#ifdef DEBUG
+	printf("WooFRead: seq_no: %lu\n", ev->woofc_seq_no);
+	fflush(stdout);
+#endif
+	ev->woofc_element_size = wfs->element_size;
+#ifdef DEBUG
+	printf("WooFRead: element_size %lu\n", ev->woofc_element_size);
+	fflush(stdout);
+#endif
+	ev->woofc_history_size = wfs->history_size;
+#ifdef DEBUG
+	printf("WooFRead: history_size %lu\n", ev->woofc_history_size);
+	fflush(stdout);
+#endif
+	memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
+	strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
+#ifdef DEBUG
+	printf("WooFRead: name %s\n", ev->woofc_name);
+	fflush(stdout);
+#endif
+
+	ev->ino = wf->ino;
+#ifdef DEBUG
+	printf("WooFRead: ino %lu\n", ev->ino);
+	fflush(stdout);
+#endif
+
+	/*
+	 * log the event so that it can be triggered
+	 */
+	memset(log_name, 0, sizeof(log_name));
+	sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
+#ifdef DEBUG
+	printf("WooFRead: logging event to %s\n", log_name);
+	fflush(stdout);
+#endif
+
+	ls = LogEvent(Name_log, ev);
+	if (ls == 0)
+	{
+		fprintf(stderr, "WooFRead: couldn't log event to log %s\n",
+				log_name);
+		fflush(stderr);
+		EventFree(ev);
+	}
+
+#ifdef DEBUG
+	printf("WooFRead: logged %lu for woof %s %s\n",
+		   ls,
+		   ev->woofc_name,
+		   ev->woofc_handler);
+	fflush(stdout);
+#endif
+
+	EventFree(ev);
+
 	return (1);
 }
 
