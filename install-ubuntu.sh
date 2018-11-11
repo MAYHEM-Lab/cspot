@@ -17,7 +17,13 @@ if [[ -z $USER ]]; then
 fi
 
 HERE=`pwd`
-apt install docker gfortran
+apt-get install -y apt-transport-https
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+apt-get -y update
+apt-cache policy docker-ce
+
+apt install -y docker-ce gfortran
 cd ..
 git clone https://github.com/richwolski/euca-cutils.git
 git clone https://$USER@github.com/MAYHEM-Lab/mio.git

@@ -8,7 +8,7 @@
 #include "master-slave.h"
 
 #define ARGS "W:"
-char *Usage = "master-slave-pulse -W woof_name\n"l
+char *Usage = "master-slave-pulse -W woof_name\n";
 
 char Wname[4096];
 char NameSpace[4096];
@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 	int err;
 	int uselocal;
 	char wname[4096];
-	char pname[4096];
+	char pulse_woof[4096];
 	unsigned long pseq_no;
 	unsigned long seq_no;
 	PULSE pstc;
@@ -37,7 +37,6 @@ int main(int argc, char **argv)
 		switch(c) {
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
-				break;
 				break;
 			default:
 				fprintf(stderr,
@@ -63,10 +62,10 @@ int main(int argc, char **argv)
 		WooFInit();
 	}
 
-	MAKE_EXTENDED_NAME(ptime,wname,"pulse");
+	MAKE_EXTENDED_NAME(pulse_woof,wname,"pulse");
 
 	pseq_no = WooFGetLatestSeqno(wname);
-	if(WooFInvalid(pseq_no) {
+	if(WooFInvalid(pseq_no)) {
 		fprintf(stderr,"master-slave-pulse: couldn't get seqno from %s\n",
 			wname);
 		fflush(stderr);
@@ -77,12 +76,12 @@ int main(int argc, char **argv)
 	strncpy(pstc.wname,wname,sizeof(pstc.wname));
 	gettimeofday(&pstc.tm,NULL);
 	pstc.last_seq_no = pseq_no;
-	seq_no = WooFPut(wname,"MSPulseHandler",&pstc);
+	seq_no = WooFPut(pulse_woof,"MSPulseHandler",&pstc);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"master-slave-pulse: couldn't put %lu from %s\n",
 			pseq_no,
-			pname);
+			pulse_woof);
 		fflush(stderr);
 		exit(1);
 	}
