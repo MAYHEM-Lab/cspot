@@ -70,6 +70,7 @@ int WooFContainerInit()
 	char putbuf[25];
 	pthread_t tid;
 	char *str;
+	char *ptr;
 	MIO *lmio;
 	unsigned long name_id;
 	int i;
@@ -164,7 +165,7 @@ int WooFContainerInit()
 		fprintf(stderr, "WooFContainerInit: couldn't find name id\n");
 		exit(1);
 	}
-	name_id = (unsigned long)atol(str);
+	name_id = (unsigned long)strtoul(str, &ptr, 10);
 
 	str = getenv("WOOF_NAMELOG_NAME");
 	if (str == NULL)
