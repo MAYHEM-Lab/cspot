@@ -276,7 +276,11 @@ WOOF *WooFOpen(char *name)
 		strncat(local_name,name,sizeof(local_name));
 	}
 #ifdef DEBUG
-	printf("WooFOpen: trying to open %s\n",local_name);
+	printf("WooFOpen: trying to open %s from fname %s, %s with dir %s\n",
+		local_name,
+		fname,
+		name,
+		WooF_dir);
 	fflush(stdout);
 #endif
 
