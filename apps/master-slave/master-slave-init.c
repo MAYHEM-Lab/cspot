@@ -23,7 +23,7 @@ char putbuf2[4096];
 
 #define MAX_RETRIES 20
 
-extern char *WooF_dir;
+extern char WooF_dir[2048];
 
 int main(int argc, char **argv)
 {
