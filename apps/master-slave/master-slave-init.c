@@ -23,6 +23,8 @@ char putbuf2[4096];
 
 #define MAX_RETRIES 20
 
+extern char *WooF_dir;
+
 int main(int argc, char **argv)
 {
 	int c;
@@ -197,22 +199,28 @@ int main(int argc, char **argv)
 	}
 
 	memset(&state,0,sizeof(state));
+	/*
+	 * make fully qualified woof name
+	 */
 	strncpy(state.wname,wname,sizeof(state.wname));
 	if(status.local == 'M') {
 		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
 		state.my_state = 'M';
 		strncpy(state.other_ip,slave_ip,sizeof(state.my_ip));
 		state.other_state = 'S';
+		sprintf(state.wname,"woof://%s/%s/%s",state.my_ip,WooF_dir,wname);
 	} else if(status.local == 'S') {
 		strncpy(state.my_ip,slave_ip,sizeof(state.my_ip));
 		state.my_state = 'S';
 		strncpy(state.other_ip,master_ip,sizeof(state.my_ip));
 		state.other_state = 'M';
+		sprintf(state.wname,"woof://%s/%s/%s",state.my_ip,WooF_dir,wname);
 	} else {
 		/* use master as "my" for client */
 		strncpy(state.client_ip,client_ip,sizeof(state.client_ip));
 		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
 		strncpy(state.other_ip,slave_ip,sizeof(state.my_ip));
+		sprintf(state.wname,"woof://%s/%s/%s",state.client_ip,WooF_dir,wname);
 		state.my_state = 'C';
 	}
 	strncpy(state.client_ip,client_ip,sizeof(state.client_ip));

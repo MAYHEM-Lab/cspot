@@ -25,7 +25,6 @@ int PingPongTest(STATE *state, char target)
 	int retry_count;
 	int found;
 
-#if 0
 	err = WooFNameFromURI(state->wname,l_name,sizeof(l_name));
 	if(err < 0) {
 		fprintf(stderr,
@@ -34,11 +33,9 @@ int PingPongTest(STATE *state, char target)
 		fflush(stderr);
 		return(-1);
 	}
-#endif
 	/*
 	 * this assumes that the woof name is local and not fully qualified
 	 */
-	memcpy(l_name,state->wname,sizeof(l_name));
 	memset(l_pp.return_woof,0,sizeof(l_pp.return_woof));
 	memset(l_pp_name,0,sizeof(l_pp_name));
 	MAKE_EXTENDED_NAME(l_pp.return_woof,state->wname,"pingpong");
@@ -180,7 +177,6 @@ void DoClient(STATE *state)
 	char m2_status_ok;
 	char wname[256];
 
-#if 0
 	err = WooFNameFromURI(state->wname,wname,sizeof(wname));
 	if(err < 0) {
 		fprintf(stderr,
@@ -189,11 +185,6 @@ void DoClient(STATE *state)
 		fflush(stderr);
 		return;
 	}
-#endif
-	/*
-	 * this assumes that the woof name is local and not fully qualified
-	 */
-	memcpy(wname,state->wname,sizeof(wname));
 	memset(m1_woof,0,sizeof(m1_woof));
 	memset(m2_woof,0,sizeof(m2_woof));
 	/* original master in my_ip */
@@ -322,7 +313,6 @@ void DoMaster(STATE *state)
 	char client_color;
 	int err;
 
-#if 0
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
@@ -330,11 +320,6 @@ void DoMaster(STATE *state)
 			state->wname);
 		return;
 	}
-#endif
-	/*
-	 * this assumes that the state name is local and not fully qualified
-	 */
-	memcpy(l_state_name,state->wname,sizeof(l_state_name));
 	MAKE_EXTENDED_NAME(l_status_name,l_state_name,"status");
 	
 	/* open the woofs */
@@ -582,7 +567,6 @@ void DoSlave(STATE *state)
 	char client_color;
 	int err;
 
-#if 0
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
@@ -590,11 +574,6 @@ void DoSlave(STATE *state)
 			state->wname);
 		return;
 	}
-#endif
-	/*
-	 * this assumes that the woof is local and not fully qualified
-	 */
-	memcpy(l_state_name,state->wname,sizeof(l_state_name));
 	MAKE_EXTENDED_NAME(l_status_name,l_state_name,"status");
 	
 	/* open the woofs */
