@@ -65,6 +65,13 @@ int PingPongTest(STATE *state, char target)
 		return(-1);
 	}
 
+#ifdef DEBUG
+	printf("Pingpong: local: %s, remote: %s\n",
+		l_pp_name,
+		r_pp_woof);
+	fflush(stdout);
+#endif
+
 	/* open the local pinpong woof */
 	l_pp_w = WooFOpen(l_pp_name);
 	if(l_pp_w == NULL) {
@@ -77,6 +84,10 @@ int PingPongTest(STATE *state, char target)
 
 	/* write current seq_no into record */
 	l_pp.seq_no = WooFLatestSeqno(l_pp_w);
+#ifdef DEBUG
+	printf("PingPong: local seq_no: %lu\n",l_pp.seq_no);
+	fflush(stdout);
+#endif
 
 	/* put it and expect a return */
 	p_seq_no = WooFPut(r_pp_woof,"MSPingPongHandler",(void *)&l_pp);
@@ -88,6 +99,11 @@ int PingPongTest(STATE *state, char target)
 		WooFDrop(l_pp_w);
 		return(0);
 	}
+
+#ifdef DEBUG
+	printf("PingPong: put ping to %s\n",r_pp_woof);
+	fflush(stdout);
+#endif
 
 	/* wait one sec for other side to reply */
 	sleep(1);
@@ -104,6 +120,12 @@ int PingPongTest(STATE *state, char target)
 		curr_seq_no = l_pp.seq_no;
 		err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
 		if(err < 0) {
+#ifdef DEBUG
+			printf("PingPong: read failed, retrying %d of %d\n",
+				retry_count,
+				PPRETRIES);
+			fflush(stdout);
+#endif
 			sleep(PPSLEEP);
 			retry_count++;
 			continue;
@@ -113,12 +135,25 @@ int PingPongTest(STATE *state, char target)
 		 */
 		if(g_pp.seq_no == l_pp.seq_no) {
 			found = 1;
+#ifdef DEBUG
+			printf("PingPong: other side replied with %lu\n",
+				g_pp.seq_no);
+			fflush(stdout);
+#endif
 			break;
 		}
 		while(g_pp.seq_no != l_pp.seq_no) {
 			curr_seq_no++;
 			err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
 			if(err < 0) {
+#ifdef DEBUG
+				printf("PingPong: return %lu != latest %lu, retrying %d of %d\n",
+					g_pp.seq_no,
+					l_pp.seq_no,
+					retry_count,
+					PPRETRIES);
+				fflush(stdout);
+#endif
 				sleep(PPSLEEP);
 				retry_count++;
 				break;
@@ -126,6 +161,11 @@ int PingPongTest(STATE *state, char target)
 		}
 		if(g_pp.seq_no == l_pp.seq_no) {
 			found = 1;
+#ifdef DEBUG
+			printf("PingPong: other side replied after retry with %lu\n",
+				g_pp.seq_no);
+			fflush(stdout);
+#endif
 			break;
 		}
 	}
