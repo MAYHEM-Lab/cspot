@@ -24,6 +24,7 @@ int PingPongTest(STATE *state, char target)
 	unsigned long curr_seq_no;
 	int retry_count;
 	int found;
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,l_name,sizeof(l_name));
 	if(err < 0) {
@@ -34,19 +35,29 @@ int PingPongTest(STATE *state, char target)
 		return(-1);
 	}
 	/*
-	 * this assumes that the woof name is local and not fully qualified
+	 * assume namespace of remote woof is the same
 	 */
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+			"PingPongTest: couldn't extract namespace from %s\n",
+				state->wname);
+		fflush(stderr);
+		return(-1);
+	}
+
+
 	memset(l_pp.return_woof,0,sizeof(l_pp.return_woof));
 	memset(l_pp_name,0,sizeof(l_pp_name));
 	MAKE_EXTENDED_NAME(l_pp.return_woof,state->wname,"pingpong");
 	MAKE_EXTENDED_NAME(l_pp_name,l_name,"pingpong");
 
-	/* make remore pingpong woof name */
+	/* make remote pingpong woof name */
 	memset(r_pp_woof,0,sizeof(r_pp_woof));
 	if(target == 'O') {
-		sprintf(r_pp_woof,"woof://%s/%s",state->other_ip,l_pp_name);
+		sprintf(r_pp_woof,"woof://%s/%s/%s",state->other_ip,namespace,l_pp_name);
 	} else if(target == 'C') {
-		sprintf(r_pp_woof,"woof://%s/%s",state->client_ip,l_pp_name);
+		sprintf(r_pp_woof,"woof://%s/%s/%s",state->client_ip,namespace,l_pp_name);
 	} else {
 		fprintf(stderr,
 			"PingPongTest: unrecognized target %s\n",target);
@@ -176,6 +187,7 @@ void DoClient(STATE *state)
 	char m2_state_ok;
 	char m2_status_ok;
 	char wname[256];
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,wname,sizeof(wname));
 	if(err < 0) {
@@ -185,12 +197,20 @@ void DoClient(STATE *state)
 		fflush(stderr);
 		return;
 	}
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+			"ERROR DoClient: couldn't get woof namespace from %s\n",
+				state->wname);
+		fflush(stderr);
+		return;
+	}
 	memset(m1_woof,0,sizeof(m1_woof));
 	memset(m2_woof,0,sizeof(m2_woof));
 	/* original master in my_ip */
-	sprintf(m1_woof,"woof://%s/%s",state->my_ip,wname);
+	sprintf(m1_woof,"woof://%s/%s/%s",state->my_ip,namespace,wname);
 	MAKE_EXTENDED_NAME(m1_status_woof,m1_woof,"status");
-	sprintf(m2_woof,"woof://%s/%s",state->other_ip,wname);
+	sprintf(m2_woof,"woof://%s/%s/%s",state->other_ip,namespace,wname);
 	MAKE_EXTENDED_NAME(m2_status_woof,m2_woof,"status");
 
 	m1_state_ok = 1;
@@ -312,11 +332,19 @@ void DoMaster(STATE *state)
 	char other_color;
 	char client_color;
 	int err;
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR DoMaster: failed to extract state name from %s\n",
+			state->wname);
+		return;
+	}
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+		"ERROR DoMaster: failed to extract state namespace from %s\n",
 			state->wname);
 		return;
 	}
@@ -341,8 +369,9 @@ void DoMaster(STATE *state)
 
 	/* now get current remote state */
 	memset(r_state_woof,0,sizeof(r_state_woof));
-	sprintf(r_state_woof,"woof://%s/%s",
+	sprintf(r_state_woof,"woof://%s/%s/%s",
 		state->other_ip,
+		namespace,
 		l_state_name);
 	other_seq_no = WooFGetLatestSeqno(r_state_woof);
 	if(WooFInvalid(other_seq_no)) {
@@ -527,8 +556,9 @@ void DoMaster(STATE *state)
 
 	/* make remote woof status name */
 	memset(r_status_woof,0,sizeof(r_status_woof));
-	sprintf(r_status_woof,"woof://%s/%s",
+	sprintf(r_status_woof,"woof://%s/%s/%s",
 		new_state.other_ip,
+		namespace,
 		l_status_name);
 
 	/* update the other side */
@@ -566,11 +596,19 @@ void DoSlave(STATE *state)
 	char other_color;
 	char client_color;
 	int err;
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR DoSlave: failed to extract state name from %s\n",
+			state->wname);
+		return;
+	}
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+		"ERROR DoSlave: failed to extract state namespace from %s\n",
 			state->wname);
 		return;
 	}
@@ -595,8 +633,9 @@ void DoSlave(STATE *state)
 
 	/* now get current remote state */
 	memset(r_state_woof,0,sizeof(r_state_woof));
-	sprintf(r_state_woof,"woof://%s/%s",
+	sprintf(r_state_woof,"woof://%s/%s/%s",
 		state->other_ip,
+		namespace,
 		l_state_name);
 	other_seq_no = WooFGetLatestSeqno(r_state_woof);
 	if(WooFInvalid(other_seq_no)) {
@@ -781,8 +820,9 @@ void DoSlave(STATE *state)
 
 	/* make remote woof status name */
 	memset(r_status_woof,0,sizeof(r_status_woof));
-	sprintf(r_status_woof,"woof://%s/%s",
+	sprintf(r_status_woof,"woof://%s/%s/%s",
 		new_state.other_ip,
+		namespace,
 		l_status_name);
 
 	/* update the other side */

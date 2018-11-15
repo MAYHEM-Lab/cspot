@@ -132,7 +132,7 @@ int main(int argc, char **argv)
 
 	memset(ping_woof,0,sizeof(ping_woof));
 	memset(status_woof,0,sizeof(status_woof));
-	MAKE_EXTENDED_NAME(ping_woof,wname,"ping");
+	MAKE_EXTENDED_NAME(ping_woof,wname,"pingpong");
 	MAKE_EXTENDED_NAME(status_woof,wname,"status");
 	MAKE_EXTENDED_NAME(pulse_woof,wname,"pulse");
 
