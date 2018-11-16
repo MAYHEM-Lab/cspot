@@ -147,7 +147,7 @@ int PingPongTest(STATE *state, char target)
 			err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
 			if(err < 0) {
 #ifdef DEBUG
-				printf("PingPong: return %lu != latest %lu, retrying %d of %d\n",
+				printf("PingPong: failed return %lu != latest %lu, retrying %d of %d\n",
 					g_pp.seq_no,
 					l_pp.seq_no,
 					retry_count,
@@ -168,6 +168,12 @@ int PingPongTest(STATE *state, char target)
 #endif
 			break;
 		}
+#ifdef DEBUG
+		printf("PingPong: non match of remote %lu with local %lu\n",
+			g_pp.seq_no,
+			l_pp.seq_no);
+		fflush(stdout);
+#endif
 	}
 
 	WooFDrop(l_pp_w);
