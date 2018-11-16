@@ -178,6 +178,10 @@ int PingPongTest(STATE *state, char target)
 
 	WooFDrop(l_pp_w);
 	if(found == 1) {
+#ifdef DEBUG
+		printf("PingPong: returning 1 on success\n");
+		fflush(stdout);
+#endif
 		return(1);
 	} else {
 		fprintf(stderr,
@@ -511,8 +515,18 @@ void DoMaster(STATE *state)
 	 */
 		err = PingPongTest(state,'C');
 		if(err == 0) {
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: pingpong failed, client red\n");
+			fflush(stdout);
+#endif
 			client_color = 'R';
 		} else if(err == 1) {
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: pingpong success, client green\n");
+			fflush(stdout);
+#endif
 			client_color = 'G';
 		} else {
 			fprintf(stderr,
