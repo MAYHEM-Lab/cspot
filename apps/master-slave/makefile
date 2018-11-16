@@ -30,7 +30,7 @@ HAND2=MSPingPongHandler
 
 CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/ -L/usr/lib64/atlas
 
-all: master-slave-init master-slave-pulse ${HAND1}
+all: master-slave-init master-slave-pulse ${HAND1} ${HAND2}
 
 master-slave-init: master-slave-init.c master-slave.h
 	${CC} ${CFLAGS} -o master-slave-init master-slave-init.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
