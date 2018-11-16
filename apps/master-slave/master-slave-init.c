@@ -38,6 +38,7 @@ int main(int argc, char **argv)
 	char client_ip[IPSTRLEN+1];
 	STATE state;
 	STATUS status;
+	PINGPONG pp;
 	char start_state[255];
 	unsigned long seq_no;
 
@@ -231,6 +232,16 @@ int main(int argc, char **argv)
 	seq_no = WooFPut(wname,NULL,(void *)&state);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"state put failed to %s\n",wname);
+		fflush(stderr);
+	}
+
+	/*
+	 * prime the local ping pong pump
+	 */
+	pp.seq_no = 1;
+	seq_no = WooFPut(ping_woof,NULL,&pp);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"state put failed to %s\n",ping_woof);
 		fflush(stderr);
 	}
 		
