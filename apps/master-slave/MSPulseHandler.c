@@ -539,12 +539,13 @@ void DoMaster(STATE *state)
 
 #ifdef DEBUG
 		fprintf(stdout,
-"DoMaster: client is %s\n",client_color);
+"DoMaster: client is %c\n",client_color);
 		fflush(stdout);
 #endif
 		new_state.other_color = other_color;
 		new_state.client_color = client_color;
-		if(client_color == 'G') {
+		if((client_color == 'G') &&
+		   (other_color == 'G')) {
 			/* get current state of other side */
 			r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
 			if(WooFInvalid(r_seq_no)) {
@@ -554,7 +555,7 @@ void DoMaster(STATE *state)
 				other_color = 'R';
 #ifdef DEBUG
 				fprintf(stdout,
-"DoMaster: up to date, other side goes red on state fetch\n");
+"DoMaster: up to date, other side is red on state fetch\n");
 				fflush(stdout);
 #endif
 			} else if(r_state.my_state == 'S') {
@@ -591,13 +592,24 @@ void DoMaster(STATE *state)
 #endif
 				new_state.my_state = 'S';
 			}
-		} else /* client is red */ {
+		} else /* client is red || other is red */ {
+			if(client_color == 'R') {
 #ifdef DEBUG
-			fprintf(stdout,
-"DoMaster: client is red, goiung slave\n");
-			fflush(stdout);
+				fprintf(stdout,
+"DoMaster: client is red, going slave\n");
+				fflush(stdout);
 #endif
-			new_state.my_state = 'S';
+				new_state.my_state = 'S';
+			} else {
+				new_state.my_state = 'M';
+#ifdef DEBUG
+				fprintf(stdout,
+"DoMaster: client is green, master staying %c\n",new_state.my_state);
+		
+				fflush(stdout);
+#endif
+			}
+
 		}
 	}
 
@@ -622,12 +634,21 @@ void DoMaster(STATE *state)
 		l_status_name);
 
 	/* update the other side */
-	r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
-	if(WooFInvalid(r_seq_no)) {
-		fprintf(stderr,
-		  "ERROR DoMaster: bad status put\n");
-		new_state.other_color = 'R';
-		new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+	if(other_color == 'G') {
+		r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
+		if(WooFInvalid(r_seq_no)) {
+			fprintf(stderr,
+			  "ERROR DoMaster: bad status put to green other side\n");
+			new_state.other_color = 'R';
+			new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+		} else {
+			new_state.other_color = 'G';
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: successful put of status to other side\b");
+			fflush(stdout);
+#endif
+		}
 	}
 
 			
@@ -803,12 +824,13 @@ void DoSlave(STATE *state)
 
 #ifdef DEBUG
 		fprintf(stdout,
-"DoSlave: client is %s\n",client_color);
+"DoSlave: client is %c\n",client_color);
 		fflush(stdout);
 #endif
 		new_state.other_color = other_color;
 		new_state.client_color = client_color;
-		if(client_color == 'G') {
+		if((client_color == 'G') &&
+		   (other_color == 'G')) {
 			/* get current state of other side */
 			r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
 			if(WooFInvalid(r_seq_no)) {
@@ -855,13 +877,23 @@ void DoSlave(STATE *state)
 #endif
 				new_state.my_state = 'S';
 			}
-		} else /* client is red */ {
+		} else /* client is red || other is red */ {
+			if(client_color == 'R') {
 #ifdef DEBUG
-			fprintf(stdout,
+				fprintf(stdout,
 "DoSlave: client is red, going slave\n");
-			fflush(stdout);
+				fflush(stdout);
 #endif
-			new_state.my_state = 'S';
+				new_state.my_state = 'S';
+			} else {
+#ifdef DEBUG
+				fprintf(stdout,
+"DoSlave: client is green but other is red, going master\n");
+				fflush(stdout);
+#endif
+				new_state.my_state = 'M';
+				new_state.other_color = 'R';
+			}
 		}
 	}
 
@@ -886,12 +918,14 @@ void DoSlave(STATE *state)
 		l_status_name);
 
 	/* update the other side */
-	r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
-	if(WooFInvalid(r_seq_no)) {
-		fprintf(stderr,
-		  "ERROR DoSlave: bad status put\n");
-		new_state.other_color = 'R';
-		new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+	if(new_state.other_color == 'G') {
+		r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
+		if(WooFInvalid(r_seq_no)) {
+			fprintf(stderr,
+			  "ERROR DoSlave: bad status when other side green put\n");
+			new_state.other_color = 'R';
+			new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+		}
 	}
 			
 	WooFDrop(l_state_w);
