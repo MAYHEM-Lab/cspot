@@ -20,6 +20,7 @@
 #include "woofc-access.h"
 
 extern char Host_ip[25];
+extern unsigned long Name_id;
 
 WOOF_CACHE *WooF_cache;
 
@@ -472,6 +473,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
+	char *ptr;
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -481,6 +483,8 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	unsigned long seq_no;
 	char buffer[255];
 	int err;
+	unsigned long cause_host;
+	unsigned long cause_seq_no;
 
 #ifdef DEBUG
 	printf("WooProcessPut: called\n");
@@ -543,8 +547,48 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	printf("WooFProcessPut: received handler name %s\n", hand_name);
 	fflush(stdout);
 #endif
+
 	/*
-	 * raw data in the third frame
+	 * cause_host in the third frame
+	 */
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessPut: couldn't find cause_host in msg");
+		return;
+	}
+	copy_size = zframe_size(frame);
+	memset(buffer, 0, sizeof(buffer));
+	memcpy(buffer, zframe_data(frame), copy_size);
+	cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
+
+#ifdef DEBUG
+	printf("WooFProcessPut: received cause_host %lu\n", cause_host);
+	fflush(stdout);
+#endif
+
+	/*
+	 * cause_seq_no in the fourth frame
+	 */
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	if (frame == NULL)
+	{
+		perror("WooFProcessPut: couldn't find cause_seq_no in msg");
+		return;
+	}
+	copy_size = zframe_size(frame);
+	memset(buffer, 0, sizeof(buffer));
+	memcpy(buffer, zframe_data(frame), copy_size);
+	cause_seq_no = (unsigned long)strtoul(buffer, &ptr, 10);
+
+#ifdef DEBUG
+	printf("WooFProcessPut: received cause_seq_no %lu\n", cause_seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * raw data in the fifth frame
 	 *
 	 * need a maximum size but for now see if we can malloc() the space
 	 */
@@ -588,11 +632,11 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		 */
 		if (hand_name[0] != 0)
 		{
-			seq_no = WooFPut(local_name, hand_name, element);
+			seq_no = WooFPutWithCause(local_name, hand_name, element, cause_host, cause_seq_no);
 		}
 		else
 		{
-			seq_no = WooFPut(local_name, NULL, element);
+			seq_no = WooFPutWithCause(local_name, NULL, element, cause_host, cause_seq_no);
 		}
 
 		free(element);
@@ -1240,6 +1284,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
+	char *ptr;
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -1251,6 +1296,8 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	char buffer[255];
 	int err;
 	WOOF *wf;
+	unsigned long cause_host;
+	unsigned long cause_seq_no;
 
 #ifdef DEBUG
 	printf("WooFProcessGet: called\n");
@@ -1297,11 +1344,46 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = atol((char *)zframe_data(frame));
+		seq_no = strtoul((char *)zframe_data(frame), &ptr, 10);
 #ifdef DEBUG
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
 #endif
+
+		/*
+	 	 * cause_host in the third frame
+	 	 */
+		frame = zmsg_next(req_msg);
+		if (frame == NULL)
+		{
+			perror("WooFProcessGet: couldn't find cause_host in msg");
+			return;
+		}
+		copy_size = zframe_size(frame);
+		memset(buffer, 0, sizeof(buffer));
+		memcpy(buffer, zframe_data(frame), copy_size);
+		cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
+
+#ifdef DEBUG
+		printf("WooFProcessGet: received cause_host %lu\n", cause_host);
+		fflush(stdout);
+#endif
+
+		/*
+		 * cause_seq_no in the fourth frame
+		 */
+		frame = zmsg_next(req_msg);
+		copy_size = zframe_size(frame);
+		if (frame == NULL)
+		{
+			perror("WooFProcessGet: couldn't find cause_seq_no in msg");
+			return;
+		}
+		copy_size = zframe_size(frame);
+		memset(buffer, 0, sizeof(buffer));
+		memcpy(buffer, zframe_data(frame), copy_size);
+		cause_seq_no = (unsigned long)strtoul(buffer, &ptr, 10);
+
 		/*
 		 * FIX ME: for now, all process requests are local
 		 */
@@ -1338,7 +1420,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 			}
 			else
 			{
-				err = WooFRead(wf, element, seq_no);
+				err = WooFReadWithCause(wf, element, seq_no, cause_host, cause_seq_no);
 				if (err < 0)
 				{
 					fprintf(stderr,
@@ -2251,13 +2333,26 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
+	char *ptr;
 	struct timeval tm;
 	unsigned long seq_no;
 	int err;
+	char *namelog_seq_no;
+	unsigned long my_log_seq_no;
 
 	if (el_size == (unsigned long)-1)
 	{
 		return (-1);
+	}
+
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if (namelog_seq_no != NULL)
+	{
+		my_log_seq_no = strtoul(namelog_seq_no, &ptr, 10);
+	}
+	else
+	{
+		my_log_seq_no = 1;
 	}
 
 	memset(namespace, 0, sizeof(namespace));
@@ -2432,6 +2527,84 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		   woof_name, element, el_size);
 	fflush(stdout);
 #endif
+
+	/*
+	 * make a frame for the cause_host
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", Name_id);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s no frame for cause_host to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got frame for cause_host %lu\n", woof_name, Name_id);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_host frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't append cause_host frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s added cause_host to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the cause_seq_no
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", my_log_seq_no);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s no frame for cause_seq_no to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got frame for cause_seq_no %lu\n", woof_name, my_log_seq_no);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_seq_no frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't append cause_seq_no frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s added cause_host to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+ 	* make a frame for the element
+ 	*/
 	frame = zframe_new(element, el_size);
 	if (frame == NULL)
 	{
@@ -2515,8 +2688,21 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
+	char *ptr;
 	struct timeval tm;
 	int err;
+	char *namelog_seq_no;
+	unsigned long my_log_seq_no;
+
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if (namelog_seq_no != NULL)
+	{
+		my_log_seq_no = strtoul(namelog_seq_no, &ptr, 10);
+	}
+	else
+	{
+		my_log_seq_no = 1;
+	}
 
 	memset(namespace, 0, sizeof(namespace));
 	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
@@ -2674,6 +2860,80 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	}
 #ifdef DEBUG
 	printf("WooFMsgGet: woof: %s appended frame for seq_no %lu\n", woof_name, seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the cause_host
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", Name_id);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_host to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s got frame for cause_host %lu\n", woof_name, Name_id);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_host frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't append cause_host frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s added cause_host to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the cause_seq_no
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", my_log_seq_no);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_seq_no to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s got frame for cause_seq_no %lu\n", woof_name, my_log_seq_no);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_seq_no frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't append cause_seq_no frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s added cause_host to frame\n", woof_name);
 	fflush(stdout);
 #endif
 

@@ -489,9 +489,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 		fprintf(stderr, "WooFAppend: couldn't create log event\n");
 		exit(1);
 	}
-	/* TODO: change this to EventSetCause() */
-	ev->cause_host = Name_id;
-	ev->cause_seq_no = my_log_seq_no;
+	EventSetCause(ev, Name_id, my_log_seq_no);
 
 #ifdef DEBUG
 	printf("WooFAppend: checking for empty slot, ino: %lu\n", wf->ino);
@@ -703,6 +701,274 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	return (seq_no);
 }
 
+unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsigned long cause_host, unsigned long long cause_seq_no)
+{
+	MIO *mio;
+	MIO *lmio;
+	WOOF_SHARED *wfs;
+	char woof_name[2048];
+	char log_name[4096];
+	pthread_t tid;
+	unsigned long next;
+	unsigned char *buf;
+	unsigned char *ptr;
+	ELID *el_id;
+	unsigned long seq_no;
+	unsigned long ndx;
+	int err;
+	char launch_string[4096];
+	char *namelog_seq_no;
+	unsigned long my_log_seq_no;
+	EVENT *ev;
+	unsigned long ls;
+#ifdef DEBUG
+	printf("WooFAppendWithCause: called %s %s\n", wf->shared->filename, hand_name);
+	fflush(stdout);
+#endif
+
+	wfs = wf->shared;
+
+	/*
+	 * if called from within a handler, env variable carries cause seq_no
+	 * for logging
+	 *
+	 * when called for first time on namespace to start, should be NULL
+	 */
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if (namelog_seq_no != NULL)
+	{
+		my_log_seq_no = (unsigned long)atol(namelog_seq_no);
+	}
+	else
+	{
+		my_log_seq_no = 1;
+	}
+
+	if (hand_name != NULL)
+	{
+		ev = EventCreate(TRIGGER, Name_id);
+	}
+	else
+	{
+		ev = EventCreate(APPEND, Name_id);
+	}
+	if (ev == NULL)
+	{
+		fprintf(stderr, "WooFAppendWithCause: couldn't create log event\n");
+		exit(1);
+	}
+	EventSetCause(ev, cause_host, cause_seq_no);
+
+#ifdef DEBUG
+	printf("WooFAppendWithCause: checking for empty slot, ino: %lu\n", wf->ino);
+	fflush(stdout);
+#endif
+
+	P(&wfs->tail_wait);
+
+#ifdef DEBUG
+	printf("WooFAppendWithCause: got empty slot\n");
+	fflush(stdout);
+#endif
+
+#ifdef DEBUG
+	printf("WooFAppendWithCause: adding element\n");
+	fflush(stdout);
+#endif
+	/*
+	 * now drop the element in the object
+	 */
+	P(&wfs->mutex);
+#ifdef DEBUG
+	printf("WooFAppendWithCause: in mutex\n");
+	fflush(stdout);
+#endif
+	/*
+	 * find the next spot
+	 */
+	next = (wfs->head + 1) % wfs->history_size;
+	ndx = next;
+
+	/*
+	 * write the data and record the indices
+	 */
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+	ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+
+	/*
+	 * tail is the last valid place where data could go
+	 * check to see if it is allocated to a function that
+	 * has yet to complete
+	 */
+#ifdef DEBUG
+	printf("WooFAppendWithCause: element in\n");
+	fflush(stdout);
+#endif
+
+#if 0
+	while((el_id->busy == 1) && (next == wfs->tail)) {
+#ifdef DEBUG
+	printf("WooFAppend: busy at %lu\n",next);
+	fflush(stdout);
+#endif
+		V(&wfs->mutex);
+		P(&wfs->tail_wait);
+		P(&wfs->mutex);
+		next = (wfs->head + 1) % wfs->history_size;
+		ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
+		el_id = (ELID *)(ptr+wfs->element_size);
+	}
+#endif
+
+	/*
+	 * write the element
+	 */
+#ifdef DEBUG
+	printf("WooFAppendWithCause: writing element 0x%x\n", el_id);
+	fflush(stdout);
+#endif
+	memcpy(ptr, element, wfs->element_size);
+	/*
+	 * and elemant meta data after it
+	 */
+	el_id->seq_no = wfs->seq_no;
+	el_id->busy = 1;
+
+	/*
+	printf("WooFAppendWithCause: about to set head for name %s, head: %lu, next: %lu, size: %lu\n",
+	wfs->filename,wfs->head,next,wfs->history_size);
+	fflush(stdout);
+	*/
+
+	/*
+	 * update circular buffer
+	 */
+	ndx = wfs->head = next;
+	if (next == wfs->tail)
+	{
+		wfs->tail = (wfs->tail + 1) % wfs->history_size;
+	}
+	seq_no = wfs->seq_no;
+	wfs->seq_no++;
+	V(&wfs->mutex);
+#ifdef DEBUG
+	printf("WooFAppendWithCause: out of element mutex\n");
+	fflush(stdout);
+#endif
+
+	memset(ev->namespace, 0, sizeof(ev->namespace));
+	strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+#ifdef DEBUG
+	printf("WooFAppendWithCause: namespace: %s\n", ev->namespace);
+	fflush(stdout);
+#endif
+
+	ev->woofc_ndx = ndx;
+#ifdef DEBUG
+	printf("WooFAppendWithCause: ndx: %lu\n", ev->woofc_ndx);
+	fflush(stdout);
+#endif
+	ev->woofc_seq_no = seq_no;
+#ifdef DEBUG
+	printf("WooFAppendWithCause: seq_no: %lu\n", ev->woofc_seq_no);
+	fflush(stdout);
+#endif
+	ev->woofc_element_size = wfs->element_size;
+#ifdef DEBUG
+	printf("WooFAppendWithCause: element_size %lu\n", ev->woofc_element_size);
+	fflush(stdout);
+#endif
+	ev->woofc_history_size = wfs->history_size;
+#ifdef DEBUG
+	printf("WooFAppendWithCause: history_size %lu\n", ev->woofc_history_size);
+	fflush(stdout);
+#endif
+	memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
+	strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
+#ifdef DEBUG
+	printf("WooFAppendWithCause: name %s\n", ev->woofc_name);
+	fflush(stdout);
+#endif
+
+	if (hand_name != NULL)
+	{
+		memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
+		strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
+#ifdef DEBUG
+		printf("WooFAppendWithCause: handler %s\n", ev->woofc_handler);
+		fflush(stdout);
+#endif
+	}
+
+	ev->ino = wf->ino;
+#ifdef DEBUG
+	printf("WooFAppendWithCause: ino %lu\n", ev->ino);
+	fflush(stdout);
+#endif
+
+	/*
+	 * log the event so that it can be triggered
+	 */
+	memset(log_name, 0, sizeof(log_name));
+	sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
+#ifdef DEBUG
+	printf("WooFAppendWithCause: logging event to %s\n", log_name);
+	fflush(stdout);
+#endif
+
+	ls = LogEvent(Name_log, ev);
+	if (ls == 0)
+	{
+		fprintf(stderr, "WooFAppendWithCause: couldn't log event to log %s\n",
+				log_name);
+		fflush(stderr);
+		EventFree(ev);
+		if (hand_name == NULL)
+		{
+			/*
+			 * mark the woof as done for purposes of sync
+			 */
+#if DONEFLAG
+			wfs->done = 1;
+#endif
+			V(&wfs->tail_wait);
+			return (-1);
+		}
+	}
+
+#ifdef DEBUG
+	printf("WooFAppendWithCause: logged %lu for woof %s %s\n",
+		   ls,
+		   ev->woofc_name,
+		   ev->woofc_handler);
+	fflush(stdout);
+#endif
+
+	EventFree(ev);
+	/*
+	 * if there is no handler, we are done (no need to generate log record)
+	 * However, since there is no handler, woofc-shperherd can't V the counting
+	 * semaphore for the WooF.  Without a handler, the tail is immediately available since
+	 * we don't know whether the WooF will be consumed -- V it in this case
+	 */
+	if (hand_name == NULL)
+	{
+		/*
+			 * mark the woof as done for purposes of sync
+			 */
+#if DONEFLAG
+		wfs->done = 1;
+#endif
+		V(&wfs->tail_wait);
+	}
+	else
+	{
+		V(&Name_log->tail_wait);
+	}
+	return (seq_no);
+}
+
 unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 {
 	WOOF *wf;
@@ -793,6 +1059,101 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 	seq_no = WooFAppend(wf, hand_name, element);
+
+	WooFFree(wf);
+	return (seq_no);
+}
+
+unsigned long WooFPutWithCause(char *wf_name, char *hand_name, void *element, unsigned long cause_host, unsigned long long cause_seq_no)
+{
+	WOOF *wf;
+	unsigned long seq_no;
+	unsigned long el_size;
+	char wf_namespace[2048];
+	char ns_ip[25];
+	char my_ip[25];
+	int err;
+
+#ifdef DEBUG
+	printf("WooFPutWithCause: called %s %s\n", wf_name, hand_name);
+	fflush(stdout);
+#endif
+
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+	/*
+	 * if there is no IP address in the URI, use the local IP address
+	 */
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFPut: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFPutWithCause: no local IP\n");
+		exit(1);
+	}
+
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote put
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * if namespace paths do not match or they do match but the IP addresses do not match, this is
+	 * a remote put
+	 */
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
+		el_size = WooFMsgGetElSize(wf_name);
+		if (el_size != (unsigned long)-1)
+		{
+			seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
+			return (seq_no);
+		}
+		else
+		{
+			fprintf(stderr, "WooFPutWithCause: couldn't get element size for %s\n",
+					wf_name);
+			fflush(stderr);
+			return (-1);
+		}
+	}
+
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFPutWithCause: local namespace put must init system\n");
+		fflush(stderr);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFPutWithCause: namespace: %s,  WooF_dir: %s, name: %s\n",
+		   WooF_namespace, WooF_dir, wf_name);
+	fflush(stdout);
+#endif
+	wf = WooFOpen(wf_name);
+
+	if (wf == NULL)
+	{
+		return (-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFPutWithCause: WooF %s open\n", wf_name);
+	fflush(stdout);
+#endif
+	seq_no = WooFAppendWithCause(wf, hand_name, element, cause_host, cause_seq_no);
 
 	WooFFree(wf);
 	return (seq_no);
@@ -1279,7 +1640,6 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	V(&wfs->mutex);
 
 	ev = EventCreate(READ, Name_id);
-	/* TODO: consider remote get situation here */
 	EventSetCause(ev, Name_id, 1);
 
 	memset(ev->namespace, 0, sizeof(ev->namespace));
@@ -1343,6 +1703,166 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 
 #ifdef DEBUG
 	printf("WooFRead: logged %lu for woof %s %s\n",
+		   ls,
+		   ev->woofc_name,
+		   ev->woofc_handler);
+	fflush(stdout);
+#endif
+
+	EventFree(ev);
+
+	return (1);
+}
+
+int WooFReadWithCause(WOOF *wf, void *element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no)
+{
+	unsigned char *buf;
+	unsigned char *ptr;
+	WOOF_SHARED *wfs;
+	unsigned long oldest;
+	unsigned long youngest;
+	unsigned long last_valid;
+	unsigned long ndx;
+	ELID *el_id;
+	char log_name[4096];
+	EVENT *ev;
+	unsigned long ls;
+
+	wfs = wf->shared;
+
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+
+	P(&wfs->mutex);
+
+	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+	youngest = el_id->seq_no;
+
+	last_valid = wfs->tail;
+	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+	oldest = el_id->seq_no;
+
+	if (oldest == 0)
+	{ /* haven't wrapped yet */
+		last_valid++;
+		ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
+		el_id = (ELID *)(ptr + wfs->element_size);
+		oldest = el_id->seq_no;
+	}
+
+#ifdef DEBUG
+	fprintf(stdout, "WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu\n",
+			wfs->head,
+			wfs->tail,
+			wfs->history_size,
+			last_valid,
+			seq_no,
+			oldest,
+			youngest);
+#endif
+
+	/*
+	 * is the seq_no between head and tail ndx?
+	 */
+	if ((seq_no < oldest) || (seq_no > youngest))
+	{
+		V(&wfs->mutex);
+		fprintf(stdout, "WooFReadWithCause: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
+				seq_no, oldest, youngest);
+		fflush(stdout);
+		return (-1);
+	}
+
+	/*
+	 * yes, compute ndx forward from last_valid ndx
+	 */
+	ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
+#ifdef DEBUG
+	fprintf(stdout, "WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: %lu old: %lu young: %lu ndx: %lu\n",
+			wfs->head,
+			wfs->tail,
+			wfs->history_size,
+			last_valid,
+			seq_no,
+			oldest,
+			youngest,
+			ndx);
+	fflush(stdout);
+#endif
+	ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+#ifdef DEBUG
+	fprintf(stdout, "WooFReadWithCause: seq_no: %lu, found seq_no: %lu\n", seq_no, el_id->seq_no);
+	fflush(stdout);
+#endif
+	memcpy(element, ptr, wfs->element_size);
+	V(&wfs->mutex);
+
+	ev = EventCreate(READ, Name_id);
+	EventSetCause(ev, cause_host, cause_seq_no);
+
+	memset(ev->namespace, 0, sizeof(ev->namespace));
+	strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+#ifdef DEBUG
+	printf("WooFReadWithCause: namespace: %s\n", ev->namespace);
+	fflush(stdout);
+#endif
+
+	ev->woofc_ndx = ndx;
+#ifdef DEBUG
+	printf("WooFReadWithCause: ndx: %lu\n", ev->woofc_ndx);
+	fflush(stdout);
+#endif
+	ev->woofc_seq_no = seq_no;
+#ifdef DEBUG
+	printf("WooFReadWithCause: seq_no: %lu\n", ev->woofc_seq_no);
+	fflush(stdout);
+#endif
+	ev->woofc_element_size = wfs->element_size;
+#ifdef DEBUG
+	printf("WooFReadWithCause: element_size %lu\n", ev->woofc_element_size);
+	fflush(stdout);
+#endif
+	ev->woofc_history_size = wfs->history_size;
+#ifdef DEBUG
+	printf("WooFReadWithCause: history_size %lu\n", ev->woofc_history_size);
+	fflush(stdout);
+#endif
+	memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
+	strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
+#ifdef DEBUG
+	printf("WooFReadWithCause: name %s\n", ev->woofc_name);
+	fflush(stdout);
+#endif
+
+	ev->ino = wf->ino;
+#ifdef DEBUG
+	printf("WooFReadWithCause: ino %lu\n", ev->ino);
+	fflush(stdout);
+#endif
+
+	/*
+	 * log the event so that it can be triggered
+	 */
+	memset(log_name, 0, sizeof(log_name));
+	sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
+#ifdef DEBUG
+	printf("WooFReadWithCause: logging event to %s\n", log_name);
+	fflush(stdout);
+#endif
+
+	ls = LogEvent(Name_log, ev);
+	if (ls == 0)
+	{
+		fprintf(stderr, "WooFReadWithCause: couldn't log event to log %s\n",
+				log_name);
+		fflush(stderr);
+		EventFree(ev);
+	}
+
+#ifdef DEBUG
+	printf("WooFReadWithCause: logged %lu for woof %s %s\n",
 		   ls,
 		   ev->woofc_name,
 		   ev->woofc_handler);
