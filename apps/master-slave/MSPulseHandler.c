@@ -24,6 +24,7 @@ int PingPongTest(STATE *state, char target)
 	unsigned long curr_seq_no;
 	int retry_count;
 	int found;
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,l_name,sizeof(l_name));
 	if(err < 0) {
@@ -33,23 +34,43 @@ int PingPongTest(STATE *state, char target)
 		fflush(stderr);
 		return(-1);
 	}
+	/*
+	 * assume namespace of remote woof is the same
+	 */
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+			"PingPongTest: couldn't extract namespace from %s\n",
+				state->wname);
+		fflush(stderr);
+		return(-1);
+	}
+
+
 	memset(l_pp.return_woof,0,sizeof(l_pp.return_woof));
 	memset(l_pp_name,0,sizeof(l_pp_name));
 	MAKE_EXTENDED_NAME(l_pp.return_woof,state->wname,"pingpong");
 	MAKE_EXTENDED_NAME(l_pp_name,l_name,"pingpong");
 
-	/* make remore pingpong woof name */
+	/* make remote pingpong woof name */
 	memset(r_pp_woof,0,sizeof(r_pp_woof));
 	if(target == 'O') {
-		sprintf(r_pp_woof,"woof://%s/%s",state->other_ip,l_pp_name);
+		sprintf(r_pp_woof,"woof://%s/%s/%s",state->other_ip,namespace,l_pp_name);
 	} else if(target == 'C') {
-		sprintf(r_pp_woof,"woof://%s/%s",state->client_ip,l_pp_name);
+		sprintf(r_pp_woof,"woof://%s/%s/%s",state->client_ip,namespace,l_pp_name);
 	} else {
 		fprintf(stderr,
 			"PingPongTest: unrecognized target %s\n",target);
 		fflush(stderr);
 		return(-1);
 	}
+
+#ifdef DEBUG
+	printf("Pingpong: local: %s, remote: %s\n",
+		l_pp_name,
+		r_pp_woof);
+	fflush(stdout);
+#endif
 
 	/* open the local pinpong woof */
 	l_pp_w = WooFOpen(l_pp_name);
@@ -63,6 +84,10 @@ int PingPongTest(STATE *state, char target)
 
 	/* write current seq_no into record */
 	l_pp.seq_no = WooFLatestSeqno(l_pp_w);
+#ifdef DEBUG
+	printf("PingPong: local seq_no: %lu\n",l_pp.seq_no);
+	fflush(stdout);
+#endif
 
 	/* put it and expect a return */
 	p_seq_no = WooFPut(r_pp_woof,"MSPingPongHandler",(void *)&l_pp);
@@ -74,6 +99,11 @@ int PingPongTest(STATE *state, char target)
 		WooFDrop(l_pp_w);
 		return(0);
 	}
+
+#ifdef DEBUG
+	printf("PingPong: put ping to %s\n",r_pp_woof);
+	fflush(stdout);
+#endif
 
 	/* wait one sec for other side to reply */
 	sleep(1);
@@ -90,6 +120,12 @@ int PingPongTest(STATE *state, char target)
 		curr_seq_no = l_pp.seq_no;
 		err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
 		if(err < 0) {
+#ifdef DEBUG
+			printf("PingPong: read failed, retrying %d of %d\n",
+				retry_count,
+				PPRETRIES);
+			fflush(stdout);
+#endif
 			sleep(PPSLEEP);
 			retry_count++;
 			continue;
@@ -99,12 +135,25 @@ int PingPongTest(STATE *state, char target)
 		 */
 		if(g_pp.seq_no == l_pp.seq_no) {
 			found = 1;
+#ifdef DEBUG
+			printf("PingPong: other side replied with %lu\n",
+				g_pp.seq_no);
+			fflush(stdout);
+#endif
 			break;
 		}
 		while(g_pp.seq_no != l_pp.seq_no) {
 			curr_seq_no++;
 			err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
 			if(err < 0) {
+#ifdef DEBUG
+				printf("PingPong: failed return %lu != latest %lu, retrying %d of %d\n",
+					g_pp.seq_no,
+					l_pp.seq_no,
+					retry_count,
+					PPRETRIES);
+				fflush(stdout);
+#endif
 				sleep(PPSLEEP);
 				retry_count++;
 				break;
@@ -112,12 +161,27 @@ int PingPongTest(STATE *state, char target)
 		}
 		if(g_pp.seq_no == l_pp.seq_no) {
 			found = 1;
+#ifdef DEBUG
+			printf("PingPong: other side replied after retry with %lu\n",
+				g_pp.seq_no);
+			fflush(stdout);
+#endif
 			break;
 		}
+#ifdef DEBUG
+		printf("PingPong: non match of remote %lu with local %lu\n",
+			g_pp.seq_no,
+			l_pp.seq_no);
+		fflush(stdout);
+#endif
 	}
 
 	WooFDrop(l_pp_w);
 	if(found == 1) {
+#ifdef DEBUG
+		printf("PingPong: returning 1 on success\n");
+		fflush(stdout);
+#endif
 		return(1);
 	} else {
 		fprintf(stderr,
@@ -173,6 +237,7 @@ void DoClient(STATE *state)
 	char m2_state_ok;
 	char m2_status_ok;
 	char wname[256];
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,wname,sizeof(wname));
 	if(err < 0) {
@@ -182,12 +247,20 @@ void DoClient(STATE *state)
 		fflush(stderr);
 		return;
 	}
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+			"ERROR DoClient: couldn't get woof namespace from %s\n",
+				state->wname);
+		fflush(stderr);
+		return;
+	}
 	memset(m1_woof,0,sizeof(m1_woof));
 	memset(m2_woof,0,sizeof(m2_woof));
 	/* original master in my_ip */
-	sprintf(m1_woof,"woof://%s/%s",state->my_ip,wname);
+	sprintf(m1_woof,"woof://%s/%s/%s",state->my_ip,namespace,wname);
 	MAKE_EXTENDED_NAME(m1_status_woof,m1_woof,"status");
-	sprintf(m2_woof,"woof://%s/%s",state->other_ip,wname);
+	sprintf(m2_woof,"woof://%s/%s/%s",state->other_ip,namespace,wname);
 	MAKE_EXTENDED_NAME(m2_status_woof,m2_woof,"status");
 
 	m1_state_ok = 1;
@@ -309,11 +382,19 @@ void DoMaster(STATE *state)
 	char other_color;
 	char client_color;
 	int err;
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR DoMaster: failed to extract state name from %s\n",
+			state->wname);
+		return;
+	}
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+		"ERROR DoMaster: failed to extract state namespace from %s\n",
 			state->wname);
 		return;
 	}
@@ -338,8 +419,9 @@ void DoMaster(STATE *state)
 
 	/* now get current remote state */
 	memset(r_state_woof,0,sizeof(r_state_woof));
-	sprintf(r_state_woof,"woof://%s/%s",
+	sprintf(r_state_woof,"woof://%s/%s/%s",
 		state->other_ip,
+		namespace,
 		l_state_name);
 	other_seq_no = WooFGetLatestSeqno(r_state_woof);
 	if(WooFInvalid(other_seq_no)) {
@@ -433,8 +515,18 @@ void DoMaster(STATE *state)
 	 */
 		err = PingPongTest(state,'C');
 		if(err == 0) {
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: pingpong failed, client red\n");
+			fflush(stdout);
+#endif
 			client_color = 'R';
 		} else if(err == 1) {
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: pingpong success, client green\n");
+			fflush(stdout);
+#endif
 			client_color = 'G';
 		} else {
 			fprintf(stderr,
@@ -447,12 +539,13 @@ void DoMaster(STATE *state)
 
 #ifdef DEBUG
 		fprintf(stdout,
-"DoMaster: client is %s\n",client_color);
+"DoMaster: client is %c\n",client_color);
 		fflush(stdout);
 #endif
 		new_state.other_color = other_color;
 		new_state.client_color = client_color;
-		if(client_color == 'G') {
+		if((client_color == 'G') &&
+		   (other_color == 'G')) {
 			/* get current state of other side */
 			r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
 			if(WooFInvalid(r_seq_no)) {
@@ -462,7 +555,7 @@ void DoMaster(STATE *state)
 				other_color = 'R';
 #ifdef DEBUG
 				fprintf(stdout,
-"DoMaster: up to date, other side goes red on state fetch\n");
+"DoMaster: up to date, other side is red on state fetch\n");
 				fflush(stdout);
 #endif
 			} else if(r_state.my_state == 'S') {
@@ -499,13 +592,24 @@ void DoMaster(STATE *state)
 #endif
 				new_state.my_state = 'S';
 			}
-		} else /* client is red */ {
+		} else /* client is red || other is red */ {
+			if(client_color == 'R') {
 #ifdef DEBUG
-			fprintf(stdout,
-"DoMaster: client is red, goiung slave\n");
-			fflush(stdout);
+				fprintf(stdout,
+"DoMaster: client is red, going slave\n");
+				fflush(stdout);
 #endif
-			new_state.my_state = 'S';
+				new_state.my_state = 'S';
+			} else {
+				new_state.my_state = 'M';
+#ifdef DEBUG
+				fprintf(stdout,
+"DoMaster: client is green, master staying %c\n",new_state.my_state);
+		
+				fflush(stdout);
+#endif
+			}
+
 		}
 	}
 
@@ -524,17 +628,27 @@ void DoMaster(STATE *state)
 
 	/* make remote woof status name */
 	memset(r_status_woof,0,sizeof(r_status_woof));
-	sprintf(r_status_woof,"woof://%s/%s",
+	sprintf(r_status_woof,"woof://%s/%s/%s",
 		new_state.other_ip,
+		namespace,
 		l_status_name);
 
 	/* update the other side */
-	r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
-	if(WooFInvalid(r_seq_no)) {
-		fprintf(stderr,
-		  "ERROR DoMaster: bad status put\n");
-		new_state.other_color = 'R';
-		new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+	if(other_color == 'G') {
+		r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
+		if(WooFInvalid(r_seq_no)) {
+			fprintf(stderr,
+			  "ERROR DoMaster: bad status put to green other side\n");
+			new_state.other_color = 'R';
+			new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+		} else {
+			new_state.other_color = 'G';
+#ifdef DEBUG
+			fprintf(stdout,
+"DoMaster: successful put of status to other side\b");
+			fflush(stdout);
+#endif
+		}
 	}
 
 			
@@ -563,11 +677,19 @@ void DoSlave(STATE *state)
 	char other_color;
 	char client_color;
 	int err;
+	char namespace[1024];
 
 	err = WooFNameFromURI(state->wname,l_state_name,sizeof(l_state_name));
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR DoSlave: failed to extract state name from %s\n",
+			state->wname);
+		return;
+	}
+	err = WooFNameSpaceFromURI(state->wname,namespace,sizeof(namespace));
+	if(err < 0) {
+		fprintf(stderr,
+		"ERROR DoSlave: failed to extract state namespace from %s\n",
 			state->wname);
 		return;
 	}
@@ -592,8 +714,9 @@ void DoSlave(STATE *state)
 
 	/* now get current remote state */
 	memset(r_state_woof,0,sizeof(r_state_woof));
-	sprintf(r_state_woof,"woof://%s/%s",
+	sprintf(r_state_woof,"woof://%s/%s/%s",
 		state->other_ip,
+		namespace,
 		l_state_name);
 	other_seq_no = WooFGetLatestSeqno(r_state_woof);
 	if(WooFInvalid(other_seq_no)) {
@@ -701,12 +824,13 @@ void DoSlave(STATE *state)
 
 #ifdef DEBUG
 		fprintf(stdout,
-"DoSlave: client is %s\n",client_color);
+"DoSlave: client is %c\n",client_color);
 		fflush(stdout);
 #endif
 		new_state.other_color = other_color;
 		new_state.client_color = client_color;
-		if(client_color == 'G') {
+		if((client_color == 'G') &&
+		   (other_color == 'G')) {
 			/* get current state of other side */
 			r_seq_no = WooFGet(r_state_woof,&r_state,other_seq_no);
 			if(WooFInvalid(r_seq_no)) {
@@ -753,13 +877,23 @@ void DoSlave(STATE *state)
 #endif
 				new_state.my_state = 'S';
 			}
-		} else /* client is red */ {
+		} else /* client is red || other is red */ {
+			if(client_color == 'R') {
 #ifdef DEBUG
-			fprintf(stdout,
+				fprintf(stdout,
 "DoSlave: client is red, going slave\n");
-			fflush(stdout);
+				fflush(stdout);
 #endif
-			new_state.my_state = 'S';
+				new_state.my_state = 'S';
+			} else {
+#ifdef DEBUG
+				fprintf(stdout,
+"DoSlave: client is green but other is red, going master\n");
+				fflush(stdout);
+#endif
+				new_state.my_state = 'M';
+				new_state.other_color = 'R';
+			}
 		}
 	}
 
@@ -778,17 +912,20 @@ void DoSlave(STATE *state)
 
 	/* make remote woof status name */
 	memset(r_status_woof,0,sizeof(r_status_woof));
-	sprintf(r_status_woof,"woof://%s/%s",
+	sprintf(r_status_woof,"woof://%s/%s/%s",
 		new_state.other_ip,
+		namespace,
 		l_status_name);
 
 	/* update the other side */
-	r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
-	if(WooFInvalid(r_seq_no)) {
-		fprintf(stderr,
-		  "ERROR DoSlave: bad status put\n");
-		new_state.other_color = 'R';
-		new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+	if(new_state.other_color == 'G') {
+		r_seq_no = WooFPut(r_status_woof,NULL,&l_status);
+		if(WooFInvalid(r_seq_no)) {
+			fprintf(stderr,
+			  "ERROR DoSlave: bad status when other side green put\n");
+			new_state.other_color = 'R';
+			new_seq_no = WooFAppend(l_state_w,NULL,&new_state);
+		}
 	}
 			
 	WooFDrop(l_state_w);

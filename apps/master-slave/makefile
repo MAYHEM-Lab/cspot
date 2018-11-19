@@ -26,10 +26,11 @@ TOBJ=${WOOFC}/woofc-thread.o
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 HAND1=MSPulseHandler
+HAND2=MSPingPongHandler
 
 CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/ -L/usr/lib64/atlas
 
-all: master-slave-init master-slave-pulse ${HAND1}
+all: master-slave-init master-slave-pulse ${HAND1} ${HAND2}
 
 master-slave-init: master-slave-init.c master-slave.h
 	${CC} ${CFLAGS} -o master-slave-init master-slave-init.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -48,6 +49,13 @@ ${HAND1}: master-slave.h ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} 
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ${HAND1} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
+${HAND2}: master-slave.h ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/${HAND2}/g' ${SHEP_SRC} > ${HAND2}_shepherd.c
+	${CC} ${CFLAGS} -c ${HAND2}_shepherd.c -o ${HAND2}_shepherd.o
+	${CC} ${CFLAGS} -o ${HAND2} ${HAND2}.c ${HAND2}_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp ${HAND2} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
+
 clean:
-	rm -f master-slave-init ${HAND1} *_shepherd.c
+	rm -f master-slave-init ${HAND1} ${HAND2} *_shepherd.c
 

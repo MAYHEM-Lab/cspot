@@ -23,6 +23,8 @@ char putbuf2[4096];
 
 #define MAX_RETRIES 20
 
+extern char WooF_dir[2048];
+
 int main(int argc, char **argv)
 {
 	int c;
@@ -36,6 +38,7 @@ int main(int argc, char **argv)
 	char client_ip[IPSTRLEN+1];
 	STATE state;
 	STATUS status;
+	PINGPONG pp;
 	char start_state[255];
 	unsigned long seq_no;
 
@@ -130,7 +133,7 @@ int main(int argc, char **argv)
 
 	memset(ping_woof,0,sizeof(ping_woof));
 	memset(status_woof,0,sizeof(status_woof));
-	MAKE_EXTENDED_NAME(ping_woof,wname,"ping");
+	MAKE_EXTENDED_NAME(ping_woof,wname,"pingpong");
 	MAKE_EXTENDED_NAME(status_woof,wname,"status");
 	MAKE_EXTENDED_NAME(pulse_woof,wname,"pulse");
 
@@ -197,22 +200,28 @@ int main(int argc, char **argv)
 	}
 
 	memset(&state,0,sizeof(state));
+	/*
+	 * make fully qualified woof name
+	 */
 	strncpy(state.wname,wname,sizeof(state.wname));
 	if(status.local == 'M') {
 		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
 		state.my_state = 'M';
 		strncpy(state.other_ip,slave_ip,sizeof(state.my_ip));
 		state.other_state = 'S';
+		sprintf(state.wname,"woof://%s/%s/%s",state.my_ip,WooF_dir,wname);
 	} else if(status.local == 'S') {
 		strncpy(state.my_ip,slave_ip,sizeof(state.my_ip));
 		state.my_state = 'S';
 		strncpy(state.other_ip,master_ip,sizeof(state.my_ip));
 		state.other_state = 'M';
+		sprintf(state.wname,"woof://%s/%s/%s",state.my_ip,WooF_dir,wname);
 	} else {
 		/* use master as "my" for client */
 		strncpy(state.client_ip,client_ip,sizeof(state.client_ip));
 		strncpy(state.my_ip,master_ip,sizeof(state.my_ip));
 		strncpy(state.other_ip,slave_ip,sizeof(state.my_ip));
+		sprintf(state.wname,"woof://%s/%s/%s",state.client_ip,WooF_dir,wname);
 		state.my_state = 'C';
 	}
 	strncpy(state.client_ip,client_ip,sizeof(state.client_ip));
@@ -223,6 +232,16 @@ int main(int argc, char **argv)
 	seq_no = WooFPut(wname,NULL,(void *)&state);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"state put failed to %s\n",wname);
+		fflush(stderr);
+	}
+
+	/*
+	 * prime the local ping pong pump
+	 */
+	pp.seq_no = 1;
+	seq_no = WooFPut(ping_woof,NULL,&pp);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"state put failed to %s\n",ping_woof);
 		fflush(stderr);
 	}
 		
