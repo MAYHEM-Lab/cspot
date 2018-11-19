@@ -8,7 +8,7 @@
 #include "repair.h"
 
 #define ARGS "f:N:H:W:"
-char *Usage = "repair -f woof_name\n\
+char *Usage = "api-recv -f woof_name\n\
 \t-H namelog-path to host wide namelog\n\
 \t-N namespace\n";
 

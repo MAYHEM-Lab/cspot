@@ -19,6 +19,7 @@
 #include "woofc-cache.h"
 #include "woofc-access.h"
 
+extern char WooF_dir[2048];
 extern char Host_ip[25];
 extern unsigned long Name_id;
 
@@ -42,6 +43,23 @@ unsigned int WooFPortHash(char *namespace)
 	 * hash namespace to port number between 50000 and 60000
 	 */
 	return (50000 + (h % 10000));
+}
+
+/*
+ * from https://en.wikipedia.org/wiki/Universal_hashing
+ */
+unsigned long WooFNSHash(char *namespace)
+{
+	unsigned long h = 5381;
+	unsigned long a = 33;
+	unsigned long i;
+
+	for (i = 0; i < strlen(namespace); i++)
+	{
+		h = ((h * a) + namespace[i]); /* no mod p due to wrap */
+	}
+
+	return (h);
 }
 
 int WooFValidURI(char *str)
@@ -483,6 +501,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	unsigned long seq_no;
 	char buffer[255];
 	int err;
+	char cause_namespace[2048];
 	unsigned long cause_host;
 	unsigned long cause_seq_no;
 
@@ -549,23 +568,34 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 #endif
 
 	/*
-	 * cause_host in the third frame
+	 * cause_namespace in the third frame
 	 */
 	frame = zmsg_next(req_msg);
 	if (frame == NULL)
 	{
-		perror("WooFProcessPut: couldn't find cause_host in msg");
+		perror("WooFProcessPut: couldn't find cause_namespace in msg");
 		return;
 	}
 	copy_size = zframe_size(frame);
-	memset(buffer, 0, sizeof(buffer));
-	memcpy(buffer, zframe_data(frame), copy_size);
-	cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
-
+	if (copy_size > 0)
+	{
+		memset(cause_namespace, 0, sizeof(cause_namespace));
+		memcpy(cause_namespace, zframe_data(frame), copy_size);
+		cause_host = WooFNSHash(cause_namespace);
 #ifdef DEBUG
-	printf("WooFProcessPut: received cause_host %lu\n", cause_host);
-	fflush(stdout);
+		printf("WooFProcessPut: received cause_namespace %s\n", cause_namespace);
+		printf("WooFProcessPut: received cause_host %lu\n", cause_host);
+		fflush(stdout);
 #endif
+	}
+	else
+	{
+		cause_host = 0;
+#ifdef DEBUG
+		printf("WooFProcessPut: no cause_namespace, sent using API\n");
+		fflush(stdout);
+#endif
+	}
 
 	/*
 	 * cause_seq_no in the fourth frame
@@ -1296,6 +1326,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	char buffer[255];
 	int err;
 	WOOF *wf;
+	char cause_namespace[2048];
 	unsigned long cause_host;
 	unsigned long cause_seq_no;
 
@@ -1351,23 +1382,34 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 #endif
 
 		/*
-	 	 * cause_host in the third frame
-	 	 */
+		 * cause_namespace in the third frame
+		 */
 		frame = zmsg_next(req_msg);
 		if (frame == NULL)
 		{
-			perror("WooFProcessGet: couldn't find cause_host in msg");
+			perror("WooFProcessGet: couldn't find cause_namespace in msg");
 			return;
 		}
 		copy_size = zframe_size(frame);
-		memset(buffer, 0, sizeof(buffer));
-		memcpy(buffer, zframe_data(frame), copy_size);
-		cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
-
+		if (copy_size > 0)
+		{
+			memset(cause_namespace, 0, sizeof(cause_namespace));
+			memcpy(cause_namespace, zframe_data(frame), copy_size);
+			cause_host = WooFNSHash(cause_namespace);
 #ifdef DEBUG
-		printf("WooFProcessGet: received cause_host %lu\n", cause_host);
-		fflush(stdout);
+			printf("WooFProcessGet: received cause_namespace %s\n", cause_namespace);
+			printf("WooFProcessGet: received cause_host %lu\n", cause_host);
+			fflush(stdout);
 #endif
+		}
+		else
+		{
+			cause_host = 0;
+#ifdef DEBUG
+			printf("WooFProcessGet: no cause_namespace, sent using API\n");
+			fflush(stdout);
+#endif
+		}
 
 		/*
 		 * cause_seq_no in the fourth frame
@@ -2352,7 +2394,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	}
 	else
 	{
-		my_log_seq_no = 1;
+		my_log_seq_no = 0;
 	}
 
 	memset(namespace, 0, sizeof(namespace));
@@ -2529,14 +2571,20 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 #endif
 
 	/*
-	 * make a frame for the cause_host
+	 * make a frame for the cause_namespace
 	 */
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", Name_id);
-	frame = zframe_new(buffer, strlen(buffer));
+	str = getenv("WOOFC_NAMESPACE");
+	if (str != NULL)
+	{
+		frame = zframe_new(str, strlen(str));
+	}
+	else
+	{
+		frame = zframe_new(WooF_dir, strlen(WooF_dir));
+	}
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no frame for cause_host to server at %s\n",
+		fprintf(stderr, "WooFMsgPut: woof: %s no frame for cause_namespace to server at %s\n",
 				woof_name, endpoint);
 		perror("WooFMsgPut: couldn't get new frame");
 		fflush(stderr);
@@ -2544,9 +2592,10 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgPut: woof: %s got frame for cause_host %lu\n", woof_name, Name_id);
+	printf("WooFMsgPut: woof: %s got frame for cause_namespace\n", woof_name);
 	fflush(stdout);
 #endif
+
 	/*
 	 * add the cause_host frame to the msg
 	 */
@@ -2701,7 +2750,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	}
 	else
 	{
-		my_log_seq_no = 1;
+		my_log_seq_no = 0;
 	}
 
 	memset(namespace, 0, sizeof(namespace));
@@ -2864,14 +2913,20 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 #endif
 
 	/*
-	 * make a frame for the cause_host
+	 * make a frame for the cause_namespace
 	 */
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", Name_id);
-	frame = zframe_new(buffer, strlen(buffer));
+	str = getenv("WOOFC_NAMESPACE");
+	if (str != NULL)
+	{
+		frame = zframe_new(str, strlen(str));
+	}
+	else
+	{
+		frame = zframe_new(WooF_dir, strlen(WooF_dir));
+	}
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_host to server at %s\n",
+		fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_namespace to server at %s\n",
 				woof_name, endpoint);
 		perror("WooFMsgGet: couldn't get new frame");
 		fflush(stderr);
@@ -2879,24 +2934,24 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgGet: woof: %s got frame for cause_host %lu\n", woof_name, Name_id);
+	printf("WooFMsgGet: woof: %s got frame for cause_namespace\n", woof_name);
 	fflush(stdout);
 #endif
 	/*
-	 * add the cause_host frame to the msg
+	 * add the cause_namespace frame to the msg
 	 */
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
 		fprintf(stderr, "WooFMsgGet: woof: %s can't append woof_name to frame to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGet: couldn't append cause_host frame");
+		perror("WooFMsgGet: couldn't append cause_namespace frame");
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgGet: woof: %s added cause_host to frame\n", woof_name);
+	printf("WooFMsgGet: woof: %s added cause_namespace to frame\n", woof_name);
 	fflush(stdout);
 #endif
 

@@ -7,10 +7,11 @@
 #include "woofc-host.h"
 #include "repair.h"
 
-#define ARGS "W:H:"
-char *Usage = "repair -W woof_name\n";
+#define ARGS "W:F:"
+char *Usage = "api-send -W remote_woof_name -F local_woof_name\n";
 
 char Wname[4096];
+char Fname[4096];
 
 int main(int argc, char **argv)
 {
@@ -18,18 +19,16 @@ int main(int argc, char **argv)
 	int err;
 	REPAIR_EL el;
 	unsigned long ndx;
-	char handler[256];
-	memset(handler, 0, sizeof(handler));
 
 	while ((c = getopt(argc, argv, ARGS)) != EOF)
 	{
 		switch (c)
 		{
+		case 'F':
+			strncpy(Fname, optarg, sizeof(Fname));
+			break;
 		case 'W':
 			strncpy(Wname, optarg, sizeof(Wname));
-			break;
-		case 'H':
-			strncpy(handler, optarg, sizeof(handler));
 			break;
 		default:
 			fprintf(stderr,
@@ -37,6 +36,14 @@ int main(int argc, char **argv)
 			fprintf(stderr, "%s", Usage);
 			exit(1);
 		}
+	}
+
+	if (Fname[0] == 0)
+	{
+		fprintf(stderr, "must specify file name\n");
+		fprintf(stderr, "%s", Usage);
+		fflush(stderr);
+		exit(1);
 	}
 
 	if (Wname[0] == 0)
@@ -49,17 +56,18 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
+	err = WooFCreate(Fname, sizeof(REPAIR_EL), 5);
+	if (err < 0)
+	{
+		fprintf(stderr, "couldn't create woof from %s\n", Fname);
+		fflush(stderr);
+		exit(1);
+	}
+
 	memset(el.string, 0, sizeof(el.string));
 	strncpy(el.string, "my first bark", sizeof(el.string));
 
-	if (handler[0] != 0)
-	{
-		ndx = WooFPut(Wname, handler, (void *)&el);
-	}
-	else
-	{
-		ndx = WooFPut(Wname, NULL, (void *)&el);
-	}
+	ndx = WooFPut(Wname, "repair_recv", (void *)&el);
 
 	if (WooFInvalid(ndx))
 	{
@@ -68,12 +76,5 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	err = WooFGet(Wname, &el, ndx);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFGet failed for %s\n", Wname);
-		fflush(stderr);
-		exit(1);
-	}
 	return (0);
 }

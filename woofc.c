@@ -473,7 +473,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	}
 	else
 	{
-		my_log_seq_no = 1;
+		my_log_seq_no = 0;
 	}
 
 	if (hand_name != NULL)

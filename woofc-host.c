@@ -46,6 +46,7 @@ unsigned long WooFNameHash(char *namespace)
 
 	return (h);
 }
+
 void WooFShutdown(int sig)
 {
 	int val;
