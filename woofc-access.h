@@ -1,6 +1,9 @@
 #ifndef WOOFC_ACCESS_H
 #define WOOFC_ACCESS_H
 
+#define LOG_MERGE
+#include <czmq.h>
+
 int WooFValidURI(char *str);
 int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len);
 int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len);
@@ -13,6 +16,11 @@ unsigned long WooFMsgGetElSize(char *woof_name);
 int WooFMsgServer(char *namespace);
 
 int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
+
+#ifdef LOG_MERGE
+unsigned long int LogGetRemoteSize(char *endpoint);
+int LogGetRemote(LOG *log, MIO *mio, char *endpoint);
+#endif
 
 /*
  * 2 minute timeout
@@ -27,6 +35,8 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 #define WOOF_MSG_GET_TAIL (4)
 #define WOOF_MSG_GET_LATEST_SEQNO (5)
 #define WOOF_MSG_GET_DONE (6)
+#define LOG_GET_REMOTE (8)
+#define LOG_GET_REMOTE_SIZE (9)
 
 #define WOOF_MSG_CACHE_SIZE (100)
 
