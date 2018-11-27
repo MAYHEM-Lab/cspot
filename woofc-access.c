@@ -20,7 +20,9 @@
 #include "woofc-cache.h"
 #include "woofc-access.h"
 
+extern char WooF_namespace[2048];
 extern char Host_ip[25];
+extern unsigned long Name_id;
 
 #ifdef LOG_MERGE
 extern LOG *Name_log;
@@ -326,6 +328,7 @@ int WooFPortFromURI(char *woof_uri_str, int *woof_port)
 	free(uri);
 	return (1);
 }
+
 int WooFLocalIP(char *ip_str, int len)
 {
 	struct ifaddrs *addrs;
@@ -491,6 +494,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
+	char *ptr;
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -500,6 +504,8 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	unsigned long seq_no;
 	char buffer[255];
 	int err;
+	unsigned long cause_host;
+	unsigned long cause_seq_no;
 
 #ifdef DEBUG
 	printf("WooProcessPut: called\n");
@@ -562,8 +568,46 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	printf("WooFProcessPut: received handler name %s\n", hand_name);
 	fflush(stdout);
 #endif
+
 	/*
-	 * raw data in the third frame
+	 * cause_host in the third frame
+	 */
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessPut: couldn't find cause_host in msg");
+		return;
+	}
+	copy_size = zframe_size(frame);
+	memset(buffer, 0, sizeof(buffer));
+	memcpy(buffer, zframe_data(frame), copy_size);
+	cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
+#ifdef DEBUG
+	printf("WooFProcessPut: received cause_host %lu\n", cause_host);
+	fflush(stdout);
+#endif
+
+	/*
+	 * cause_seq_no in the fourth frame
+	 */
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessPut: couldn't find cause_seq_no in msg");
+		return;
+	}
+	copy_size = zframe_size(frame);
+	memset(buffer, 0, sizeof(buffer));
+	memcpy(buffer, zframe_data(frame), copy_size);
+	cause_seq_no = (unsigned long)strtoul(buffer, &ptr, 10);
+
+#ifdef DEBUG
+	printf("WooFProcessPut: received cause_seq_no %lu\n", cause_seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * raw data in the fifth frame
 	 *
 	 * need a maximum size but for now see if we can malloc() the space
 	 */
@@ -607,11 +651,11 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		 */
 		if (hand_name[0] != 0)
 		{
-			seq_no = WooFPut(local_name, hand_name, element);
+			seq_no = WooFPutWithCause(local_name, hand_name, element, cause_host, cause_seq_no);
 		}
 		else
 		{
-			seq_no = WooFPut(local_name, NULL, element);
+			seq_no = WooFPutWithCause(local_name, NULL, element, cause_host, cause_seq_no);
 		}
 
 		free(element);
@@ -1260,6 +1304,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
+	char *ptr;
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -1271,6 +1316,8 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	char buffer[255];
 	int err;
 	WOOF *wf;
+	unsigned long cause_host;
+	unsigned long cause_seq_no;
 
 #ifdef DEBUG
 	printf("WooFProcessGet: called\n");
@@ -1317,11 +1364,45 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
+		seq_no = strtoul((char *)zframe_data(frame), &ptr, 10);
 #ifdef DEBUG
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
 #endif
+
+		/*
+		 * cause_host in the third frame
+		 */
+		frame = zmsg_next(req_msg);
+		if (frame == NULL)
+		{
+			perror("WooFProcessGet: couldn't find cause_host in msg");
+			return;
+		}
+		copy_size = zframe_size(frame);
+		memset(buffer, 0, sizeof(buffer));
+		memcpy(buffer, zframe_data(frame), copy_size);
+		cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
+#ifdef DEBUG
+		printf("WooFProcessGet: received cause_host %lu\n", cause_host);
+		fflush(stdout);
+#endif
+
+		/*
+		 * cause_seq_no in the fourth frame
+		 */
+		frame = zmsg_next(req_msg);
+		copy_size = zframe_size(frame);
+		if (frame == NULL)
+		{
+			perror("WooFProcessGet: couldn't find cause_seq_no in msg");
+			return;
+		}
+		copy_size = zframe_size(frame);
+		memset(buffer, 0, sizeof(buffer));
+		memcpy(buffer, zframe_data(frame), copy_size);
+		cause_seq_no = (unsigned long)strtoul(buffer, &ptr, 10);
+
 		/*
 		 * FIX ME: for now, all process requests are local
 		 */
@@ -1358,7 +1439,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 			}
 			else
 			{
-				err = WooFRead(wf, element, seq_no);
+				err = WooFReadWithCause(wf, element, seq_no, cause_host, cause_seq_no);
 				if (err < 0)
 				{
 					fprintf(stderr,
@@ -1687,7 +1768,7 @@ void LogProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 
 	log_block = (void *)Name_log;
 	space = Name_log->size * sizeof(EVENT) + sizeof(LOG);
-	
+
 #ifdef DEBUG
 	printf("LogProcessGet: creating frame for %lu bytes of log_block\n",
 		   space);
@@ -2405,13 +2486,26 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
+	char *ptr;
 	struct timeval tm;
 	unsigned long seq_no;
 	int err;
+	char *namelog_seq_no;
+	unsigned long my_log_seq_no;
 
 	if (el_size == (unsigned long)-1)
 	{
 		return (-1);
+	}
+
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if (namelog_seq_no != NULL)
+	{
+		my_log_seq_no = strtoul(namelog_seq_no, &ptr, 10);
+	}
+	else
+	{
+		my_log_seq_no = 0;
 	}
 
 	memset(namespace, 0, sizeof(namespace));
@@ -2586,6 +2680,86 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 		   woof_name, element, el_size);
 	fflush(stdout);
 #endif
+
+	/*
+	 * make a frame for the cause_host
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", Name_id);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s no frame for cause_host to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got frame for cause_host %lu\n", woof_name, cause_host);
+	fflush(stdout);
+#endif
+
+	/*
+	 * add the cause_host frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't append cause_host frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s added cause_host to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the cause_seq_no
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", my_log_seq_no);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s no frame for cause_seq_no to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s got frame for cause_seq_no %lu\n", woof_name, my_log_seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * add the cause_seq_no frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgPut: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgPut: couldn't append cause_seq_no frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgPut: woof: %s added cause_host to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+ 	* make a frame for the element
+ 	*/
 	frame = zframe_new(element, el_size);
 	if (frame == NULL)
 	{
@@ -2669,8 +2843,21 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
+	char *ptr;
 	struct timeval tm;
 	int err;
+	char *namelog_seq_no;
+	unsigned long my_log_seq_no;
+
+	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+	if (namelog_seq_no != NULL)
+	{
+		my_log_seq_no = strtoul(namelog_seq_no, &ptr, 10);
+	}
+	else
+	{
+		my_log_seq_no = 0;
+	}
 
 	memset(namespace, 0, sizeof(namespace));
 	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
@@ -2828,6 +3015,80 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	}
 #ifdef DEBUG
 	printf("WooFMsgGet: woof: %s appended frame for seq_no %lu\n", woof_name, seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the cause_host
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", Name_id);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_host to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s got frame for cause_host %lu\n", woof_name, cause_host);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_host frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't append cause_host frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s added cause_host to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the cause_seq_no
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", my_log_seq_no);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_seq_no to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s got frame for cause_seq_no %lu\n", woof_name, my_log_seq_no);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_seq_no frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgGet: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgGet: couldn't append cause_seq_no frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgGet: woof: %s added cause_host to frame\n", woof_name);
 	fflush(stdout);
 #endif
 
@@ -3141,85 +3402,85 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 unsigned long int LogGetRemoteSize(char *endpoint)
 {
 	int err;
-    zmsg_t *msg;
-    zmsg_t *r_msg;
-    zframe_t *frame;
-    zframe_t *r_frame;
-    unsigned long copy_size;
-    char buffer[255];
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	unsigned long copy_size;
+	char buffer[255];
 	unsigned long int size;
 
-    msg = zmsg_new();
-    if (msg == NULL)
-    {
-        fprintf(stderr, "LogGetRemoteSize: no outbound msg to server at %s\n",
-                endpoint);
-        perror("LogGetRemoteSize: allocating msg");
-        fflush(stderr);
-        return (-1);
-    }
+	msg = zmsg_new();
+	if (msg == NULL)
+	{
+		fprintf(stderr, "LogGetRemoteSize: no outbound msg to server at %s\n",
+				endpoint);
+		perror("LogGetRemoteSize: allocating msg");
+		fflush(stderr);
+		return (-1);
+	}
 #ifdef DEBUG
-    printf("LogGetRemoteSize: got new msg\n");
-    fflush(stdout);
+	printf("LogGetRemoteSize: got new msg\n");
+	fflush(stdout);
 #endif
 
-    /*
+	/*
 	 * this is a LOG_GET_REMOTE_SIZE message
 	 */
-    memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu", LOG_GET_REMOTE_SIZE);
-    frame = zframe_new(buffer, strlen(buffer));
-    if (frame == NULL)
-    {
-        fprintf(stderr, "LogGetRemoteSize: no frame for LOG_GET_REMOTE_SIZE command in to server at %s\n",
-                endpoint);
-        perror("LogGetRemoteSize: couldn't get new frame");
-        fflush(stderr);
-        zmsg_destroy(&msg);
-        return (-1);
-    }
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", LOG_GET_REMOTE_SIZE);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "LogGetRemoteSize: no frame for LOG_GET_REMOTE_SIZE command in to server at %s\n",
+				endpoint);
+		perror("LogGetRemoteSize: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
 #ifdef DEBUG
-    printf("LogGetRemoteSize: got LOG_GET_REMOTE_SIZE command frame frame\n");
-    fflush(stdout);
+	printf("LogGetRemoteSize: got LOG_GET_REMOTE_SIZE command frame frame\n");
+	fflush(stdout);
 #endif
-    err = zmsg_append(msg, &frame);
-    if (err < 0)
-    {
-        fprintf(stderr, "LogGetRemoteSize: can't append LOG_GET_REMOTE_SIZE command frame to msg for server at %s\n",
-                endpoint);
-        perror("LogGetRemoteSize: couldn't append command frame");
-        zframe_destroy(&frame);
-        zmsg_destroy(&msg);
-        return (-1);
-    }
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "LogGetRemoteSize: can't append LOG_GET_REMOTE_SIZE command frame to msg for server at %s\n",
+				endpoint);
+		perror("LogGetRemoteSize: couldn't append command frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
 
-    /*
+	/*
      * get response
      */
-    r_msg = ServerRequest(endpoint, msg);
-    if (r_msg == NULL)
-    {
-        fprintf(stderr, "LogGetRemoteSize: couldn't recv msg for log tail from server at %s\n",
-                endpoint);
-        perror("LogGetRemoteSize: no response received");
-        fflush(stderr);
-        return (-1);
-    }
-    r_frame = zmsg_first(r_msg);
-    if (r_frame == NULL)
-    {
-        fprintf(stderr, "LogGetRemoteSize: no recv frame for log tail from server at %s\n",
-                endpoint);
-        perror("LogGetRemoteSize: no response frame");
-        zmsg_destroy(&r_msg);
-        return (-1);
-    }
+	r_msg = ServerRequest(endpoint, msg);
+	if (r_msg == NULL)
+	{
+		fprintf(stderr, "LogGetRemoteSize: couldn't recv msg for log tail from server at %s\n",
+				endpoint);
+		perror("LogGetRemoteSize: no response received");
+		fflush(stderr);
+		return (-1);
+	}
+	r_frame = zmsg_first(r_msg);
+	if (r_frame == NULL)
+	{
+		fprintf(stderr, "LogGetRemoteSize: no recv frame for log tail from server at %s\n",
+				endpoint);
+		perror("LogGetRemoteSize: no response frame");
+		zmsg_destroy(&r_msg);
+		return (-1);
+	}
 	size = atol((char *)zframe_data(r_frame));
-    zmsg_destroy(&r_msg);
-	
+	zmsg_destroy(&r_msg);
+
 #ifdef DEBUG
-    printf("LogGetRemoteSize: received log size from %s\n", endpoint);
-    fflush(stdout);
+	printf("LogGetRemoteSize: received log size from %s\n", endpoint);
+	fflush(stdout);
 #endif
 
 	return size;
@@ -3227,87 +3488,87 @@ unsigned long int LogGetRemoteSize(char *endpoint)
 
 int LogGetRemote(LOG *log, MIO *mio, char *endpoint)
 {
-    int err;
-    zmsg_t *msg;
-    zmsg_t *r_msg;
-    zframe_t *frame;
-    zframe_t *r_frame;
-    unsigned long copy_size;
-    char buffer[255];
+	int err;
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	unsigned long copy_size;
+	char buffer[255];
 
-    msg = zmsg_new();
-    if (msg == NULL)
-    {
-        fprintf(stderr, "LogGetRemote: no outbound msg to server at %s\n",
-                endpoint);
-        perror("LogGetRemote: allocating msg");
-        fflush(stderr);
-        return (-1);
-    }
+	msg = zmsg_new();
+	if (msg == NULL)
+	{
+		fprintf(stderr, "LogGetRemote: no outbound msg to server at %s\n",
+				endpoint);
+		perror("LogGetRemote: allocating msg");
+		fflush(stderr);
+		return (-1);
+	}
 #ifdef DEBUG
-    printf("LogGetRemote: got new msg\n");
-    fflush(stdout);
+	printf("LogGetRemote: got new msg\n");
+	fflush(stdout);
 #endif
 
-    /*
+	/*
 	 * this is a LOG_GET_REMOTE message
 	 */
-    memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu", LOG_GET_REMOTE);
-    frame = zframe_new(buffer, strlen(buffer));
-    if (frame == NULL)
-    {
-        fprintf(stderr, "LogGetRemote: no frame for LOG_GET_REMOTE command in to server at %s\n",
-                endpoint);
-        perror("LogGetRemote: couldn't get new frame");
-        fflush(stderr);
-        zmsg_destroy(&msg);
-        return (-1);
-    }
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", LOG_GET_REMOTE);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "LogGetRemote: no frame for LOG_GET_REMOTE command in to server at %s\n",
+				endpoint);
+		perror("LogGetRemote: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
 #ifdef DEBUG
-    printf("LogGetRemote: got LOG_GET_REMOTE command frame frame\n");
-    fflush(stdout);
+	printf("LogGetRemote: got LOG_GET_REMOTE command frame frame\n");
+	fflush(stdout);
 #endif
-    err = zmsg_append(msg, &frame);
-    if (err < 0)
-    {
-        fprintf(stderr, "LogGetRemote: can't append LOG_GET_REMOTE command frame to msg for server at %s\n",
-                endpoint);
-        perror("LogGetRemote: couldn't append command frame");
-        zframe_destroy(&frame);
-        zmsg_destroy(&msg);
-        return (-1);
-    }
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "LogGetRemote: can't append LOG_GET_REMOTE command frame to msg for server at %s\n",
+				endpoint);
+		perror("LogGetRemote: couldn't append command frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
 
-    /*
+	/*
      * get response
      */
-    r_msg = ServerRequest(endpoint, msg);
-    if (r_msg == NULL)
-    {
-        fprintf(stderr, "LogGetRemote: couldn't recv msg for log tail from server at %s\n",
-                endpoint);
-        perror("LogGetRemote: no response received");
-        fflush(stderr);
-        return (-1);
-    }
-    r_frame = zmsg_first(r_msg);
-    if (r_frame == NULL)
-    {
-        fprintf(stderr, "LogGetRemote: no recv frame for log tail from server at %s\n",
-                endpoint);
-        perror("LogGetRemote: no response frame");
-        zmsg_destroy(&r_msg);
-        return (-1);
-    }
-    copy_size = zframe_size(r_frame);
+	r_msg = ServerRequest(endpoint, msg);
+	if (r_msg == NULL)
+	{
+		fprintf(stderr, "LogGetRemote: couldn't recv msg for log tail from server at %s\n",
+				endpoint);
+		perror("LogGetRemote: no response received");
+		fflush(stderr);
+		return (-1);
+	}
+	r_frame = zmsg_first(r_msg);
+	if (r_frame == NULL)
+	{
+		fprintf(stderr, "LogGetRemote: no recv frame for log tail from server at %s\n",
+				endpoint);
+		perror("LogGetRemote: no response frame");
+		zmsg_destroy(&r_msg);
+		return (-1);
+	}
+	copy_size = zframe_size(r_frame);
 	memcpy((void *)log, (void *)zframe_data(r_frame), copy_size);
 	log->m_buf = mio;
-    zmsg_destroy(&r_msg);
-	
+	zmsg_destroy(&r_msg);
+
 #ifdef DEBUG
-    printf("LogGetRemote: received log from %s\n", endpoint);
-    fflush(stdout);
+	printf("LogGetRemote: received log from %s\n", endpoint);
+	fflush(stdout);
 #endif
 
 	return (1);
