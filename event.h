@@ -28,6 +28,8 @@ typedef struct event_stc EVENT;
 #define TRIGGER (3)
 #define TRIGGER_FIRING (4)
 #define FIRED (5)
+#define APPEND (6)
+#define READ (7)
 
 EVENT *EventCreate(unsigned char type, unsigned long host);
 
