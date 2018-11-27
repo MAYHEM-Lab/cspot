@@ -1,3 +1,6 @@
+// #define DEBUG
+#define LOG_MERGE
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -18,6 +21,10 @@
 #include "woofc-access.h"
 
 extern char Host_ip[25];
+
+#ifdef LOG_MERGE
+extern LOG *Name_log;
+#endif
 
 WOOF_CACHE *WooF_cache;
 
@@ -1589,6 +1596,132 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 
 #endif
 
+#ifdef LOG_MERGE
+void LogProcessGetSize(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	unsigned int copy_size;
+	void *log_block;
+	char buffer[255];
+	int err;
+	unsigned long int space;
+
+#ifdef DEBUG
+	printf("LogProcessGetSize: called\n");
+	fflush(stdout);
+#endif
+
+	/*
+	 * LogProcessGetSize has no parameter frame, go straight to reply message.
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("LogProcessGetSize: no reply message");
+		return;
+	}
+
+	log_block = (void *)Name_log;
+	space = Name_log->size * sizeof(EVENT) + sizeof(LOG);
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", space);
+#ifdef DEBUG
+	printf("LogProcessGetSize: creating frame for log size\n");
+	fflush(stdout);
+#endif
+	r_frame = zframe_new(buffer, strlen(buffer));
+	if (r_frame == NULL)
+	{
+		perror("LogProcessGetSize: no reply frame");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("LogProcessGetSize: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("LogProcessGetSize: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	return;
+}
+
+void LogProcessGet(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	unsigned int copy_size;
+	void *log_block;
+	char buffer[255];
+	int err;
+	unsigned long int space;
+
+#ifdef DEBUG
+	printf("LogProcessGet: called\n");
+	fflush(stdout);
+#endif
+
+	/*
+	 * LogProcessGet has no parameter frame, go straight to reply message.
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("LogProcessGet: no reply message");
+		return;
+	}
+
+	log_block = (void *)Name_log;
+	space = Name_log->size * sizeof(EVENT) + sizeof(LOG);
+	
+#ifdef DEBUG
+	printf("LogProcessGet: creating frame for %lu bytes of log_block\n",
+		   space);
+	fflush(stdout);
+#endif
+	r_frame = zframe_new(log_block, space);
+	if (r_frame == NULL)
+	{
+		perror("LogProcessGet: no reply frame");
+		free(log_block);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("LogProcessGet: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("LogProcessGet: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	log_block = NULL;
+	return;
+}
+#endif
+
 void *WooFMsgThread(void *arg)
 {
 	zsock_t *receiver;
@@ -1665,6 +1798,14 @@ void *WooFMsgThread(void *arg)
 #ifdef DONEFLAG
 		case WOOF_MSG_GET_DONE:
 			WooFProcessGetDone(msg, receiver);
+			break;
+#endif
+#ifdef LOG_MERGE
+		case LOG_GET_REMOTE_SIZE:
+			LogProcessGetSize(msg, receiver);
+			break;
+		case LOG_GET_REMOTE:
+			LogProcessGet(msg, receiver);
 			break;
 #endif
 		default:
@@ -2992,6 +3133,184 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 		fflush(stderr);
 		return (-1);
 	}
+}
+
+#endif
+
+#ifdef LOG_MERGE
+unsigned long int LogGetRemoteSize(char *endpoint)
+{
+	int err;
+    zmsg_t *msg;
+    zmsg_t *r_msg;
+    zframe_t *frame;
+    zframe_t *r_frame;
+    unsigned long copy_size;
+    char buffer[255];
+	unsigned long int size;
+
+    msg = zmsg_new();
+    if (msg == NULL)
+    {
+        fprintf(stderr, "LogGetRemoteSize: no outbound msg to server at %s\n",
+                endpoint);
+        perror("LogGetRemoteSize: allocating msg");
+        fflush(stderr);
+        return (-1);
+    }
+#ifdef DEBUG
+    printf("LogGetRemoteSize: got new msg\n");
+    fflush(stdout);
+#endif
+
+    /*
+	 * this is a LOG_GET_REMOTE_SIZE message
+	 */
+    memset(buffer, 0, sizeof(buffer));
+    sprintf(buffer, "%lu", LOG_GET_REMOTE_SIZE);
+    frame = zframe_new(buffer, strlen(buffer));
+    if (frame == NULL)
+    {
+        fprintf(stderr, "LogGetRemoteSize: no frame for LOG_GET_REMOTE_SIZE command in to server at %s\n",
+                endpoint);
+        perror("LogGetRemoteSize: couldn't get new frame");
+        fflush(stderr);
+        zmsg_destroy(&msg);
+        return (-1);
+    }
+#ifdef DEBUG
+    printf("LogGetRemoteSize: got LOG_GET_REMOTE_SIZE command frame frame\n");
+    fflush(stdout);
+#endif
+    err = zmsg_append(msg, &frame);
+    if (err < 0)
+    {
+        fprintf(stderr, "LogGetRemoteSize: can't append LOG_GET_REMOTE_SIZE command frame to msg for server at %s\n",
+                endpoint);
+        perror("LogGetRemoteSize: couldn't append command frame");
+        zframe_destroy(&frame);
+        zmsg_destroy(&msg);
+        return (-1);
+    }
+
+    /*
+     * get response
+     */
+    r_msg = ServerRequest(endpoint, msg);
+    if (r_msg == NULL)
+    {
+        fprintf(stderr, "LogGetRemoteSize: couldn't recv msg for log tail from server at %s\n",
+                endpoint);
+        perror("LogGetRemoteSize: no response received");
+        fflush(stderr);
+        return (-1);
+    }
+    r_frame = zmsg_first(r_msg);
+    if (r_frame == NULL)
+    {
+        fprintf(stderr, "LogGetRemoteSize: no recv frame for log tail from server at %s\n",
+                endpoint);
+        perror("LogGetRemoteSize: no response frame");
+        zmsg_destroy(&r_msg);
+        return (-1);
+    }
+	size = atol((char *)zframe_data(r_frame));
+    zmsg_destroy(&r_msg);
+	
+#ifdef DEBUG
+    printf("LogGetRemoteSize: received log size from %s\n", endpoint);
+    fflush(stdout);
+#endif
+
+	return size;
+}
+
+int LogGetRemote(LOG *log, MIO *mio, char *endpoint)
+{
+    int err;
+    zmsg_t *msg;
+    zmsg_t *r_msg;
+    zframe_t *frame;
+    zframe_t *r_frame;
+    unsigned long copy_size;
+    char buffer[255];
+
+    msg = zmsg_new();
+    if (msg == NULL)
+    {
+        fprintf(stderr, "LogGetRemote: no outbound msg to server at %s\n",
+                endpoint);
+        perror("LogGetRemote: allocating msg");
+        fflush(stderr);
+        return (-1);
+    }
+#ifdef DEBUG
+    printf("LogGetRemote: got new msg\n");
+    fflush(stdout);
+#endif
+
+    /*
+	 * this is a LOG_GET_REMOTE message
+	 */
+    memset(buffer, 0, sizeof(buffer));
+    sprintf(buffer, "%lu", LOG_GET_REMOTE);
+    frame = zframe_new(buffer, strlen(buffer));
+    if (frame == NULL)
+    {
+        fprintf(stderr, "LogGetRemote: no frame for LOG_GET_REMOTE command in to server at %s\n",
+                endpoint);
+        perror("LogGetRemote: couldn't get new frame");
+        fflush(stderr);
+        zmsg_destroy(&msg);
+        return (-1);
+    }
+#ifdef DEBUG
+    printf("LogGetRemote: got LOG_GET_REMOTE command frame frame\n");
+    fflush(stdout);
+#endif
+    err = zmsg_append(msg, &frame);
+    if (err < 0)
+    {
+        fprintf(stderr, "LogGetRemote: can't append LOG_GET_REMOTE command frame to msg for server at %s\n",
+                endpoint);
+        perror("LogGetRemote: couldn't append command frame");
+        zframe_destroy(&frame);
+        zmsg_destroy(&msg);
+        return (-1);
+    }
+
+    /*
+     * get response
+     */
+    r_msg = ServerRequest(endpoint, msg);
+    if (r_msg == NULL)
+    {
+        fprintf(stderr, "LogGetRemote: couldn't recv msg for log tail from server at %s\n",
+                endpoint);
+        perror("LogGetRemote: no response received");
+        fflush(stderr);
+        return (-1);
+    }
+    r_frame = zmsg_first(r_msg);
+    if (r_frame == NULL)
+    {
+        fprintf(stderr, "LogGetRemote: no recv frame for log tail from server at %s\n",
+                endpoint);
+        perror("LogGetRemote: no response frame");
+        zmsg_destroy(&r_msg);
+        return (-1);
+    }
+    copy_size = zframe_size(r_frame);
+	memcpy((void *)log, (void *)zframe_data(r_frame), copy_size);
+	log->m_buf = mio;
+    zmsg_destroy(&r_msg);
+	
+#ifdef DEBUG
+    printf("LogGetRemote: received log from %s\n", endpoint);
+    fflush(stdout);
+#endif
+
+	return (1);
 }
 
 #endif
