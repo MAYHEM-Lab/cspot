@@ -10,10 +10,11 @@
 #include "merge.h"
 #include "log-merge.h"
 
-#define ARGS "E:"
-char *Usage = "merge-init -E endpoint\n";
+#define ARGS "E:F:"
+char *Usage = "merge-init -E endpoint -F glog_filename\n";
 
 char endpoint[4096];
+char filename[4096];
 
 int main(int argc, char **argv)
 {
@@ -22,6 +23,7 @@ int main(int argc, char **argv)
 	unsigned long int log_space;
 	MIO *mio;
 	LOG *log;
+	GLOG *glog;
 
 	while ((c = getopt(argc, argv, ARGS)) != EOF)
 	{
@@ -30,6 +32,9 @@ int main(int argc, char **argv)
 		case 'E':
 			strncpy(endpoint, optarg, sizeof(endpoint));
 			break;
+		case 'F':
+			strncpy(filename, optarg, sizeof(filename));
+			break;
 		default:
 			fprintf(stderr, "unrecognized command %c\n", (char)c);
 			fprintf(stderr, "%s", Usage);
@@ -37,6 +42,18 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (endpoint[0] == 0)
+	{
+		fprintf(stderr, "%s", Usage);
+		exit(1);
+	}
+
+	if (filename[0] == 0)
+	{
+		fprintf(stderr, "%s", Usage);
+		exit(1);
+	}
+	
 	WooFInit();
 
 	log_space = LogGetRemoteSize(endpoint);
@@ -55,6 +72,21 @@ int main(int argc, char **argv)
 	}
 	LogPrint(stdout, log);
 	fflush(stdout);
-	
+
+	glog = GLogCreate(filename, 0, log->size * 2);
+	if (glog == NULL)
+	{
+		fprintf(stderr, "couldn't create global log\n");
+		exit(1);
+	}
+	err = ImportLogTail(glog, log);
+	if (err < 0)
+	{
+		fprintf(stderr, "couldn't import log tail from %s\n", endpoint);
+		exit(1);
+	}
+	GLogPrint(stdout, glog);
+	fflush(stdout);
+
 	return (0);
 }
