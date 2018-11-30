@@ -70,6 +70,7 @@ int WooFContainerInit()
 	char putbuf[25];
 	pthread_t tid;
 	char *str;
+	char *ptr;
 	MIO *lmio;
 	unsigned long name_id;
 	int i;

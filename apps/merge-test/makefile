@@ -28,6 +28,7 @@ merge-init: merge-init.c merge.h
 
 merge-remote: merge-remote.c merge.h
 	${CC} ${CFLAGS} -o merge-remote merge-remote.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp merge-remote ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${LMINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
