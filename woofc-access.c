@@ -494,7 +494,6 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
-	char *ptr;
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -581,7 +580,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	memset(buffer, 0, sizeof(buffer));
 	memcpy(buffer, zframe_data(frame), copy_size);
-	cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
+	cause_host = strtoul(buffer, (char **)NULL, 10);
 #ifdef DEBUG
 	printf("WooFProcessPut: received cause_host %lu\n", cause_host);
 	fflush(stdout);
@@ -599,7 +598,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	memset(buffer, 0, sizeof(buffer));
 	memcpy(buffer, zframe_data(frame), copy_size);
-	cause_seq_no = (unsigned long)strtoul(buffer, &ptr, 10);
+	cause_seq_no = strtoul(buffer, (char **)NULL, 10);
 
 #ifdef DEBUG
 	printf("WooFProcessPut: received cause_seq_no %lu\n", cause_seq_no);
@@ -1304,7 +1303,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
-	char *ptr;
+
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -1364,7 +1363,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = strtoul((char *)zframe_data(frame), &ptr, 10);
+		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
@@ -1382,7 +1381,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 		copy_size = zframe_size(frame);
 		memset(buffer, 0, sizeof(buffer));
 		memcpy(buffer, zframe_data(frame), copy_size);
-		cause_host = (unsigned long)strtoul(buffer, &ptr, 10);
+		cause_host = strtoul(buffer, (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFProcessGet: received cause_host %lu\n", cause_host);
 		fflush(stdout);
@@ -1401,7 +1400,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 		copy_size = zframe_size(frame);
 		memset(buffer, 0, sizeof(buffer));
 		memcpy(buffer, zframe_data(frame), copy_size);
-		cause_seq_no = (unsigned long)strtoul(buffer, &ptr, 10);
+		cause_seq_no = strtoul(buffer, (char **)NULL, 10);
 
 		/*
 		 * FIX ME: for now, all process requests are local
@@ -1536,6 +1535,7 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
+
 	char woof_name[2048];
 	char hand_name[2048];
 	char local_name[2048];
@@ -1811,6 +1811,7 @@ void *WooFMsgThread(void *arg)
 	zframe_t *frame;
 	unsigned long tag;
 	char *str;
+
 	int err;
 
 	/*
@@ -2021,6 +2022,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
+
 	unsigned long el_size;
 	int err;
 	unsigned long *el_size_cached;
@@ -2198,7 +2200,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 			return (-1);
 		}
 		str = zframe_data(r_frame);
-		el_size = atol(str);
+		el_size = strtoul(str, (char **)NULL, 10);
 		zmsg_destroy(&r_msg);
 	}
 
@@ -2246,6 +2248,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
+
 	int err;
 	unsigned long el_read;
 
@@ -2486,7 +2489,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
-	char *ptr;
+
 	struct timeval tm;
 	unsigned long seq_no;
 	int err;
@@ -2501,7 +2504,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
 	if (namelog_seq_no != NULL)
 	{
-		my_log_seq_no = strtoul(namelog_seq_no, &ptr, 10);
+		my_log_seq_no = strtoul(namelog_seq_no, (char **)NULL, 10);
 	}
 	else
 	{
@@ -2843,7 +2846,6 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
-	char *ptr;
 	struct timeval tm;
 	int err;
 	char *namelog_seq_no;
@@ -2852,7 +2854,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
 	if (namelog_seq_no != NULL)
 	{
-		my_log_seq_no = strtoul(namelog_seq_no, &ptr, 10);
+		my_log_seq_no = strtoul(namelog_seq_no, (char **)NULL, 10);
 	}
 	else
 	{
@@ -3475,7 +3477,7 @@ unsigned long int LogGetRemoteSize(char *endpoint)
 		zmsg_destroy(&r_msg);
 		return (-1);
 	}
-	size = atol((char *)zframe_data(r_frame));
+	size = strtoul(zframe_data(r_frame), (char **)NULL, 10);
 	zmsg_destroy(&r_msg);
 
 #ifdef DEBUG
