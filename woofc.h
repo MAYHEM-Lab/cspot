@@ -43,7 +43,9 @@ int WooFCreate(char *name,
 			   unsigned long element_size,
 			   unsigned long history_size);
 WOOF *WooFOpen(char *name);
+WOOF *WooFRepairOpen(char *name);
 unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
+unsigned long WooFRepairPut(char *wf_name, unsigned long seq_no, void *element);
 int WooFGet(char *wf_name, void *element, unsigned long seq_no);
 unsigned long WooFAppend(WOOF *wf, char *wf_handler, void *element);
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no);

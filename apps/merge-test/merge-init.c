@@ -15,6 +15,7 @@ char *Usage = "merge-init -E endpoint -F glog_filename\n";
 
 char endpoint[4096];
 char filename[4096];
+extern unsigned long Name_id;
 
 int main(int argc, char **argv)
 {
@@ -55,6 +56,8 @@ int main(int argc, char **argv)
 	}
 	
 	WooFInit();
+	printf("local Name_id: %lu\n", Name_id);
+	fflush(stdout);
 
 	log_space = LogGetRemoteSize(endpoint);
 	if (log_space < 0)
@@ -73,7 +76,7 @@ int main(int argc, char **argv)
 	LogPrint(stdout, log);
 	fflush(stdout);
 
-	glog = GLogCreate(filename, 0, log->size * 2);
+	glog = GLogCreate(filename, Name_id, log->size * 2);
 	if (glog == NULL)
 	{
 		fprintf(stderr, "couldn't create global log\n");

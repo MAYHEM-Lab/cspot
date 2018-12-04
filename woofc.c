@@ -433,6 +433,67 @@ void WooFDrop(WOOF *wf)
 	return;
 }
 
+WOOF *WooFRepairOpen(char *name)
+{
+	WOOF *original_wf;
+	WOOF *repair_wf;
+	WOOF_SHARED *wfs;
+	char wf_repair_name[2048];
+	struct stat sbuf;
+	int err;
+	unsigned long space;
+
+	memset(wf_repair_name, 0, sizeof(wf_repair_name));
+	sprintf(wf_repair_name, "%s_repair", name);
+#ifdef DEBUG
+	printf("WooFRepairOpen: opending repair woof %s\n", wf_repair_name);
+	fflush(stdout);
+#endif
+
+	if (stat(wf_repair_name, &sbuf) < 0)
+	{
+		original_wf = WooFOpen(name);
+		if (original_wf == NULL)
+		{
+			fprintf(stderr, "WooFRepairOpen: couldn't open original woof %s\n", name);
+			fflush(stderr);
+			return (NULL);
+		}
+#ifdef DEBUG
+		fprintf(stdout, "WooFRepairOpen: opened original woof %s\n", name);
+		fflush(stdout);
+#endif
+
+		wfs = original_wf->shared;
+		err = WooFCreate(wf_repair_name, wfs->element_size, wfs->history_size);
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFRepairOpen: couldn't create repair woof %s\n", wf_repair_name);
+			fflush(stderr);
+			WooFFree(original_wf);
+			return (NULL);
+		}
+#ifdef DEBUG
+		fprintf(stdout, "WooFRepairOpen: created repair woof %s\n", wf_repair_name);
+		fflush(stdout);
+#endif
+
+		repair_wf = WooFOpen(wf_repair_name);
+		if (repair_wf == NULL)
+		{
+			fprintf(stderr, "WooFRepairOpen: couldn't open repair woof %s\n", wf_repair_name);
+			fflush(stderr);
+			WooFFree(original_wf);
+			return (NULL);
+		}
+		space = (wfs->history_size + 1) * (wfs->element_size + sizeof(ELID)) + sizeof(WOOF_SHARED);
+		memcpy((void *)repair_wf->shared, (void *)wfs, space);
+		return (repair_wf);
+	}
+	repair_wf = WooFOpen(wf_repair_name);
+	return (repair_wf);
+}
+
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
 	MIO *mio;
@@ -473,7 +534,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	}
 	else
 	{
-		my_log_seq_no = 1;
+		my_log_seq_no = 0;
 	}
 
 	if (hand_name != NULL)
@@ -682,6 +743,28 @@ fflush(stdout);
 	return (seq_no);
 }
 
+// TODO:
+unsigned long WooFRepairAppend(WOOF *wf, unsigned long seq_no, void *element)
+{
+	WOOF_SHARED *wfs;
+	unsigned char *buf;
+	unsigned char *ptr;
+
+#ifdef DEBUG
+	printf("WooFRepairAppend: called %s %lu\n", wf->shared->filename, seq_no);
+	fflush(stdout);
+#endif
+
+	wfs = wf->shared;
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+	ptr = buf + (seq_no * (wfs->element_size + sizeof(ELID)));
+	P(&wfs->mutex);
+	memcpy(ptr, element, wfs->element_size);
+	V(&wfs->mutex);
+
+	return (seq_no);
+}
+
 unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsigned long cause_host, unsigned long long cause_seq_no)
 {
 	MIO *mio;
@@ -722,7 +805,7 @@ unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsi
 	}
 	else
 	{
-		my_log_seq_no = 1;
+		my_log_seq_no = 0;
 	}
 
 	if (hand_name != NULL)
@@ -1035,6 +1118,105 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	fflush(stdout);
 #endif
 	seq_no = WooFAppend(wf, hand_name, element);
+
+	WooFFree(wf);
+	return (seq_no);
+}
+
+// TODO:
+unsigned long WooFRepairPut(char *wf_name, unsigned long seq_no, void *element)
+{
+	WOOF *wf;
+	unsigned long el_size;
+	char wf_namespace[2048];
+	char ns_ip[25];
+	char my_ip[25];
+	char wf_repair_name[2048];
+	int err;
+
+#ifdef DEBUG
+	printf("WooFRepairPut: called %s %lu\n", wf_name, seq_no);
+	fflush(stdout);
+#endif
+
+	memset(ns_ip, 0, sizeof(ns_ip));
+	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+	/*
+	 * if there is no IP address in the URI, use the local IP address
+	 */
+	if (err < 0)
+	{
+		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFRepairPut: no local IP\n");
+			exit(1);
+		}
+	}
+
+	memset(my_ip, 0, sizeof(my_ip));
+	err = WooFLocalIP(my_ip, sizeof(my_ip));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFRepairPut: no local IP\n");
+		exit(1);
+	}
+
+	memset(wf_namespace, 0, sizeof(wf_namespace));
+	err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
+	/*
+	 * if this isn't for my namespace, try and remote put
+	 *
+	 * err < 0 implies that name is local name
+	 *
+	 * if namespace paths do not match or they do match but the IP addresses do not match, this is
+	 * a remote put
+	 */
+	if ((err >= 0) &&
+		((strcmp(WooF_namespace, wf_namespace) != 0) ||
+		 (strcmp(my_ip, ns_ip) != 0)))
+	{
+		el_size = WooFMsgGetElSize(wf_name);
+		if (el_size != (unsigned long)-1)
+		{
+			// TODO: WooFMsgRepairPut
+			// seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
+			return (seq_no);
+		}
+		else
+		{
+			fprintf(stderr, "WooFRepairPut: couldn't get element size for %s\n",
+					wf_name);
+			fflush(stderr);
+			return (-1);
+		}
+	}
+
+	if (WooF_dir[0] == 0)
+	{
+		fprintf(stderr, "WooFRepairPut: local namespace put must init system\n");
+		fflush(stderr);
+		return (-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFRepairPut: namespace: %s,  WooF_dir: %s, name: %s\n",
+		   WooF_namespace, WooF_dir, wf_name);
+	fflush(stdout);
+#endif
+	wf = WooFRepairOpen(wf_name);
+
+	if (wf == NULL)
+	{
+		return (-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFRepairPut: WooF %s open\n", wf_name);
+	fflush(stdout);
+#endif
+	//TODO:
+	seq_no = WooFRepairAppend(wf, seq_no, element);
 
 	WooFFree(wf);
 	return (seq_no);
