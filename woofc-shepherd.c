@@ -1,3 +1,5 @@
+// #define DEBUG
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -148,7 +150,7 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
-	ndx = (unsigned long)atol(wf_ndx);
+	ndx = strtoul(wf_ndx, (char **)NULL, 10);
 #ifdef DEBUG
 	fprintf(stdout, "WooFShepherd: WOOF_SHEPHERD_NDX=%lu\n", ndx);
 	fflush(stdout);
@@ -161,7 +163,7 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
-	seq_no = (unsigned long)atol(wf_seq_no);
+	seq_no = strtoul(wf_seq_no, (char **)NULL, 10);
 #ifdef DEBUG
 	fprintf(stdout, "WooFShepherd: WOOF_SHEPHERD_SEQ_NO=%lu\n", seq_no);
 	fflush(stdout);
@@ -190,7 +192,7 @@ int main(int argc, char **argv, char **envp)
 		fflush(stderr);
 		exit(1);
 	}
-	my_log_seq_no = (unsigned long)atol(namelog_seq_no);
+	my_log_seq_no = strtoul(namelog_seq_no, (char **)NULL, 10);
 #ifdef DEBUG
 	fprintf(stdout, "WooFShepherd: WOOF_NAMELOG_SEQNO=%lu\n", my_log_seq_no);
 	fflush(stdout);
@@ -204,7 +206,7 @@ int main(int argc, char **argv, char **envp)
 		exit(1);
 	}
 
-	Name_id = (unsigned long)atol(name_id);
+	Name_id = strtoul(name_id, (char **)NULL, 10);
 #ifdef DEBUG
 	fprintf(stdout, "WooFShepherd: WOOF_NAME_ID=%lu\n", Name_id);
 	fflush(stdout);
