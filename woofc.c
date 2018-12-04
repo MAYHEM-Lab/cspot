@@ -467,7 +467,7 @@ unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
 	if (namelog_seq_no != NULL)
 	{
-		my_log_seq_no = (unsigned long)atol(namelog_seq_no);
+		my_log_seq_no = strtoul(namelog_seq_no, (char **)NULL, 10);
 	}
 	else
 	{

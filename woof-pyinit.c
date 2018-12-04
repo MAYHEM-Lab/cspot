@@ -82,7 +82,7 @@ int WooFInitEnv()
 		fflush(stderr);
 		exit(1);
 	}
-	Name_id = (unsigned long)atol(name_id);
+	Name_id = strtoul(name_id, (char **)NULL, 10);
 
 	sprintf(log_name, "%s/%s", WooF_namelog_dir, namelog_name);
 	lmio = MIOReOpen(log_name);

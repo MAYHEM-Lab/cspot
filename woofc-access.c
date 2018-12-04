@@ -1044,7 +1044,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 			return (-1);
 		}
 		str = zframe_data(r_frame);
-		lastest_seq_no = atol(str);
+		lastest_seq_no = strtoul(str, (char **)NULL, 10);
 		zmsg_destroy(&r_msg);
 	}
 
@@ -1119,7 +1119,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 		perror("WooFProcessGetTail: couldn't find element count in msg");
 		return;
 	}
-	el_count = atol(zframe_data(frame));
+	el_count = strtoul(zframe_data(frame), (char **)NULL, 10);
 
 	/*
 	 * FIX ME: for now, all process requests are local
@@ -1309,7 +1309,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = atol((char *)zframe_data(frame));
+		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
@@ -1503,7 +1503,7 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = atol((char *)zframe_data(frame));
+		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFProcessGetDone: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
@@ -1638,7 +1638,7 @@ void *WooFMsgThread(void *arg)
 		 */
 		str = (char *)zframe_data(frame);
 		str[1] = 0;
-		tag = atol(str);
+		tag = strtoul(str, (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFMsgThread: processing msg with tag: %d\n", tag);
 		fflush(stdout);
@@ -2212,7 +2212,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 			return (-1);
 		}
 		str = zframe_data(r_frame);
-		el_read = atol(str);
+		el_read = strtoul(str, (char **)NULL, 10);
 
 		r_frame = zmsg_next(r_msg);
 		if (r_frame == NULL)
@@ -2501,7 +2501,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 			return (-1);
 		}
 		str = zframe_data(r_frame);
-		seq_no = atol(str);
+		seq_no = strtoul(str, (char **)NULL, 10);
 		zmsg_destroy(&r_msg);
 	}
 

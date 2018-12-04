@@ -164,7 +164,7 @@ int WooFContainerInit()
 		fprintf(stderr, "WooFContainerInit: couldn't find name id\n");
 		exit(1);
 	}
-	name_id = (unsigned long)atol(str);
+	name_id = strtoul(str, (char **)NULL, 10);
 
 	str = getenv("WOOF_NAMELOG_NAME");
 	if (str == NULL)
