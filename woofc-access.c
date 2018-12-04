@@ -1,5 +1,3 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -325,6 +323,7 @@ int WooFLocalIP(char *ip_str, int len)
 {
 	struct ifaddrs *addrs;
 	struct ifaddrs *tmp;
+	char *local_ip;
 
 	/*
 	 * check to see if we have been assigned a local Host_ip (say because we are in a container
@@ -334,6 +333,19 @@ int WooFLocalIP(char *ip_str, int len)
 		strncpy(ip_str, Host_ip, len);
 		return (1);
 	}
+
+	/*
+	 * now check to see if there is a specific ip address we should use
+	 * (e.g. this is a amulti-homed host and we want a specific NIC to be the NIC
+	 * servicing requests
+	 */
+	local_ip = getenv("WOOFC_IP");
+	if(local_ip != NULL) {
+		strncpy(ip_str,local_ip,len);
+		return(1);
+	}
+	
+	
 
 	/*
 	 * need the non loop back IP address for local machine to allow inter-container

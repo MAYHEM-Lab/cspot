@@ -122,10 +122,10 @@ int main(int argc, char **argv)
 			}
 			putenv(putbuf1);
 			WooFInit();
-			sprintf(Wname2,"%s/%s",NameSpace2,Fname);
+			sprintf(Wname2,"%s",Fname);
 			err = WooFCreate(Wname2,sizeof(PP_EL),size);
 			if(err < 0) {
-				fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
+				fprintf(stderr,"couldn't create wf_1 from %s\n",Wname2);
 				fflush(stderr);
 				exit(1);
 			}
