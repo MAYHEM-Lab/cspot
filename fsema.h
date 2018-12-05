@@ -4,13 +4,11 @@
 #include <pthread.h>
 #include <sys/file.h>
 
-
-
 struct sem
 {
 	char mname[256];
 	char wname[256];
-        int value;
+	int value;
 	int waiters;
 };
 
@@ -22,4 +20,3 @@ void P(sema *s);
 void V(sema *s);
 
 #endif
-

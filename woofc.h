@@ -22,7 +22,8 @@ struct woof_shared_stc
 
 typedef struct woof_shared_stc WOOF_SHARED;
 
-struct woof_stc {
+struct woof_stc
+{
 	WOOF_SHARED *shared;
 	MIO *mio;
 	unsigned long ino; // for caching
@@ -39,8 +40,8 @@ struct element_stc
 typedef struct element_stc ELID;
 
 int WooFCreate(char *name,
-               unsigned long element_size,
-               unsigned long history_size);
+			   unsigned long element_size,
+			   unsigned long history_size);
 WOOF *WooFOpen(char *name);
 unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
 int WooFGet(char *wf_name, void *element, unsigned long seq_no);
@@ -64,4 +65,3 @@ void WooFDrop(WOOF *wf);
 #define WOOFNAMESIZE (256)
 
 #endif
-

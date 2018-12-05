@@ -10,7 +10,7 @@ int WooFLocalIP(char *ip_str, int len);
 
 unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size);
 unsigned long WooFMsgGetElSize(char *woof_name);
-int WooFMsgServer (char *namespace);
+int WooFMsgServer(char *namespace);
 
 int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 
@@ -31,4 +31,3 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 #define WOOF_MSG_CACHE_SIZE (100)
 
 #endif
-

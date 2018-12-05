@@ -11,15 +11,16 @@ EVENT *EventCreate(unsigned char type, unsigned long host)
 	EVENT *ev;
 
 	ev = (EVENT *)malloc(sizeof(EVENT));
-	if(ev == NULL) {
-		return(NULL);
+	if (ev == NULL)
+	{
+		return (NULL);
 	}
-	memset(ev,0,sizeof(EVENT));
+	memset(ev, 0, sizeof(EVENT));
 
 	ev->type = type;
 	ev->host = host;
 
-	return(ev);
+	return (ev);
 }
 
 void EventFree(EVENT *ev)
@@ -28,22 +29,23 @@ void EventFree(EVENT *ev)
 	return;
 }
 
-int EventSetCause(EVENT *ev, unsigned long cause_host, 
-				unsigned long long cause_seq_no)
+int EventSetCause(EVENT *ev, unsigned long cause_host,
+				  unsigned long long cause_seq_no)
 {
-	if(ev == NULL) {
-		return(-1);
+	if (ev == NULL)
+	{
+		return (-1);
 	}
 	ev->cause_host = cause_host;
 	ev->cause_seq_no = cause_seq_no;
-	return(1);
+	return (1);
 }
 
 double EventIndex(unsigned long host, unsigned long long seq_no)
 {
 	double ndx;
 
-	ndx = (double)(((double)host * pow(2,32)) + (double)seq_no);
+	ndx = (double)(((double)host * pow(2, 32)) + (double)seq_no);
 
-	return(ndx);
+	return (ndx);
 }

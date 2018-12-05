@@ -9,9 +9,7 @@
 #include <sys/select.h>
 #include <poll.h>
 
-
 #include "woofc.h"
-
 
 LOG *Name_log;
 unsigned long Name_id;
@@ -21,7 +19,8 @@ char Host_ip[25];
 char WooF_namelog_dir[2048];
 char Namelog_name[2048];
 
-int WooFInitEnv() {
+int WooFInitEnv()
+{
 	char *wnld;
 	char *wf_ns;
 	char *wf_dir;
@@ -32,63 +31,70 @@ int WooFInitEnv() {
 	char log_name[4096];
 
 	wf_ns = getenv("WOOFC_NAMESPACE");
-	if(wf_ns == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOFC_NAMESPACE\n");
+	if (wf_ns == NULL)
+	{
+		fprintf(stderr, "WooFShepherd: couldn't find WOOFC_NAMESPACE\n");
 		fflush(stderr);
 		exit(1);
 	}
-	strncpy(WooF_namespace,wf_ns,sizeof(WooF_namespace));
+	strncpy(WooF_namespace, wf_ns, sizeof(WooF_namespace));
 
 	wf_ip = getenv("WOOF_HOST_IP");
-	if(wf_ip == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_HOST_IP\n");
+	if (wf_ip == NULL)
+	{
+		fprintf(stderr, "WooFShepherd: couldn't find WOOF_HOST_IP\n");
 		fflush(stderr);
 		exit(1);
 	}
-	strncpy(Host_ip,wf_ip,sizeof(Host_ip));
+	strncpy(Host_ip, wf_ip, sizeof(Host_ip));
 
 	wf_dir = getenv("WOOFC_DIR");
-	if(wf_dir == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOFC_DIR\n");
+	if (wf_dir == NULL)
+	{
+		fprintf(stderr, "WooFShepherd: couldn't find WOOFC_DIR\n");
 		fflush(stderr);
 		exit(1);
 	}
-	strncpy(WooF_dir,wf_dir,sizeof(WooF_dir));
+	strncpy(WooF_dir, wf_dir, sizeof(WooF_dir));
 
 	wnld = getenv("WOOF_NAMELOG_DIR");
-	if(wnld == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_NAMELOG_DIR\n");
+	if (wnld == NULL)
+	{
+		fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_DIR\n");
 		fflush(stderr);
 		exit(1);
 	}
-	strncpy(WooF_namelog_dir,wnld,sizeof(WooF_namelog_dir));
+	strncpy(WooF_namelog_dir, wnld, sizeof(WooF_namelog_dir));
 
 	namelog_name = getenv("WOOF_NAMELOG_NAME");
-	if(namelog_name == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_NAMELOG_NAME\n");
+	if (namelog_name == NULL)
+	{
+		fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_NAME\n");
 		fflush(stderr);
 		exit(1);
 	}
-	strncpy(Namelog_name,namelog_name,sizeof(Namelog_name));
+	strncpy(Namelog_name, namelog_name, sizeof(Namelog_name));
 
 	name_id = getenv("WOOF_NAME_ID");
-	if(name_id == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't find WOOF_NAME_ID\n");
+	if (name_id == NULL)
+	{
+		fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAME_ID\n");
 		fflush(stderr);
 		exit(1);
 	}
-	Name_id = (unsigned long)atol(name_id);
+	Name_id = strtoul(name_id, (char **)NULL, 10);
 
-	sprintf(log_name,"%s/%s",WooF_namelog_dir,namelog_name);
+	sprintf(log_name, "%s/%s", WooF_namelog_dir, namelog_name);
 	lmio = MIOReOpen(log_name);
-	if(lmio == NULL) {
+	if (lmio == NULL)
+	{
 		fprintf(stderr,
-		"WooFShepherd: couldn't open mio for log %s\n",log_name);
+				"WooFShepherd: couldn't open mio for log %s\n", log_name);
 		fflush(stderr);
 		exit(1);
 	}
 	Name_log = (LOG *)MIOAddr(lmio);
-	strncpy(Namelog_name,namelog_name,sizeof(Namelog_name));
-    
-    return 0;
+	strncpy(Namelog_name, namelog_name, sizeof(Namelog_name));
+
+	return 0;
 }
