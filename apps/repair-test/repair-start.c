@@ -46,9 +46,8 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-	memset(&el, 0, sizeof(REPAIR_EL));
-	sprintf(el.string, "repaired");
-	// err = WooFRepairPut("test", 2, &el);
+	// memset(&el, 0, sizeof(REPAIR_EL));
+	// sprintf(el.string, "repaired");
 	err = WooFCopy("test", element_size, history_size, count);
 	if (err < 0)
 	{
@@ -59,43 +58,11 @@ int main(int argc, char **argv)
 
 	printf("original:\n");
 	WooFPrintMeta(stdout, "test");
-	latest_seq_no = WooFGetLatestSeqno("test");
-	printf("latest_seq_no: %lu\n", latest_seq_no);
-	fflush(stdout);
-	if (latest_seq_no > history_size)
-	{
-		i = latest_seq_no - history_size + 1;
-	}
-	else
-	{
-		i = 1;
-	}
-	for (; i <= latest_seq_no; i++)
-	{
-		err = WooFGet("test", &el, i);
-		if (err < 0)
-		{
-			fprintf(stderr, "couldn't get woof %s[%d]\n", "test", i);
-			fflush(stderr);
-			return (0);
-		}
-		printf("woof[%d]: %s\n", i, el.string);
-	}
+	WooFDump(stdout, "test");
 
 	printf("\nshadow:\n");
 	WooFPrintMeta(stdout, "test_repair");
-	latest_seq_no = WooFGetLatestSeqno("test_repair");
-	for (i = latest_seq_no; i > 0; i--)
-	{
-		err = WooFGet("test_repair", &el, i);
-		if (err < 0)
-		{
-			fprintf(stderr, "couldn't get woof %s[%d]\n", "test_repair", i);
-			fflush(stderr);
-			return (0);
-		}
-		printf("woof[%d]: %s\n", i, el.string);
-	}
+	WooFDump(stdout, "test_repair");
 
 	fflush(stdout);
 	return (0);
