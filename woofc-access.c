@@ -1,5 +1,5 @@
 // #define DEBUG
-#define LOG_MERGE
+#define LOG_REPAIR
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -24,7 +24,7 @@ extern char WooF_namespace[2048];
 extern char Host_ip[25];
 extern unsigned long Name_id;
 
-#ifdef LOG_MERGE
+#ifdef LOG_REPAIR
 extern LOG *Name_log;
 #endif
 
@@ -1676,7 +1676,7 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 
 #endif
 
-#ifdef LOG_MERGE
+#ifdef LOG_REPAIR
 void LogProcessGetSize(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -1881,7 +1881,7 @@ void *WooFMsgThread(void *arg)
 			WooFProcessGetDone(msg, receiver);
 			break;
 #endif
-#ifdef LOG_MERGE
+#ifdef LOG_REPAIR
 		case LOG_GET_REMOTE_SIZE:
 			LogProcessGetSize(msg, receiver);
 			break;
@@ -3399,7 +3399,7 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 
 #endif
 
-#ifdef LOG_MERGE
+#ifdef LOG_REPAIR
 unsigned long int LogGetRemoteSize(char *endpoint)
 {
 	int err;

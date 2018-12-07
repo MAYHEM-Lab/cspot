@@ -39,13 +39,9 @@ struct element_stc
 
 typedef struct element_stc ELID;
 
-int WooFCreate(char *name,
-			   unsigned long element_size,
-			   unsigned long history_size);
+int WooFCreate(char *name, unsigned long element_size, unsigned long history_size);
 WOOF *WooFOpen(char *name);
-WOOF *WooFRepairOpen(char *name);
 unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
-unsigned long WooFRepairPut(char *wf_name, unsigned long seq_no, void *element);
 int WooFGet(char *wf_name, void *element, unsigned long seq_no);
 unsigned long WooFAppend(WOOF *wf, char *wf_handler, void *element);
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no);
@@ -59,6 +55,15 @@ unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
 int WooFHandlerDone(char *wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF *wf);
+
+#ifdef LOG_REPAIR
+WOOF *WooFRepairOpen(char *name);
+unsigned long WooFRepairPut(char *wf_name, unsigned long seq_no, void *element);
+int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
+			 unsigned long last_correct_seq_no);
+void WooFPrintMeta(FILE *fd, char *name);
+void WooFDump(FILE *fd, char *name, unsigned long head, unsigned long tail);
+#endif
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
