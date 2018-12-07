@@ -2008,3 +2008,133 @@ unsigned long WooFLatestSeqno(WOOF *wf)
 
 	return (seq_no - 1);
 }
+
+// TODO:
+#ifdef LOG_REPAIR
+int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
+			 unsigned long last_correct_seq_no)
+{
+	WOOF *original;
+	WOOF_SHARED *wfs;
+	MIO *mio;
+	unsigned long space;
+	unsigned long youngest;
+	unsigned long oldest;
+	unsigned char *buf;
+	unsigned char *ptr;
+	ELID *el_id;
+	char local_name[4096];
+	int err;
+
+	if (name == NULL)
+	{
+		return (-1);
+	}
+
+	space = ((history_size + 1) * (element_size + sizeof(ELID))) +
+			sizeof(WOOF_SHARED);
+
+	if (WooF_dir == NULL)
+	{
+		fprintf(stderr, "WooFCopy: must init system\n");
+		fflush(stderr);
+		exit(1);
+	}
+
+	/*
+	 * open the original woof
+	 */
+	original = WooFOpen(name);
+	if (original == NULL)
+	{
+		fprintf(stderr, "WooFCopy: couldn't open the original woof %s\n", name);
+		fflush(stderr);
+		return (-1);
+	}
+
+	/*
+	 * allocate space for the shadow woof
+	 */
+	memset(local_name, 0, sizeof(local_name));
+	strncpy(local_name, WooF_dir, sizeof(local_name));
+	if (local_name[strlen(local_name) - 1] != '/')
+	{
+		strncat(local_name, "/", 1);
+	}
+	strncat(local_name, name, sizeof(local_name));
+	strncat(local_name, "_repair", sizeof(local_name));
+
+	mio = MIOOpen(local_name, "w+", space);
+	if (mio == NULL)
+	{
+		fprintf(stderr, "WooFCopy: couldn't open %s with space %lu\n", local_name, space);
+		fflush(stderr);
+		WooFFree(original);
+		return (-1);
+	}
+
+	/*
+	 * copy the data TODO:
+	 */
+	wfs = (WOOF_SHARED *)MIOAddr(mio);
+	P(&original->shared->mutex);
+	memcpy((void *)wfs, (void *)original->shared, space);
+	V(&original->shared->mutex);
+	InitSem(&wfs->mutex, 1);
+
+	P(&wfs->mutex);
+	/*
+	 * check corrupted data range
+	 */
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+	youngest = el_id->seq_no;
+	ptr = buf + (wfs->tail * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+	oldest = el_id->seq_no;
+	
+	if (last_correct_seq_no < oldest || last_correct_seq_no > youngest)
+	{
+		fprintf(stderr, "last_correct_seq_no is not in the current range of woof.\n");
+		fprintf(stderr, "the current range of woof: [%lu, %lu]\n", oldest, youngest);
+		fflush(stderr);
+		MIOClose(mio);
+		WooFFree(original);
+		return (-1);
+	}
+
+	/*
+	 * update metadata WOOF_SHARED to only keep objects up to last_correct_seq_no
+	 */
+	wfs->seq_no = last_correct_seq_no + 1;
+	wfs->head = ((last_correct_seq_no - oldest) + wfs->tail) % wfs->history_size;
+	
+	V(&wfs->mutex);
+
+	MIOClose(mio);
+	WooFFree(original);
+
+	return (1);
+}
+
+void WooFPrintMeta(FILE *fd, char *name)
+{
+	WOOF *wf;
+	WOOF_SHARED *wfs;
+	wf = WooFOpen(name);
+	if (wf == NULL)
+	{
+		return;
+	}
+	wfs = wf->shared;
+	fprintf(fd, "wfs->filename: %s\n", wfs->filename);
+	fprintf(fd, "wfs->seq_no: %lu\n", wfs->seq_no);
+	fprintf(fd, "wfs->history_size: %lu\n", wfs->history_size);
+	fprintf(fd, "wfs->head: %lu\n", wfs->head);
+	fprintf(fd, "wfs->tail: %lu\n", wfs->tail);
+	fprintf(fd, "wfs->element_size: %lu\n", wfs->element_size);
+	fflush(fd);
+}
+
+#endif

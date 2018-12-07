@@ -1,7 +1,7 @@
 #ifndef WOOFC_ACCESS_H
 #define WOOFC_ACCESS_H
 
-#define LOG_MERGE
+#define LOG_REPAIR
 #include <czmq.h>
 
 int WooFValidURI(char *str);
@@ -17,7 +17,7 @@ int WooFMsgServer(char *namespace);
 
 int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 
-#ifdef LOG_MERGE
+#ifdef LOG_REPAIR
 unsigned long int LogGetRemoteSize(char *endpoint);
 int LogGetRemote(LOG *log, MIO *mio, char *endpoint);
 #endif
