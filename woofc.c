@@ -2093,7 +2093,7 @@ int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
 	ptr = buf + (wfs->tail * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
 	oldest = el_id->seq_no;
-	
+
 	if (last_correct_seq_no < oldest || last_correct_seq_no > youngest)
 	{
 		fprintf(stderr, "last_correct_seq_no is not in the current range of woof.\n");
@@ -2109,7 +2109,7 @@ int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
 	 */
 	wfs->seq_no = last_correct_seq_no + 1;
 	wfs->head = ((last_correct_seq_no - oldest) + wfs->tail) % wfs->history_size;
-	
+
 	V(&wfs->mutex);
 
 	MIOClose(mio);
@@ -2125,6 +2125,8 @@ void WooFPrintMeta(FILE *fd, char *name)
 	wf = WooFOpen(name);
 	if (wf == NULL)
 	{
+		fprintf(stderr, "could'nt open woof %s\n", name);
+		fflush(stderr);
 		return;
 	}
 	wfs = wf->shared;
@@ -2134,6 +2136,42 @@ void WooFPrintMeta(FILE *fd, char *name)
 	fprintf(fd, "wfs->head: %lu\n", wfs->head);
 	fprintf(fd, "wfs->tail: %lu\n", wfs->tail);
 	fprintf(fd, "wfs->element_size: %lu\n", wfs->element_size);
+	fflush(fd);
+}
+
+void WooFDump(FILE *fd, char *name)
+{
+	int i;
+	WOOF *wf;
+	WOOF_SHARED *wfs;
+	unsigned char *buf;
+	unsigned char *ptr;
+	ELID *el_id;
+	char str[4096];
+
+	wf = WooFOpen(name);
+	if (wf == NULL)
+	{
+		fprintf(stderr, "could'nt open woof %s\n", name);
+		fflush(stderr);
+		return;
+	}
+	wfs = wf->shared;
+	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
+
+	for (i = wfs->tail; i != wfs->head; i = (i + 1) % wfs->history_size)
+	{
+		ptr = buf + (i * (wfs->element_size + sizeof(ELID)));
+		el_id = (ELID *)(ptr + wfs->element_size);
+		memset(str, 0, sizeof(str));
+		strncpy(str, ptr, wfs->element_size);
+		fprintf(fd, "[%d]: woof[%d] = %s\n", i, el_id->seq_no, str);
+	}
+	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
+	el_id = (ELID *)(ptr + wfs->element_size);
+	memset(str, 0, sizeof(str));
+	strncpy(str, ptr, wfs->element_size);
+	fprintf(fd, "[%d]: woof[%d] = %s\n", wfs->head, el_id->seq_no, str);
 	fflush(fd);
 }
 
