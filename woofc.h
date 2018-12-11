@@ -1,6 +1,8 @@
 #ifndef WOOFC
 #define WOOFC
 
+#define REPAIR
+
 #include "mio.h"
 #include "lsema.h"
 #include "log.h"
@@ -57,13 +59,13 @@ int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF *wf);
 int WooFTruncate(char *name, unsigned long seq_no);
 
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 WOOF *WooFRepairOpen(char *name);
 unsigned long WooFRepairPut(char *wf_name, unsigned long seq_no, void *element);
 int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
 			 unsigned long last_correct_seq_no);
 void WooFPrintMeta(FILE *fd, char *name);
-void WooFDump(FILE *fd, char *name, unsigned long head, unsigned long tail);
+void WooFDump(FILE *fd, char *name);
 #endif
 
 #define DEFAULT_WOOF_DIR "./cspot/"

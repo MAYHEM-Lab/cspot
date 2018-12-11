@@ -1,7 +1,7 @@
 #ifndef WOOFC_ACCESS_H
 #define WOOFC_ACCESS_H
 
-#define LOG_REPAIR
+#define REPAIR
 #include <czmq.h>
 
 int WooFValidURI(char *str);
@@ -17,9 +17,10 @@ int WooFMsgServer(char *namespace);
 
 int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 unsigned long int LogGetRemoteSize(char *endpoint);
 int LogGetRemote(LOG *log, MIO *mio, char *endpoint);
+int WooFStartRepair(char *woof_name, unsigned long last_valid_seq_no, unsigned long last_corrupted_seq_no);
 #endif
 
 /*
@@ -35,6 +36,7 @@ int LogGetRemote(LOG *log, MIO *mio, char *endpoint);
 #define WOOF_MSG_GET_TAIL (4)
 #define WOOF_MSG_GET_LATEST_SEQNO (5)
 #define WOOF_MSG_GET_DONE (6)
+#define WOOF_MSG_REPAIR (7)
 #define LOG_GET_REMOTE (8)
 #define LOG_GET_REMOTE_SIZE (9)
 
