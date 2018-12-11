@@ -1,5 +1,5 @@
 // #define DEBUG
-#define LOG_REPAIR
+#define REPAIR
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -24,7 +24,7 @@ extern char WooF_namespace[2048];
 extern char Host_ip[25];
 extern unsigned long Name_id;
 
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 extern LOG *Name_log;
 #endif
 
@@ -1676,7 +1676,7 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 
 #endif
 
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 void LogProcessGetSize(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -1881,7 +1881,7 @@ void *WooFMsgThread(void *arg)
 			WooFProcessGetDone(msg, receiver);
 			break;
 #endif
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 		case LOG_GET_REMOTE_SIZE:
 			LogProcessGetSize(msg, receiver);
 			break;
@@ -3399,7 +3399,7 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 
 #endif
 
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 unsigned long int LogGetRemoteSize(char *endpoint)
 {
 	int err;
@@ -3572,6 +3572,264 @@ int LogGetRemote(LOG *log, MIO *mio, char *endpoint)
 	fflush(stdout);
 #endif
 
+	return (1);
+}
+
+/* TODO:
+ * Start woof repair. The woof objects from begin_seq_no to end_seq_no are to be repaired.
+ */
+int WooFStartRepair(char *woof_name, unsigned long begin_seq_no, unsigned long end_seq_no)
+{
+	char endpoint[255];
+	char namespace[2048];
+	char ip_str[25];
+	int port;
+	zmsg_t *msg;
+	zmsg_t *r_msg;
+	int r_size;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char buffer[255];
+	char *str;
+	unsigned long to_be_filled;
+	struct timeval tm;
+	int err;
+
+	memset(namespace, 0, sizeof(namespace));
+	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s no name space\n", woof_name);
+		fflush(stderr);
+		return (-1);
+	}
+
+	memset(ip_str, 0, sizeof(ip_str));
+	err = WooFIPAddrFromURI(woof_name, ip_str, sizeof(ip_str));
+	if (err < 0)
+	{
+		/*
+		 * assume it is local
+		 */
+		err = WooFLocalIP(ip_str, sizeof(ip_str));
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFMsgGet: woof: %s invalid IP address\n",
+					woof_name);
+			fflush(stderr);
+			return (-1);
+		}
+	}
+
+	err = WooFPortFromURI(woof_name, &port);
+	if (err < 0)
+	{
+		port = WooFPortHash(namespace);
+	}
+
+	memset(endpoint, 0, sizeof(endpoint));
+	sprintf(endpoint, ">tcp://%s:%d", ip_str, port);
+
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s trying enpoint %s\n", woof_name, endpoint);
+	fflush(stdout);
+#endif
+
+	msg = zmsg_new();
+	if (msg == NULL)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s no outbound msg to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFStartRepair: allocating msg");
+		fflush(stderr);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s got new msg\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * this is a repair message
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", WOOF_MSG_REPAIR);
+	frame = zframe_new(buffer, strlen(buffer));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s no frame for WOOF_MSG_REPAIR command in to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFStartRepair: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s got WOOF_MSG_REPAIR command frame frame\n", woof_name);
+	fflush(stdout);
+#endif
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s can't append WOOF_MSG_REPAIR command frame to msg for server at %s\n",
+				woof_name, endpoint);
+		perror("WooFStartRepair: couldn't append woof_name frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+
+	/*
+	 * make a frame for the woof_name
+	 */
+	frame = zframe_new(woof_name, strlen(woof_name));
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s no frame for woof_name to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFStartRepair: couldn't get new frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s got woof_name namespace frame\n", woof_name);
+	fflush(stdout);
+#endif
+	/*
+	 * add the woof_name frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s can't append woof_name to frame to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFStartRepair: couldn't append woof_name namespace frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s added woof_name namespace to frame\n", woof_name);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the begin_seq_no
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", begin_seq_no);
+	frame = zframe_new(buffer, strlen(buffer));
+
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s no frame for begin_seq_no %lu server at %s\n",
+				woof_name, begin_seq_no, endpoint);
+		perror("WooFStartRepair: couldn't get new begin_seq_no frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s got frame for begin_seq_no %lu\n", woof_name, begin_seq_no);
+	fflush(stdout);
+#endif
+
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s couldn't append frame for begin_seq_no %lu to server at %s\n",
+				woof_name, begin_seq_no, endpoint);
+		perror("WooFStartRepair: couldn't append begin_seq_no frame");
+		fflush(stderr);
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s appended frame for begin_seq_no %lu\n", woof_name, begin_seq_no);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the end_seq_no
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", end_seq_no);
+	frame = zframe_new(buffer, strlen(buffer));
+
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s no frame for end_seq_no %lu server at %s\n",
+				woof_name, end_seq_no, endpoint);
+		perror("WooFStartRepair: couldn't get new end_seq_no frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s got frame for end_seq_no %lu\n", woof_name, end_seq_no);
+	fflush(stdout);
+#endif
+
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s couldn't append frame for end_seq_no %lu to server at %s\n",
+				woof_name, end_seq_no, endpoint);
+		perror("WooFStartRepair: couldn't append end_seq_no frame");
+		fflush(stderr);
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s appended frame for end_seq_no %lu\n", woof_name, end_seq_no);
+	fflush(stdout);
+#endif
+
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s sending message to server at %s\n",
+		   woof_name, endpoint);
+	fflush(stdout);
+#endif
+
+	r_msg = ServerRequest(endpoint, msg);
+	if (r_msg == NULL)
+	{
+		fprintf(stderr, "WooFStartRepair: woof: %s couldn't recv msg from server at %s\n",
+				woof_name, endpoint);
+		perror("WooFStartRepair: no response received");
+		fflush(stderr);
+		return (-1);
+	}
+	else
+	{
+		r_frame = zmsg_first(r_msg);
+		if (r_frame == NULL)
+		{
+			fprintf(stderr, "WooFStartRepair: woof: %s no recv frame from server at %s\n",
+					woof_name, endpoint);
+			perror("WooFStartRepair: no response frame");
+			zmsg_destroy(&r_msg);
+			return (-1);
+		}
+		// TODO:
+		str = zframe_data(r_frame);
+		to_be_filled = strtoul(str, (char **)NULL, 10);
+		zmsg_destroy(&r_msg);
+	}
+
+#ifdef DEBUG
+	printf("WooFStartRepair: woof: %s recvd to_be_filled %lu message from server at %s\n",
+		   woof_name, to_be_filled, endpoint);
+	fflush(stdout);
+#endif
+	if (to_be_filled != end_seq_no - begin_seq_no + 1)
+	{
+		return (-1);
+	}
 	return (1);
 }
 

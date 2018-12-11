@@ -1,4 +1,5 @@
 // #define DEBUG
+#define REPAIR
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -2032,7 +2033,7 @@ unsigned long WooFLatestSeqno(WOOF *wf)
 }
 
 // TODO:
-#ifdef LOG_REPAIR
+#ifdef REPAIR
 int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
 			 unsigned long last_correct_seq_no)
 {
