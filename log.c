@@ -1,3 +1,5 @@
+#define DEBUG
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -292,12 +294,14 @@ void LogPrint(FILE *fd, LOG *log)
 	while (curr != log->tail)
 	{
 		fprintf(fd,
-				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
+				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu type: %d\n",
 				curr,
 				ev_array[curr].host,
 				ev_array[curr].seq_no,
 				ev_array[curr].cause_host,
-				ev_array[curr].cause_seq_no);
+				ev_array[curr].cause_seq_no,
+				ev_array[curr].woofc_seq_no,
+				ev_array[curr].type);
 		fflush(fd);
 		curr = curr - 1;
 		if (curr >= log->size)
@@ -394,6 +398,7 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 	{
 		fprintf(stderr, "found %lu %llu pending while adding\n",
 				event->host, event->seq_no);
+		PendingPrint(stderr, pending);
 		fflush(stderr);
 		return (-1);
 	}
@@ -472,7 +477,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 		return (-1);
 	}
 	rb = start;
-	while ((rb != NULL) && (rb->key.key.d == ndx))
+	while ((rb != NULL) && (rb->key.key.i64 == ndx))
 	{
 		if (rb->value.v == local_event)
 		{
@@ -483,7 +488,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 		rb = rb->next;
 	}
 	rb = start;
-	while ((rb != NULL) && (rb->key.key.d == ndx))
+	while ((rb != NULL) && (rb->key.key.i64 == ndx))
 	{
 		if (rb->value.v == local_event)
 		{

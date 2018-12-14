@@ -109,7 +109,10 @@ int main(int argc, char **argv)
 		fflush(stdout);
 	}
 
-	glog = GLogCreate(filename, 0, glog_size);
+	printf("Name_id: %lu\n", Name_id);
+	fflush(stdout);
+	
+	glog = GLogCreate(filename, Name_id, glog_size);
 	if (glog == NULL)
 	{
 		fprintf(stderr, "couldn't create global log\n");
