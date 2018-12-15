@@ -14,7 +14,6 @@ typedef struct key_type_stc KEY_t;
 #define K_INT (1)
 #define K_DOUBLE (2)
 #define K_STRING (3)
-#define K_INT64 (4)
 
 struct rb_stc
 {
