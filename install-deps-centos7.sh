@@ -12,6 +12,7 @@ if ( Test -z "$GITHUBUSER" ) ; then
 fi
 
 
+yum -y update
 yum -y install docker gcc-gfortran python-devel python34-devel yum-utils device-mapper-persistent-data lvm2
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum -y install docker-ce
