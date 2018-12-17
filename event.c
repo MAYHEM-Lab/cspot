@@ -41,11 +41,11 @@ int EventSetCause(EVENT *ev, unsigned long cause_host,
 	return (1);
 }
 
-double EventIndex(unsigned long host, unsigned long long seq_no)
+int64_t EventIndex(unsigned long host, unsigned long long seq_no)
 {
-	double ndx;
+	int64_t ndx;
 
-	ndx = (double)(((double)host * pow(2, 32)) + (double)seq_no);
+	ndx = ((int64_t)host << 32) + (int64_t)seq_no;
 
 	return (ndx);
 }
