@@ -8,6 +8,4 @@
 int WooFInit();
 void WooFExit();
 
-
 #endif
-
