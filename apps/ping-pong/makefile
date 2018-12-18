@@ -55,5 +55,5 @@ ${HAND2}: ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 clean:
-	rm -f ping-pong-start *.o ${HAND1} ${HAND2}
+	rm -f ping-pong-start ping-start pong-start *.o ${HAND1} ${HAND2}
 
