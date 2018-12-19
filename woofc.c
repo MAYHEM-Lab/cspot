@@ -20,15 +20,6 @@ extern unsigned long Name_id;
 extern LOG *Name_log;
 extern char Host_ip[25];
 
-WOOF_CACHE *WooF_open_cache;
-struct woof_open_cache_stc
-{
-	WOOF *wf;
-	unsigned long ino;
-	char local_name[1024];
-};
-typedef struct woof_open_cache_stc WOOF_OPEN_CACHE_EL;
-#define WOOF_OPEN_CACHE_MAX (100)
 void WooFDrop(WOOF *wf);
 
 int WooFCreate(char *name,
@@ -263,8 +254,6 @@ WOOF *WooFOpen(char *name)
 	char fname[4096];
 	int err;
 	struct stat sbuf;
-	WOOF_OPEN_CACHE_EL *wel;
-	WOOF_OPEN_CACHE_EL *pel;
 
 	if (name == NULL)
 	{
@@ -277,13 +266,6 @@ WOOF *WooFOpen(char *name)
 		fflush(stderr);
 		exit(1);
 	}
-
-#ifdef CACHE_ON
-	if (WooF_open_cache == NULL)
-	{
-		WooF_open_cache = WooFCacheInit(WOOF_OPEN_CACHE_MAX);
-	}
-#endif
 
 	memset(local_name, 0, sizeof(local_name));
 	strncpy(local_name, WooF_dir, sizeof(local_name));
@@ -323,39 +305,6 @@ WOOF *WooFOpen(char *name)
 		return (NULL);
 	}
 
-	/*
-	 * here is the HACK for open woof caching
-	 */
-	if (WooF_open_cache != NULL)
-	{
-		wel = WooFCacheFind(WooF_open_cache, local_name);
-		if (wel != NULL)
-		{
-			/*
-			 * if the woof hasn't been recreated
-			 * it is still "good"
-			 */
-			if (wel->ino == sbuf.st_ino)
-			{
-#ifdef DEBUG
-				printf("WooFOpen: found cached woof for %s\n", local_name);
-				fflush(stdout);
-#endif
-				return (wel->wf);
-			}
-			else
-			{
-#ifdef DEBUG
-				printf("WooFOpen: expiring cached woof for %s\n", local_name);
-				fflush(stdout);
-#endif
-				WooFCacheRemove(WooF_open_cache, local_name);
-				WooFDrop(wel->wf);
-				free(wel);
-			}
-		}
-	}
-
 	mio = MIOReOpen(local_name);
 	if (mio == NULL)
 	{
@@ -378,49 +327,12 @@ WOOF *WooFOpen(char *name)
 	wf->mio = mio;
 	wf->ino = sbuf.st_ino;
 
-	if (WooF_open_cache != NULL)
-	{
-		wel = (WOOF_OPEN_CACHE_EL *)malloc(sizeof(WOOF_OPEN_CACHE_EL));
-		if ((wel != NULL) && (stat(local_name, &sbuf) >= 0))
-		{
-			wel->wf = wf;
-			wel->ino = sbuf.st_ino;
-		}
-#ifdef DEBUG
-		printf("WooFOpen: inserting cached woof for %s\n", local_name);
-		fflush(stdout);
-#endif
-		err = WooFCacheInsert(WooF_open_cache, local_name, (void *)wel);
-		/*
-		 * try only once on failure
-		 */
-		if (err < 0)
-		{
-			pel = (WOOF_OPEN_CACHE_EL *)WooFCacheAge(WooF_open_cache);
-			if (pel != NULL)
-			{
-				WooFDrop(pel->wf);
-				free(pel);
-			}
-			err = WooFCacheInsert(WooF_open_cache, local_name, (void *)wel);
-			if (err < 0)
-			{
-				free(wel);
-			}
-		}
-	}
 
 	return (wf);
 }
 
 void WooFFree(WOOF *wf)
 {
-	if (WooF_open_cache == NULL)
-	{
-		MIOClose(wf->mio);
-		free(wf);
-	}
-
 	return;
 }
 

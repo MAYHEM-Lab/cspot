@@ -30,6 +30,8 @@ typedef struct cont_arg_stc CA;
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
+ * note that this does NOT work for 32-bit architectures which means
+ * a raspbian client needs to specify the port number explicitly
  */
 unsigned long WooFNameHash(char *namespace)
 {

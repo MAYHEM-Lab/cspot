@@ -346,9 +346,7 @@ int main(int argc, char **argv, char **envp)
 		 * log either event success or failure here
 		 */
 
-#ifndef CACHE_ON
 		break; // for no caching case
-#endif
 
 		/*
 		 * block waiting on a read of a new seq_no and ndx
@@ -416,10 +414,6 @@ int main(int argc, char **argv, char **envp)
 		fflush(stdout);
 #endif
 	}
-
-#ifdef CACHE_ON
-	close(0);
-#endif
 
 #ifdef DEBUG
 	fprintf(stdout, "WooFShepherd: calling WooFFree, seq_no: %lu\n", seq_no);
