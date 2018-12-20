@@ -1,11 +1,19 @@
 #!/bin/bash
 
+if [[ $EUID -ne 0 ]]; then
+   echo "run as root"
+   exit 1
+fi
+
+
 # must be run as root to install the dependencies needed for CentOS 7
 # will install UCSB deps from github
+#
+# useful for a build server
 
 GITHUBUSER=$1
 
-if ( Test -z "$GITHUBUSER" ) ; then
+if ( test -z "$GITHUBUSER" ) ; then
 	echo "please specify github users to use"
 	echo "usage: install-deps-centos7.sh githubuserID"
 	exit 1

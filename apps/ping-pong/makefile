@@ -14,8 +14,6 @@ WINC=${WOOFC}/woofc.h ${WOOFC}/woofc-access.h ${WOOFC}/woofc-cache.h
 WOBJ=${WOOFC}/woofc.o ${WOOFC}/woofc-access.o ${WOOFC}/woofc-cache.o
 WHINC=${WOOFC}/woofc-host.h
 WHOBJ=${WOOFC}/woofc-host.o
-TINC=${WOOFC}/woofc-thread.h
-TOBJ=${WOOFC}/woofc-thread.o
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 DEPS=${MLIB} ${ULIB} ${LOBJ} ${LINC} ${WINC} ${WOBJ} ${TINC} ${TOBJ} ${SHEP_SRC}
