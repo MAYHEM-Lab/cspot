@@ -1,6 +1,10 @@
 #ifndef EVENT_H
 #define EVENT_H
 
+#define REPAIR
+
+#include <stdlib.h>
+
 struct event_stc
 {
 	unsigned char type;
@@ -30,6 +34,11 @@ typedef struct event_stc EVENT;
 #define FIRED (5)
 #define APPEND (6)
 #define READ (7)
+
+#ifdef REPAIR
+#define MARKED (8) // for downstream events discovery in repair mode
+#define INVALID (9)
+#endif
 
 EVENT *EventCreate(unsigned char type, unsigned long host);
 

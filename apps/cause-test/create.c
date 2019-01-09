@@ -7,10 +7,9 @@
 #include "woofc-host.h"
 #include "cause.h"
 
-#define ARGS "W:F:"
-char *Usage = "api-send -W remote_woof_name -F local_woof_name\n";
+#define ARGS "F:"
+char *Usage = "create -F local_woof_name\n";
 
-char Wname[4096];
 char Fname[4096];
 
 int main(int argc, char **argv)
@@ -26,9 +25,6 @@ int main(int argc, char **argv)
 		{
 		case 'F':
 			strncpy(Fname, optarg, sizeof(Fname));
-			break;
-		case 'W':
-			strncpy(Wname, optarg, sizeof(Wname));
 			break;
 		default:
 			fprintf(stderr,
@@ -46,24 +42,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (Wname[0] == 0)
-	{
-		fprintf(stderr, "must specify woof name\n");
-		fprintf(stderr, "%s", Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
 	WooFInit();
 
-	memset(el.string, 0, sizeof(el.string));
-	strncpy(el.string, "my first bark", sizeof(el.string));
-
-	ndx = WooFPut(Wname, "cause_recv", (void *)&el);
-
-	if (WooFInvalid(ndx))
+	err = WooFCreate(Fname, sizeof(CAUSE_EL), 10);
+	if (err < 0)
 	{
-		fprintf(stderr, "WooFPut failed for %s\n", Wname);
+		fprintf(stderr, "couldn't create woof from %s\n", Fname);
 		fflush(stderr);
 		exit(1);
 	}

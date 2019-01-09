@@ -1027,40 +1027,6 @@ void RBInsertI64(RB *rb, int64_t ikey, Hval value)
 	return (RBInsert(rb, key, value));
 }
 
-RB *RBInitI64()
-{
-	RB *rb = RBTreeInit(K_INT64);
-	return (rb);
-}
-
-void RBDestroyI64(RB *rb)
-{
-	return (RBDeleteTree(rb));
-}
-
-void RBDeleteI64(RB *rb, RB *node)
-{
-	return (RBDelete(rb, node));
-}
-
-RB *RBFindI64(RB *rb, int64_t ikey)
-{
-	KEY_t key;
-
-	key.type = K_INT64;
-	key.key.i64 = ikey;
-	return (RBFind(rb, key));
-}
-
-void RBInsertI64(RB *rb, int64_t ikey, Hval value)
-{
-	KEY_t key;
-
-	key.type = K_INT64;
-	key.key.i64 = ikey;
-	return (RBInsert(rb, key, value));
-}
-
 RB *RBInitS()
 {
 	RB *rb = RBTreeInit(K_STRING);
