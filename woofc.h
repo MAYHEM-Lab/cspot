@@ -6,6 +6,7 @@
 #include "mio.h"
 #include "lsema.h"
 #include "log.h"
+#include "dlist.h"
 
 struct woof_shared_stc
 {
@@ -19,6 +20,10 @@ struct woof_shared_stc
 	unsigned long element_size;
 #ifdef DONEFLAG
 	unsigned long done;
+#endif
+#ifdef REPAIR
+	int repairing;
+	int shadow;
 #endif
 };
 
@@ -60,10 +65,12 @@ void WooFDrop(WOOF *wf);
 int WooFTruncate(char *name, unsigned long seq_no);
 
 #ifdef REPAIR
-WOOF *WooFRepairOpen(char *name);
-unsigned long WooFRepairPut(char *wf_name, unsigned long seq_no, void *element);
-int WooFCopy(char *name, unsigned long element_size, unsigned long history_size,
-			 unsigned long last_correct_seq_no);
+WOOF *WooFOpenOriginal(char *name);
+int WooFRepair(char *wf_name, Dlist *seq_no);
+int WooFShadowCreate(char *name, unsigned long element_size, unsigned long history_size, Dlist *seq_no);
+int WooFShadowForward(WOOF *wf);
+int WooFReplace(WOOF *dst, WOOF *src, unsigned long ndx, unsigned long size);
+unsigned long WooFIndexFromSeqno(WOOF *wf, unsigned long seq_no);
 void WooFPrintMeta(FILE *fd, char *name);
 void WooFDump(FILE *fd, char *name);
 #endif

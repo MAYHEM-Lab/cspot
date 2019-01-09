@@ -56,14 +56,6 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-	err = WooFCreate(Fname, sizeof(CAUSE_EL), 5);
-	if (err < 0)
-	{
-		fprintf(stderr, "couldn't create woof from %s\n", Fname);
-		fflush(stderr);
-		exit(1);
-	}
-
 	memset(el.string, 0, sizeof(el.string));
 	strncpy(el.string, "my first bark", sizeof(el.string));
 	memset(el.dst, 0, sizeof(el.dst));

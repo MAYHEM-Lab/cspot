@@ -3,6 +3,7 @@
 
 #define REPAIR
 #include <czmq.h>
+#include "dlist.h"
 
 int WooFValidURI(char *str);
 int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len);
@@ -20,7 +21,7 @@ int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 #ifdef REPAIR
 unsigned long int LogGetRemoteSize(char *endpoint);
 int LogGetRemote(LOG *log, MIO *mio, char *endpoint);
-int WooFStartRepair(char *woof_name, unsigned long last_valid_seq_no, unsigned long last_corrupted_seq_no);
+int WooFMsgRepair(char *woof_name, Dlist *holes);
 #endif
 
 /*
