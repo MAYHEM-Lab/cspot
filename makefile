@@ -8,11 +8,11 @@ MLIB=../mio/mio.o ../mio/mymalloc.o
 SINCS=./lsema.h
 SLIB=./lsema.o
 LIBS=-lpthread -lm -lczmq
-LOBJ=log.o host.o event.o
-LINCS=log.h host.h event.h
+LOBJ=log.o host.o event.o repair.o
+LINCS=log.h host.h event.h repair.h
 WINCS=woofc.h woofc-access.h woofc-cache.h
 WOBJ=woofc.o woofc-access.o woofc-cache.o
-WHOBJ=woofc-host.h
+WHINC=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
 TOBJ=woofc-thread.o
@@ -21,9 +21,9 @@ URILIB=./uriparser2/liburiparser2.a
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
 
-all: log-test log-test-thread log-dump woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
+all: log-test log-test-thread log-dump repair.o woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
-abd: log-test log-test-thread log-dump woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
+abd: log-test log-test-thread log-dump repair.o woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
 python: libwoof.so
 	cp libwoof.so ./python-ext
@@ -39,6 +39,9 @@ log-dump: ${LOBJ} ${LINCS} log-dump.c ${SLIB}
 
 log.o: log.c log.h host.h event.h
 	${CC} ${CFLAGS} -c log.c
+
+repair.o: repair.c repair.h
+	${CC} ${CFLAGS} -c repair.c
 
 libwoof.so: woofc.c woofc.h woof-pyinit.c
 	${CC} ${CFLAGS} -fPIC -c woof-pyinit.c -o pic-woof-pyinit.o

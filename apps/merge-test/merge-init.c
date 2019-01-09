@@ -8,7 +8,7 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "merge.h"
-#include "log-merge.h"
+#include "repair.h"
 
 #define ARGS "E:F:"
 char *Usage = "merge-init -E ip1:port1,ip2:port2... -F glog_filename\n";
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 
 	printf("Name_id: %lu\n", Name_id);
 	fflush(stdout);
-	
+
 	glog = GLogCreate(filename, Name_id, glog_size);
 	if (glog == NULL)
 	{
@@ -127,7 +127,60 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
+	printf("\nBEFORE\n");
 	GLogPrint(stdout, glog);
+	GLogMarkWooFDownstream(glog, 4204335350254715064ul, 3);
+	printf("\nAFTER\n");
+	GLogPrint(stdout, glog);
+
+	unsigned long begin, end, cnt;
+	RB *seq;
+	RB *rb;
+	seq = RBInitI64();
+
+	Dlist *holes;
+	DlistNode *dn;
+
+	holes = DlistInit();
+	GLogFindMarkedWooF(glog, 4204335350254715064ul, holes);
+	printf("%lu:", 4204335350254715064ul);
+	DLIST_FORWARD(holes, dn)
+	{
+		printf(" %lu", dn->value.i64);
+	}
+	printf("\n");
+	WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
+	DlistRemove(holes);
+
+	// holes = DlistInit();
+	// GLogFindMarkedWooF(glog, 1877160991625576554ul, holes);
+	// printf("\n%lu:", 1877160991625576554ul);
+	// DLIST_FORWARD(holes, dn)
+	// {
+	// 	printf(" %lu", dn->value.i64);
+	// }
+	// printf("\n");
+	// WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
+	// DlistRemove(holes);
+
+	printf("Dumping original\n");
+	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test");
+	printf("Dumping shadow\n");
+	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test_shadow");
+	printf("\n");
+
+	MERGE_EL el;
+	memset(&el, 0, sizeof(el));
+	sprintf(el.string, "repaired");
+
+	unsigned long seq_no;
+	seq_no = WooFPut("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", "cause_recv", &el);
+	printf("\nseq_no: %lu\n", seq_no);
+	printf("Dumping original\n");
+	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test");
+	printf("Dumping shadow\n");
+	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test_shadow");
+	printf("\n");
 	fflush(stdout);
 
 	return (0);
