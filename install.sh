@@ -14,6 +14,8 @@ if ( test -z "$GITHUBUSER" ) ; then
         exit 1
 fi
 
+yum -y install redhat-lsb
+
 DTEST=`lsb_release -a | grep Distributor | awk '{print $3}'`
 
 if ( test "$DEST" = "Ubuntu" ) ; then
