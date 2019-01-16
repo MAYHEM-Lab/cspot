@@ -15,8 +15,8 @@ LALIBPATH=${DEP}/matrix/lapack-3.8.0
 LALIB=-llapacke -llapack -ltatlas -lgfortran
 SLIB=${WOOFC}/lsema.o
 LIBS=${WOOFC}/uriparser2/liburiparser2.a -lpthread -lm -lczmq -lpthread -ltatlas
-LOBJ=${WOOFC}/log.o ${WOOFC}/host.o ${WOOFC}/event.o
-LINC=${WOOFC}/log.h ${WOOFC}/host.h ${WOOFC}/event.h
+LOBJ=${WOOFC}/log.o ${WOOFC}/host.o ${WOOFC}/event.o ${WOOFC}/repair.o 
+LINC=${WOOFC}/log.h ${WOOFC}/host.h ${WOOFC}/event.h ${WOOFC}/repair.h
 WINC=${WOOFC}/woofc.h ${WOOFC}/woofc-access.h ${WOOFC}/woofc-cache.h
 WOBJ=${WOOFC}/woofc.o ${WOOFC}/woofc-access.o ${WOOFC}/woofc-cache.o
 WHINC=${WOOFC}/woofc-host.h
@@ -35,6 +35,8 @@ HAND3=RegressPairMeasuredHandler
 CFLAGS=-g -I ${DINC} -I${UINC} -I${MINC} -I${SINC} -I${MXINC} -L${LALIBPATH} -L/usr/local/Cellar/gcc/7.2.0/lib/gcc/7/ -L/usr/lib64/atlas
 
 all: regress-pair-put regress-pair-get regress-pair-init regress-pair-update ${HAND1} ${HAND2} ${HAND3} ssa-decomp
+	mkdir -p cspot; cp test-data/* cspot
+	mkdir -p cspot-2; cp test-data/* cspot-2
 
 regress-pair-put: regress-pair-put.c regress-pair.h
 	${CC} ${CFLAGS} -o regress-pair-put regress-pair-put.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -87,5 +89,6 @@ ${HAND3}: regress-pair.h ${HAND3}.c ${STATINC} ${STATOBJ} regress-matrix.h ${SHE
 	mkdir -p cspot-2; cp ${HAND3} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 clean:
-	rm -f regress-pair-init *.o ${HAND1} ${HAND2}
+	rm -f regress-pair-init regress-pair-put regress-pair-get regress-pair-update *.o ${HAND1} ${HAND2}
+	rm -rf cspot cspot-2
 

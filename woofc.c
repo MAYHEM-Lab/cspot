@@ -1,4 +1,4 @@
-#define DEBUG
+// #define DEBUG
 #define REPAIR
 
 #include <stdlib.h>
@@ -614,6 +614,10 @@ fflush(stdout);
 			fprintf(stderr, "WooFRepair: couldn't forward shadow %s\n", wfs->filename);
 			fflush(stderr);
 			return (-1);
+		}
+		if (wfs->repairing == 0) // shadow closed
+		{
+			// TODO: delete shadow
 		}
 	}
 #endif
@@ -1594,6 +1598,14 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	el_id = (ELID *)(ptr + wfs->element_size);
 	youngest = el_id->seq_no;
 
+	if (youngest == 0)
+	{ /* nothing in the woof */
+		V(&wfs->mutex);
+		fprintf(stderr, "WooFRead: there is nothing in the WooF %s yet\n", wfs->filename);
+		fflush(stderr);
+		return (-1);
+	}
+
 	last_valid = wfs->tail;
 	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
@@ -2182,6 +2194,10 @@ int WooFRepair(char *wf_name, Dlist *seq_no)
 		WooFFree(wf);
 		return (-1);
 	}
+	if (wfs->repairing == 0) // shadow closed
+	{
+		// TODO: delete shadow
+	}
 	V(&wfs->mutex);
 	WooFFree(wf);
 
@@ -2418,7 +2434,7 @@ int WooFShadowCreate(char *name, unsigned long element_size, unsigned long histo
 	wfs->history_size = history_size;
 	wfs->element_size = element_size;
 	wfs->seq_no = 1;
-	wfs->repairing = 0;
+	wfs->repairing = 1;
 	wfs->shadow = 1;
 
 	InitSem(&wfs->mutex, 1);
@@ -2442,6 +2458,7 @@ int WooFShadowCreate(char *name, unsigned long element_size, unsigned long histo
 
 /*
  * Forward the shadow woof, not thread safe
+ * lock the original woof mutex when repair is finished
  */
 int WooFShadowForward(WOOF *wf)
 {
@@ -2494,8 +2511,6 @@ int WooFShadowForward(WOOF *wf)
 			return (-1);
 		}
 		size = repair_seq_no[*repair_head] - wfs->seq_no;
-		printf("calling WooFReplace(wf, of_wf, %lu, %lu)\n", ndx, size);
-		fflush(stdout);
 		err = WooFReplace(wf, og_wf, ndx, size);
 		if (err < 0)
 		{
@@ -2559,6 +2574,7 @@ int WooFShadowForward(WOOF *wf)
 			WooFFree(og_wf);
 			return (-1);
 		}
+		og_wf->shared->repairing = 0;
 		V(&og_wf->shared->mutex);
 
 		// mark the original events invalid
@@ -2566,6 +2582,7 @@ int WooFShadowForward(WOOF *wf)
 		{
 			LogInvalidByWooF(Name_log, repair_seq_no[i]);
 		}
+		wfs->repairing = 0;
 	}
 
 	WooFFree(og_wf);
