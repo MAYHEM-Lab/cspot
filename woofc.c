@@ -1093,6 +1093,10 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	unsigned long ndx;
 	ELID *el_id;
 
+	if((seq_no == 0) || WooFInvalid(seq_no)) {
+                return(-1);
+        }
+
 	wfs = wf->shared;
 
 	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
