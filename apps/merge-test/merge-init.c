@@ -152,17 +152,6 @@ int main(int argc, char **argv)
 	WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
 	DlistRemove(holes);
 
-	// holes = DlistInit();
-	// GLogFindMarkedWooF(glog, 1877160991625576554ul, holes);
-	// printf("\n%lu:", 1877160991625576554ul);
-	// DLIST_FORWARD(holes, dn)
-	// {
-	// 	printf(" %lu", dn->value.i64);
-	// }
-	// printf("\n");
-	// WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
-	// DlistRemove(holes);
-
 	printf("Dumping original\n");
 	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test");
 	printf("Dumping shadow\n");
@@ -181,6 +170,17 @@ int main(int argc, char **argv)
 	printf("Dumping shadow\n");
 	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test_shadow");
 	printf("\n");
+
+	holes = DlistInit();
+	GLogFindMarkedWooF(glog, 1877160991625576554ul, holes);
+	printf("\n%lu:", 1877160991625576554ul);
+	DLIST_FORWARD(holes, dn)
+	{
+		printf(" %lu", dn->value.i64);
+	}
+	printf("\n");
+	WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
+	DlistRemove(holes);
 	fflush(stdout);
 
 	return (0);
