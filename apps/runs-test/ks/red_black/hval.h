@@ -4,6 +4,7 @@
 union hval_un
 {
 	int i;
+	int64_t i64;
 	double d;
 	void *v;
 	char *s;
