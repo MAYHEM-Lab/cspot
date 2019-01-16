@@ -309,10 +309,10 @@ WOOF *WooFOpen(char *name)
 	}
 #ifdef DEBUG
 	printf("WooFOpen: trying to open %s from fname %s, %s with dir %s\n",
-		local_name,
-		fname,
-		name,
-		WooF_dir);
+		   local_name,
+		   fname,
+		   name,
+		   WooF_dir);
 	fflush(stdout);
 #endif
 
@@ -1191,6 +1191,15 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	el_id = (ELID *)(ptr + wfs->element_size);
 	youngest = el_id->seq_no;
 
+	if (youngest == 0)
+	{
+		V(&wfs->mutex);
+		fprintf(stderr, "WooFRead: youngest seq_no is 0, there is nothing in woof %s\n",
+				wfs->filename);
+		fflush(stderr);
+		return (-1);
+	}
+
 	last_valid = wfs->tail;
 	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
@@ -1221,9 +1230,9 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	if ((seq_no < oldest) || (seq_no > youngest))
 	{
 		V(&wfs->mutex);
-		fprintf(stdout, "WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
+		fprintf(stderr, "WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
 				seq_no, oldest, youngest);
-		fflush(stdout);
+		fflush(stderr);
 		return (-1);
 	}
 
