@@ -809,18 +809,20 @@ fflush(stdout);
 			m_seq_no--;
 			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		}
-		if(err < 0) {
-			fprintf(stderr,"couldn't find valid measurement for request %lu\n",
-				rv->seq_no);
-			RBDestroyD(sorted_meas);
-			FinishPredicted(finished_name,wf_seq_no);
-			return(-1);
-		}
-		if(m_seq_no == 0) {
-			fprintf(stderr,"couldn't find meas ts earlier that %10.0f, using %10.0f\n",
-					p_ts,m_ts);
-			RBDestroyD(sorted_meas);
-			FinishPredicted(finished_name,wf_seq_no);
+		if((mcount == 0) || (err < 0)) {
+			if(err < 0) {
+				fprintf(stderr,"couldn't find valid measurement for request %lu\n",
+					rv->seq_no);
+				RBDestroyD(sorted_meas);
+				FinishPredicted(finished_name,wf_seq_no);
+				return(-1);
+			}
+			if(m_seq_no == 0) {
+				fprintf(stderr,"couldn't find meas ts earlier that %10.0f, using %10.0f\n",
+						p_ts,m_ts);
+				RBDestroyD(sorted_meas);
+				FinishPredicted(finished_name,wf_seq_no);
+			}
 		}
 
 		
