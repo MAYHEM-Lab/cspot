@@ -309,10 +309,10 @@ WOOF *WooFOpen(char *name)
 	}
 #ifdef DEBUG
 	printf("WooFOpen: trying to open %s from fname %s, %s with dir %s\n",
-		   local_name,
-		   fname,
-		   name,
-		   WooF_dir);
+		local_name,
+		fname,
+		name,
+		WooF_dir);
 	fflush(stdout);
 #endif
 
@@ -883,6 +883,7 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no)
 	fflush(stdout);
 #endif
 
+
 	memset(ns_ip, 0, sizeof(ns_ip));
 	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
 	if (err < 0)
@@ -1181,6 +1182,10 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	unsigned long ndx;
 	ELID *el_id;
 
+	if((seq_no == 0) || WooFInvalid(seq_no)) {
+		return(-1);
+	}
+
 	wfs = wf->shared;
 
 	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
@@ -1190,15 +1195,6 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
 	el_id = (ELID *)(ptr + wfs->element_size);
 	youngest = el_id->seq_no;
-
-	if (youngest == 0)
-	{
-		V(&wfs->mutex);
-		fprintf(stderr, "WooFRead: youngest seq_no is 0, there is nothing in woof %s\n",
-				wfs->filename);
-		fflush(stderr);
-		return (-1);
-	}
 
 	last_valid = wfs->tail;
 	ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
@@ -1230,9 +1226,9 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	if ((seq_no < oldest) || (seq_no > youngest))
 	{
 		V(&wfs->mutex);
-		fprintf(stderr, "WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
+		fprintf(stdout, "WooFRead: seq_no not in range: seq_no: %lu, oldest: %lu, youngest: %lu\n",
 				seq_no, oldest, youngest);
-		fflush(stderr);
+		fflush(stdout);
 		return (-1);
 	}
 
