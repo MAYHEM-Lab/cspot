@@ -883,6 +883,7 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no)
 	fflush(stdout);
 #endif
 
+
 	memset(ns_ip, 0, sizeof(ns_ip));
 	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
 	if (err < 0)
@@ -1180,6 +1181,10 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	unsigned long last_valid;
 	unsigned long ndx;
 	ELID *el_id;
+
+	if((seq_no == 0) || WooFInvalid(seq_no)) {
+		return(-1);
+	}
 
 	wfs = wf->shared;
 
