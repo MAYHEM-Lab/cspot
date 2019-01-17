@@ -342,6 +342,10 @@ ntohl(p_rv.tv_sec),p_rv.value.d,ntohl(m_rv.tv_sec),m_rv.value.d,count,measured_s
 	}
 
 	earliest_seq_no = seq_no;
+	if (earliest_seq_no == 0)
+	{
+		earliest_seq_no = 1;
+	}
 
 	/*
 	 * start with unsmoothed series
