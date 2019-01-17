@@ -809,7 +809,7 @@ fflush(stdout);
 			m_seq_no--;
 			err = WooFGet(measured_name,(void *)&mv,m_seq_no);
 		}
-		if((mcount == 0) || (err < 0)) {
+		if((mcount == 0) && (err < 0)) {
 			if(err < 0) {
 				fprintf(stderr,"couldn't find valid measurement for request %lu\n",
 					rv->seq_no);
