@@ -80,7 +80,6 @@ int main(int argc, char **argv)
 		sprintf(endpoint[i], ">tcp://%s", ptr);
 		ptr = strtok(NULL, ",");
 		i++;
-		;
 	}
 
 	WooFInit();
