@@ -1,4 +1,4 @@
-#define DEBUG
+// #define DEBUG
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -294,13 +294,14 @@ void LogPrint(FILE *fd, LOG *log)
 	while (curr != log->tail)
 	{
 		fprintf(fd,
-				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu type: %d\n",
+				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d\n",
 				curr,
 				ev_array[curr].host,
 				ev_array[curr].seq_no,
 				ev_array[curr].cause_host,
 				ev_array[curr].cause_seq_no,
 				ev_array[curr].woofc_seq_no,
+				ev_array[curr].woofc_name,
 				ev_array[curr].type);
 		fflush(fd);
 		curr = curr - 1;
