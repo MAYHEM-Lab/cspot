@@ -21,9 +21,9 @@ URILIB=./uriparser2/liburiparser2.a
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC}
 
-all: log-test log-test-thread log-dump repair.o woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
+all: log-test log-test-thread log-dump woof-repair repair.o woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
-abd: log-test log-test-thread log-dump repair.o woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
+abd: log-test log-test-thread log-dump woof-repair repair.o woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform
 
 python: libwoof.so
 	cp libwoof.so ./python-ext
@@ -36,6 +36,9 @@ log-test-thread: ${LOBJ} ${LINCS} log-test-thread.c ${SLIB}
 
 log-dump: ${LOBJ} ${LINCS} log-dump.c ${SLIB}
 	${CC} ${CFLAGS} -o log-dump log-dump.c ${LOBJ} ${ULIB} ${MLIB} ${SLIB} ${LIBS}
+
+woof-repair: woof-repair.c ${LOBJ} ${WOBJ} ${WHOBJ}
+	${CC} ${CFLAGS} -o woof-repair woof-repair.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS} ${URILIB}
 
 log.o: log.c log.h host.h event.h
 	${CC} ${CFLAGS} -c log.c
