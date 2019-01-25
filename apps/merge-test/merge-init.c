@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 	}
 	printf("\nBEFORE\n");
 	GLogPrint(stdout, glog);
-	GLogMarkWooFDownstream(glog, 4204335350254715064ul, 3);
+	GLogMarkWooFDownstream(glog, 4204335350254715064ul, "test", 3);
 	printf("\nAFTER\n");
 	GLogPrint(stdout, glog);
 

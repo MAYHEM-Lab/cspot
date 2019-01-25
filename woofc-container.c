@@ -268,8 +268,10 @@ void *WooFReaper(void *arg)
 				V(&ForkerThrottle);
 				pthread_mutex_lock(&Tlock);
 				Tcount++;
+#ifdef DEBUG
 				printf("Reaper: count after increment: %d\n", Tcount);
 				fflush(stdout);
+#endif
 				pthread_mutex_unlock(&Tlock);
 			}
 		}
@@ -686,14 +688,18 @@ void *WooFForker(void *arg)
 		 * block here not to overload the machine
 		 */
 		pthread_mutex_lock(&Tlock);
+#ifdef DEBUG
 		printf("Forker calling P with Tcount %d\n", Tcount);
 		fflush(stdout);
+#endif
 		pthread_mutex_unlock(&Tlock);
 		P(&ForkerThrottle);
 		pthread_mutex_lock(&Tlock);
 		Tcount--;
+#ifdef DEBUG
 		printf("Forker awake, after decrement %d\n", Tcount);
 		fflush(stdout);
+#endif
 		pthread_mutex_unlock(&Tlock);
 
 		pid = fork();
@@ -980,8 +986,10 @@ void *WooFForker(void *arg)
 			V(&ForkerThrottle);
 			pthread_mutex_lock(&Tlock);
 			Tcount++;
+#ifdef DEBUG
 			printf("Parent: count after increment: %d\n", Tcount);
 			fflush(stdout);
+#endif
 			pthread_mutex_unlock(&Tlock);
 		}
 	}

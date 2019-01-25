@@ -56,7 +56,7 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	err = WooFGet(coeff_name,(void *)&coeff_rv,seq_no);
 	if(err < 0) {
 		fprintf(stderr,
-			"RegressPairPredictedHandler couldn't get count back from %s\n",coeff_name);
+			"RegressPairMeasuredHandler couldn't get count back from %s\n",coeff_name);
 		return(-1);
 	}
 
@@ -64,7 +64,7 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	if(coeff_rv.lags > 0) {
 		unsmoothed = MakeArray2D(size,2);
 		if(unsmoothed == NULL) {
-			fprintf(stderr,"RegressPairPredictedHandler: no space for unsmoothed size %d\n",size);
+			fprintf(stderr,"RegressPairMeasuredHandler: no space for unsmoothed size %d\n",size);
 			return(-1);
 		}
 		seq_no = coeff_rv.earliest_seq_no;
@@ -73,7 +73,7 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 			err = WooFGet(measured_name,&m_rv,seq_no);
 			if(err < 0) {
 				fprintf(stderr,
-"RegressPairPredictedHandler: couldn't read seqno %lu from %s\n",
+"RegressPairMeasuredHandler: couldn't read seqno %lu from %s\n",
 					seq_no,
 					measured_name);
 				unsmoothed->ydim = i;
@@ -91,7 +91,7 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		FreeArray2D(unsmoothed);
 		if(smoothed == NULL) {
 			fprintf(stderr,
-"RegressPairPredictedHandler: %s couldn't get ssa series for lags %d\n",
+"RegressPairMeasuredHandler: %s couldn't get ssa series for lags %d\n",
 				measured_name,
 				coeff_rv.lags);
 			pred = (coeff_rv.slope * rv->value.d) + coeff_rv.intercept;
@@ -116,7 +116,7 @@ fflush(stdout);
 	seq_no = WooFPut(result_name,NULL,(void *)&result_rv);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,
-			"RegressPairPredictedHandler: couldn't put result to %s\n",result_name);
+			"RegressPairMeasuredHandler: couldn't put result to %s\n",result_name);
 		return(-1);
 	}
 

@@ -128,6 +128,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	fprintf(stdout, "%lu", seq_no);
+	fflush(stdout);
 
 	exit(0);
 }
