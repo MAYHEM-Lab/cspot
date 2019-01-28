@@ -19,6 +19,7 @@ int main(int argc, char **argv)
 	int err;
 	CAUSE_EL el;
 	unsigned long ndx;
+	unsigned long seq_no;
 
 	while ((c = getopt(argc, argv, ARGS)) != EOF)
 	{
@@ -70,5 +71,9 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	seq_no = WooFGetLatestSeqno(Fname);
+	printf("api-send: latest seq_no from %s: %lu\n", Fname, seq_no);
+	fflush(stdout);
+	
 	return (0);
 }

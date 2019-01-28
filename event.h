@@ -34,6 +34,7 @@ typedef struct event_stc EVENT;
 #define FIRED (5)
 #define APPEND (6)
 #define READ (7)
+#define LATEST_SEQNO (8)
 
 #ifdef REPAIR
 #define MARKED (32) // for downstream events discovery in repair mode
