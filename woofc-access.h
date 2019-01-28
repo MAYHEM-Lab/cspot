@@ -38,8 +38,9 @@ int WooFMsgRepair(char *woof_name, Dlist *holes);
 #define WOOF_MSG_GET_LATEST_SEQNO (5)
 #define WOOF_MSG_GET_DONE (6)
 #define WOOF_MSG_REPAIR (7)
-#define LOG_GET_REMOTE (8)
-#define LOG_GET_REMOTE_SIZE (9)
+#define WOOF_MSG_REPAIR_RO (8)
+#define LOG_GET_REMOTE (9)
+#define LOG_GET_REMOTE_SIZE (10)
 
 #define WOOF_MSG_CACHE_SIZE (100)
 
