@@ -58,6 +58,8 @@ int main(int argc, char **argv)
 	char **woof_ro;
 	unsigned long wf_host;
 	char *wf_name;
+	RB *asker;
+	RB *mapping_count;
 
 	memset(hosts, 0, sizeof(hosts));
 	memset(filename, 0, sizeof(filename));
@@ -219,8 +221,8 @@ int main(int argc, char **argv)
 	{
 		GLogMarkWooFDownstream(glog, woof_name_id, woof_name, seq_no[i]);
 	}
-	// GLogPrint(stdout, glog);
-	// fflush(stdout);
+	GLogPrint(stdout, glog);
+	fflush(stdout);
 #ifdef DEBUG
 	printf("mark finished\n");
 	fflush(stdout);
@@ -265,7 +267,7 @@ int main(int argc, char **argv)
 		}
 		printf("%lu %s\n", wf_host, wf_name);
 
-		repair(glog, namespace, wf_host, wf_name);
+		Repair(glog, namespace, wf_host, wf_name);
 		free(wf_name);
 	}
 	printf("woof ro:\n");
@@ -280,31 +282,14 @@ int main(int argc, char **argv)
 			return (-1);
 		}
 		printf("%lu %s\n", wf_host, wf_name);
+		RepairRO(glog, namespace, wf_host, wf_name);
 		free(wf_name);
 	}
-
-	// holes = DlistInit();
-	// GLogFindMarkedWooF(glog, woof_name_id, wf[i], holes);
-	// // #ifdef DEBUG
-	// printf("repairing namespace %s/%s(%lu):", namespace, wf[i], woof_name_id);
-	// DLIST_FORWARD(holes, dn)
-	// {
-	// 	printf(" %lu", dn->value.i64);
-	// }
-	// printf("\n");
-	// fflush(stdout);
-	// // #endif
-	// if (holes->count > 0)
-	// {
-	// 	sprintf(woof, "woof://%s/%s", namespace, wf[i]);
-	// 	WooFRepair(woof, holes);
-	// 	DlistRemove(holes);
-	// }
 
 	return (0);
 }
 
-int repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
+int Repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 {
 	Dlist *holes;
 	DlistNode *dn;
@@ -314,32 +299,83 @@ int repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 	holes = DlistInit();
 	if (holes == NULL)
 	{
-		fprintf(stderr, "cannot allocate Dlist\n");
+		fprintf(stderr, "Repair: cannot allocate Dlist\n");
 		fflush(stderr);
 		return (-1);
 	}
 
 	GLogFindReplacedWooF(glog, host, wf_name, holes);
-	// #ifdef DEBUG
-	printf("repairing %s/%s(%lu): %d holes", namespace, wf_name, host, holes->count);
+#ifdef DEBUG
+	printf("Repair: repairing %s/%s(%lu): %d holes", namespace, wf_name, host, holes->count);
 	DLIST_FORWARD(holes, dn)
 	{
 		printf(" %lu", dn->value.i64);
 	}
 	printf("\n");
 	fflush(stdout);
-	// #endif
+#endif
 	if (holes->count > 0)
 	{
+		// TODO: remote repair not implemented yet
 		sprintf(wf, "woof://%s/%s", namespace, wf_name);
 		err = WooFRepair(wf, holes);
 		if (err < 0)
 		{
-			fprintf(stderr, "cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
+			fprintf(stderr, "Repair: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
 			fflush(stderr);
+			DlistRemove(holes);
 			return (-1);
 		}
-		DlistRemove(holes);
 	}
+	DlistRemove(holes);
+	return (0);
+}
+
+int RepairRO(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
+{
+	RB *asker;
+	RB *mapping_count;
+	char wf[4096];
+	int err;
+	RB *rb;
+	RB *rbc;
+	unsigned long cause_host;
+	char cause_woof[4096];
+
+	asker = RBInitS();
+	mapping_count = RBInitS();
+
+	GLogFindLatestSeqnoAsker(glog, host, wf_name, asker, mapping_count);
+	RB_FORWARD(asker, rb)
+	{
+		rbc = RBFindS(mapping_count, rb->key.key.s);
+		if (rbc == NULL)
+		{
+			fprintf(stderr, "RepairRO: can't find entry %s in mapping_count\n", rb->key.key.s);
+			fflush(stderr);
+			RBDestroyS(asker);
+			RBDestroyS(mapping_count);
+			return (-1);
+		}
+		WooFFromHval(rb->key.key.s, &cause_host, cause_woof);
+		sprintf(wf, "woof://%s/%s", namespace, wf_name);
+		printf("RepairRO: sending mapping from cause_woof %s to %s\n", cause_woof, wf_name);
+		fflush(stdout);
+		err = WooFRepairReadOnly(wf, cause_host, cause_woof, rbc->value.i, (unsigned long *)rb->value.i64);
+		if (err < 0)
+		{
+			fprintf(stderr, "RepairRO: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
+			fflush(stderr);
+			RBDestroyS(asker);
+			RBDestroyS(mapping_count);
+			return (-1);
+		}
+		// TODO: remote repair not implemented yet
+		fflush(stdout);
+	}
+
+	RBDestroyS(asker);
+	RBDestroyS(mapping_count);
+
 	return (0);
 }

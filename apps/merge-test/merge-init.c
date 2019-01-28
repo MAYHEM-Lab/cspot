@@ -120,67 +120,16 @@ int main(int argc, char **argv)
 	for (i = 0; i < num_hosts; i++)
 	{
 		err = ImportLogTail(glog, log[i]);
+		LogFree(log[i]);
 		if (err < 0)
 		{
 			fprintf(stderr, "couldn't import log tail from %s\n", endpoint[i]);
 			exit(1);
 		}
 	}
-	printf("\nBEFORE\n");
 	GLogPrint(stdout, glog);
-	GLogMarkWooFDownstream(glog, 4204335350254715064ul, "test", 3);
-	printf("\nAFTER\n");
-	GLogPrint(stdout, glog);
-
-	unsigned long begin, end, cnt;
-	RB *seq;
-	RB *rb;
-	seq = RBInitI64();
-
-	Dlist *holes;
-	DlistNode *dn;
-
-	holes = DlistInit();
-	GLogFindMarkedWooF(glog, 4204335350254715064ul, holes);
-	printf("%lu:", 4204335350254715064ul);
-	DLIST_FORWARD(holes, dn)
-	{
-		printf(" %lu", dn->value.i64);
-	}
-	printf("\n");
-	WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
-	DlistRemove(holes);
-
-	printf("Dumping original\n");
-	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test");
-	printf("Dumping shadow\n");
-	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test_shadow");
-	printf("\n");
-
-	MERGE_EL el;
-	memset(&el, 0, sizeof(el));
-	sprintf(el.string, "repaired");
-
-	unsigned long seq_no;
-	seq_no = WooFPut("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", "cause_recv", &el);
-	printf("\nseq_no: %lu\n", seq_no);
-	printf("Dumping original\n");
-	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test");
-	printf("Dumping shadow\n");
-	WooFDump(stdout, "woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test_shadow");
-	printf("\n");
-
-	holes = DlistInit();
-	GLogFindMarkedWooF(glog, 1877160991625576554ul, holes);
-	printf("\n%lu:", 1877160991625576554ul);
-	DLIST_FORWARD(holes, dn)
-	{
-		printf(" %lu", dn->value.i64);
-	}
-	printf("\n");
-	WooFRepair("woof://10.1.5.1:55064/home/centos/cspot/apps/cause-test/cspot/test", holes);
-	DlistRemove(holes);
 	fflush(stdout);
+	GLogFree(glog);
 
 	return (0);
 }

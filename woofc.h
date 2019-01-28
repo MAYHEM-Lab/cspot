@@ -22,12 +22,18 @@ struct woof_shared_stc
 	unsigned long done;
 #endif
 #ifdef REPAIR
-	int repairing;
-	int shadow;
+	int repair_mode;
+	RB *seqno_mapping;
+	RB *mapping_count;
 #endif
 };
 
 typedef struct woof_shared_stc WOOF_SHARED;
+
+#define NORMAL (0)
+#define REPAIRING (1)
+#define SHADOW (2)
+#define READONLY (4)
 
 struct woof_stc
 {
@@ -54,7 +60,9 @@ unsigned long WooFAppend(WOOF *wf, char *wf_handler, void *element);
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no);
 int WooFReadTail(WOOF *wf, void *elements, int element_count);
 unsigned long WooFGetLatestSeqno(char *wf_name);
+unsigned long WooFGetLatestSeqnoWithCause(char *wf_name, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFLatestSeqno(WOOF *wf);
+unsigned long WooFLatestSeqnoWithCause(WOOF *wf, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
@@ -65,6 +73,7 @@ void WooFDrop(WOOF *wf);
 
 #ifdef REPAIR
 WOOF *WooFOpenOriginal(char *name);
+int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof, int mapping_count, unsigned long *mapping);
 int WooFRepair(char *wf_name, Dlist *seq_no);
 int WooFShadowCreate(char *name, char *original_name, unsigned long element_size, unsigned long history_size, Dlist *seq_no);
 int WooFShadowForward(WOOF *wf);

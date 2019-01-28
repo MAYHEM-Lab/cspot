@@ -149,7 +149,7 @@ void GLogFindReplacedWooF(GLOG *glog, unsigned long host, char *woof_name, Dlist
     }
 }
 
-void GLogFindAffectedWooF(GLOG *glog, RB *woof_put, int *count_woof_put, RB *woof_get, int *count_woof_get)
+void GLogFindAffectedWooF(GLOG *glog, RB *woof_rw, int *count_woof_rw, RB *woof_ro, int *count_woof_ro)
 {
     EVENT *ev_array;
     LOG *log;
@@ -157,7 +157,6 @@ void GLogFindAffectedWooF(GLOG *glog, RB *woof_put, int *count_woof_put, RB *woo
     char *key;
     RB *rbc;
     RB *rb;
-    Hval hval;
 
 #ifdef DEBUG
     printf("GLogFindAffectedWooF: called\n");
@@ -176,43 +175,153 @@ void GLogFindAffectedWooF(GLOG *glog, RB *woof_put, int *count_woof_put, RB *woo
                 ev_array[curr].type == (MARKED | APPEND))
             {
                 key = KeyFromWooF(ev_array[curr].host, ev_array[curr].woofc_name);
-                if (RBFindS(woof_put, key) == NULL)
+                if (RBFindS(woof_rw, key) == NULL)
                 {
-                    RBInsertS(woof_put, key, (Hval)0);
+                    RBInsertS(woof_rw, key, (Hval)0);
                 }
             }
-            else if (ev_array[curr].type == (MARKED | READ))
+            else if (ev_array[curr].type == (MARKED | LATEST_SEQNO))
             {
                 key = KeyFromWooF(ev_array[curr].host, ev_array[curr].woofc_name);
-                if (RBFindS(woof_get, key) == NULL)
+                if (RBFindS(woof_ro, key) == NULL)
                 {
-                    RBInsertS(woof_get, key, (Hval)0);
+                    RBInsertS(woof_ro, key, (Hval)0);
                 }
             }
         }
         curr = (curr + 1) % log->size;
     }
     // tidy up
-    *count_woof_put = 0;
-    *count_woof_get = 0;
-    RB_FORWARD(woof_put, rbc)
+    *count_woof_rw = 0;
+    *count_woof_ro = 0;
+    RB_FORWARD(woof_rw, rbc)
     {
-        (*count_woof_put)++;
-        rb = RBFindS(woof_get, rbc->key.key.s);
+        (*count_woof_rw)++;
+        rb = RBFindS(woof_ro, rbc->key.key.s);
         if (rb != NULL)
         {
-            RBDeleteS(woof_get, rb);
+            RBDeleteS(woof_ro, rb);
         }
     }
-    RB_FORWARD(woof_get, rbc)
+    RB_FORWARD(woof_ro, rbc)
     {
-        (*count_woof_get)++;
+        (*count_woof_ro)++;
     }
 #ifdef DEBUG
-    printf("GLogFindAffectedWooF: count_woof_put: %d\n", count_woof_put);
-    printf("GLogFindAffectedWooF: count_woof_get: %d\n", count_woof_get);
+    printf("GLogFindAffectedWooF: count_woof_rw: %d\n", count_woof_rw);
+    printf("GLogFindAffectedWooF: count_woof_ro: %d\n", count_woof_ro);
     fflush(stdout);
 #endif
+}
+
+int GLogFindLatestSeqnoAsker(GLOG *glog, unsigned long host, char *woof_ro, RB *asker, RB *mapping_count)
+{
+    EVENT *ev_array;
+    LOG *log;
+    unsigned long curr;
+    char *key;
+    Hval hval;
+    RB *rb;
+    RB *rbc;
+    unsigned long *mapping;
+
+#ifdef DEBUG
+    printf("GLogFindLatestSeqnoAsker: called on woof %s\n", woof_ro);
+    fflush(stdout);
+#endif
+
+    log = glog->log;
+    ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
+
+    curr = (log->tail + 1) % log->size;
+    while (curr != (log->head + 1) % log->size)
+    {
+        if (ev_array[curr].host == host &&
+            ev_array[curr].type == (MARKED | LATEST_SEQNO) &&
+            strcmp(ev_array[curr].woofc_name, woof_ro) == 0)
+        {
+            key = KeyFromWooF(ev_array[curr].cause_host, ev_array[curr].woofc_handler);
+            // printf("woofc_handler: %s     woofc_ndx: %lu\n", key, ev_array[curr].woofc_ndx);
+            rb = RBFindS(asker, key);
+            // TODO: use woofc_handler as woof_name of who calls WooFGetLatestSeqno
+            if (rb == NULL)
+            {
+                hval.i = 1;
+                RBInsertS(asker, key, hval);
+            }
+            else
+            {
+                rb->value.i++;
+            }
+        }
+        curr = (curr + 1) % log->size;
+    }
+
+    RB_FORWARD(asker, rb)
+    {
+        printf("Asker: %s: %d\n", rb->key.key.s, rb->value.i);
+        mapping = malloc(rb->value.i * 2 * sizeof(unsigned long));
+        if (mapping == NULL)
+        {
+            fprintf(stderr, "GLogFindLatestSeqnoAsker: couldn't allocate space for seq_no mapping\n");
+            fflush(stderr);
+            return (-1);
+        }
+        hval.i = 0;
+        RBInsertS(mapping_count, rb->key.key.s, hval);
+        rb->value.i64 = (int64_t)mapping;
+    }
+
+    // second pass
+    curr = (log->tail + 1) % log->size;
+    while (curr != (log->head + 1) % log->size)
+    {
+        if (ev_array[curr].type == (MARKED | LATEST_SEQNO) && strcmp(ev_array[curr].woofc_name, woof_ro) == 0)
+        {
+            key = KeyFromWooF(ev_array[curr].cause_host, ev_array[curr].woofc_handler);
+            // printf("woofc_handler: %s     woofc_ndx: %lu\n", key, ev_array[curr].woofc_ndx);
+            rb = RBFindS(asker, key);
+            if (rb == NULL)
+            {
+                fprintf(stderr, "GLogFindLatestSeqnoAsker: couldn't find entry %s in asker RB tree\n", key);
+                fflush(stderr);
+                return (-1);
+            }
+            rbc = RBFindS(mapping_count, key);
+            if (rbc == NULL)
+            {
+                fprintf(stderr, "GLogFindLatestSeqnoAsker: couldn't find entry %s in mapping_count RB tree\n", key);
+                fflush(stderr);
+                return (-1);
+            }
+            mapping = (unsigned long *)rb->value.i64;
+            mapping[rbc->value.i] = ev_array[curr].woofc_ndx;
+            mapping[rbc->value.i + 1] = ev_array[curr].woofc_seq_no;
+            rbc->value.i += 2;
+        }
+        curr = (curr + 1) % log->size;
+    }
+
+    ////////// TODO:
+    // RB_FORWARD(asker, rb)
+    // {
+    //     printf("Asker: %s: %d\n", rb->key.key.s, rb->value.i);
+    //     rbc = RBFindS(mapping_count, rb->key.key.s);
+    //     if (rbc == NULL)
+    //     {
+    //         fprintf(stderr, "GLogFindLatestSeqnoAsker: couldn't find entry %s in mapping_count RB tree\n", key);
+    //         fflush(stderr);
+    //         return (-1);
+    //     }
+    //     mapping = (unsigned long *)rb->value.i64;
+    //     int i;
+    //     for (i = 0; i < rbc->value.i; i += 2)
+    //     {
+    //         printf("  %lu -> %lu\n", mapping[i], mapping[i + 1]);
+    //     }
+    // }
+    // fflush(stdout);
+    return (0);
 }
 
 char *KeyFromWooF(unsigned long host, char *woof)
@@ -226,15 +335,19 @@ char *KeyFromWooF(unsigned long host, char *woof)
 
 int WooFFromHval(char *key, unsigned long *host, char *woof)
 {
+    char tmp[4096];
     char *ptr;
     int split;
+
+    memset(tmp, 0, sizeof(tmp));
+    strncpy(tmp, key, strlen(key));
 
 #ifdef DEBUG
     printf("WooFFromHval called %s\n", key);
     fflush(stdout);
 #endif
 
-    ptr = strtok(key, "/");
+    ptr = strtok(tmp, "/");
     if (ptr == NULL)
     {
         return (-1);
