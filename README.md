@@ -3,7 +3,7 @@ c spot run
 
 For a brief overview of CSPOT, please see the wiki at
 
-https://github.com/MAYHEM-Lab/cspot/wiki/CSPOT-Run
+https://github.com/MAYHEM-Lab/cspot/wiki
 
 CSPOT depends on two other libraries
 
