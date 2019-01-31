@@ -23,8 +23,6 @@ struct woof_shared_stc
 #endif
 #ifdef REPAIR
 	int repair_mode;
-	RB *seqno_mapping;
-	RB *mapping_count;
 #endif
 };
 
@@ -62,7 +60,7 @@ int WooFReadTail(WOOF *wf, void *elements, int element_count);
 unsigned long WooFGetLatestSeqno(char *wf_name);
 unsigned long WooFGetLatestSeqnoWithCause(char *wf_name, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFLatestSeqno(WOOF *wf);
-unsigned long WooFLatestSeqnoWithCause(WOOF *wf, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
+unsigned long WooFLatestSeqnoWithCause(WOOF *wf, unsigned long cause_host, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
@@ -86,7 +84,8 @@ void WooFDump(FILE *fd, char *name);
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
 #define DEFAULT_HOST_ID (0)
-#define DEFAULT_WOOF_LOG_SIZE (10000)
+// #define DEFAULT_WOOF_LOG_SIZE (10000)
+#define DEFAULT_WOOF_LOG_SIZE (300000)
 #define WOOFNAMESIZE (256)
 
 #endif

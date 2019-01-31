@@ -9,10 +9,14 @@
 #include "woofc-host.h"
 #include "repair.h"
 
-#define ARGS "H:F:W:S:"
-char *Usage = "woof-repair -H ip1:port1,ip2:port2... -F glog_filename -W woof -S seq_no_1,seq_no_2,...\n";
+#define ARGS "H:F:W:S:O:"
+char *Usage = "woof-repair -H ip1:port1,ip2:port2... -F glog_filename -W woof -S seq_no_1,seq_no_2,... -O guide_filename\n";
 
 extern unsigned long Name_id;
+
+int Repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name);
+int RepairRO(GLOG *glog, char *namespace, unsigned long host, char *wf_name);
+void Guide(GLOG *glog, FILE *fd);
 
 unsigned long hash(char *namespace)
 {
@@ -48,24 +52,30 @@ int main(int argc, char **argv)
 	char namespace[4096];
 	char woof_name[4096];
 	char seq_nos[4096];
+	char guide_file[4096];
 	unsigned long woof_name_id;
-	RB *woof_put;
-	RB *woof_get;
+	RB *root;
+	RB *casualty;
+	RB *progress;
 	RB *rb;
-	int count_woof_put;
-	int count_woof_get;
-	char **woof_rw;
-	char **woof_ro;
+	int count_root;
+	int count_casualty;
+	int count_progress;
+	char **woof_root;
+	char **woof_casualty;
+	char **woof_progress;
 	unsigned long wf_host;
 	char *wf_name;
 	RB *asker;
 	RB *mapping_count;
+	FILE *guide_fd;
 
 	memset(hosts, 0, sizeof(hosts));
 	memset(filename, 0, sizeof(filename));
 	memset(woof, 0, sizeof(woof));
 	memset(namespace, 0, sizeof(namespace));
 	memset(seq_nos, 0, sizeof(seq_nos));
+	memset(guide_file, 0, sizeof(guide_file));
 
 	while ((c = getopt(argc, argv, ARGS)) != EOF)
 	{
@@ -83,6 +93,9 @@ int main(int argc, char **argv)
 		case 'S':
 			strncpy(seq_nos, optarg, sizeof(seq_nos));
 			break;
+		case 'O':
+			strncpy(guide_file, optarg, sizeof(guide_file));
+			break;
 		default:
 			fprintf(stderr, "unrecognized command %c\n", (char)c);
 			fprintf(stderr, "%s", Usage);
@@ -90,9 +103,18 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (filename[0] == 0 || hosts[0] == 0 || seq_nos[0] == 0)
+	if (filename[0] == 0 || hosts[0] == 0 || seq_nos[0] == 0 || guide_file[0] == 0)
 	{
 		fprintf(stderr, "%s", Usage);
+		fflush(stderr);
+		exit(1);
+	}
+
+	guide_fd = fopen(guide_file, "w");
+	if (guide_fd == NULL)
+	{
+		fprintf(stderr, "couldn't open guide_file %s\n", guide_file);
+		fflush(stderr);
 		exit(1);
 	}
 
@@ -120,10 +142,8 @@ int main(int argc, char **argv)
 		ptr = strtok(NULL, ",");
 		i++;
 	}
-#ifdef DEBUG
 	printf("num_hosts: %d\n", num_hosts);
 	fflush(stdout);
-#endif
 
 	// parse seq_no
 	num_seq_no = 1;
@@ -144,10 +164,8 @@ int main(int argc, char **argv)
 		ptr = strtok(NULL, ",");
 		i++;
 	}
-#ifdef DEBUG
 	printf("num_seq_no: %d\n", num_seq_no);
 	fflush(stdout);
-#endif
 
 	WooFInit();
 
@@ -156,6 +174,7 @@ int main(int argc, char **argv)
 	log = malloc(num_hosts * sizeof(LOG *));
 	for (i = 0; i < num_hosts; i++)
 	{
+		printf("pulling log from host %d...\n", i + 1);
 		log_size = LogGetRemoteSize(endpoint[i]);
 		if (log_size < 0)
 		{
@@ -173,27 +192,41 @@ int main(int argc, char **argv)
 		glog_size += log[i]->size;
 		// LogPrint(stdout, log[i]);
 		// fflush(stdout);
+		printf("pulled log from host %d\n", i + 1);
+		fflush(stdout);
 	}
 
+	printf("creating GLog with size %lu...\n", glog_size);
+	fflush(stdout);
 	glog = GLogCreate(filename, Name_id, glog_size);
 	if (glog == NULL)
 	{
 		fprintf(stderr, "couldn't create global log\n");
+		fflush(stderr);
 		exit(1);
 	}
+	printf("GLog created\n", glog_size);
+	fflush(stdout);
+
 	for (i = 0; i < num_hosts; i++)
 	{
+		printf("importing log from host %d...\n", i + 1);
+		fflush(stdout);
 		err = ImportLogTail(glog, log[i]);
 		if (err < 0)
 		{
 			fprintf(stderr, "couldn't import log tail from %s\n", endpoint[i]);
+			fflush(stderr);
 			exit(1);
 		}
+		printf("imported log from host %d\n", i + 1);
+		fflush(stdout);
 	}
 
 #ifdef DEBUG
 	printf("Global log:\n");
 	GLogPrint(stdout, glog);
+	fflush(stdout);
 #endif
 
 	err = WooFNameSpaceFromURI(woof, namespace, sizeof(namespace));
@@ -216,68 +249,94 @@ int main(int argc, char **argv)
 	fflush(stdout);
 #endif
 
-	// GLogMarkWooFDownstreamRange(glog, woof_name_id, start_seq_no, end_seq_no);
+	printf("GLogMarkWooFDownstream\n");
 	for (i = 0; i < num_seq_no; i++)
 	{
 		GLogMarkWooFDownstream(glog, woof_name_id, woof_name, seq_no[i]);
 	}
 	GLogPrint(stdout, glog);
 	fflush(stdout);
-#ifdef DEBUG
 	printf("mark finished\n");
 	fflush(stdout);
-#endif
 
-	woof_put = RBInitS();
-	woof_get = RBInitS();
-	GLogFindAffectedWooF(glog, woof_put, &count_woof_put, woof_get, &count_woof_get);
-	woof_rw = malloc(count_woof_put * sizeof(char *));
+	printf("GLogFindAffectedWooF\n");
+	root = RBInitS();
+	casualty = RBInitS();
+	progress = RBInitS();
+	GLogFindAffectedWooF(glog, root, &count_root, casualty, &count_casualty, progress, &count_progress);
+	woof_root = malloc(count_root * sizeof(char *));
 	i = 0;
-	RB_FORWARD(woof_put, rb)
+	RB_FORWARD(root, rb)
 	{
-		woof_rw[i] = malloc(4096 * sizeof(char));
-		memset(woof_rw[i], 0, sizeof(woof_rw[i]));
-		sprintf(woof_rw[i], "%s", rb->key.key.s);
+		woof_root[i] = malloc(4096 * sizeof(char));
+		memset(woof_root[i], 0, sizeof(woof_root[i]));
+		sprintf(woof_root[i], "%s", rb->key.key.s);
 		free(rb->key.key.s);
 		i++;
 	}
-	woof_ro = malloc(count_woof_get * sizeof(char *));
+	woof_casualty = malloc(count_casualty * sizeof(char *));
 	i = 0;
-	RB_FORWARD(woof_get, rb)
+	RB_FORWARD(casualty, rb)
 	{
-		woof_ro[i] = malloc(4096 * sizeof(char));
-		memset(woof_ro[i], 0, sizeof(woof_ro[i]));
-		sprintf(woof_ro[i], "%s", rb->key.key.s);
+		woof_casualty[i] = malloc(4096 * sizeof(char));
+		memset(woof_casualty[i], 0, sizeof(woof_casualty[i]));
+		sprintf(woof_casualty[i], "%s", rb->key.key.s);
 		free(rb->key.key.s);
 		i++;
 	}
-	RBDestroyI64(woof_put);
-	RBDestroyI64(woof_get);
+	woof_progress = malloc(count_progress * sizeof(char *));
+	i = 0;
+	RB_FORWARD(progress, rb)
+	{
+		woof_progress[i] = malloc(4096 * sizeof(char));
+		memset(woof_progress[i], 0, sizeof(woof_progress[i]));
+		sprintf(woof_progress[i], "%s", rb->key.key.s);
+		free(rb->key.key.s);
+		i++;
+	}
+	RBDestroyS(root);
+	RBDestroyS(casualty);
+	RBDestroyS(progress);
+	printf("finished\n");
 
-	printf("woof rw:\n");
-	for (i = 0; i < count_woof_put; i++)
+	printf("woof root:\n");
+	for (i = 0; i < count_root; i++)
 	{
 		wf_name = malloc(4096 * sizeof(char));
-		err = WooFFromHval(woof_rw[i], &wf_host, wf_name);
+		err = WooFFromHval(woof_root[i], &wf_host, wf_name);
 		if (err < 0)
 		{
-			fprintf(stderr, "cannot parse woof_rw %s\n", woof_rw[i]);
+			fprintf(stderr, "cannot parse woof_root %s\n", woof_root[i]);
 			fflush(stderr);
 			return (-1);
 		}
 		printf("%lu %s\n", wf_host, wf_name);
-
 		Repair(glog, namespace, wf_host, wf_name);
 		free(wf_name);
 	}
-	printf("woof ro:\n");
-	for (i = 0; i < count_woof_get; i++)
+	printf("woof casualty:\n");
+	for (i = 0; i < count_casualty; i++)
 	{
 		wf_name = malloc(4096 * sizeof(char));
-		err = WooFFromHval(woof_ro[i], &wf_host, wf_name);
+		err = WooFFromHval(woof_casualty[i], &wf_host, wf_name);
 		if (err < 0)
 		{
-			fprintf(stderr, "cannot parse woof_ro %s\n", woof_ro[i]);
+			fprintf(stderr, "cannot parse woof_casualty %s\n", woof_casualty[i]);
+			fflush(stderr);
+			return (-1);
+		}
+		printf("%lu %s\n", wf_host, wf_name);
+		Repair(glog, namespace, wf_host, wf_name);
+		free(wf_name);
+	}
+	printf("woof progress:\n");
+	for (i = 0; i < count_progress; i++)
+	{
+		wf_name = malloc(4096 * sizeof(char));
+		err = WooFFromHval(woof_progress[i], &wf_host, wf_name);
+		if (err < 0)
+		{
+			fprintf(stderr, "cannot parse woof_progress %s\n", woof_progress[i]);
 			fflush(stderr);
 			return (-1);
 		}
@@ -285,6 +344,24 @@ int main(int argc, char **argv)
 		RepairRO(glog, namespace, wf_host, wf_name);
 		free(wf_name);
 	}
+
+	Guide(glog, guide_fd);
+	fclose(guide_fd);
+
+	// free memory
+	for (i = 0; i < num_hosts; i++)
+	{
+		free(endpoint[i]);
+	}
+	free(endpoint);
+	free(seq_no);
+	for (i = 0; i < num_hosts; i++)
+	{
+		MIOClose(mio[i]);
+	}
+	free(mio);
+	free(log);
+	GLogFree(glog);
 
 	return (0);
 }
@@ -304,8 +381,7 @@ int Repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 		return (-1);
 	}
 
-	GLogFindReplacedWooF(glog, host, wf_name, holes);
-#ifdef DEBUG
+	GLogFindWooFHoles(glog, host, wf_name, holes);
 	printf("Repair: repairing %s/%s(%lu): %d holes", namespace, wf_name, host, holes->count);
 	DLIST_FORWARD(holes, dn)
 	{
@@ -313,7 +389,6 @@ int Repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 	}
 	printf("\n");
 	fflush(stdout);
-#endif
 	if (holes->count > 0)
 	{
 		// TODO: remote repair not implemented yet
@@ -371,11 +446,42 @@ int RepairRO(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 			return (-1);
 		}
 		// TODO: remote repair not implemented yet
-		fflush(stdout);
 	}
 
 	RBDestroyS(asker);
 	RBDestroyS(mapping_count);
 
 	return (0);
+}
+
+void Guide(GLOG *glog, FILE *fd)
+{
+	EVENT *ev_array;
+	LOG *log;
+	int err;
+	unsigned long curr;
+	Hval value;
+
+#ifdef DEBUG
+	printf("Guide: called\n", host, woof_name);
+	fflush(stdout);
+#endif
+
+	printf("To repair the app, please call WooFPut by the following order:\n");
+
+	log = glog->log;
+	ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
+
+	curr = (log->tail + 1) % log->size;
+	while (curr != (log->head + 1) % log->size)
+	{
+		if (ev_array[curr].type == (TRIGGER | ROOT))
+		{
+			printf(" host %lu, woof_name %s, seq_no %lu\n", ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
+			fprintf(fd, "%lu,%s,%lu\n", ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
+			fflush(fd);
+		}
+		curr = (curr + 1) % log->size;
+	}
+	fflush(stdout);
 }

@@ -966,7 +966,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	else
 	{
-		latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_woof, cause_woof_latest_seq_no);
+		latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_woof, cause_woof_latest_seq_no);
 		WooFFree(wf);
 	}
 
