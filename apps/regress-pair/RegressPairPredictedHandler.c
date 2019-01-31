@@ -998,12 +998,12 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return (-1);
 	}
 
-	if (coeff_rv.intercept > 1000 || coeff_rv.intercept < -1000)
-	{
-		fprintf(stderr, "invalid coeff\n");
-		FinishPredicted(finished_name, wf_seq_no);
-		return (-1);
-	}
+	// if (coeff_rv.intercept > 1000 || coeff_rv.intercept < -1000)
+	// {
+	// 	fprintf(stderr, "invalid coeff\n");
+	// 	FinishPredicted(finished_name, wf_seq_no);
+	// 	return (-1);
+	// }
 
 	coeff_rv.tv_sec = rv->tv_sec;
 	coeff_rv.tv_usec = rv->tv_usec;

@@ -38,7 +38,8 @@ typedef struct event_stc EVENT;
 
 #ifdef REPAIR
 #define MARKED (32) // for downstream events discovery in repair mode
-#define INVALID (64)
+#define ROOT (64)
+#define INVALID (128)
 #endif
 
 EVENT *EventCreate(unsigned char type, unsigned long host);
