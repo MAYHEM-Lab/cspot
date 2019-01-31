@@ -51,6 +51,6 @@ constant in the cspot source files and recompile.
 
 The apps subdirectory contains several sample applications.  Their function is document on the CSPOT github wiki
 
-https://github.com/MAYHEM-Lab/cspot/wiki/CSPOT-Run
+https://github.com/MAYHEM-Lab/cspot/wiki
 
 
