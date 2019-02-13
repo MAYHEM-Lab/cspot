@@ -352,7 +352,11 @@ PENDING *PendingCreate(char *filename, unsigned long psize)
 	pending->size = psize;
 	pending->next_free = 0;
 	ev_array = (EVENT *)(MIOAddr(mio) + sizeof(PENDING));
-	memset(ev_array, 0, psize * sizeof(EVENT));
+// printf("memset start\n");
+// fflush(stdout);
+// 	memset(ev_array, 0, psize * sizeof(EVENT));
+// printf("memset done\n");
+// fflush(stdout);
 
 	return (pending);
 }

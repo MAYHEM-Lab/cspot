@@ -748,6 +748,7 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	REGRESSVAL ev;
 	REGRESSVAL mv;
 	REGRESSCOEFF coeff_rv;
+	REGRESSCOEFF coeff_last_rv;
 	char index_name[4096 + 64];
 	char measured_name[4096 + 64];
 	char predicted_name[4096 + 64];
@@ -809,6 +810,12 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	MAKE_EXTENDED_NAME(error_name, rv->woof_name, "errors");
 	MAKE_EXTENDED_NAME(coeff_name, rv->woof_name, "coeff");
 	MAKE_EXTENDED_NAME(progress_name, rv->woof_name, "progress");
+	// sprintf(index_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.index");
+	// sprintf(measured_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.measured");
+	// sprintf(predicted_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.predicted");
+	// sprintf(result_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.result");
+	// sprintf(error_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.errors");
+	// sprintf(coeff_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.coeff");
 
 	/*
 	 * start by computing the forecasting error if possible
@@ -998,12 +1005,18 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return (-1);
 	}
 
-	// if (coeff_rv.intercept > 1000 || coeff_rv.intercept < -1000)
-	// {
-	// 	fprintf(stderr, "invalid coeff\n");
-	// 	FinishPredicted(finished_name, wf_seq_no);
-	// 	return (-1);
-	// }
+	if (coeff_rv.intercept > 100 || coeff_rv.intercept < -100)
+	{
+		// fprintf(stderr, "invalid coeff\n");
+		// FinishPredicted(finished_name, wf_seq_no);
+		// return (-1);
+		seq_no = WooFGet(coeff_name, (void *)&coeff_last_rv, c_seq_no);
+		if (!WooFInvalid(seq_no))
+		{
+			coeff_rv.slope = coeff_last_rv.slope;
+			coeff_rv.intercept = coeff_last_rv.intercept;
+		}
+	}
 
 	coeff_rv.tv_sec = rv->tv_sec;
 	coeff_rv.tv_usec = rv->tv_usec;
