@@ -25,6 +25,7 @@ seq_no_repair = []
 # mdata, pdata = mdata[:30], pdata[:30]
  
 while mi < len(mdata) or pi < len(pdata):
+    woof_name = "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test"
     while mi < len(mdata):
         date, ts, value = mdata[mi]
         ts = int(ts)
@@ -44,6 +45,7 @@ while mi < len(mdata) or pi < len(pdata):
             mi += 1
         else:
             break
+    # woof_name = "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test"
     while pi < len(pdata):
         date, ts, value = pdata[pi]
         ts = int(ts)

@@ -453,283 +453,13 @@ void WooFDrop(WOOF *wf)
 	return;
 }
 
-unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
-{
-	MIO *mio;
-	MIO *lmio;
-	WOOF_SHARED *wfs;
-	char woof_name[2048];
-	char log_name[4096];
-	pthread_t tid;
-	unsigned long next;
-	unsigned char *buf;
-	unsigned char *ptr;
-	ELID *el_id;
-	unsigned long seq_no;
-	unsigned long ndx;
-	int err;
-	char launch_string[4096];
-	char *namelog_seq_no;
-	unsigned long my_log_seq_no;
-	EVENT *ev;
-	unsigned long ls;
-#ifdef DEBUG
-	printf("WooFAppend: called %s %s\n", wf->shared->filename, hand_name);
-	fflush(stdout);
-#endif
-
-	wfs = wf->shared;
-
-	/*
-	 * if called from within a handler, env variable carries cause seq_no
-	 * for logging
-	 *
-	 * when called for first time on namespace to start, should be NULL
-	 */
-	namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
-	if (namelog_seq_no != NULL)
-	{
-		my_log_seq_no = strtoul(namelog_seq_no, (char **)NULL, 10);
-	}
-	else
-	{
-		my_log_seq_no = 0;
-	}
-
-	if (hand_name != NULL)
-	{
-		ev = EventCreate(TRIGGER, Name_id);
-		if (ev == NULL)
-		{
-			fprintf(stderr, "WooFAppend: couldn't create log event\n");
-			exit(1);
-		}
-		ev->cause_host = Name_id;
-		ev->cause_seq_no = my_log_seq_no;
-	}
-
-#ifdef DEBUG
-	printf("WooFAppend: checking for empty slot, ino: %lu\n", wf->ino);
-	fflush(stdout);
-#endif
-
-	P(&wfs->tail_wait);
-
-#ifdef DEBUG
-	printf("WooFAppend: got empty slot\n");
-	fflush(stdout);
-#endif
-
-#ifdef DEBUG
-	printf("WooFAppend: adding element\n");
-	fflush(stdout);
-#endif
-	/*
-	 * now drop the element in the object
-	 */
-	P(&wfs->mutex);
-#ifdef DEBUG
-	printf("WooFAppend: in mutex\n");
-	fflush(stdout);
-#endif
-	/*
-	 * find the next spot
-	 */
-	next = (wfs->head + 1) % wfs->history_size;
-	ndx = next;
-
-	/*
-	 * write the data and record the indices
-	 */
-	buf = (unsigned char *)(((void *)wfs) + sizeof(WOOF_SHARED));
-	ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
-	el_id = (ELID *)(ptr + wfs->element_size);
-
-	/*
-	 * tail is the last valid place where data could go
-	 * check to see if it is allocated to a function that
-	 * has yet to complete
-	 */
-#ifdef DEBUG
-	printf("WooFAppend: element in\n");
-	fflush(stdout);
-#endif
-
-#if 0
-	while((el_id->busy == 1) && (next == wfs->tail)) {
-#ifdef DEBUG
-	printf("WooFAppend: busy at %lu\n",next);
-	fflush(stdout);
-#endif
-		V(&wfs->mutex);
-		P(&wfs->tail_wait);
-		P(&wfs->mutex);
-		next = (wfs->head + 1) % wfs->history_size;
-		ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
-		el_id = (ELID *)(ptr+wfs->element_size);
-	}
-#endif
-
-	/*
-	 * write the element
-	 */
-#ifdef DEBUG
-	printf("WooFAppend: writing element 0x%x\n", el_id);
-	fflush(stdout);
-#endif
-	memcpy(ptr, element, wfs->element_size);
-	/*
-	 * and elemant meta data after it
-	 */
-	el_id->seq_no = wfs->seq_no;
-	el_id->busy = 1;
-
-	/*
-printf("WooFAppend: about to set head for name %s, head: %lu, next: %lu, size: %lu\n",
-wfs->filename,wfs->head,next,wfs->history_size);
-fflush(stdout);
-*/
-
-	/*
-	 * update circular buffer
-	 */
-	ndx = wfs->head = next;
-	if (next == wfs->tail)
-	{
-		wfs->tail = (wfs->tail + 1) % wfs->history_size;
-	}
-	seq_no = wfs->seq_no;
-	wfs->seq_no++;
-
-#ifdef REPAIR
-	/* TODO:
-	 * forward the shadow woof
-	 */
-	if (wfs->repair_mode & SHADOW)
-	{
-		err = WooFShadowForward(wf);
-		if (err < 0)
-		{
-			fprintf(stderr, "WooFAppend: couldn't forward shadow %s\n", wfs->filename);
-			fflush(stderr);
-			return (-1);
-		}
-		if (wfs->repair_mode == NORMAL) // shadow closed
-		{
-			// TODO: delete shadow
-		}
-	}
-#endif
-	V(&wfs->mutex);
-#ifdef DEBUG
-	printf("WooFAppend: out of element mutex\n");
-	fflush(stdout);
-#endif
-
-	/*
-	 * if there is no handler, we are done (no need to generate log record)
-	 * However, since there is no handler, woofc-shperherd can't V the counting
-	 * semaphore for the WooF.  Without a handler, the tail is immediately available since
-	 * we don't know whether the WooF will be consumed -- V it in this case
-	 */
-	if (hand_name == NULL)
-	{
-		/*
-		 * mark the woof as done for purposes of sync
-		 */
-#if DONEFLAG
-		wfs->done = 1;
-#endif
-		V(&wfs->tail_wait);
-		return (seq_no);
-	}
-
-	memset(ev->namespace, 0, sizeof(ev->namespace));
-	strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
-#ifdef DEBUG
-	printf("WooFAppend: namespace: %s\n", ev->namespace);
-	fflush(stdout);
-#endif
-
-	ev->woofc_ndx = ndx;
-#ifdef DEBUG
-	printf("WooFAppend: ndx: %lu\n", ev->woofc_ndx);
-	fflush(stdout);
-#endif
-	ev->woofc_seq_no = seq_no;
-#ifdef DEBUG
-	printf("WooFAppend: seq_no: %lu\n", ev->woofc_seq_no);
-	fflush(stdout);
-#endif
-	ev->woofc_element_size = wfs->element_size;
-#ifdef DEBUG
-	printf("WooFAppend: element_size %lu\n", ev->woofc_element_size);
-	fflush(stdout);
-#endif
-	ev->woofc_history_size = wfs->history_size;
-#ifdef DEBUG
-	printf("WooFAppend: history_size %lu\n", ev->woofc_history_size);
-	fflush(stdout);
-#endif
-	memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
-	strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
-#ifdef DEBUG
-	printf("WooFAppend: name %s\n", ev->woofc_name);
-	fflush(stdout);
-#endif
-	memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
-	strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
-#ifdef DEBUG
-	printf("WooFAppend: handler %s\n", ev->woofc_handler);
-	fflush(stdout);
-#endif
-
-	ev->ino = wf->ino;
-#ifdef DEBUG
-	printf("WooFAppend: ino %lu\n", ev->ino);
-	fflush(stdout);
-#endif
-
-	/*
-	 * log the event so that it can be triggered
-	 */
-	memset(log_name, 0, sizeof(log_name));
-	sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
-#ifdef DEBUG
-	printf("WooFAppend: logging event to %s\n", log_name);
-	fflush(stdout);
-#endif
-	ls = LogEvent(Name_log, ev);
-	if (ls == 0)
-	{
-		fprintf(stderr, "WooFAppend: couldn't log event to log %s\n",
-				log_name);
-		fflush(stderr);
-		EventFree(ev);
-		return (-1);
-	}
-
-#ifdef DEBUG
-	printf("WooFAppend: logged %lu for woof %s %s\n",
-		   ls,
-		   ev->woofc_name,
-		   ev->woofc_handler);
-	fflush(stdout);
-#endif
-
-	EventFree(ev);
-	V(&Name_log->tail_wait);
-
-	return (seq_no);
-}
-
 unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsigned long cause_host, unsigned long long cause_seq_no)
 {
 	MIO *mio;
 	MIO *lmio;
 	WOOF_SHARED *wfs;
-	char woof_name[2048];
 	char log_name[4096];
+	char shadow_name[2048];
 	pthread_t tid;
 	unsigned long next;
 	unsigned char *buf;
@@ -875,7 +605,7 @@ unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsi
 	wfs->seq_no++;
 
 #ifdef REPAIR
-	/* TODO:
+	/*
 	 * forward the shadow woof
 	 */
 	if (wfs->repair_mode & SHADOW)
@@ -890,6 +620,7 @@ unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsi
 		if (wfs->repair_mode == NORMAL) // shadow closed
 		{
 			// TODO: delete shadow
+			wfs->repair_mode = REMOVE;
 		}
 	}
 #endif
@@ -1013,11 +744,14 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 	unsigned long seq_no;
 	unsigned long el_size;
 	char wf_namespace[2048];
+	char shadow_name[2048];
 	char ns_ip[25];
 	char my_ip[25];
 	int err;
 	char *namelog_seq_no;
 	unsigned long my_log_seq_no;
+	clock_t start;
+	int diff;
 
 #ifdef DEBUG
 	printf("WooFPut: called %s %s\n", wf_name, hand_name);
@@ -1109,7 +843,31 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 		my_log_seq_no = 0;
 	}
 	seq_no = WooFAppendWithCause(wf, hand_name, element, Name_id, my_log_seq_no);
-
+	if (wf->shared->repair_mode == REMOVE)
+	{
+		memset(shadow_name, 0, sizeof(shadow_name));
+		strncpy(shadow_name, WooF_dir, sizeof(shadow_name));
+		if (shadow_name[strlen(shadow_name) - 1] != '/')
+		{
+			strncat(shadow_name, "/", 1);
+		}
+		strncat(shadow_name, wf_name, sizeof(shadow_name));
+		strncat(shadow_name, "_shadow", 7);
+#ifdef DEBUG
+		printf("WooFPut: deleting shadow file %s\n", shadow_name);
+		fflush(stdout);
+#endif
+		WooFFree(wf);
+		err = remove(shadow_name);
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFPut: couldn't delete shadow file %s\n", shadow_name);
+			fflush(stderr);
+		}
+		printf("WooFPut: deleted shadow file %s\n", shadow_name);
+		fflush(stdout);
+		return (seq_no);
+	}
 	WooFFree(wf);
 	return (seq_no);
 }
@@ -1120,6 +878,7 @@ unsigned long WooFPutWithCause(char *wf_name, char *hand_name, void *element, un
 	unsigned long seq_no;
 	unsigned long el_size;
 	char wf_namespace[2048];
+	char shadow_name[2048];
 	char ns_ip[25];
 	char my_ip[25];
 	int err;
@@ -1204,7 +963,29 @@ unsigned long WooFPutWithCause(char *wf_name, char *hand_name, void *element, un
 	fflush(stdout);
 #endif
 	seq_no = WooFAppendWithCause(wf, hand_name, element, cause_host, cause_seq_no);
-
+	if (wf->shared->repair_mode == REMOVE)
+	{
+		memset(shadow_name, 0, sizeof(shadow_name));
+		strncpy(shadow_name, WooF_dir, sizeof(shadow_name));
+		if (shadow_name[strlen(shadow_name) - 1] != '/')
+		{
+			strncat(shadow_name, "/", 1);
+		}
+		strncat(shadow_name, wf_name, sizeof(shadow_name));
+		strncat(shadow_name, "_shadow", 7);
+#ifdef DEBUG
+		printf("WooFPutWithCause: deleting shadow file %s\n", shadow_name);
+		fflush(stdout);
+#endif
+		WooFFree(wf);
+		err = remove(shadow_name);
+		if (err < 0)
+		{
+			fprintf(stderr, "WooFPutWithCause: couldn't delete shadow file %s\n", shadow_name);
+			fflush(stderr);
+		}
+		return (seq_no);
+	}
 	WooFFree(wf);
 	return (seq_no);
 }
@@ -2096,7 +1877,7 @@ unsigned long WooFLatestSeqnoWithCause(WOOF *wf, unsigned long cause_host, char 
 	printf("WooFLatestSeqnoWithCause: ino %lu\n", ev->ino);
 	fflush(stdout);
 #endif
-	/* TODO:
+	/*
 	 * use ev->woofc_handler as cause_woof_name
 	 * and ev->woofc_ndx as cause_woof_latest_seq_no
 	 */
@@ -2304,9 +2085,9 @@ WOOF *WooFOpenOriginal(char *name)
 }
 
 /*
- * TODO: start to repair a WooF in read-only mode
+ * start to repair a WooF in read-only mode (mapping seq_no for WooFGetLatestSeqNo())
  */
-int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof, int mapping_count, unsigned long *mapping)
+int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof, int mapping_count, unsigned long *mapping)
 {
 	WOOF *wf;
 	WOOF_SHARED *wfs;
@@ -2322,7 +2103,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 	int err;
 
 #ifdef DEBUG
-	printf("WooFRepairReadOnly: called %s\n", wf_name);
+	printf("WooFRepairProgress: called %s\n", wf_name);
 	fflush(stdout);
 #endif
 
@@ -2330,7 +2111,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 	seqno_mapping = malloc(2 * mapping_count * sizeof(unsigned long));
 	if (seqno_mapping == NULL)
 	{
-		printf("WooFRepairReadOnly: couldn't allocate memory for seqno_mapping\n");
+		printf("WooFRepairProgress: couldn't allocate memory for seqno_mapping\n");
 		fflush(stdout);
 		free(key);
 		return (-1);
@@ -2347,7 +2128,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 		err = WooFLocalIP(ns_ip, sizeof(ns_ip));
 		if (err < 0)
 		{
-			fprintf(stderr, "WooFRepairReadOnly: no local IP\n");
+			fprintf(stderr, "WooFRepairProgress: no local IP\n");
 			free(key);
 			exit(1);
 		}
@@ -2357,7 +2138,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 	err = WooFLocalIP(my_ip, sizeof(my_ip));
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFRepairReadOnly: no local IP\n");
+		fprintf(stderr, "WooFRepairProgress: no local IP\n");
 		free(key);
 		exit(1);
 	}
@@ -2379,18 +2160,13 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 		el_size = WooFMsgGetElSize(wf_name);
 		if (el_size != (unsigned long)-1)
 		{
-			// TODO: remote repair not implemented yet
-			// err = WooFMsgRepairReadOnly(wf_name);
-			// free(key);
-			// return (err);
-			fprintf(stderr, "WooFRepairReadOnly: remote repair not implemented yet\n");
-			fflush(stderr);
+			err = WooFMsgRepairProgress(wf_name);
 			free(key);
-			return (-1);
+			return (err);
 		}
 		else
 		{
-			fprintf(stderr, "WooFRepairReadOnly: couldn't get element size for %s\n",
+			fprintf(stderr, "WooFRepairProgress: couldn't get element size for %s\n",
 					wf_name);
 			fflush(stderr);
 			return (-1);
@@ -2401,20 +2177,20 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 	WooFNameFromURI(wf_name, woof_name, sizeof(woof_name));
 	if (WooF_dir[0] == 0)
 	{
-		fprintf(stderr, "WooFRepairReadOnly: local namespace put must init system\n");
+		fprintf(stderr, "WooFRepairProgress: local namespace put must init system\n");
 		fflush(stderr);
 		free(key);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFRepairReadOnly: namespace: %s,  WooF_dir: %s, name: %s\n",
+	printf("WooFRepairProgress: namespace: %s,  WooF_dir: %s, name: %s\n",
 		   WooF_namespace, WooF_dir, woof_name);
 	fflush(stdout);
 #endif
 	wf = WooFOpenOriginal(woof_name);
 	if (wf == NULL)
 	{
-		fprintf(stderr, "WooFRepairReadOnly: couldn't open woof %s\n", woof_name);
+		fprintf(stderr, "WooFRepairProgress: couldn't open woof %s\n", woof_name);
 		fflush(stderr);
 		free(key);
 		return (-1);
@@ -2424,7 +2200,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 
 	if ((wfs->repair_mode & SHADOW) || (wfs->repair_mode & REPAIRING))
 	{
-		fprintf(stderr, "WooFRepairReadOnly: WooF %s is currently being repaired\n", woof_name);
+		fprintf(stderr, "WooFRepairProgress: WooF %s is currently being repaired\n", woof_name);
 		fflush(stderr);
 		V(&wfs->mutex);
 		WooFFree(wf);
@@ -2436,7 +2212,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 	err = WooFShadowMappingCreate(wf_name, cause_host, cause_woof, mapping_count, mapping);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFRepairReadOnly: couldn't create shadow mapping %s.%lu_%s\n", woof_name, cause_host, cause_woof);
+		fprintf(stderr, "WooFRepairProgress: couldn't create shadow mapping %s.%lu_%s\n", woof_name, cause_host, cause_woof);
 		fflush(stderr);
 		V(&wfs->mutex);
 		WooFFree(wf);
@@ -2444,7 +2220,7 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFRepairReadOnly: shadow mapping %s.%lu_%s created\n", woof_name, cause_host, cause_woof);
+	printf("WooFRepairProgress: shadow mapping %s.%lu_%s created\n", woof_name, cause_host, cause_woof);
 	fflush(stdout);
 #endif
 
@@ -2454,9 +2230,6 @@ int WooFRepairReadOnly(char *wf_name, unsigned long cause_host, char *cause_woof
 	return (0);
 }
 
-/*
- * TODO: start to repair a WooF
- */
 int WooFRepair(char *wf_name, Dlist *seq_no)
 {
 	WOOF *wf;
@@ -2514,12 +2287,8 @@ int WooFRepair(char *wf_name, Dlist *seq_no)
 		el_size = WooFMsgGetElSize(wf_name);
 		if (el_size != (unsigned long)-1)
 		{
-			// TODO: remote repair not implemented yet
-			// err = WooFMsgRepair(wf_name, seq_no);
-			// return (err);
-			fprintf(stderr, "WooFRepair: remote repair not implemented yet\n");
-			fflush(stderr);
-			return (-1);
+			err = WooFMsgRepair(wf_name, seq_no);
+			return (err);
 		}
 		else
 		{
@@ -2598,18 +2367,14 @@ int WooFRepair(char *wf_name, Dlist *seq_no)
 		WooFFree(wf);
 		return (-1);
 	}
-	if (wfs->repair_mode == NORMAL) // shadow closed
-	{
-		// TODO: delete shadow
-	}
 	V(&wfs->mutex);
 	WooFFree(wf);
 
-	return (err);
+	return (0);
 }
 
 /*
- * TODO: Create a shadow WooF for repair
+ * Create a shadow WooF for repair
  */
 int WooFShadowCreate(char *name, char *original_name, unsigned long element_size, unsigned long history_size, Dlist *seq_no)
 {
@@ -2835,7 +2600,7 @@ int WooFShadowCreate(char *name, char *original_name, unsigned long element_size
 	InitSem(&wfs->mutex, 1);
 	InitSem(&wfs->tail_wait, history_size);
 
-	// TODO: put the seq_nos to be repaired to the end of mio
+	// put the seq_nos to be repaired to the end of mio
 	repair_count = MIOAddr(mio) + ((history_size + 1) * (element_size + sizeof(ELID))) + sizeof(WOOF_SHARED);
 	repair_head = MIOAddr(mio) + ((history_size + 1) * (element_size + sizeof(ELID))) + sizeof(WOOF_SHARED) + sizeof(unsigned long);
 	repair_seq_no = MIOAddr(mio) + ((history_size + 1) * (element_size + sizeof(ELID))) + sizeof(WOOF_SHARED) + 2 * sizeof(unsigned long);
@@ -2871,6 +2636,8 @@ int WooFShadowForward(WOOF *wf)
 	unsigned long ndx;
 	unsigned long size;
 	int i;
+	clock_t start;
+	int diff;
 
 	wfs = wf->shared;
 	history_size = wfs->history_size;
@@ -2967,8 +2734,17 @@ int WooFShadowForward(WOOF *wf)
 			}
 			wfs->seq_no += size;
 		}
+#ifdef DEBUG
+		printf("WooFShadowForward: done copying\n");
+		fflush(stdout);
+#endif
 
 		// copy back
+// #ifdef DEBUG
+		printf("WooFShadowForward: copying from shadow to the original woof %s\n", wf->shared->filename);
+		fflush(stdout);
+		start = clock();
+// #endif
 		err = WooFReplace(og_wf, wf, 0, wf->shared->history_size);
 		if (err < 0)
 		{
@@ -2977,6 +2753,11 @@ int WooFShadowForward(WOOF *wf)
 			WooFFree(og_wf);
 			return (-1);
 		}
+// #ifdef DEBUG
+		diff = (clock() - start) * 1000 / CLOCKS_PER_SEC;
+		printf("WooFShadowForward: done copying from shadow to the original woof %s: %d ms, history_size %lu\n", wf->shared->filename, diff, wf->shared->history_size);
+		fflush(stdout);
+// #endif
 		og_wf->shared->seq_no = wfs->seq_no;
 		og_wf->shared->head = wfs->head;
 		og_wf->shared->tail = wfs->tail;
@@ -2987,12 +2768,18 @@ int WooFShadowForward(WOOF *wf)
 		fflush(stdout);
 #endif
 		V(&og_wf->shared->mutex);
-
+// #ifdef DEBUG
+		printf("WooFShadowForward: marking original events invalid for %s\n", wfs->filename);
+		fflush(stdout);
+		start = clock();
+// #endif
 		// mark the original events invalid
-		for (i = 0; i < *repair_count; i++)
-		{
-			LogInvalidByWooF(Name_log, repair_seq_no[i]);
-		}
+		LogInvalidByWooF(Name_log);
+// #ifdef DEBUG
+		diff = (clock() - start) * 1000 / CLOCKS_PER_SEC;
+		printf("WooFShadowForward: done marking invalid: %d ms\n", diff);
+		fflush(stdout);
+// #endif
 		wfs->repair_mode = NORMAL;
 	}
 
@@ -3001,7 +2788,7 @@ int WooFShadowForward(WOOF *wf)
 }
 
 /*
- * TODO: Create a shadow WooF for repair
+ * Create a shadow WooF for repair in read-only mode
  */
 int WooFShadowMappingCreate(char *name, unsigned long cause_host, char *cause_woof, int mapping_count, unsigned long *seqno_mapping)
 {
@@ -3129,7 +2916,7 @@ int WooFShadowMappingCreate(char *name, unsigned long cause_host, char *cause_wo
 	return (1);
 }
 
-/* TODO:
+/*
  * not thread safe
  */
 int WooFReplace(WOOF *dst, WOOF *src, unsigned long ndx, unsigned long size)
