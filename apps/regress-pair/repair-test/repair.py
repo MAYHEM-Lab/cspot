@@ -52,6 +52,6 @@ while mi < len(mdata) or pi < len(pdata):
 for i in gdata:
     cmd = cmds[i]
     print(cmd)
-    seq_no = int(subprocess.check_output(cmd, shell=True))
+    seq_no = subprocess.check_output(cmd, shell=True)
     time.sleep(0.1)
     print("cmd[{}]: {}".format(i, seq_no))

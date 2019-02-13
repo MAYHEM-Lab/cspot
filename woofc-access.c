@@ -1929,20 +1929,23 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 #endif
 
 #ifdef REPAIR
-/* TODO:
- */
 void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char woof_name[2048];
+	char local_name[2048];
 	char *str;
 	unsigned int copy_size;
 	unsigned long count;
 	unsigned long *seq_no;
 	int err;
 	char buffer[255];
+	Dlist *dlist;
+	DlistNode *dn;
+	int i;
+	Hval hval;
 
 #ifdef DEBUG
 	printf("WooFProcessRepair: called\n");
@@ -2023,6 +2026,23 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 		fflush(stderr);
 	}
 
+	dlist = DlistInit();
+	if (dlist == NULL)
+	{
+		perror("WooFProcessRepair: couldn't init dlist");
+		free(seq_no);
+	}
+	for (i = 0; i < count; i++)
+	{
+		hval.i64 = seq_no[i];
+		dn = DlistAppend(dlist, hval);
+		if (dn == NULL)
+		{
+			fprintf(stderr, "WooFProcessRepair: couldn't append seq_no[%d]:%lu to dlist\n", i, seq_no[i]);
+			fflush(stderr);
+		}
+	}
+
 	/*
 	 * send count back for confirmation
 	 */
@@ -2031,6 +2051,11 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 	{
 		perror("WooFProcessRepair: no reply message");
 		free(seq_no);
+		DLIST_FORWARD(dlist, dn)
+		{
+			DlistNodeFree(dn);
+		}
+		free(dlist);
 		return;
 	}
 #ifdef DEBUG
@@ -2039,13 +2064,18 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 #endif
 
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", count);
+	sprintf(buffer, "%lu", dlist->count);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
 		perror("WooFProcessRepair: no reply frame");
 		zmsg_destroy(&r_msg);
 		free(seq_no);
+		DLIST_FORWARD(dlist, dn)
+		{
+			DlistNodeFree(dn);
+		}
+		free(dlist);
 		return;
 	}
 	err = zmsg_append(r_msg, &r_frame);
@@ -2055,6 +2085,11 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 		zframe_destroy(&r_frame);
 		zmsg_destroy(&r_msg);
 		free(seq_no);
+		DLIST_FORWARD(dlist, dn)
+		{
+			DlistNodeFree(dn);
+		}
+		free(dlist);
 		return;
 	}
 	err = zmsg_send(&r_msg, receiver);
@@ -2063,17 +2098,224 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 		perror("WooFProcessRepair: couldn't send r_msg");
 		zmsg_destroy(&r_msg);
 		free(seq_no);
+		DLIST_FORWARD(dlist, dn)
+		{
+			DlistNodeFree(dn);
+		}
+		free(dlist);
 		return;
 	}
-	// TODO: start repair here
+	/*
+	 * FIX ME: in a cloud, the calling process doesn't know the publically viewable
+	 * IP address so it can't determine whether the access is local or not.
+	 *
+	 * For now, assume that all Process functions convert to a local access
+	 */
+	memset(local_name, 0, sizeof(local_name));
+	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+	if (err < 0)
+	{
+		strncpy(local_name, woof_name, sizeof(local_name));
+	}
+	err = WooFRepair(local_name, dlist);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFProcessRepair: WooFRepair failed\n");
+		fflush(stderr);
+	}
 
 	free(seq_no);
+	DLIST_FORWARD(dlist, dn)
+	{
+		DlistNodeFree(dn);
+	}
+	free(dlist);
 	return;
 }
 
-void WooFProcessRepairReadOnly(zmsg_t *req_msg, zsock_t *receiver)
+void WooFProcessRepairProgress(zmsg_t *req_msg, zsock_t *receiver)
 {
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char woof_name[2048];
+	char local_name[2048];
+	char cause_woof[2048];
+	char *str;
+	unsigned int copy_size;
+	unsigned long cause_host;
+	int mapping_count;
+	unsigned long *mapping;
+	int err;
+	char buffer[255];
 
+#ifdef DEBUG
+	printf("WooFProcessRepairProgress: called\n");
+	fflush(stdout);
+#endif
+
+	/*
+	 * WooFProcessRepairProgress requires a cause_host, cause_woof, mapping_count, and mapping
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessRepairProgress: couldn't set cursor in msg");
+		return;
+	}
+
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessRepairProgress: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name, 0, sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if (copy_size > (sizeof(woof_name) - 1))
+	{
+		copy_size = sizeof(woof_name) - 1;
+	}
+	strncpy(woof_name, str, copy_size);
+
+#ifdef DEBUG
+	printf("WooFProcessRepairProgress: received woof_name %s\n", woof_name);
+	fflush(stdout);
+#endif
+	/*
+	 * cause_host in the second frame
+	 */
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	if (copy_size > 0)
+	{
+		cause_host = strtoul(zframe_data(frame), (char **)NULL, 10);
+#ifdef DEBUG
+		printf("WooFProcessRepairProgress: received cause_host %lu\n", cause_host);
+		fflush(stdout);
+#endif
+	}
+	else
+	{ /* copy_size <= 0 */
+		fprintf(stderr, "WooFProcessRepairProgress: no cause_host frame data for %s\n", woof_name);
+		fflush(stderr);
+	}
+
+	/*
+	 * cause_woof in the third frame
+	 */
+	memset(cause_woof, 0, sizeof(cause_woof));
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	str = (char *)zframe_data(frame);
+	if (copy_size > (sizeof(cause_woof) - 1))
+	{
+		copy_size = sizeof(cause_woof) - 1;
+	}
+	strncpy(cause_woof, str, copy_size);
+
+	/*
+	 * int mapping_count in the fourth frame
+	 */
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	mapping_count = atoi(zframe_data(frame));
+#ifdef DEBUG
+	printf("WooFProcessRepairProgress: received mapping_count %d\n", mapping_count);
+	fflush(stdout);
+#endif
+
+	//unsigned long *mapping)
+	/*
+	 * mapping in the fifth frame
+	 */
+	mapping = malloc(2 * mapping_count * sizeof(unsigned long));
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	if (copy_size > 0)
+	{
+		memcpy(mapping, zframe_data(frame), copy_size);
+#ifdef DEBUG
+		printf("WooFProcessRepairProgress: received mapping with size %lu\n", copy_size);
+		fflush(stdout);
+#endif
+	}
+	else
+	{ /* copy_size <= 0 */
+		fprintf(stderr, "WooFProcessRepairProgress: no mapping frame data for %s\n",
+				woof_name);
+		fflush(stderr);
+	}
+
+	/*
+	 * send count back for confirmation
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("WooFProcessRepairProgress: no reply message");
+		free(mapping);
+		return;
+	}
+#ifdef DEBUG
+	printf("WooFProcessRepairProgress: creating frame for count %lu\n", count);
+	fflush(stdout);
+#endif
+
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%d", mapping_count);
+	r_frame = zframe_new(buffer, strlen(buffer));
+	if (r_frame == NULL)
+	{
+		perror("WooFProcessRepairProgress: no reply frame");
+		zmsg_destroy(&r_msg);
+		free(mapping);
+		return;
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("WooFProcessRepairProgress: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		free(mapping);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("WooFProcessRepairProgress: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		free(mapping);
+		return;
+	}
+	/*
+	 * FIX ME: in a cloud, the calling process doesn't know the publically viewable
+	 * IP address so it can't determine whether the access is local or not.
+	 *
+	 * For now, assume that all Process functions convert to a local access
+	 */
+	memset(local_name, 0, sizeof(local_name));
+	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+	if (err < 0)
+	{
+		strncpy(local_name, woof_name, sizeof(local_name));
+	}
+	err = WooFRepairProgress(local_name, cause_host, cause_woof, mapping_count, mapping);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFProcessRepairProgress: WooFRepairProgress failed\n");
+		fflush(stderr);
+	}
+
+	free(mapping);
+	return;
 }
 
 void LogProcessGetSize(zmsg_t *req_msg, zsock_t *receiver)
@@ -2284,8 +2526,8 @@ void *WooFMsgThread(void *arg)
 		case WOOF_MSG_REPAIR:
 			WooFProcessRepair(msg, receiver);
 			break;
-		case WOOF_MSG_REPAIR_RO:
-			WooFProcessRepairReadOnly(msg, receiver);
+		case WOOF_MSG_REPAIR_PROGRESS:
+			WooFProcessRepairProgress(msg, receiver);
 			break;
 		case LOG_GET_REMOTE_SIZE:
 			LogProcessGetSize(msg, receiver);
@@ -3980,7 +4222,7 @@ int LogGetRemote(LOG *log, MIO *mio, char *endpoint)
 	return (1);
 }
 
-/* TODO:
+/*
  * Start woof repair. The woof objects from begin_seq_no to end_seq_no are to be repaired.
  */
 int WooFMsgRepair(char *woof_name, Dlist *holes)
@@ -4236,7 +4478,6 @@ int WooFMsgRepair(char *woof_name, Dlist *holes)
 			zmsg_destroy(&r_msg);
 			return (-1);
 		}
-		// TODO:
 		str = zframe_data(r_frame);
 		to_be_filled = strtoul(str, (char **)NULL, 10);
 		zmsg_destroy(&r_msg);
@@ -4254,10 +4495,10 @@ int WooFMsgRepair(char *woof_name, Dlist *holes)
 	return (1);
 }
 
-/* TODO:
+/*
  * Start woof repair. The woof objects from begin_seq_no to end_seq_no are to be repaired.
  */
-int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
+int WooFMsgRepairProgress(char *woof_name, unsigned long cause_host, char *cause_woof, int mapping_count, unsigned long *mapping)
 {
 	char endpoint[255];
 	char namespace[2048];
@@ -4270,33 +4511,23 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 	zframe_t *r_frame;
 	char buffer[255];
 	char *str;
-	unsigned long to_be_filled;
 	unsigned long count;
-	unsigned long *seq_no;
-	DlistNode *dn;
 	int i;
 	struct timeval tm;
 	int err;
 
-	if (holes == NULL)
+	if (cause_woof == NULL || mapping == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: hole list is NULL\n");
+		fprintf(stderr, "WooFMsgRepairProgress: invalid parameter\n");
 		fflush(stderr);
 		return (-1);
-	}
-	count = holes->count;
-	seq_no = malloc(count * sizeof(unsigned long));
-	i = 0;
-	DLIST_FORWARD(holes, dn)
-	{
-		seq_no[i++] = dn->value.i64;
 	}
 
 	memset(namespace, 0, sizeof(namespace));
 	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s no name space\n", woof_name);
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no name space\n", woof_name);
 		fflush(stderr);
 		return (-1);
 	}
@@ -4311,7 +4542,7 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 		err = WooFLocalIP(ip_str, sizeof(ip_str));
 		if (err < 0)
 		{
-			fprintf(stderr, "WooFMsgRepair: woof: %s invalid IP address\n",
+			fprintf(stderr, "WooFMsgRepairProgress: woof: %s invalid IP address\n",
 					woof_name);
 			fflush(stderr);
 			return (-1);
@@ -4328,50 +4559,50 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 	sprintf(endpoint, ">tcp://%s:%d", ip_str, port);
 
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s trying enpoint %s\n", woof_name, endpoint);
+	printf("WooFMsgRepairProgress: woof: %s trying enpoint %s\n", woof_name, endpoint);
 	fflush(stdout);
 #endif
 
 	msg = zmsg_new();
 	if (msg == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s no outbound msg to server at %s\n",
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no outbound msg to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepair: allocating msg");
+		perror("WooFMsgRepairProgress: allocating msg");
 		fflush(stderr);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s got new msg\n", woof_name);
+	printf("WooFMsgRepairProgress: woof: %s got new msg\n", woof_name);
 	fflush(stdout);
 #endif
 
 	/*
-	 * this is a repair message
+	 * this is a WOOF_MSG_REPAIR_PROGRESS message
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%02lu", WOOF_MSG_REPAIR);
+	sprintf(buffer, "%02lu", WOOF_MSG_REPAIR_PROGRESS);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s no frame for WOOF_MSG_REPAIR command in to server at %s\n",
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no frame for WOOF_MSG_REPAIR_PROGRESS command in to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepair: couldn't get new frame");
+		perror("WooFMsgRepairProgress: couldn't get new frame");
 		fflush(stderr);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s got WOOF_MSG_REPAIR command frame frame\n", woof_name);
+	printf("WooFMsgRepairProgress: woof: %s got WOOF_MSG_REPAIR_PROGRESS command frame frame\n", woof_name);
 	fflush(stdout);
 #endif
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s can't append WOOF_MSG_REPAIR command frame to msg for server at %s\n",
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s can't append WOOF_MSG_REPAIR_PROGRESS command frame to msg for server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepair: couldn't append WOOF_MSG_REPAIR command frame");
+		perror("WooFMsgRepairProgress: couldn't append WOOF_MSG_REPAIR_PROGRESS command frame");
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
@@ -4383,15 +4614,15 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 	frame = zframe_new(woof_name, strlen(woof_name));
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s no frame for woof_name to server at %s\n",
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no frame for woof_name to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepair: couldn't get new frame");
+		perror("WooFMsgRepairProgress: couldn't get new frame");
 		fflush(stderr);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s got woof_name namespace frame\n", woof_name);
+	printf("WooFMsgRepairProgress: woof: %s got woof_name namespace frame\n", woof_name);
 	fflush(stdout);
 #endif
 	/*
@@ -4400,92 +4631,164 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s can't append woof_name to frame to server at %s\n",
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s can't append woof_name to frame to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepair: couldn't append woof_name namespace frame");
+		perror("WooFMsgRepairProgress: couldn't append woof_name namespace frame");
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s added woof_name namespace to frame\n", woof_name);
+	printf("WooFMsgRepairProgress: woof: %s added woof_name namespace to frame\n", woof_name);
 	fflush(stdout);
 #endif
 
 	/*
-	 * make a frame for the count
+	 * make a frame for the cause_host
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", count);
+	sprintf(buffer, "%lu", cause_host);
 	frame = zframe_new(buffer, strlen(buffer));
 
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s no frame for count %lu server at %s\n",
-				woof_name, count, endpoint);
-		perror("WooFMsgRepair: couldn't get new count frame");
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no frame for cause_host %lu server at %s\n",
+				woof_name, cause_host, endpoint);
+		perror("WooFMsgRepairProgress: couldn't get new cause_host frame");
 		fflush(stderr);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s got frame for count %lu\n", woof_name, count);
+	printf("WooFMsgRepairProgress: woof: %s got frame for cause_host %lu\n", woof_name, cause_host);
 	fflush(stdout);
 #endif
 
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s couldn't append frame for count %lu to server at %s\n",
-				woof_name, count, endpoint);
-		perror("WooFMsgRepair: couldn't append count frame");
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s couldn't append frame for cause_host %lu to server at %s\n",
+				woof_name, cause_host, endpoint);
+		perror("WooFMsgRepairProgress: couldn't append cause_host frame");
 		fflush(stderr);
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s appended frame for count %lu\n", woof_name, count);
+	printf("WooFMsgRepairProgress: woof: %s appended frame for cause_host %lu\n", woof_name, cause_host);
 	fflush(stdout);
 #endif
 
 	/*
-	 * make a frame for the seq_no
+	 * make a frame for the cause_woof
 	 */
-	frame = zframe_new(seq_no, count * sizeof(unsigned long));
-
+	frame = zframe_new(cause_woof, strlen(cause_woof));
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s no frame for seq_no server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgRepair: couldn't get new seq_no frame");
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no frame for cause_woof to server at %s\n",
+				cause_woof, endpoint);
+		perror("WooFMsgRepairProgress: couldn't get new frame");
 		fflush(stderr);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s got frame for seq_no\n", woof_name);
+	printf("WooFMsgRepairProgress: woof: %s got cause_woof namespace frame\n", cause_woof);
+	fflush(stdout);
+#endif
+	/*
+	 * add the cause_woof frame to the msg
+	 */
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s can't append cause_woof to frame to server at %s\n",
+				cause_woof, endpoint);
+		perror("WooFMsgRepairProgress: couldn't append cause_woof namespace frame");
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgRepairProgress: woof: %s added cause_woof namespace to frame\n", cause_woof);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the mapping_count
+	 */
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%d", mapping_count);
+	frame = zframe_new(buffer, strlen(buffer));
+
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no frame for mapping_count %d server at %s\n",
+				woof_name, mapping_count, endpoint);
+		perror("WooFMsgRepairProgress: couldn't get new mapping_count frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgRepairProgress: woof: %s got frame for mapping_count %d\n", woof_name, mapping_count);
 	fflush(stdout);
 #endif
 
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s couldn't append frame for seq_no to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgRepair: couldn't append seq_no frame");
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s couldn't append frame for mapping_count %d to server at %s\n",
+				woof_name, mapping_count, endpoint);
+		perror("WooFMsgRepairProgress: couldn't append mapping_count frame");
 		fflush(stderr);
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s appended frame for seq_no\n", woof_name);
+	printf("WooFMsgRepairProgress: woof: %s appended frame for mapping_count %d\n", woof_name, mapping_count);
+	fflush(stdout);
+#endif
+
+	/*
+	 * make a frame for the mapping
+	 */
+	frame = zframe_new(mapping, 2 * mapping_count * sizeof(unsigned long));
+
+	if (frame == NULL)
+	{
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no frame for mapping server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgRepairProgress: couldn't get new mapping frame");
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgRepairProgress: woof: %s got frame for mapping\n", woof_name);
+	fflush(stdout);
+#endif
+
+	err = zmsg_append(msg, &frame);
+	if (err < 0)
+	{
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s couldn't append frame for mapping to server at %s\n",
+				woof_name, endpoint);
+		perror("WooFMsgRepairProgress: couldn't append mapping frame");
+		fflush(stderr);
+		zframe_destroy(&frame);
+		zmsg_destroy(&msg);
+		return (-1);
+	}
+#ifdef DEBUG
+	printf("WooFMsgRepairProgress: woof: %s appended frame for mapping\n", woof_name);
 	fflush(stdout);
 #endif
 
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s sending message to server at %s\n",
+	printf("WooFMsgRepairProgress: woof: %s sending message to server at %s\n",
 		   woof_name, endpoint);
 	fflush(stdout);
 #endif
@@ -4493,9 +4796,9 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 	r_msg = ServerRequest(endpoint, msg);
 	if (r_msg == NULL)
 	{
-		fprintf(stderr, "WooFMsgRepair: woof: %s couldn't recv msg from server at %s\n",
+		fprintf(stderr, "WooFMsgRepairProgress: woof: %s couldn't recv msg from server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepair: no response received");
+		perror("WooFMsgRepairProgress: no response received");
 		fflush(stderr);
 		return (-1);
 	}
@@ -4504,24 +4807,23 @@ int WooFMsgRepairReadOnly(char *woof_name, Dlist *holes)
 		r_frame = zmsg_first(r_msg);
 		if (r_frame == NULL)
 		{
-			fprintf(stderr, "WooFMsgRepair: woof: %s no recv frame from server at %s\n",
+			fprintf(stderr, "WooFMsgRepairProgress: woof: %s no recv frame from server at %s\n",
 					woof_name, endpoint);
-			perror("WooFMsgRepair: no response frame");
+			perror("WooFMsgRepairProgress: no response frame");
 			zmsg_destroy(&r_msg);
 			return (-1);
 		}
-		// TODO:
 		str = zframe_data(r_frame);
-		to_be_filled = strtoul(str, (char **)NULL, 10);
+		count = strtoul(str, (char **)NULL, 10);
 		zmsg_destroy(&r_msg);
 	}
 
 #ifdef DEBUG
-	printf("WooFMsgRepair: woof: %s recvd to_be_filled %lu message from server at %s\n",
-		   woof_name, to_be_filled, endpoint);
+	printf("WooFMsgRepairProgress: woof: %s recvd count %lu message from server at %s\n",
+		   woof_name, count, endpoint);
 	fflush(stdout);
 #endif
-	if (to_be_filled != count)
+	if (count != mapping_count * 2)
 	{
 		return (-1);
 	}

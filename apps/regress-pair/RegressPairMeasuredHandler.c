@@ -47,7 +47,9 @@ int RegressPairMeasuredHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	MAKE_EXTENDED_NAME(measured_name,rv->woof_name,"measured");
 	MAKE_EXTENDED_NAME(result_name,rv->woof_name,"result");
 	MAKE_EXTENDED_NAME(coeff_name,rv->woof_name,"coeff");
-
+	// sprintf(measured_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.measured");
+	// sprintf(result_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.result");
+	// sprintf(coeff_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.measured");
 
 	memcpy(result_rv.woof_name,rv->woof_name,sizeof(result_rv.woof_name));
 
