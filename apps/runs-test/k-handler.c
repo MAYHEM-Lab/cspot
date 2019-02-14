@@ -98,10 +98,17 @@ fflush(stdout);
 
 	if(fa->logfile[0] != 0) {
 		fd = fopen(fa->logfile,"a");
+		if(fd == NULL) {
+			fprintf(stderr,
+			"KHandler: ERROR couldn't open log file %s\n",
+			fa->logfile);
+			fflush(stderr);
+			fd = stdout;
+		}
 	} else {
 		fd = stdout;
 	}
-	fprintf(fd,"ks stat: %f alpha: %f critical value: %f\n",
+	fprintf(fd,"KS stat: %f alpha: %f critical value: %f\n",
 		kstat, fa->alpha, critical);
 	if(fa->logfile[0] != 0) {
 		fclose(fd);

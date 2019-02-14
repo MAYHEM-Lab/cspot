@@ -59,6 +59,8 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	/*
 	 * generate next random number
 	 */
+printf("RHandler: seq_no: %d putting next RHandler\n",seq_no);
+fflush(stdout);
 	seq_no = WooFPut(fa->rargs,"RHandler",&next_r);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"RHandler couldn't put RHandler\n");
@@ -82,6 +84,8 @@ fflush(stdout);
 	 * if the buffer is full, create an SThread
 	 */
 	if(fa->j == (fa->sample_size - 1)) {
+printf("RHandler: spawning SHandler i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
+fflush(stdout);
 		/*
 	 	* launch the stat handler
 	 	*/
