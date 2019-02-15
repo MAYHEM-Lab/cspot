@@ -18,6 +18,7 @@ char Host_ip[25];
 char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
+char **WooF_container_names;
 
 static int WooFDone;
 
@@ -282,6 +283,7 @@ void *WooFContainerLauncher(void *arg)
 	unsigned int port;
 	CA *ca = (CA *)arg;
 	pthread_t *tids;
+	char container_name[2048];
 
 	container_count = ca->container_count;
 	free(ca);
@@ -297,6 +299,9 @@ void *WooFContainerLauncher(void *arg)
 		fprintf(stderr, "WooFContainerLauncher no space\n");
 		exit(1);
 	}
+
+	WooF_container_names = malloc(sizeof(char *) * (container_count + 1));
+	WooF_container_names[container_count] = NULL; // set the last name to null
 
 	for (count = 0; count < container_count; count++)
 	{
@@ -328,19 +333,21 @@ void *WooFContainerLauncher(void *arg)
 		memset(launch_string, 0, 4096);
 
 		port = WooFPortHash(WooF_namespace);
+		snprintf(container_name, sizeof(container_name), "CSPOTWorker-%s-%x-%d", pathp + 1, WooFNameHash(WooF_namespace), count);
+		WooF_container_names[count] = strdup(container_name);
 
 		// begin constructing the launch string
 		sprintf(launch_string + strlen(launch_string),
 				"docker run -t "
 				"--rm " // option tells the container to remove itself when it is stopped
-				"--name CSPOTWorker-%s-%d "
+				"--name %s "
 				"-e LD_LIBRARY_PATH=/usr/local/lib "
 				"-e WOOFC_NAMESPACE=%s "
 				"-e WOOFC_DIR=%s "
 				"-e WOOF_NAME_ID=%lu "
 				"-e WOOF_NAMELOG_NAME=%s "
 				"-e WOOF_HOST_IP=%s ",
-				pathp + 1 /*pathp starts with a / */, count, // container name = {namespace dir}-{count}
+				container_name,
 				WooF_namespace,
 				pathp,
 				Name_id,
@@ -444,8 +451,12 @@ char *SignalFgetS(char *buffer, int size, FILE *fd)
 	}
 }
 
+
 void CleanUpDocker(int status, void *arg)
 {
+
+	if (WooF_container_names == NULL) 
+		return ;
 
 	// find the base container name
 	char *pathp = strrchr(WooF_dir, '/');
@@ -456,36 +467,41 @@ void CleanUpDocker(int status, void *arg)
 		exit(1);
 	}
 
-	// kill all containers that match the pattern
-	int count = 0;
-	while (count < 100)
-	{
-		// general docker command template
-		char command_fmt[512];
-		snprintf(command_fmt, sizeof(command_fmt) - 1,
-				 "/usr/bin/docker %s CSPOTWorker-%s-%d 2>&1\n", "%s", pathp + 1, count);
-
-		char command[512];
-		snprintf(command, sizeof(command) - 1, command_fmt, "stop -t 2");
-
-		FILE *fd = popen(command, "r");
-		if (fd == NULL)
-		{
-			fprintf(stderr, "error: failed to open handle on the output\n");
-			exit(1);
-		}
-
-		char result[4096];
-		memset(result, 0, sizeof(result));
-		int read_bytes = read(fileno(fd), result, sizeof(result));
-		if (strstr(result, "No such container") != NULL || read_bytes == 0)
-		{
-			fprintf(stderr, "Done. Closed %d worker docker containers\n", count);
-			return;
-		}
-
-		count++;
+	// build the command 'docker stop -t 1 <container name list>'
+	int container_count = 0;
+	while (WooF_container_names[container_count] != NULL) {
+		container_count++;
 	}
+
+	char **command = malloc(sizeof(char *) * (container_count + 10));
+	char **ptr = command;
+	*(ptr++) = "docker"; 
+	*(ptr++) = "stop";
+	*(ptr++) = "-t";
+	*(ptr++) = "1";
+
+	int i;
+	for (i = 0; i < container_count; ++i) {
+		*(ptr++) = WooF_container_names[i];
+	}
+	*(ptr++) = NULL;
+
+	// fork and execvp [docker, stop, -t, 1, <container name list...>]
+	int pid = fork();
+	if (pid == 0) {
+		execvp(command[0], command);
+		fprintf(stdout, "FAILED TO EXEC docker stop TO CLEAN UP CONTAINERS\n");
+	}
+
+	// free the container names list
+	for (i = 0; i < container_count; ++i) {
+		free(WooF_container_names[i]);
+	}
+	free(WooF_container_names);
+	WooF_container_names = NULL;
+	
+	// wait for the child process before we are allowed to exit
+	waitpid(pid);
 }
 
 void sig_int_handler(int signal)
@@ -493,7 +509,9 @@ void sig_int_handler(int signal)
 	fprintf(stdout, "SIGINT caught\n");
 	fflush(stdout);
 
-	CleanUpDocker(0, NULL);
+	if (signal == SIGINT) {
+		CleanUpDocker(0, NULL);
+	}
 	exit(0);
 
 	return;
