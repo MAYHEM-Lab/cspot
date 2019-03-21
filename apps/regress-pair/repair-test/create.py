@@ -3,9 +3,9 @@ import time
 import subprocess
 
 woof_name = 'test'
-countback = 20
+countback = 10
 history_size = 30000
-lags = 12
+lags = 10
 cmd = "./regress-pair-init -W {} -c {} -s {} -l {}".format(woof_name, countback, history_size, lags)
 print(cmd)
 os.system(cmd)

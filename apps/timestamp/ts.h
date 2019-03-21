@@ -9,9 +9,10 @@ struct obj_stc
 	uint8_t head;
 	uint8_t stop;
 	char woof[16][256];
+	uint8_t repair;
+	uint8_t again;
 };
 
 typedef struct obj_stc TS_EL;
 
 #endif
-
