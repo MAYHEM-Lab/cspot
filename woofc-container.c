@@ -823,7 +823,10 @@ int main(int argc, char **argv)
 
 	WooFContainerInit();
 
-	while ((c = getopt(argc, argv, ARGS)) != EOF)
+	/*
+	 * check c != 255 for Raspberry Pi
+	 */
+	while ((c = getopt(argc, argv, ARGS)) != EOF && c != 255)
 	{
 		switch (c)
 		{
