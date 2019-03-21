@@ -56,12 +56,13 @@ WOOF *WooFOpen(char *name);
 unsigned long WooFPut(char *wf_name, char *wf_handler, void *element);
 int WooFGet(char *wf_name, void *element, unsigned long seq_no);
 unsigned long WooFAppendWithCause(WOOF *wf, char *hand_name, void *element, unsigned long cause_host, unsigned long long cause_seq_no);
+unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element);
 int WooFRead(WOOF *wf, void *element, unsigned long seq_no);
 int WooFReadTail(WOOF *wf, void *elements, int element_count);
 unsigned long WooFGetLatestSeqno(char *wf_name);
-unsigned long WooFGetLatestSeqnoWithCause(char *wf_name, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
+unsigned long WooFGetLatestSeqnoWithCause(char *wf_name, unsigned long cause_host, unsigned long long cause_seq_no, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFLatestSeqno(WOOF *wf);
-unsigned long WooFLatestSeqnoWithCause(WOOF *wf, unsigned long cause_host, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
+unsigned long WooFLatestSeqnoWithCause(WOOF *wf, unsigned long cause_host, unsigned long long cause_seq_no, char *cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFEarliest(WOOF *wf);
 unsigned long WooFLatest(WOOF *wf);
 unsigned long WooFBack(WOOF *wf, unsigned long ndx, unsigned long elements);
@@ -86,8 +87,8 @@ void WooFDump(FILE *fd, char *name);
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
 #define DEFAULT_HOST_ID (0)
-// #define DEFAULT_WOOF_LOG_SIZE (10000)
-#define DEFAULT_WOOF_LOG_SIZE (300000)
+#define DEFAULT_WOOF_LOG_SIZE (10000)
+// #define DEFAULT_WOOF_LOG_SIZE (300000)
 #define WOOFNAMESIZE (256)
 
 #endif

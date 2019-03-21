@@ -5,30 +5,29 @@
 
 #include "woofc.h"
 #include "woofc-host.h"
-#include "ts.h"
+#include "micro.h"
+#include "time.h"
 
-#define ARGS "N:W:"
-char *Usage = "ts-create -W woof_name -N count\n";
+#define ARGS "C:N:H:W:"
+char *Usage = "micro-start -f woof_name\n\
+\t-H namelog-path to host wide namelog\n\
+\t-N namespace\n";
 
 char Wname[4096];
-char putbuf1[1024];
-char putbuf2[1024];
+char Wname2[4096];
 
 int main(int argc, char **argv)
 {
 	int c;
-	int err;
-	TS_EL el;
-	unsigned long ndx;
 	int count;
-
-	count = 1;
+	int err;
+	count = 1000;
 
 	while ((c = getopt(argc, argv, ARGS)) != EOF)
 	{
 		switch (c)
 		{
-		case 'N':
+		case 'C':
 			count = atoi(optarg);
 			break;
 		case 'W':
@@ -44,7 +43,7 @@ int main(int argc, char **argv)
 
 	if (Wname[0] == 0)
 	{
-		fprintf(stderr, "must specify woof name\n");
+		fprintf(stderr, "must specify filename for woof\n");
 		fprintf(stderr, "%s", Usage);
 		fflush(stderr);
 		exit(1);
@@ -52,10 +51,18 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-	err = WooFCreate(Wname, sizeof(TS_EL), count);
+	err = WooFCreate(Wname, sizeof(MICRO_EL), count + 1);
 	if (err < 0)
 	{
 		fprintf(stderr, "couldn't create woof from %s\n", Wname);
+		fflush(stderr);
+		exit(1);
+	}
+	sprintf(Wname2, "%s2", Wname);
+	err = WooFCreate(Wname2, sizeof(MICRO_EL), count + 1);
+	if (err < 0)
+	{
+		fprintf(stderr, "couldn't create woof from %s\n", Wname2);
 		fflush(stderr);
 		exit(1);
 	}

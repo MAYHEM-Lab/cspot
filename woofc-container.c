@@ -371,7 +371,8 @@ void *WooFForker(void *arg)
 				pthread_self(), WooF_namespace, Name_log->size, last_seq_no);
 		fflush(stdout);
 #endif
-		log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+		// log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+		log_tail = LogTail(Name_log, last_seq_no, Name_log->seq_no - Name_log->last_trigger_seq_no);
 
 		if (log_tail == NULL)
 		{
@@ -478,7 +479,7 @@ void *WooFForker(void *arg)
 				memcpy(&last_event, &ev[first], sizeof(last_event));
 				V(&Name_log->tail_wait);
 			}
-
+// TODO: only go back to latest triggered
 			first = (first - 1);
 			if (first >= log_tail->size)
 			{
@@ -519,10 +520,10 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 
+		Name_log->last_trigger_seq_no = (unsigned long long)trigger_seq_no;
 		/*
 		 * before dropping mutex, log a FIRING record
 		 */
-
 		fev = EventCreate(TRIGGER_FIRING, Name_id);
 		if (fev == NULL)
 		{
