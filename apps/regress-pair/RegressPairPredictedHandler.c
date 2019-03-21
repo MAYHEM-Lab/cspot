@@ -1,3 +1,5 @@
+#define TIMING
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -113,10 +115,12 @@ Array2D *ComputeMatchArray(Array2D *pred_series, Array2D *meas_series)
 			}
 			continue; /* go back and try again */
 		}
+#ifdef DEBUG
 		printf("MATCHED(%d): p: %10.10f %f m: %10.10f %f\n",
 			   j, p_ts, matched_array->data[k * 2 + 0],
 			   v_ts, matched_array->data[k * 2 + 1]);
 		fflush(stdout);
+#endif
 
 		k++;
 		i++;
@@ -447,8 +451,10 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 		goto out;
 	}
 
+#ifdef DEBUG
 	printf("(%s) regressing... ", predicted_name);
 	fflush(stdout);
+#endif
 	coeff = RegressMatrix(match_array);
 	if (coeff == NULL)
 	{
@@ -511,10 +517,12 @@ int BestRegressionCoeff(char *predicted_name, unsigned long p_seq_no, char *meas
 		}
 		if (mse < best_mse)
 		{
+#ifdef DEBUG
 			printf("(%s)better mse at lags %d: %f %f, best val %f\n",
 				   predicted_name,
 				   l, mse, best_mse, last_value);
 			fflush(stdout);
+#endif
 			best_slope = coeff[1];
 			best_intercept = coeff[0];
 			best_mse = mse;
@@ -786,6 +794,12 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	RB *rb;
 	int mcount;
 
+#ifdef TIMING
+	struct timeval t1, t2;
+    double elapsedTime;
+    gettimeofday(&t1, NULL);
+#endif
+
 #ifdef DEBUG
 	fd = fopen("/cspot/pred-handler.log", "a+");
 	fprintf(fd, "RegressPairPredictedHandler called on woof %s, type %c\n",
@@ -794,11 +808,13 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	fclose(fd);
 #endif
 
+#ifdef DEBUG
 	printf("PREDICTED (%s) START for %lu\n", rv->woof_name, wf_seq_no);
 	fflush(stdout);
 
 	printf("PREDICTED (%s) AWAKE for %lu\n", rv->woof_name, wf_seq_no);
 	fflush(stdout);
+#endif
 
 	/*
 	 * my turn
@@ -810,12 +826,12 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	MAKE_EXTENDED_NAME(error_name, rv->woof_name, "errors");
 	MAKE_EXTENDED_NAME(coeff_name, rv->woof_name, "coeff");
 	MAKE_EXTENDED_NAME(progress_name, rv->woof_name, "progress");
-	// sprintf(index_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.index");
-	// sprintf(measured_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.measured");
-	// sprintf(predicted_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.predicted");
-	// sprintf(result_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.result");
-	// sprintf(error_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.errors");
-	// sprintf(coeff_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.coeff");
+	sprintf(index_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.index");
+	sprintf(measured_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.measured");
+	sprintf(predicted_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.predicted");
+	sprintf(result_name, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/test.result");
+	sprintf(error_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.errors");
+	sprintf(coeff_name, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/test.coeff");
 
 	/*
 	 * start by computing the forecasting error if possible
@@ -1001,14 +1017,14 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 							  &coeff_rv.slope, &coeff_rv.intercept,
 							  &coeff_rv.measure, &coeff_rv.lags, &coeff_rv.earliest_seq_no);
 
-	if (err < 0)
-	{
-		fprintf(stderr, "couldn't get best regression coefficient\n");
-		FinishPredicted(finished_name, wf_seq_no);
-		return (-1);
-	}
+	// if (err < 0)
+	// {
+	// 	fprintf(stderr, "couldn't get best regression coefficient\n");
+	// 	FinishPredicted(finished_name, wf_seq_no);
+	// 	return (-1);
+	// }
 
-	if (coeff_rv.intercept > 100 || coeff_rv.intercept < -100)
+	if (err < 0 || coeff_rv.intercept > 100 || coeff_rv.intercept < -100)
 	{
 		// fprintf(stderr, "invalid coeff\n");
 		// FinishPredicted(finished_name, wf_seq_no);
@@ -1036,5 +1052,11 @@ int RegressPairPredictedHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	 * do this last to prevent request handler from firing before progress reflects new launch
 	 */
 	FinishPredicted(finished_name, wf_seq_no);
+#ifdef TIMING
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("TIMING:RegressPairPredictedHandler: %f\n", elapsedTime);
+	fflush(stdout);
+#endif
 	return (1);
 }

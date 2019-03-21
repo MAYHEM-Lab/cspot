@@ -10,6 +10,8 @@
 #include "lsema.h"
 #include "repair.h"
 
+#ifdef REPAIR
+
 void LogInvalidByWooF(LOG *log)
 {
     EVENT *ev_array;
@@ -29,7 +31,7 @@ void LogInvalidByWooF(LOG *log)
     }
 }
 
-int RBGLogMarkWooFDownstream(GLOG *glog, unsigned long host, char *woof_name, RB *seq_no)
+int GLogMarkWooFDownstream(GLOG *glog, unsigned long host, char *woof_name, RB *seq_no)
 {
     EVENT *ev_array;
     LOG *log;
@@ -45,14 +47,14 @@ int RBGLogMarkWooFDownstream(GLOG *glog, unsigned long host, char *woof_name, RB
     event_cause = RBInitS();
     if (event_cause == NULL)
     {
-        fprintf(stderr, "RBGLogMarkWooFDownstream: couldn't initialiaze event_cause RBTree\n");
+        fprintf(stderr, "GLogMarkWooFDownstream: couldn't initialiaze event_cause RBTree\n");
         fflush(stderr);
         return (-1);
     }
     read_from_cause = RBInitS();
     if (read_from_cause == NULL)
     {
-        fprintf(stderr, "RBGLogMarkWooFDownstream: couldn't initialiaze read_from_cause RBTree\n");
+        fprintf(stderr, "GLogMarkWooFDownstream: couldn't initialiaze read_from_cause RBTree\n");
         fflush(stderr);
         RBDestroyS(event_cause);
         return (-1);
@@ -84,122 +86,29 @@ int RBGLogMarkWooFDownstream(GLOG *glog, unsigned long host, char *woof_name, RB
                 //                         ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
             }
         }
-        else
+        key = KeyEventCause(ev_array[curr].cause_host, ev_array[curr].cause_seq_no);
+        if (RBFindS(event_cause, key) != NULL)
         {
-            key = KeyEventCause(ev_array[curr].cause_host, ev_array[curr].cause_seq_no);
-            if (RBFindS(event_cause, key) != NULL)
+            if (ev_array[curr].type == TRIGGER || ev_array[curr].type == APPEND)
             {
-                if (ev_array[curr].type == TRIGGER || ev_array[curr].type == APPEND)
-                {
-                    key = KeyEventCause(ev_array[curr].host, ev_array[curr].seq_no);
-                    if (RBFindS(event_cause, key) == NULL)
-                    {
-                        RBInsertS(event_cause, key, (Hval)0);
-                    }
-                    key = KeyReadFromCause(ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
-                    if (RBFindS(read_from_cause, key) == NULL)
-                    {
-                        RBInsertS(read_from_cause, key, (Hval)0);
-                    }
-                }
-                // else is read-only dependency (GetLatestSeqNo), won't trigger any downstream event
-                ev_array[curr].type |= MARKED;
-            }
-            key = KeyReadFromCause(ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
-            if (ev_array[curr].type == READ && RBFindS(read_from_cause, key) != NULL)
-            {
-// this is a read-from dependency
-#ifdef DEBUG
-                printf("EVENT from host %lu seq_no %lu reads from woof %s %lu\n",
-                       ev_array[curr].host, ev_array[curr].seq_no, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
-                fflush(stdout);
-#endif
-                GLogFindRootEvent(glog, curr, &root_host, &root_seq_no, &root_ndx);
-#ifdef DEBUG
-                printf("EVENT's root host %lu seq_no %lu ndx %lu\n", root_host, root_seq_no, root_ndx);
-                fflush(stdout);
-#endif
-                ev_array[root_ndx].type |= ROOT;
-                key = KeyEventCause(ev_array[root_ndx].host, ev_array[root_ndx].seq_no);
+                key = KeyEventCause(ev_array[curr].host, ev_array[curr].seq_no);
                 if (RBFindS(event_cause, key) == NULL)
                 {
                     RBInsertS(event_cause, key, (Hval)0);
                 }
-                key = KeyReadFromCause(ev_array[root_ndx].host, ev_array[root_ndx].woofc_name, ev_array[root_ndx].woofc_seq_no);
+                key = KeyReadFromCause(ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
                 if (RBFindS(read_from_cause, key) == NULL)
                 {
                     RBInsertS(read_from_cause, key, (Hval)0);
                 }
-                curr = (root_ndx + 1) % log->size;
-                continue;
-                // GLogMarkEventDownstream(glog, (root_ndx + 1) % log->size, ev_array[root_ndx].host, ev_array[root_ndx].seq_no,
-                //                         ev_array[root_ndx].woofc_name, ev_array[root_ndx].woofc_seq_no);
             }
+            // else is read-only dependency (GetLatestSeqNo), won't trigger any downstream event
+            ev_array[curr].type |= MARKED;
         }
-        curr = (curr + 1) % log->size;
-    }
-    RBDestroyS(event_cause);
-    RBDestroyS(read_from_cause);
-    return (0);
-}
-
-int GLogMarkWooFDownstream(GLOG *glog, unsigned long host, char *woof_name, unsigned long *seq_no, int num_seq_no)
-{
-    EVENT *ev_array;
-    LOG *log;
-    int err;
-    unsigned long curr;
-    int i;
-
-    err = -1;
-    log = glog->log;
-    ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
-
-    curr = (log->tail + 1) % log->size;
-    while (curr != (log->head + 1) % log->size)
-    {
-        // only root woof can be repaired
-        if (ev_array[curr].host == host && (ev_array[curr].type == TRIGGER || ev_array[curr].type == APPEND) &&
-            strcmp(ev_array[curr].woofc_name, woof_name) == 0)
+        key = KeyReadFromCause(ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
+        if (ev_array[curr].type == READ && RBFindS(read_from_cause, key) != NULL)
         {
-            for (i = 0; i < num_seq_no; i++)
-            {
-                if (ev_array[curr].woofc_seq_no == seq_no[i])
-                {
-                    ev_array[curr].type |= ROOT;
-                    GLogMarkEventDownstream(glog, (curr + 1) % log->size, ev_array[curr].host, ev_array[curr].seq_no,
-                                            ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
-                    err = 0;
-                    break;
-                }
-            }
-        }
-        curr = (curr + 1) % log->size;
-    }
-    return (err);
-}
-
-void GLogMarkEventDownstream(GLOG *glog, unsigned ndx, unsigned long cause_host, unsigned long cause_seq_no,
-                             char *woof_name, unsigned long woof_seq_no)
-{
-    EVENT *ev_array;
-    LOG *log;
-    int err;
-    unsigned long curr;
-    unsigned long root_host;
-    unsigned long root_seq_no;
-    unsigned long root_ndx;
-
-    log = glog->log;
-    ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
-
-    curr = ndx;
-    while (curr != (log->head + 1) % log->size)
-    {
-        if (ev_array[curr].type == READ && ev_array[curr].host == cause_host &&
-            strcmp(ev_array[curr].woofc_name, woof_name) == 0 && ev_array[curr].woofc_seq_no == woof_seq_no)
-        {
-            // this is a read-from dependency
+// this is a read-from dependency
 #ifdef DEBUG
             printf("EVENT from host %lu seq_no %lu reads from woof %s %lu\n",
                    ev_array[curr].host, ev_array[curr].seq_no, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
@@ -211,24 +120,26 @@ void GLogMarkEventDownstream(GLOG *glog, unsigned ndx, unsigned long cause_host,
             fflush(stdout);
 #endif
             ev_array[root_ndx].type |= ROOT;
-            GLogMarkEventDownstream(glog, (root_ndx + 1) % log->size, ev_array[root_ndx].host, ev_array[root_ndx].seq_no,
-                                    ev_array[root_ndx].woofc_name, ev_array[root_ndx].woofc_seq_no);
-        }
-        if (ev_array[curr].cause_host == cause_host && ev_array[curr].cause_seq_no == cause_seq_no)
-        {
-            ev_array[curr].type |= MARKED;
-            if (ev_array[curr].type == TRIGGER || ev_array[curr].type == APPEND)
+            key = KeyEventCause(ev_array[root_ndx].host, ev_array[root_ndx].seq_no);
+            if (RBFindS(event_cause, key) == NULL)
             {
-                GLogMarkEventDownstream(glog, (curr + 1) % log->size, ev_array[curr].host, ev_array[curr].seq_no,
-                                        ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
+                RBInsertS(event_cause, key, (Hval)0);
             }
-            // else
-            // {
-            // read-only dependency (GetLatestSeqNo), won't trigger any downstream event
-            // }
+            key = KeyReadFromCause(ev_array[root_ndx].host, ev_array[root_ndx].woofc_name, ev_array[root_ndx].woofc_seq_no);
+            if (RBFindS(read_from_cause, key) == NULL)
+            {
+                RBInsertS(read_from_cause, key, (Hval)0);
+            }
+            curr = (root_ndx + 1) % log->size;
+            continue;
+            // GLogMarkEventDownstream(glog, (root_ndx + 1) % log->size, ev_array[root_ndx].host, ev_array[root_ndx].seq_no,
+            //                         ev_array[root_ndx].woofc_name, ev_array[root_ndx].woofc_seq_no);
         }
         curr = (curr + 1) % log->size;
     }
+    RBDestroyS(event_cause);
+    RBDestroyS(read_from_cause);
+    return (0);
 }
 
 void GLogFindRootEvent(GLOG *glog, unsigned long ndx, unsigned long *host, unsigned long *seq_no, unsigned long *root_ndx)
@@ -288,10 +199,10 @@ void GLogFindWooFHoles(GLOG *glog, unsigned long host, char *woof_name, Dlist *h
     unsigned long curr;
     Hval value;
 
-#ifdef DEBUG
+// #ifdef DEBUG
     printf("GLogFindWooFHoles: called host: %lu, woof_name: %s\n", host, woof_name);
     fflush(stdout);
-#endif
+// #endif
 
     log = glog->log;
     ev_array = (EVENT *)(((void *)log) + sizeof(LOG));
@@ -301,7 +212,7 @@ void GLogFindWooFHoles(GLOG *glog, unsigned long host, char *woof_name, Dlist *h
     {
         if (ev_array[curr].host == host &&
             (ev_array[curr].type == (TRIGGER | MARKED) || ev_array[curr].type == (APPEND | MARKED) ||
-             ev_array[curr].type == (TRIGGER | ROOT)) &&
+             ev_array[curr].type == (TRIGGER | ROOT) || ev_array[curr].type == (APPEND | ROOT)) &&
             strcmp(ev_array[curr].woofc_name, woof_name) == 0)
         {
             if (holes->count == 0 || holes->last->value.i64 < ev_array[curr].woofc_seq_no)
@@ -396,9 +307,9 @@ void GLogFindAffectedWooF(GLOG *glog, RB *root, int *count_root, RB *casualty, i
         (*count_progress)++;
     }
 #ifdef DEBUG
-    printf("GLogFindAffectedWooF: count_root: %d\n", count_root);
-    printf("GLogFindAffectedWooF: count_casualty: %d\n", count_casualty);
-    printf("GLogFindAffectedWooF: count_progress: %d\n", count_progress);
+    printf("GLogFindAffectedWooF: count_root: %d\n", *count_root);
+    printf("GLogFindAffectedWooF: count_casualty: %d\n", *count_casualty);
+    printf("GLogFindAffectedWooF: count_progress: %d\n", *count_progress);
     fflush(stdout);
 #endif
 }
@@ -565,3 +476,5 @@ char *KeyReadFromCause(unsigned long cause_host, char *woof_name, unsigned long 
     sprintf(str, "%lu_%s_%lu", cause_host, woof_name, woof_seq_no);
     return str;
 }
+
+#endif

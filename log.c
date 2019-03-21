@@ -44,6 +44,7 @@ LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 	log->host_id = host_id;
 	log->size = size + 1;
 	log->seq_no = 1;
+	log->last_trigger_seq_no = 0;
 	InitSem(&log->mutex, 1);
 	/*
 	 * for WooF launch synchronization

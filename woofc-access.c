@@ -13,6 +13,7 @@
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "uriparser2/uriparser2.h"
 
@@ -670,7 +671,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		return;
 	}
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", seq_no);
+	sprintf(buffer, "%lu\0", seq_no);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -788,7 +789,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 		return;
 	}
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", el_size);
+	sprintf(buffer, "%lu\0", el_size);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -966,7 +967,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	else
 	{
-		latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_woof, cause_woof_latest_seq_no);
+		latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof, cause_woof_latest_seq_no);
 		WooFFree(wf);
 	}
 
@@ -985,7 +986,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 		return;
 	}
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", latest_seq_no);
+	sprintf(buffer, "%lu\0", latest_seq_no);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -1164,7 +1165,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name, char *cause_woof_name, unsi
 	 * make a frame for the cause_host
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", Name_id);
+	sprintf(buffer, "%lu\0", Name_id);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -1201,7 +1202,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name, char *cause_woof_name, unsi
 	 * make a frame for the cause_seq_no
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", my_log_seq_no);
+	sprintf(buffer, "%lu\0", my_log_seq_no);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -1280,7 +1281,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name, char *cause_woof_name, unsi
 	 * make a frame for the cause_woof_latest_seq_no
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", cause_woof_latest_seq_no);
+	sprintf(buffer, "%lu\0", cause_woof_latest_seq_no);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -1478,7 +1479,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 		return;
 	}
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", el_read);
+	sprintf(buffer, "%lu\0", el_read);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -1609,9 +1610,11 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
+		memset(buffer, 0, sizeof(buffer));
+		memcpy(buffer, zframe_data(frame), copy_size);
+		seq_no = strtoul(buffer, (char **)NULL, 10);
 #ifdef DEBUG
-		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
+		printf("WooFProcessGet: received seq_no %lu\n", seq_no);
 		fflush(stdout);
 #endif
 
@@ -1842,7 +1845,9 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
+		memset(buffer, 0, sizeof(buffer));
+		memcpy(buffer, zframe_data(frame), copy_size);
+		seq_no = strtoul(buffer, (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFProcessGetDone: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
@@ -2050,11 +2055,7 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 	{
 		perror("WooFProcessRepair: no reply message");
 		free(seq_no);
-		DLIST_FORWARD(dlist, dn)
-		{
-			DlistNodeFree(dn);
-		}
-		free(dlist);
+		DlistRemove(dlist);
 		return;
 	}
 #ifdef DEBUG
@@ -2063,18 +2064,14 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 #endif
 
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", dlist->count);
+	sprintf(buffer, "%lu\0", dlist->count);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
 		perror("WooFProcessRepair: no reply frame");
 		zmsg_destroy(&r_msg);
 		free(seq_no);
-		DLIST_FORWARD(dlist, dn)
-		{
-			DlistNodeFree(dn);
-		}
-		free(dlist);
+		DlistRemove(dlist);
 		return;
 	}
 	err = zmsg_append(r_msg, &r_frame);
@@ -2084,11 +2081,7 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 		zframe_destroy(&r_frame);
 		zmsg_destroy(&r_msg);
 		free(seq_no);
-		DLIST_FORWARD(dlist, dn)
-		{
-			DlistNodeFree(dn);
-		}
-		free(dlist);
+		DlistRemove(dlist);
 		return;
 	}
 	err = zmsg_send(&r_msg, receiver);
@@ -2097,11 +2090,7 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 		perror("WooFProcessRepair: couldn't send r_msg");
 		zmsg_destroy(&r_msg);
 		free(seq_no);
-		DLIST_FORWARD(dlist, dn)
-		{
-			DlistNodeFree(dn);
-		}
-		free(dlist);
+		DlistRemove(dlist);
 		return;
 	}
 	/*
@@ -2122,13 +2111,8 @@ void WooFProcessRepair(zmsg_t *req_msg, zsock_t *receiver)
 		fprintf(stderr, "WooFProcessRepair: WooFRepair failed\n");
 		fflush(stderr);
 	}
-
 	free(seq_no);
-	DLIST_FORWARD(dlist, dn)
-	{
-		DlistNodeFree(dn);
-	}
-	free(dlist);
+	DlistRemove(dlist);
 	return;
 }
 
@@ -2263,7 +2247,7 @@ void WooFProcessRepairProgress(zmsg_t *req_msg, zsock_t *receiver)
 		return;
 	}
 #ifdef DEBUG
-	printf("WooFProcessRepairProgress: creating frame for count %lu\n", count);
+	printf("WooFProcessRepairProgress: creating frame for mapping_count %lu\n", mapping_count);
 	fflush(stdout);
 #endif
 
@@ -2312,7 +2296,6 @@ void WooFProcessRepairProgress(zmsg_t *req_msg, zsock_t *receiver)
 		fprintf(stderr, "WooFProcessRepairProgress: WooFRepairProgress failed\n");
 		fflush(stderr);
 	}
-
 	free(mapping);
 	return;
 }
@@ -2347,7 +2330,7 @@ void LogProcessGetSize(zmsg_t *req_msg, zsock_t *receiver)
 	log_block = (void *)Name_log;
 	space = Name_log->size * sizeof(EVENT) + sizeof(LOG);
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", space);
+	sprintf(buffer, "%lu\0", space);
 #ifdef DEBUG
 	printf("LogProcessGetSize: creating frame for log size\n");
 	fflush(stdout);
@@ -2411,6 +2394,7 @@ void LogProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 #ifdef DEBUG
 	printf("LogProcessGet: creating frame for %lu bytes of log_block\n",
 		   space);
+		   LogPrint(stdout, Name_log);
 	fflush(stdout);
 #endif
 	r_frame = zframe_new(log_block, space);
@@ -3022,7 +3006,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	 * make a frame with the element count
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", el_count);
+	sprintf(buffer, "%lu\0", el_count);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -3333,7 +3317,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	 * make a frame for the cause_host
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", Name_id);
+	sprintf(buffer, "%lu\0", Name_id);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -3371,7 +3355,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	 * make a frame for the cause_seq_no
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", my_log_seq_no);
+	sprintf(buffer, "%lu\0", my_log_seq_no);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -3632,7 +3616,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	 */
 
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", seq_no);
+	sprintf(buffer, "%lu\0", seq_no);
 	frame = zframe_new(buffer, strlen(buffer));
 
 	if (frame == NULL)
@@ -3669,7 +3653,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	 * make a frame for the cause_host
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", Name_id);
+	sprintf(buffer, "%lu\0", Name_id);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -3706,7 +3690,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	 * make a frame for the cause_seq_no
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", my_log_seq_no);
+	sprintf(buffer, "%lu\0", my_log_seq_no);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -3944,7 +3928,7 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 	 */
 
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", seq_no);
+	sprintf(buffer, "%lu\0", seq_no);
 	frame = zframe_new(buffer, strlen(buffer));
 
 	if (frame == NULL)
@@ -4057,6 +4041,10 @@ unsigned long int LogGetRemoteSize(char *endpoint)
 	char buffer[255];
 	unsigned long int size;
 
+	if (strcmp(endpoint, "local") == 0)
+	{
+		return Name_log->size * sizeof(EVENT) + sizeof(LOG);
+	}
 	msg = zmsg_new();
 	if (msg == NULL)
 	{
@@ -4143,6 +4131,14 @@ int LogGetRemote(LOG *log, MIO *mio, char *endpoint)
 	unsigned long copy_size;
 	char buffer[255];
 
+	if (strcmp(endpoint, "local") == 0)
+	{
+		unsigned long space = Name_log->size * sizeof(EVENT) + sizeof(LOG);
+		memcpy((void *)log, (void *)Name_log, space);
+		log->m_buf = mio;
+		return (1);
+	}
+
 	msg = zmsg_new();
 	if (msg == NULL)
 	{
@@ -4220,6 +4216,50 @@ int LogGetRemote(LOG *log, MIO *mio, char *endpoint)
 
 	return (1);
 }
+
+// int LogGetRemoteLite(LOG *log, unsigned long size)
+// {
+// 	int sockfd, n;
+// 	struct sockaddr_in serv_addr;
+// 	struct hostent *server;
+// 	cw_pack_context pc;
+// 	char buffer[4];
+// 	char *recv_buf;
+
+// 	cw_pack_context_init(&pc, buffer, 4, 0, 0);
+// 	cw_pack_unsigned(&pc, 9);
+// 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+// 	if (sockfd < 0)
+// 	{
+// 		return (0);
+// 	}
+// 	server = gethostbyname("192.168.0.111");
+// 	if (server == NULL)
+// 	{
+// 		return (0);
+// 	}
+// 	bzero((char *)&serv_addr, sizeof(serv_addr));
+// 	serv_addr.sin_family = AF_INET;
+// 	bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+// 	serv_addr.sin_port = htons(9993);
+// 	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+// 	{
+// 		return (0);
+// 	}
+// 	n = write(sockfd, buffer, strlen(buffer));
+// 	if (n < 0)
+// 	{
+// 		return (0);
+// 	}
+// 	recv_buf = malloc(size);
+// 	n = read(sockfd, recv_buf, size);
+// 	if (n < 0)
+// 	{
+// 		return (0);
+// 	}
+
+// 	return (1);
+// }
 
 /*
  * Start woof repair. The woof objects from begin_seq_no to end_seq_no are to be repaired.
@@ -4383,7 +4423,7 @@ int WooFMsgRepair(char *woof_name, Dlist *holes)
 	 * make a frame for the count
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", count);
+	sprintf(buffer, "%lu\0", count);
 	frame = zframe_new(buffer, strlen(buffer));
 
 	if (frame == NULL)
@@ -4515,6 +4555,11 @@ int WooFMsgRepairProgress(char *woof_name, unsigned long cause_host, char *cause
 	struct timeval tm;
 	int err;
 
+#ifdef DEBUG
+	printf("WooFMsgRepairProgress: called\n");
+	fflush(stdout);
+#endif
+
 	if (cause_woof == NULL || mapping == NULL)
 	{
 		fprintf(stderr, "WooFMsgRepairProgress: invalid parameter\n");
@@ -4567,8 +4612,8 @@ int WooFMsgRepairProgress(char *woof_name, unsigned long cause_host, char *cause
 	{
 		fprintf(stderr, "WooFMsgRepairProgress: woof: %s no outbound msg to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgRepairProgress: allocating msg");
 		fflush(stderr);
+		perror("WooFMsgRepairProgress: allocating msg");
 		return (-1);
 	}
 #ifdef DEBUG
@@ -4646,7 +4691,7 @@ int WooFMsgRepairProgress(char *woof_name, unsigned long cause_host, char *cause
 	 * make a frame for the cause_host
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", cause_host);
+	sprintf(buffer, "%lu\0", cause_host);
 	frame = zframe_new(buffer, strlen(buffer));
 
 	if (frame == NULL)
@@ -4822,7 +4867,7 @@ int WooFMsgRepairProgress(char *woof_name, unsigned long cause_host, char *cause
 		   woof_name, count, endpoint);
 	fflush(stdout);
 #endif
-	if (count != mapping_count * 2)
+	if (count != mapping_count)
 	{
 		return (-1);
 	}

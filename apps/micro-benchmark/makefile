@@ -16,20 +16,19 @@ WHINC=${WOOFC}/woofc-host.h
 WHOBJ=${WOOFC}/woofc-host.o 
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
-HAND1=ts
+HAND1=micro
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: ts-start ts-create ts-repair ${HAND1}
+all: micro-start micro-create ${HAND1}
 
-ts-repair: ts-repair.c ${LOBJ} ${WOBJ} ${WHOBJ}
-	${CC} ${CFLAGS} -o ts-repair ts-repair.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS} ${URILIB} 
+micro-start: micro-start.c micro.h
+	${CC} ${CFLAGS} -o micro-start micro-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp micro-start ./cspot
 
-ts-start: ts-start.c ts.h
-	${CC} ${CFLAGS} -o ts-start ts-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-ts-create: ts-create.c ts.h
-	${CC} ${CFLAGS} -o ts-create ts-create.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+micro-create: micro-create.c micro.h
+	${CC} ${CFLAGS} -o micro-create micro-create.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp micro-create ./cspot
 
 ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/${HAND1}/g' ${SHEP_SRC} > ${HAND1}_shepherd.c
@@ -38,5 +37,5 @@ ${HAND1}: ${HAND1}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	mkdir -p cspot; cp ${HAND1} ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 clean:
-	rm -f ts-start ts-create ${HAND1}
+	rm -f micro-start micro-create ${HAND1}
 

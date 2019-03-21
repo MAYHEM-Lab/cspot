@@ -1,3 +1,5 @@
+#define DEBUG
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -10,7 +12,7 @@
 #include "woofc-host.h"
 #include "repair.h"
 
-#define ARGS "H:F:W:S:O:"
+#define ARGS "DH:F:W:S:O:"
 char *Usage = "woof-repair -H ip1:port1,ip2:port2... -F glog_filename -W woof -S seq_no_1,seq_no_2,... -O guide_filename\n";
 
 extern unsigned long Name_id;
@@ -18,6 +20,8 @@ extern unsigned long Name_id;
 int Repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name);
 int RepairRO(GLOG *glog, char *namespace, unsigned long host, char *wf_name);
 void Guide(GLOG *glog, FILE *fd);
+
+int dryrun;
 
 unsigned long hash(char *namespace)
 {
@@ -72,9 +76,11 @@ int main(int argc, char **argv)
 	RB *asker;
 	RB *mapping_count;
 	FILE *guide_fd;
-	clock_t start;
-	int diff;
+	struct timeval t1, t2;
+    double elapsedTime;
 
+#ifdef REPAIR
+	dryrun = 0;
 	memset(hosts, 0, sizeof(hosts));
 	memset(filename, 0, sizeof(filename));
 	memset(woof, 0, sizeof(woof));
@@ -86,6 +92,9 @@ int main(int argc, char **argv)
 	{
 		switch (c)
 		{
+		case 'D':
+			dryrun = 1;
+			break;
 		case 'H':
 			strncpy(hosts, optarg, sizeof(hosts));
 			break;
@@ -147,8 +156,10 @@ int main(int argc, char **argv)
 		ptr = strtok(NULL, ",");
 		i++;
 	}
+#ifdef DEBUG
 	printf("num_hosts: %d\n", num_hosts);
 	fflush(stdout);
+#endif
 
 	// parse seq_no
 	num_seq_no = 1;
@@ -180,8 +191,10 @@ int main(int argc, char **argv)
 		ptr = strtok(NULL, ",");
 		i++;
 	}
+#ifdef DEBUG
 	printf("num_seq_no: %d\n", num_seq_no);
 	fflush(stdout);
+#endif
 
 	WooFInit();
 
@@ -189,20 +202,23 @@ int main(int argc, char **argv)
 	glog_size = 0;
 	mio = malloc(num_hosts * sizeof(MIO *));
 	log = malloc(num_hosts * sizeof(LOG *));
-	// #ifdef DEBUG
+#ifdef DEBUG
 	printf("start pulling log from hosts\n");
 	fflush(stdout);
-	start = clock();
-	// #endif
+	gettimeofday(&t1, NULL);
+#endif
 	for (i = 0; i < num_hosts; i++)
 	{
+#ifdef DEBUG
 		printf("pulling log from host %d\n", i + 1);
 		fflush(stdout);
+#endif
 		log_size = LogGetRemoteSize(endpoint[i]);
 		total_log_size += log_size;
 		if (log_size < 0)
 		{
 			fprintf(stderr, "couldn't get remote log size from %s\n", endpoint[i]);
+			fflush(stderr);
 			exit(1);
 		}
 		mio[i] = MIOMalloc(log_size);
@@ -211,29 +227,35 @@ int main(int argc, char **argv)
 		if (err < 0)
 		{
 			fprintf(stderr, "couldn't get remote log from %s\n", endpoint[i]);
+			fflush(stderr);
 			exit(1);
 		}
 		glog_size += log[i]->size;
 		// LogPrint(stdout, log[i]);
 		// fflush(stdout);
+#ifdef DEBUG
 		printf("pulled log from host %d, size %lu bytes\n", i + 1, log_size);
 		fflush(stdout);
+#endif
 	}
-	// #ifdef DEBUG
-	diff = (clock() - start) * 1000 / CLOCKS_PER_SEC;
-	printf("finished pulling log from hosts: %d ms, %lu bytes in total\n", diff, total_log_size);
+#ifdef DEBUG
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("finished pulling log from hosts: %f ms, %lu bytes in total\n", elapsedTime, total_log_size);
 	fflush(stdout);
-	// #endif
+#endif
 
-	// #ifdef DEBUG
+#ifdef DEBUG
 	printf("start merging logs\n");
 	fflush(stdout);
-	start = clock();
-	// #endif
+	gettimeofday(&t1, NULL);
+#endif
 
 	total_events = 0;
+#ifdef DEBUG
 	printf("creating GLog with size %lu...\n", glog_size);
 	fflush(stdout);
+#endif
 	glog = GLogCreate(filename, Name_id, glog_size);
 	if (glog == NULL)
 	{
@@ -241,13 +263,17 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+#ifdef DEBUG
 	printf("GLog created\n", glog_size);
 	fflush(stdout);
+#endif
 
 	for (i = 0; i < num_hosts; i++)
 	{
+#ifdef DEBUG
 		printf("importing log from host %d...\n", i + 1);
 		fflush(stdout);
+#endif
 		err = ImportLogTail(glog, log[i]);
 		if (err < 0)
 		{
@@ -256,20 +282,23 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		total_events += log[i]->seq_no - 1;
+#ifdef DEBUG
 		printf("imported log from host %d, %lu events\n", i + 1, log[i]->seq_no - 1);
 		fflush(stdout);
+#endif
 	}
-	// #ifdef DEBUG
-	diff = (clock() - start) * 1000 / CLOCKS_PER_SEC;
-	printf("finished merging logs: %d ms, %lu events in total\n", diff, total_events);
+#ifdef DEBUG
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("finished merging logs: %f ms, %lu events in total\n", elapsedTime, total_events);
 	fflush(stdout);
-	// #endif
+#endif
 
-	// #ifdef DEBUG
-	// 	printf("Global log:\n");
-	// 	GLogPrint(stdout, glog);
-	// 	fflush(stdout);
-	// #endif
+#ifdef DEBUG
+	printf("Global log:\n");
+	GLogPrint(stdout, glog);
+	fflush(stdout);
+#endif
 
 	err = WooFNameSpaceFromURI(woof, namespace, sizeof(namespace));
 	if (err < 0)
@@ -286,24 +315,22 @@ int main(int argc, char **argv)
 		return (-1);
 	}
 	woof_name_id = hash(namespace);
+	woof_name_id = 1269808015;
 #ifdef DEBUG
 	printf("namespace: %s, id: %lu\n", namespace, woof_name_id);
 	fflush(stdout);
 #endif
 
-	// #ifdef DEBUG
+#ifdef DEBUG
 	printf("start dependency discovery\n");
-	fflush(stdout);
-// #endif
-#ifdef DEBUG
-	printf("GLogMarkWooFDownstream\n");
+	printf("GLogMarkWooFDownstream name_id:%lu woof_name:%s\n", woof_name_id, woof_name);
 	fflush(stdout);
 #endif
-	RBGLogMarkWooFDownstream(glog, woof_name_id, woof_name, seq_no);
-#ifdef DEBUG
-	GLogPrint(stdout, glog);
-	fflush(stdout);
-#endif
+	GLogMarkWooFDownstream(glog, woof_name_id, woof_name, seq_no);
+	// #ifdef DEBUG
+	// GLogPrint(stdout, glog);
+	// fflush(stdout);
+	// #endif
 
 #ifdef DEBUG
 	printf("GLogFindAffectedWooF\n");
@@ -313,11 +340,12 @@ int main(int argc, char **argv)
 	casualty = RBInitS();
 	progress = RBInitS();
 	GLogFindAffectedWooF(glog, root, &count_root, casualty, &count_casualty, progress, &count_progress);
-	// #ifdef DEBUG
-	diff = (clock() - start) * 1000 / CLOCKS_PER_SEC;
-	printf("finished dependency discovery: %d ms\n", diff);
+#ifdef DEBUG
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("finished dependency discovery: %f ms\n", elapsedTime);
 	fflush(stdout);
-	// #endif
+#endif
 	woof_root = malloc(count_root * sizeof(char *));
 	i = 0;
 	RB_FORWARD(root, rb)
@@ -351,6 +379,12 @@ int main(int argc, char **argv)
 	RBDestroyS(root);
 	RBDestroyS(casualty);
 	RBDestroyS(progress);
+
+#ifdef DEBUG
+	printf("start sending repair requests\n");
+	fflush(stdout);
+	gettimeofday(&t1, NULL);
+#endif
 
 	printf("woof root:\n");
 	for (i = 0; i < count_root; i++)
@@ -397,6 +431,12 @@ int main(int argc, char **argv)
 		RepairRO(glog, namespace, wf_host, wf_name);
 		free(wf_name);
 	}
+#ifdef DEBUG
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("finished sending repair request: %f ms\n", elapsedTime);
+	fflush(stdout);
+#endif
 
 	Guide(glog, guide_fd);
 	fclose(guide_fd);
@@ -435,32 +475,45 @@ int Repair(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 	}
 
 	GLogFindWooFHoles(glog, host, wf_name, holes);
-#ifdef DEBUG
-	printf("Repair: repairing %s/%s(%lu): %d holes", namespace, wf_name, host, holes->count);
-	DLIST_FORWARD(holes, dn)
+	// TODO: put host name here, need to make this smarter
+	sprintf(wf, "woof:///%s/%s", namespace, wf_name);
+	if (host == 7886325280287311374ul)
 	{
-		printf(" %lu", dn->value.i64);
+		sprintf(wf, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s", wf_name);
 	}
-	printf("\n");
+	else if (host == 797386831364045376ul)
+	{
+		sprintf(wf, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/%s", wf_name);
+	}
+#ifdef DEBUG
+	printf("Repair: repairing %s(%lu): %d holes\n", wf_name, host, holes->count);
+	// DLIST_FORWARD(holes, dn)
+	// {
+	// 	printf(" %lu", dn->value.i64);
+	// }
+	// printf("\n");
 	fflush(stdout);
 #endif
 	if (holes->count > 0)
 	{
-		// TODO: put host name here
-		sprintf(wf, "woof://%s/%s", namespace, wf_name);
-		err = WooFRepair(wf, holes);
-		if (err < 0)
+		if (dryrun == 0)
 		{
-			fprintf(stderr, "Repair: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
-			fflush(stderr);
-			DlistRemove(holes);
-			return (-1);
+			err = WooFRepair(wf_name, holes);
+			if (err < 0)
+			{
+				fprintf(stderr, "Repair: cannot repair woof %s(%lu)\n", wf_name, host);
+				fflush(stderr);
+				DlistRemove(holes);
+				return (-1);
+			}
 		}
 	}
 	DlistRemove(holes);
+#endif
 	return (0);
 }
 
+#ifdef REPAIR
 int RepairRO(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 {
 	RB *asker;
@@ -488,20 +541,31 @@ int RepairRO(GLOG *glog, char *namespace, unsigned long host, char *wf_name)
 			return (-1);
 		}
 		WooFFromHval(rb->key.key.s, &cause_host, cause_woof);
-		// TODO: put host name here
-		sprintf(wf, "woof://%s/%s", namespace, wf_name);
+		// TODO: put host name here, need to make this smarter
+		sprintf(wf, "woof:///%s/%s", namespace, wf_name);
+		if (host == 7886325280287311374ul)
+		{
+			sprintf(wf, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s", wf_name);
+		}
+		else if (host == 797386831364045376ul)
+		{
+			sprintf(wf, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/%s", wf_name);
+		}
 #ifdef DEBUG
 		printf("RepairRO: sending mapping from cause_woof %s to %s\n", cause_woof, wf_name);
 		fflush(stdout);
 #endif
-		err = WooFRepairProgress(wf, cause_host, cause_woof, rbc->value.i, (unsigned long *)rb->value.i64);
-		if (err < 0)
+		if (dryrun == 0)
 		{
-			fprintf(stderr, "RepairRO: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
-			fflush(stderr);
-			RBDestroyS(asker);
-			RBDestroyS(mapping_count);
-			return (-1);
+			err = WooFRepairProgress(wf_name, cause_host, cause_woof, rbc->value.i, (unsigned long *)rb->value.i64);
+			if (err < 0)
+			{
+				fprintf(stderr, "RepairRO: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
+				fflush(stderr);
+				RBDestroyS(asker);
+				RBDestroyS(mapping_count);
+				return (-1);
+			}
 		}
 	}
 
@@ -518,11 +582,6 @@ void Guide(GLOG *glog, FILE *fd)
 	int err;
 	unsigned long curr;
 	Hval value;
-
-#ifdef DEBUG
-	printf("Guide: called\n", host, woof_name);
-	fflush(stdout);
-#endif
 
 	// printf("To repair the app, please call WooFPut by the following order:\n");
 
@@ -542,3 +601,4 @@ void Guide(GLOG *glog, FILE *fd)
 	}
 	fflush(stdout);
 }
+#endif
