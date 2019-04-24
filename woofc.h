@@ -25,7 +25,8 @@ struct woof_shared_stc {
 
 typedef struct woof_shared_stc WOOF_SHARED;
 
-struct woof_stc {
+struct woof_stc
+{
 	WOOF_SHARED *shared;
 	MIO *mio;
 	unsigned long ino; // for caching
@@ -71,4 +72,3 @@ void WooFDrop(WOOF *wf);
 #endif
 
 #endif
-
