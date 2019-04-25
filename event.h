@@ -36,7 +36,7 @@ void EventFree(EVENT *ev);
 int EventSetCause(EVENT *ev, unsigned long cause_host, 
                                 unsigned long long cause_seq_no);
 
-double EventIndex(unsigned long host, unsigned long long seq_no);
+int64_t EventIndex(unsigned long host, unsigned long long seq_no);
 
 
 #endif

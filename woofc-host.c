@@ -443,7 +443,6 @@ char *SignalFgetS(char *buffer, int size, FILE *fd)
 
 void CleanUpDocker(int status, void *arg)
 {
-==== BASE ====
 	FILE *fd;
 	int port;
 	char command[255];
@@ -470,22 +469,13 @@ void CleanUpDocker(int status, void *arg)
 		snprintf(command_fmt, sizeof(command_fmt) - 1,
 			"/usr/bin/docker %s CSPOTWorker-%s-%d 2>&1\n", "%s", pathp+1, count);
 
-==== BASE ====
-	fd = popen(command,"r");
-	if(fd == NULL) {
-		fprintf(stderr,"CleanUpDocker: popen for docker ps failed\n");
-		return;
-	}
-	memset(ps_line,0,sizeof(ps_line));
-	memset(docker_id,0,sizeof(docker_id));
-==== BASE ====
-
-		FILE* fd = popen(command, "r");
-		if (fd == NULL) {
-			fprintf(stderr, "error: failed to open handle on the output\n");
-			exit(1);
+		fd = popen(command,"r");
+		if(fd == NULL) {
+			fprintf(stderr,"CleanUpDocker: popen for docker ps failed\n");
+			return;
 		}
-
+		memset(ps_line,0,sizeof(ps_line));
+		memset(docker_id,0,sizeof(docker_id));
 		char result[4096];
 		memset(result, 0, sizeof(result));
 		int read_bytes = read(fileno(fd), result, sizeof(result));
