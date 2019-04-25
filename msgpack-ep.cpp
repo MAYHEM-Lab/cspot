@@ -496,7 +496,7 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 	sockaddr_in serv_addr;
 	serv_addr.sin_family = AF_INET;
 	std::memcpy(&serv_addr.sin_addr.s_addr, &addr.addr, 4);
-	serv_addr.sin_port = htons(addr.port.port);
+	serv_addr.sin_port = htons(addr.port.port - 10'000); // msgpack port is 10.000 less than the regular port
 
     if (connect(sock,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
     {
