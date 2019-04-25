@@ -20,6 +20,22 @@
 #include <nonstd/variant.hpp>
 #include <tos/print.hpp>
 
+namespace cspot
+{
+	enum class msg_tag : uint8_t
+    {
+        put = 1,
+        get_el_sz = 2,
+        get = 3,
+        get_tail = 4,
+        get_latest_seqno = 5,
+        get_done = 6,
+        repair = 7,
+        get_log = 8,
+        get_log_size = 9
+    };
+}
+
 extern "C"
 {
 #include "woofc-access.h"
@@ -312,7 +328,7 @@ struct req_handlers
     }
     void operator()(const cspot::put_req& put)
     {
-        auto err = WooFPut(put.woof, put.handler, put.data.data());
+        auto err = WooFPut(put.woof, put.handler, (void*)put.data.data());
         tos::println(ep, "putting in", put.woof, put.handler, int(put.data.size()), int(err));
 
         char b[100];
