@@ -36,6 +36,12 @@ namespace cspot
     };
 }
 
+void tos_force_get_failed(void*)
+{
+	std::cerr << "force get failed\n";
+	std::abort();
+}
+
 extern "C"
 {
 #include "woofc-access.h"
