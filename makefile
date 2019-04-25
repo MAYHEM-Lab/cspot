@@ -12,7 +12,7 @@ LOBJ=log.o host.o event.o
 LINCS=log.h host.h event.h
 WINCS=woofc.h woofc-access.h woofc-cache.h
 WOBJ=woofc.o woofc-access.o woofc-cache.o
-MPOBJ=msgpack-ep.o cwpack/cwpack.o
+MPOBJ=msgpack-ep.o cwpack/cwpack.o libemsha/src/libemsha.o libemsha/src/hmac.o libemsha/src/sha256.o
 WHOBJ=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
@@ -21,7 +21,7 @@ URIINC=./uriparser2
 URILIB=./uriparser2/liburiparser2.a
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG -Wall -Wextra
-CXX_FLAGS=-g -fno-exceptions -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -DDEBUG -Wall -Wextra
+CXX_FLAGS=-g -fno-exceptions -std=c++11 -I${UINC} -I${MINC} -I${SINC} -I${URIINC} -Ilibemsha/src -DDEBUG -Wall -Wextra
 
 all: log-test log-test-thread woofc.o woofc-host.o woofc-shepherd.o woofc-container woofc-namespace-platform docker-image
 
@@ -83,6 +83,15 @@ woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} 
 
 cwpack/cwpack.o: cwpack/cwpack.c cwpack/cwpack.h cwpack/cwpack_defines.h
 	${CC} ${CFLAGS} -c -o cwpack/cwpack.o -Icwpack cwpack/cwpack.c
+
+libemsha/src/libemsha.o: libemsha/src/emsha.cc
+	${CC} ${CFLAGS} -c -o libemsha/src/emsha.o -Ilibemsha/src libemsha/src/emsha.cc
+
+libemsha/src/hmac.o: libemsha/src/hmac.cc
+	${CC} ${CFLAGS} -c -o libemsha/src/hmac.o -Ilibemsha/src libemsha/src/hmac.cc
+
+libemsha/src/sha256.o: libemsha/src/sha256.cc
+	${CC} ${CFLAGS} -c -o libemsha/src/sha256.o -Ilibemsha/src libemsha/src/sha256.cc
 
 msgpack-ep.o: msgpack-ep.cpp msgpack-ep.h
 	${CXX} ${CXX_FLAGS} -Icwpack -c msgpack-ep.cpp

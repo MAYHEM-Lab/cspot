@@ -1,0 +1,112 @@
+-----------------
+The SHA256 class
+-----------------
+
+.. cpp:class:: emsha::SHA256
+
+   SHA256 is an implementation of the :cpp:class:`emsha::Hash` interface
+   implementing the SHA-256 cryptographic hash algorithm
+
+.. cpp:function:: SHA256::SHA256()
+		  
+   A SHA256 context does not need any special construction. It can be
+   declared and immediately start being used.
+
+
+.. cpp:function:: SHA256::~SHA256()
+		  
+   The SHA256 destructor will clear out its internal message buffer;
+   all of the members are local and not resource handles, so cleanup
+   is minimal.
+
+
+.. cpp:function:: emsha::EMSHA_RESULT SHA256::reset(void)
+
+   reset clears the internal state of the `SHA256` context and returns
+   it to its initial state.  It should always return ``EMSHA_ROK``.
+
+.. cpp:function:: emsha::EMSHA_RESULT SHA256::update(const uint8_t *m, uint32_t ml)
+		  
+   update writes data into the context. While there is an upper limit
+   on the size of data that SHA-256 can operate on, this package is
+   designed for small systems that will not approach that level of
+   data (which is on the order of 2 exabytes), so it is not thought to
+   be a concern.
+
+   **Inputs**:
+
+   + ``m``: a byte array containing the message to be written. It must
+     not be NULL (unless the message length is zero).
+       
+   + ``ml``: the message length, in bytes.
+    
+   **Return values**:
+   
+   * ``EMSHA_NULLPTR`` is returned if ``m`` is NULL and ``ml`` is nonzero.
+    
+   * ``EMSHA_INVALID_STATE`` is returned if the `update` is called 
+     after a call to `finalize`.
+    
+   * ``SHA256_INPUT_TOO_LONG`` is returned if too much data has been
+     written to the context.
+    
+   + ``EMSHA_ROK`` is returned if the data was successfully added to
+     the SHA-256 context.
+
+
+.. cpp:function:: emsha::EMSHA_RESULT SHA256::finalize(uint8_t *d)
+
+   ``finalize`` completes the digest. Once this method is called, the
+   context cannot be updated unless the context is reset.
+    
+   **Inputs**:
+   
+   * d: a byte buffer that must be at least ``SHA256.size()`` in
+     length.
+    
+   **Outputs**:
+   
+   * ``EMSHA_NULLPTR`` is returned if ``d`` is the null pointer.
+    
+   * ``EMSHA_INVALID_STATE`` is returned if the SHA-256 context is in
+     an invalid state, such as if there were errors in previous
+     updates.
+    
+   * ``EMSHA_ROK`` is returned if the context was successfully
+     finalised and the digest copied to ``d``.
+
+
+.. cpp:function:: emsha::EMSHA_RESULT SHA256::result(uint8_t *d)
+		  
+   ``result`` copies the result from the SHA-256 context into the
+   buffer pointed to by ``d``, running finalize if needed. Once
+   called, the context cannot be updated until the context is reset.
+    
+   **Inputs**:
+   
+   * ``d``: a byte buffer that must be at least ``SHA256.size()`` in
+     length.
+    
+   **Outputs**:
+   
+   * ``EMSHA_NULLPTR`` is returned if ``d`` is the null pointer.
+    
+   * ``EMSHA_INVALID_STATE`` is returned if the SHA-256 context is in
+     an invalid state, such as if there were errors in previous
+     updates.
+    
+   * ``EMSHA_ROK`` is returned if the context was successfully
+     finalised and the digest copied to ``d``.
+
+.. cpp:function:: uint32_t SHA256::size(void)
+
+   ``size`` returns the output size of SHA256, e.g.
+   the size that the buffers passed to ``finalize``
+   and ``result`` should be.
+    
+   **Outputs**:
+
+   * a ``uint32_t`` representing the expected size of buffers passed
+     to ``result`` and ``finalize``.
+
+
