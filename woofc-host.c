@@ -348,6 +348,8 @@ void *WooFContainerLauncher(void *arg)
 		{
 			sprintf(launch_string + strlen(launch_string),
 					"-p %d:%d ", port, port);
+			sprintf(launch_string + strlen(launch_string),
+					"-p %d:%d ", port - 10000, port - 10000);
 		}
 
 		sprintf(launch_string + strlen(launch_string),

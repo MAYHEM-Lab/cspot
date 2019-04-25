@@ -20,7 +20,7 @@ extern "C" int fwd(WOOF*, unsigned long, void* data)
     auto elem = *reinterpret_cast<put_elem*>(data);
     elem.stamps[my_index] = get_time();
 
-    if (next_hop == "")
+    if (next_hop.empty())
     {
     	std::ofstream out{"/put-test-cxx/data.txt", std::ios_base::app};
         // done
