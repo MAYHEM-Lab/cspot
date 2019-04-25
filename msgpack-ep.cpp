@@ -13,6 +13,12 @@
 
 #include <memory>
 
+#include <cwpack.h>
+#include <caps/emsha_signer.hpp>
+#include <caps/request.hpp>
+#include <cppspot/capabilities.hpp>
+#include <nonstd/variant.hpp>
+
 extern "C"
 {
 #include "woofc-access.h"
