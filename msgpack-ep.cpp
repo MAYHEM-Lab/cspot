@@ -409,6 +409,32 @@ extern "C"
 
 		std::cerr << "listening on " << port << '\n';
 
+        auto cap = caps::mkcaps({
+            cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
+            }, signer);
+
+        caps::attach(*cap, caps::mkcaps({
+            cspot::cap_t{cspot::woof_id_t{1}, cspot::perms::put}
+        }), signer);
+
+        struct
+        {
+            int write(tos::span<const char> buf)
+            {
+                for (auto& c : buf)
+                {
+                    fprintf(stderr, "%02x", (unsigned int)(c));
+                }
+                return buf.size();
+            }
+
+            auto operator->() { return this; }
+        } x;
+
+        std::cerr << '\n';
+        caps::serialize(x, *cap);
+        std::cerr << '\n';
+
 		while(true)
 		{
 			sockaddr_in cli_addr;
