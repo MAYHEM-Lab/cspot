@@ -20,6 +20,9 @@
 #include <nonstd/variant.hpp>
 #include <tos/print.hpp>
 
+#include <common/inet/tcp_ip.hpp>
+#include "uriparser2/uriparser2.h"
+
 namespace cspot
 {
 	enum class msg_tag : uint8_t
@@ -358,7 +361,7 @@ void handle_sock(int sock_fd, sockaddr_in addr)
 {
 	sock_stream sock{sock_fd};
 
-    char buffer[100];
+    char buffer[200];
     auto res = sock.read(buffer);
     auto x = proc(res);
 
@@ -373,6 +376,142 @@ void handle_sock(int sock_fd, sockaddr_in addr)
 	req_handlers<sock_stream> handle{sock};
 
 	mpark::visit(handle, req);
+}
+
+using cap_ptr = caps::token_ptr<cspot::cap_t, caps::emsha::signer>;
+cap_ptr cap;
+uint32_t seq = 0;
+
+struct woof_addr_t
+{
+    tos::ipv4_addr_t addr;
+    tos::port_num_t port;
+    char woof_name[16];
+};
+enum class addr_parse_errors
+{
+    arg_too_short,
+    not_a_woof_uri,
+    empty_host
+};	
+
+tos::port_num_t WooFPortHash2(const char *ns)
+{
+    uint64_t h = 5381;
+    uint64_t a = 33;
+    for(size_t i = 0; i < strlen(ns); i++) {
+        h = ((h*a) + ns[i]);
+    }
+    return {uint16_t(50000 + (h % 10000))};
+}
+
+bool WooFNameFromURI(const URI& u, tos::span<char> wf, tos::span<char> ns)
+{
+    auto uri = &u;
+    int i = strlen(uri->path);
+    int j = 0;
+    /*
+     * if last character in the path is a '/' this is an error
+     */
+    if(uri->path[i] == '/') {
+        return false;
+    }
+    while(i >= 0) {
+        if(uri->path[i] == '/') {
+            i++;
+            if(i <= 0) {
+                return false;
+            }
+            if(j > wf.size()) { /* not enough space to hold path */
+                return false;
+            }
+            /*
+             * pull off the end as the name of the woof
+             */
+            strncpy(wf.data(), &(uri->path[i]), wf.size());
+            std::copy(uri->path, uri->path + i - 1, ns.begin());
+            ns[i - 1] = 0;
+            //strncpy(ns.data(), uri->path, tos::std::min<size_t>(ns.size(), i - 1));
+            return true;
+        }
+        i--;
+        j++;
+    }
+    return false;
+}
+
+tos::expected<woof_addr_t, addr_parse_errors> parse_addr(tos::span<const char> addr) {
+    URI uri(addr.data());
+    woof_addr_t res;
+    char ns_name[32];
+    WooFNameFromURI(uri, res.woof_name, ns_name);
+    res.addr = tos::parse_ip({ uri.host, strlen(uri.host) });
+    res.port = WooFPortHash2(ns_name);
+    return res;
+}
+
+extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size) 
+{
+	std::vector<char> body(1024);
+	msgpack::packer bodyp{body};
+
+	auto putreq = bodyp.insert_arr(5);
+	putreq.insert(uint8_t(cspot::msg_tag::put));
+	putreq.insert(woof_name);
+	putreq.insert(hand_name);
+	putreq.insert(uint8_t(1)); // unused
+	putreq.insert(uint8_t(1)); // unused
+	putreq.insert(span<const uint8_t>((const uint8_t*)element, el_size));
+
+	auto req = bodyp.get();
+
+	auto reqseq = ++seq;
+	auto req_hash = signer.hash(req);
+
+	auto c = clone(*cap);
+	auto req_sign = caps::get_req_sign(*c, signer, reqseq, req_hash);
+	c->signature = req_sign;
+	std::vector<uint8_t> cap_buf(512);
+	tos::omemory_stream cap_str{cap_buf};
+	caps::serialize(cap_str, *c);
+
+	std::vector<char> buf(1024);
+	msgpack::packer p{buf};
+	auto arr = p.insert_arr(3);
+	arr.insert(cap_str.get().as_bytes());
+	arr.insert(req.as_bytes());
+	arr.insert(reqseq);
+
+	auto res = p.get();
+
+	auto addr = force_get(parse_addr({woof_name, strlen(woof_name)}));
+
+	auto sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock <= 0)
+	{
+		perror("socket error");
+		return -1;
+	}
+
+	sockaddr_in serv_addr;
+	serv_addr.sin_family = AF_INET;
+	std::memcpy(&serv_addr.sin_addr.s_addr, &addr.addr, 4);
+	serv_addr.sin_port = htons(addr.port.port);
+
+    if (connect(sock,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+    {
+        perror("ERROR connecting");
+        return -1;
+    }
+
+    sock_stream ss{sock};
+
+    ss->write(res);
+
+    std::vector<char> buffer(512);
+    auto d = ss->read(buffer);
+
+    return 100;
 }
 
 extern "C"
@@ -412,10 +551,6 @@ extern "C"
         auto cap = caps::mkcaps({
             cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
             }, signer);
-
-        caps::attach(*cap, caps::mkcaps({
-            cspot::cap_t{cspot::woof_id_t{1}, cspot::perms::put}
-        }), signer);
 
         struct
         {

@@ -137,6 +137,10 @@ namespace tos
 
         constexpr bool empty() const { return m_len == 0; }
 
+        constexpr span<const uint8_t> as_bytes() const {
+            return span<const uint8_t>{reinterpret_cast<const uint8_t*>(data()), size() * sizeof(T) };
+        }
+
         /**
          * Spans convert to a const version of them automatically
          *
