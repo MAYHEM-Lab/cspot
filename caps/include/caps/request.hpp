@@ -9,6 +9,7 @@
 #include <tos/span.hpp>
 #include <tos/expected.hpp>
 #include <cwpack.hpp>
+#include <tos/mem_stream.hpp>
 #include "raw_serdes.hpp"
 #include "caps.hpp"
 
