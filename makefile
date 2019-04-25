@@ -12,7 +12,7 @@ LOBJ=log.o host.o event.o
 LINCS=log.h host.h event.h
 WINCS=woofc.h woofc-access.h woofc-cache.h
 WOBJ=woofc.o woofc-access.o woofc-cache.o
-MPOBJ=msgpack-ep.o cwpack/cwpack.o libemsha/src/libemsha.o libemsha/src/hmac.o libemsha/src/sha256.o
+MPOBJ=msgpack-ep.o cwpack/cwpack.o libemsha/src/emsha.o libemsha/src/hmac.o libemsha/src/sha256.o
 WHOBJ=woofc-host.h
 WHOBJ=woofc-host.o
 TINC=woofc-thread.h
@@ -84,7 +84,7 @@ woofc-namespace-platform: woofc-host.c ${LOBJ} ${WOBJ} ${SLIB} ${WINC} ${SINCS} 
 cwpack/cwpack.o: cwpack/cwpack.c cwpack/cwpack.h cwpack/cwpack_defines.h
 	${CC} ${CFLAGS} -c -o cwpack/cwpack.o -Icwpack cwpack/cwpack.c
 
-libemsha/src/libemsha.o: libemsha/src/emsha.cc
+libemsha/src/emsha.o: libemsha/src/emsha.cc
 	${CC} ${CFLAGS} -c -o libemsha/src/emsha.o -Ilibemsha/src libemsha/src/emsha.cc
 
 libemsha/src/hmac.o: libemsha/src/hmac.cc
