@@ -34,6 +34,12 @@ set_target_properties(woof_log PROPERTIES
     INTERFACE_LINK_LIBRARIES "${WOOFC}/log.o;${WOOFC}/host.o;${WOOFC}/event.o"
 )
 
+add_library(libemsha INTERFACE IMPORTED)
+set_target_properties(libemsha PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}/libemsha/src"
+    INTERFACE_LINK_LIBRARIES "${WOOFC}/libemsha/src/emsha.o;${WOOFC}/libemsha/src/hmac.o;${WOOFC}/libemsha/src/sha256.o"
+)
+
 add_library(cwpack INTERFACE IMPORTED)
 set_target_properties(cwpack PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}/cwpack"
@@ -43,7 +49,7 @@ set_target_properties(cwpack PROPERTIES
 add_library(woof_mpack INTERFACE IMPORTED)
 set_target_properties(woof_mpack PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${WOOFC}"
-    INTERFACE_LINK_LIBRARIES "${WOOFC}/msgpack-ep.o;cwpack"
+    INTERFACE_LINK_LIBRARIES "${WOOFC}/msgpack-ep.o;cwpack;libemsha"
 )
 
 add_library(cspot INTERFACE IMPORTED)

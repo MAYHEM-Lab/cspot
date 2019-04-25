@@ -85,13 +85,13 @@ cwpack/cwpack.o: cwpack/cwpack.c cwpack/cwpack.h cwpack/cwpack_defines.h
 	${CC} ${CFLAGS} -c -o cwpack/cwpack.o -Icwpack cwpack/cwpack.c
 
 libemsha/src/emsha.o: libemsha/src/emsha.cc
-	${CC} ${CFLAGS} -c -o libemsha/src/emsha.o -Ilibemsha/src libemsha/src/emsha.cc
+	${CXX} ${CXX_FLAGS} -c -o libemsha/src/emsha.o -Ilibemsha/src libemsha/src/emsha.cc
 
 libemsha/src/hmac.o: libemsha/src/hmac.cc
-	${CC} ${CFLAGS} -c -o libemsha/src/hmac.o -Ilibemsha/src libemsha/src/hmac.cc
+	${CXX} ${CXX_FLAGS} -c -o libemsha/src/hmac.o -Ilibemsha/src libemsha/src/hmac.cc
 
 libemsha/src/sha256.o: libemsha/src/sha256.cc
-	${CC} ${CFLAGS} -c -o libemsha/src/sha256.o -Ilibemsha/src libemsha/src/sha256.cc
+	${CXX} ${CXX_FLAGS} -c -o libemsha/src/sha256.o -Ilibemsha/src libemsha/src/sha256.cc
 
 msgpack-ep.o: msgpack-ep.cpp msgpack-ep.h
 	${CXX} ${CXX_FLAGS} -Icwpack -c msgpack-ep.cpp
