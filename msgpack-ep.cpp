@@ -340,7 +340,7 @@ struct req_handlers
         auto err = WooFPut(put.woof, put.handler, (void*)put.data.data());
         tos::println(ep, "putting in", put.woof, put.handler, int(put.data.size()), int(err));
 
-        char b[100];
+        char b[200];
         tos::msgpack::packer p {b};
         p.insert(uint32_t(err));
         auto res = p.get();
