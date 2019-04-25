@@ -65,7 +65,6 @@ namespace caps
         {
             decltype(cap_list<CapabilityT>::num_caps) len;
             tos::read_to_end(from, { (char*)&len, sizeof len });
-            tos_debug_print("len: %d\n", int(len));
             auto mem = new char[sizeof(token<CapabilityT, SignerT>) + sizeof(CapabilityT) * len];
             auto cps = new(mem) token<CapabilityT, SignerT>;
             read_list(from, cps->c, len);

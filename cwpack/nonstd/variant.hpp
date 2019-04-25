@@ -796,9 +796,9 @@ namespace mpark {
 #ifdef MPARK_EXCEPTIONS
     throw bad_variant_access{};
 #else
-    tos_debug_print("bad variant access\n");
-    tos::this_thread::block_forever();
-    //std::terminate();
+    //tos_debug_print("bad variant access\n");
+    //tos::this_thread::block_forever();
+    std::terminate();
 #ifdef MPARK_BUILTIN_UNREACHABLE
     __builtin_unreachable();
 #endif
