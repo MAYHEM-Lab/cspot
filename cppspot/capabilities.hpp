@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cppspot/common.hpp>
-#include <tos/print.hpp>
 
 namespace cspot {
     constexpr struct root_cap_t {} root_cap;
@@ -44,18 +43,6 @@ namespace cspot {
 }
 
 namespace cspot {
-    template <class StreamT>
-    void print(StreamT& str, const cap_t& id)
-    {
-        switch (id.type)
-        {
-            case cap_t::types::nil: tos::print(str, "nil"); break;
-            case cap_t::types::ns: tos::print(str, "ns", int(id.ns_id.ns_id)); break;
-            case cap_t::types::woof: tos::print(str, "woof", int(id.woof_id.woof_id)); break;
-            case cap_t::types::root: tos::print(str, "root"); break;
-        }
-    }
-
     inline constexpr bool operator==(const cap_t& a, const cap_t& b)
     {
         if (a.type != b.type) return false;
@@ -87,9 +74,6 @@ namespace cspot {
 
     inline bool satisfies(const cap_t &haystack, const cap_t &needle)
     {
-        tos_debug_print("searching for %d %d %d in %d %d %d\n"
-                , int(needle.type), int(needle.woof_id.woof_id), int(needle.p)
-                , int(haystack.type), int(haystack.woof_id.woof_id), int (haystack.p));
         if (haystack.type == cap_t::types::root) return true;
         if ((perms(haystack.p) & perms(needle.p)) != perms(needle.p)) return false;
         if (needle == haystack)
