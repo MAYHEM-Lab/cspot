@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <tos/char_stream.hpp>
 #include <stdint.h>
 #include <tos/utility.hpp>
 #include <string.h>

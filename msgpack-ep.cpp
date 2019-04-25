@@ -49,7 +49,7 @@ struct sock_stream
 	}
 
 	sock_stream* operator->() { return this; }
-	sock_stream& operator*() { return this; }
+	sock_stream& operator*() { return *this; }
 
 private:
 	int m_fd;
@@ -268,7 +268,7 @@ namespace cspot
 
         uint8_t tag = uc.item.as.u64;
 
-        tos_debug_print("got req %d\n", int(tag));
+        printf("got req %d\n", int(tag));
 
         switch (cspot::msg_tag(tag))
         {
@@ -312,7 +312,7 @@ struct req_handlers
     }
     void operator()(const cspot::put_req& put)
     {
-        auto err = WooFPut2(put.woof, put.handler, put.data.data(), put.host, put.host_seq.seq);
+        auto err = WooFPut(put.woof, put.handler, put.data.data());
         tos::println(ep, "putting in", put.woof, put.handler, int(put.data.size()), int(err));
 
         char b[100];
@@ -348,7 +348,7 @@ void handle_sock(int sock_fd, sockaddr_in addr)
 
     auto& req = force_get(x);
 
-	req_handlers<sock_stream> s{sock};
+	req_handlers<sock_stream> handle{sock};
 
 	mpark::visit(handle, req);
 }
