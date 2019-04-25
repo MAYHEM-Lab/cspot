@@ -18,6 +18,7 @@
 #include <caps/request.hpp>
 #include <cppspot/capabilities.hpp>
 #include <nonstd/variant.hpp>
+#include <tos/print.hpp>
 
 extern "C"
 {
@@ -26,13 +27,30 @@ extern "C"
 void WooFFree(WOOF *wf);
 }
 
-struct sock_raii
+using namespace tos;
+
+struct sock_stream
 {
-	sock_raii(int fd) : m_fd(fd) {}
-	~sock_raii()
+	sock_stream(int fd) : m_fd(fd) {}
+	~sock_stream()
 	{
 		close(m_fd);
 	}
+
+	span<char> read(span<char> buf)
+	{
+		auto ret = ::read(m_fd, buf.data(), buf.size());
+		return buf.slice(0, ret);
+	}
+
+	size_t write(span<const char> buf)
+	{
+		return ::write(m_fd, buf.data(), buf.size());
+	}
+
+	sock_stream* operator->() { return this; }
+	sock_stream& operator*() { return this; }
+
 private:
 	int m_fd;
 };
@@ -151,51 +169,188 @@ void handle_get(int sock_fd, cw_unpack_context& uc)
 	write(sock_fd, r.data(), r.size());
 }
 
+
+namespace cspot
+{
+    struct put_req
+    {
+        char woof[16];
+        std::vector<uint8_t> data;
+        char handler[12];
+        uint32_t host;
+        event_seq_t host_seq;
+    };
+
+    using reqs = mpark::variant<mpark::monostate, put_req>;
+
+    cspot::cap_t req_to_tok(const reqs& r)
+    {
+        struct
+        {
+            cap_t operator()(const mpark::monostate&) { return cap_t{}; }
+            cap_t operator()(const put_req&) { return cap_t{woof_id_t{1}, perms::put}; }
+        } vis;
+
+        return mpark::visit(vis, r);
+    }
+
+    enum class parse_error
+    {
+        unexpected
+    };
+
+    tos::expected<put_req, parse_error> parse_put_req(cw_unpack_context& uc)
+    {
+        put_req res;
+        {
+            cw_unpack_next(&uc);
+            if (uc.item.type != cwpack_item_types::CWP_ITEM_STR)
+            {
+                return tos::unexpected(parse_error::unexpected);
+            }
+
+            auto tmp = parse_container<std::string>(uc.item.as.str);
+            std::strncpy(res.woof, tmp.data(), std::size(res.woof));
+        }
+
+        {
+            cw_unpack_next(&uc);
+            if (uc.item.type != cwpack_item_types::CWP_ITEM_STR)
+            {
+                return tos::unexpected(parse_error::unexpected);
+            }
+
+            auto tmp = parse_container<std::string>(uc.item.as.str);
+            std::strncpy(res.handler, tmp.data(), std::size(res.handler));
+        }
+
+        cw_unpack_next(&uc);
+        if (uc.item.type != cwpack_item_types::CWP_ITEM_POSITIVE_INTEGER)
+        {
+            return tos::unexpected(parse_error::unexpected);
+        }
+
+        res.host = uc.item.as.u64;
+
+        cw_unpack_next(&uc);
+        if (uc.item.type != cwpack_item_types::CWP_ITEM_POSITIVE_INTEGER)
+        {
+            return tos::unexpected(parse_error::unexpected);
+        }
+
+        res.host_seq = {(uint16_t)uc.item.as.u64};
+
+        cw_unpack_next(&uc);
+        if (uc.item.type != cwpack_item_types::CWP_ITEM_BIN)
+        {
+            return tos::unexpected(parse_error::unexpected);
+        }
+
+        res.data = parse_container<std::vector<uint8_t>>(uc.item.as.bin);
+
+        return res;
+    }
+
+    reqs parse_req(tos::span<const uint8_t> buf)
+    {
+        cw_unpack_context uc;
+        cw_unpack_context_init(&uc, (void*)buf.data(), buf.size(), nullptr);
+
+        cw_unpack_next(&uc);
+        if (uc.item.type != cwpack_item_types::CWP_ITEM_ARRAY) {
+            return mpark::monostate{};
+        }
+
+        cw_unpack_next(&uc);
+        if (uc.item.type != cwpack_item_types::CWP_ITEM_POSITIVE_INTEGER) {
+            return mpark::monostate{};
+        }
+
+        uint8_t tag = uc.item.as.u64;
+
+        tos_debug_print("got req %d\n", int(tag));
+
+        switch (cspot::msg_tag(tag))
+        {
+            case cspot::msg_tag::put:
+                return force_get(parse_put_req(uc));
+                break;
+            case cspot::msg_tag::get_el_sz:
+                //handle_el_sz(ep, uc);
+                break;
+            case cspot::msg_tag::get:
+                //handle_get(ep, uc);
+                break;
+            case cspot::msg_tag::get_log:
+                //handle_get_log(ep, uc);
+                break;
+            case cspot::msg_tag::get_log_size:
+                //handle_get_log_size(ep, uc);
+                break;
+            default:
+                break;
+        }
+        return mpark::monostate{};
+    }
+}
+
+auto client_key = []{
+    caps::emsha::signer signer("sekkret");
+
+    return caps::mkcaps({
+        cspot::mkcap(cspot::root_cap, cspot::perms::root) }, signer);
+}();
+
+caps::emsha::signer signer("sekret");
+auto proc = caps::req_deserializer<cspot::cap_t>(signer, cspot::parse_req, cspot::satisfies);
+
+template <class Ep>
+struct req_handlers
+{
+    void operator()(const mpark::monostate&) {
+        ep.write("unknown error");
+    }
+    void operator()(const cspot::put_req& put)
+    {
+        auto err = WooFPut2(put.woof, put.handler, put.data.data(), put.host, put.host_seq.seq);
+        tos::println(ep, "putting in", put.woof, put.handler, int(put.data.size()), int(err));
+
+        char b[100];
+        tos::msgpack::packer p {b};
+        p.insert(uint32_t(err));
+        auto res = p.get();
+
+        auto h = signer.hash(res);
+
+        auto t = clone(*client_key);
+        t->signature = get_req_sign(*t, signer, 1000, h);
+
+        ep.write({res.data(), res.size()});
+        caps::serialize(ep, *t);
+    }
+
+    Ep& ep;
+};
+
 void handle_sock(int sock_fd, sockaddr_in addr)
 {
-	sock_raii closer{sock_fd};
+	sock_stream sock{sock_fd};
 
-	while (true)
-	{
-		char buffer[512];
-	    auto len = read(sock_fd, buffer, 512);
-	    if (len <= 0) return;
+    char buffer[100];
+    auto res = sock.read(buffer);
+    auto x = proc(res);
 
-		cw_unpack_context uc;
-	    cw_unpack_context_init (&uc, buffer, len, nullptr);
+    if (!x)
+    {
+    	std::cerr << "auth fail " << int(force_error(x)) << '\n';
+    	return;
+    }
 
-	    cw_unpack_next(&uc);
-	    if (uc.item.type != cwpack_item_types::CWP_ITEM_ARRAY)
-	    {
-	    	std::cerr << "should've been an array\n";
-	    	return;
-	    }
+    auto& req = force_get(x);
 
-	    cw_unpack_next(&uc);
-	    if (uc.item.type != cwpack_item_types::CWP_ITEM_POSITIVE_INTEGER)
-	    {
-	    	std::cerr << "should've been a tag\n";
-	    	return;
-	    }
+	req_handlers<sock_stream> s{sock};
 
-	    uint8_t tag = uc.item.as.u64;
-
-	    switch (tag)
-	    {
-	    	case WOOF_MSG_PUT:
-	    		handle_put(sock_fd, uc);
-	    		break;
-	    	case WOOF_MSG_GET_EL_SIZE:
-	    		handle_el_sz(sock_fd, uc);
-	    		break;
-    		case WOOF_MSG_GET:
-	    		handle_get(sock_fd, uc);
-	    		break;
-	    	default:
-	    		std::cerr << "non implemented tag: " << int(tag) << "!\n";
-	    		break;
-	    }
-	}
+	mpark::visit(handle, req);
 }
 
 extern "C"
