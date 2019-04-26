@@ -140,6 +140,18 @@ namespace caps
 
         merge_into(sign, req_hash);
 
+        for (auto c : c.signature.buf)
+        {
+            fprintf(stderr, "%02x", (unsigned int)(c));
+        }   
+        fprintf(stderr, "\n");
+
+        for (auto c : sign.buf)
+        {
+            fprintf(stderr, "%02x", (unsigned int)(c));
+        }   
+        fprintf(stderr, "\n");
+
         return sign == c.signature;
     }
 
