@@ -379,7 +379,11 @@ void handle_sock(int sock_fd, sockaddr_in addr)
 }
 
 using cap_ptr = caps::token_ptr<cspot::cap_t, caps::emsha::signer>;
-cap_ptr cap;
+cap_ptr cap = caps::mkcaps({
+    cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
+}, signer);
+
+
 uint32_t seq = 0;
 
 struct woof_addr_t
@@ -452,13 +456,14 @@ tos::expected<woof_addr_t, addr_parse_errors> parse_addr(tos::span<const char> a
 
 extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size) 
 {
+	auto addr = force_get(parse_addr({woof_name, strlen(woof_name)}));
     std::cerr << "got put\n";
 	std::vector<char> body(1024);
 	msgpack::packer bodyp{body};
 
 	auto putreq = bodyp.insert_arr(5);
 	putreq.insert(uint8_t(cspot::msg_tag::put));
-	putreq.insert(woof_name);
+	putreq.insert(addr.woof_name);
 	putreq.insert(hand_name);
 	putreq.insert(uint8_t(1)); // unused
 	putreq.insert(uint8_t(1)); // unused
@@ -471,7 +476,18 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 	auto reqseq = ++seq;
 	auto req_hash = signer.hash(req);
 
+	if (!cap)
+	{
+		std::cerr << "no cap\n";
+		return -1;
+	}
+
 	auto c = clone(*cap);
+	if (!c)
+	{
+		std::cerr << "clone failed\n";
+		return -1;
+	}
 	auto req_sign = caps::get_req_sign(*c, signer, reqseq, req_hash);
 	c->signature = req_sign;
 	std::vector<uint8_t> cap_buf(512);
@@ -488,7 +504,6 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 
 	auto res = p.get();
 
-	auto addr = force_get(parse_addr({woof_name, strlen(woof_name)}));
 
     std::cerr << addr.port.port << " : " << addr.woof_name << '\n';
     std::cerr << "calling socket\n";
