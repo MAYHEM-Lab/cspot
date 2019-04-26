@@ -548,7 +548,7 @@ extern "C"
 
 		std::cerr << "listening on " << port << '\n';
 
-        auto cap = caps::mkcaps({
+        cap = caps::mkcaps({
             cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
             }, signer);
 
