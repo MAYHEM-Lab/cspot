@@ -16,20 +16,20 @@ namespace cspot {
     };
 
     struct cap_t {
-        perms p : 3;
+        union {
+            char none;
+            namespace_id_t ns_id;
+            woof_id_t woof_id;
+        };
+
+        perms p;
         enum class types : uint8_t
         {
             nil,
             ns,
             woof,
             root
-        } type : 2;
-
-        union {
-            char none;
-            namespace_id_t ns_id;
-            woof_id_t woof_id;
-        };
+        } type;
 
         constexpr explicit cap_t() : p{}, type{types::nil}, none{0} {}
         constexpr explicit cap_t(woof_id_t id, perms pp) : p{pp}, type{types::woof}, woof_id{id} {}
@@ -40,6 +40,8 @@ namespace cspot {
 
         constexpr cap_t&operator=(const cap_t&) = default;
     };
+
+    static_assert(sizeof(cap_t) == 8, "bad cap size");
 }
 
 namespace cspot {
