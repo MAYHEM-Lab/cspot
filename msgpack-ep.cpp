@@ -211,7 +211,7 @@ namespace cspot
         char woof[16];
     };
 
-    using reqs = mpark::variant<mpark::monostate, put_req>;
+    using reqs = mpark::variant<mpark::monostate, put_req, get_el_sz_req>;
 
     cspot::cap_t req_to_tok(const reqs& r)
     {
@@ -219,6 +219,7 @@ namespace cspot
         {
             cap_t operator()(const mpark::monostate&) { return cap_t{}; }
             cap_t operator()(const put_req&) { return cap_t{woof_id_t{1}, perms::put}; }
+            cap_t operator()(const get_el_sz_req&) { return cap_t{woof_id_t{1}, perms::put}; }
         } vis;
 
         return mpark::visit(vis, r);
