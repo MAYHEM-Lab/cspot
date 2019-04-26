@@ -425,7 +425,6 @@ cap_ptr cap = caps::mkcaps({
     cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
 }, signer);
 
-
 uint32_t seq = 0;
 
 struct woof_addr_t
@@ -631,9 +630,9 @@ extern "C"
         {
             int write(tos::span<const char> buf)
             {
-                for (auto& c : buf)
+                for (auto c : buf)
                 {
-                    fprintf(stderr, "%02x", (unsigned int)(c));
+                    fprintf(stderr, "%02x ", (unsigned int)(c));
                 }
                 return buf.size();
             }
