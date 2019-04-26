@@ -450,6 +450,15 @@ tos::expected<woof_addr_t, addr_parse_errors> parse_addr(tos::span<const char> a
     return res;
 }
 
+inline uint64_t get_time()
+{
+    struct timespec spec;
+
+    clock_gettime(CLOCK_REALTIME, &spec);
+
+    return uint64_t(spec.tv_sec) * 1000 + uint64_t(spec.tv_nsec) / 1000000;
+}
+
 extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size) 
 {
     std::cerr << "got put\n";
@@ -468,7 +477,7 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 
 	auto req = bodyp.get();
 
-	auto reqseq = ++seq;
+	auto reqseq = get_time();
 	auto req_hash = signer.hash(req);
 
 	auto c = clone(*cap);
