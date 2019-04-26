@@ -69,6 +69,7 @@ namespace caps
             {
                 fprintf(stderr, "%02x", (unsigned int)(c));
             }   
+            fprintf(stderr, "\n");
 
             cw_unpack_next(&uc);
             if (uc.item.type != CWP_ITEM_POSITIVE_INTEGER)
@@ -77,6 +78,7 @@ namespace caps
             }
 
             uint64_t seq = uc.item.as.u64;
+            fprintf(stderr, "%llu\n", seq);
 
             if (seq <= last_seq)
             {
