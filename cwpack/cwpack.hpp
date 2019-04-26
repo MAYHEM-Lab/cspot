@@ -69,6 +69,7 @@ namespace tos
             void insert(float val);
             void insert(int32_t val);
             void insert(uint32_t val);
+            void insert(uint64_t val);
 
             void insert(uint8_t val) { insert((uint32_t)val); }
 
@@ -102,7 +103,11 @@ namespace tos
             cw_pack_signed(&m_ctx, val);
         }
 
-        void packer::insert(uint32_t val) {
+        inline void packer::insert(uint32_t val) {
+            cw_pack_unsigned(&m_ctx, val);
+        }
+
+        inline void packer::insert(uint64_t val) {
             cw_pack_unsigned(&m_ctx, val);
         }
 
