@@ -237,6 +237,7 @@ namespace cspot
             cw_unpack_next(&uc);
             if (uc.item.type != cwpack_item_types::CWP_ITEM_STR)
             {
+            	std::cerr << "no woof name\n";
                 return tos::unexpected(parse_error::unexpected);
             }
 
@@ -248,6 +249,7 @@ namespace cspot
             cw_unpack_next(&uc);
             if (uc.item.type != cwpack_item_types::CWP_ITEM_STR)
             {
+            	std::cerr << "no handler name\n";
                 return tos::unexpected(parse_error::unexpected);
             }
 
@@ -258,6 +260,8 @@ namespace cspot
         cw_unpack_next(&uc);
         if (uc.item.type != cwpack_item_types::CWP_ITEM_POSITIVE_INTEGER)
         {
+        	std::cerr << "no host\n";
+
             return tos::unexpected(parse_error::unexpected);
         }
 
@@ -266,6 +270,8 @@ namespace cspot
         cw_unpack_next(&uc);
         if (uc.item.type != cwpack_item_types::CWP_ITEM_POSITIVE_INTEGER)
         {
+        	std::cerr << "no host seq\n";
+
             return tos::unexpected(parse_error::unexpected);
         }
 
@@ -274,6 +280,8 @@ namespace cspot
         cw_unpack_next(&uc);
         if (uc.item.type != cwpack_item_types::CWP_ITEM_BIN)
         {
+        	std::cerr << "no data\n";
+         
             return tos::unexpected(parse_error::unexpected);
         }
 
