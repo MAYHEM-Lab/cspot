@@ -330,6 +330,7 @@ void *WooFContainerLauncher(void *arg)
 		sprintf(launch_string + strlen(launch_string),
 				"docker run -t "
 				"--rm " // option tells the container to remove itself when it is stopped
+				"--cap-add=SYS_PTRACE "
 				"--name CSPOTWorker-%s-%d "
 				"-e LD_LIBRARY_PATH=/usr/local/lib "
 				"-e WOOFC_NAMESPACE=%s "

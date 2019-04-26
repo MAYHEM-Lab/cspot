@@ -452,6 +452,7 @@ tos::expected<woof_addr_t, addr_parse_errors> parse_addr(tos::span<const char> a
 
 extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size) 
 {
+    std::cerr << "got put\n";
 	std::vector<char> body(1024);
 	msgpack::packer bodyp{body};
 
@@ -462,6 +463,8 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 	putreq.insert(uint8_t(1)); // unused
 	putreq.insert(uint8_t(1)); // unused
 	putreq.insert(span<const uint8_t>((const uint8_t*)element, el_size));
+
+    std::cerr << "req ok\n";
 
 	auto req = bodyp.get();
 
@@ -474,6 +477,7 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 	std::vector<uint8_t> cap_buf(512);
 	tos::omemory_stream cap_str{cap_buf};
 	caps::serialize(cap_str, *c);
+    std::cerr << "cap ok\n";
 
 	std::vector<char> buf(1024);
 	msgpack::packer p{buf};
@@ -486,6 +490,8 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 
 	auto addr = force_get(parse_addr({woof_name, strlen(woof_name)}));
 
+    std::cerr << addr.port.port << " : " << addr.woof_name << '\n';
+    std::cerr << "calling socket\n";
 	auto sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock <= 0)
 	{
@@ -498,6 +504,7 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 	std::memcpy(&serv_addr.sin_addr.s_addr, &addr.addr, 4);
 	serv_addr.sin_port = htons(addr.port.port - 10'000); // msgpack port is 10.000 less than the regular port
 
+    std::cerr << "calling connect\n";
     if (connect(sock,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
     {
         perror("ERROR connecting");
@@ -507,6 +514,8 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
     sock_stream ss{sock};
 
     ss->write(res);
+
+    std::cerr << "wrote\n";
 
     std::vector<char> buffer(512);
     auto d = ss->read(buffer);
