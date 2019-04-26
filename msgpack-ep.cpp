@@ -376,6 +376,17 @@ struct req_handlers
         ep.write({res.data(), res.size()});
         caps::serialize(ep, *t);
     }
+    void operator()(const cspot::get_el_sz_req& g)
+    {
+    	std::cerr << "sz of " << g.woof << '\n';
+
+		char buf[32];
+		tos::msgpack::packer p {buf};
+		p.insert(uint32_t(get_elem_sz(g.woof)));
+		auto res = p.get();
+
+		ep.write({res.data(), res.size()});
+    }
 
     Ep& ep;
 };
