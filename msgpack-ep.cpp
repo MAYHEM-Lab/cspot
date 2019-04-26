@@ -206,6 +206,11 @@ namespace cspot
         event_seq_t host_seq;
     };
 
+    struct get_el_sz_req
+    {
+        char woof[16];
+    };
+
     using reqs = mpark::variant<mpark::monostate, put_req>;
 
     cspot::cap_t req_to_tok(const reqs& r)
@@ -276,6 +281,23 @@ namespace cspot
         return res;
     }
 
+    tos::expected<get_el_sz_req, parse_error> parse_get_el_sz_req(cw_unpack_context& uc)
+    {
+        get_el_sz_req res;
+        {
+            cw_unpack_next(&uc);
+            if (uc.item.type != cwpack_item_types::CWP_ITEM_STR)
+            {
+                return tos::unexpected(parse_error::unexpected);
+            }
+
+            auto tmp = parse_container<std::string>(uc.item.as.str);
+            std::strncpy(res.woof, tmp.data(), std::size(res.woof));
+        }
+
+        return res;
+    }
+
     reqs parse_req(tos::span<const uint8_t> buf)
     {
         cw_unpack_context uc;
@@ -301,7 +323,7 @@ namespace cspot
                 return force_get(parse_put_req(uc));
                 break;
             case cspot::msg_tag::get_el_sz:
-                //handle_el_sz(ep, uc);
+                return force_get(parse_get_el_sz_req(uc));
                 break;
             case cspot::msg_tag::get:
                 //handle_get(ep, uc);
