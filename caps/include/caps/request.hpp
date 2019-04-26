@@ -65,6 +65,10 @@ namespace caps
             auto req_str = tos::span<const uint8_t>((uint8_t*)uc.item.as.bin.start, uc.item.as.bin.length);
             auto req_obj = parse(req_str);
             auto req_hash = signer.hash(req_str);
+            for (auto c : req_hash.buf)
+            {
+                fprintf(stderr, "%02x", (unsigned int)(c));
+            }   
 
             cw_unpack_next(&uc);
             if (uc.item.type != CWP_ITEM_POSITIVE_INTEGER)
