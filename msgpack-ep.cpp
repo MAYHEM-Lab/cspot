@@ -425,6 +425,15 @@ cap_ptr cap = caps::mkcaps({
     cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
 }, signer);
 
+int _ = []{
+    for (auto c : cap->signature.buf)
+    {
+        fprintf(stderr, "%02x", (unsigned int)(c));
+    }   
+    fprintf(stderr, "\n");
+    return 0;
+}();
+
 uint32_t seq = 0;
 
 struct woof_addr_t
