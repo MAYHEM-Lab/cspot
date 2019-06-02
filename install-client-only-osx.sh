@@ -1,9 +1,11 @@
 #!/bin/bash
 
-if [[ $EUID -ne 0 ]]; then
-   echo "run as root"
-   exit 1
-fi
+ME=`whoami`
+ISADMIN=`id -G $ME | grep ' 80 '`
+if ( test -z "$ISADMIN" ) ; then
+	echo "must be admin user under OSX to install deps
+	exit 1
+fi 
 
 
 HERE=`pwd`
@@ -16,7 +18,6 @@ cd ..
 cd mio; make
 cd $HERE
 
-cd zmq
-./install-zmq.sh
-cd ..
+brew install zeromq
+brew install czmq
 make abd
