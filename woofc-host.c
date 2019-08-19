@@ -28,7 +28,7 @@ struct cont_arg_stc
 
 typedef struct cont_arg_stc CA;
 
-// #define DEBUG
+#define DEBUG
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
@@ -338,25 +338,38 @@ void *WooFContainerLauncher(void *arg)
 		 * yield in case other threads need to complete
 		 */
 #ifdef DEBUG
-		fprintf(stdout, "WooFContainerLauncher: launch %d\n", count + 1);
+		fprintf(stdout, "WooFContainerLauncher: launching container no %d\n", count + 1);
 		fflush(stdout);
 #endif
 
 		launch_string = (char *)malloc(1024 * 8);
 		if (launch_string == NULL)
 		{
+			fprintf(stderr, "Fatal error: failed to malloc launch string\n");
 			exit(1);
 		}
 
-		memset(launch_string,0,4096);
+		fprintf(stdout, "allocated the launch string\n");
+
+		memset(launch_string, 0, 1024 * 8);
+
+		fprintf(stdout, "memsetted the launch string\n");
 
 		port = WooFPortHash(WooF_namespace);
 
+		fprintf(stdout, "hashed the port\n");
+
 		// begin constructing the launch string 
-		sprintf(launch_string + strlen(launch_string),
+		fprintf(stdout, "WooF_worker_containers[count]: %s\n", WooF_worker_containers[count]);
+		fprintf(stdout, "WooF_namespace: %s\n", WooF_namespace);
+		fprintf(stdout, "pathp: %s\n", pathp);
+		fprintf(stdout, "Name_id: %lu\n", Name_id);
+		fprintf(stdout, "Namelog_name: %s\n", Namelog_name);
+		fprintf(stdout, "Host_IIP: %s\n", Host_ip);
+
+		sprintf(launch_string,
 				"docker run -t "
 				"--cap-add=SYS_PTRACE "
-				"--name CSPOTWorker-%s-%d "
 				"--rm " // option tells the container that it shuold remove itself when stopped
 				"--name %s "
 				"-e LD_LIBRARY_PATH=/usr/local/lib "
@@ -371,7 +384,8 @@ void *WooFContainerLauncher(void *arg)
 				Name_id,
 				Namelog_name,
 				Host_ip);
-
+		
+		fprintf(stdout, "launch string: %s\n", launch_string);
 		if (count == 0)
 		{
 			sprintf(launch_string + strlen(launch_string),
