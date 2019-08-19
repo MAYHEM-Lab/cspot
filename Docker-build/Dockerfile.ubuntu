@@ -22,4 +22,5 @@ RUN /bin/bash -l -c '\
     cp liblapack.a /usr/local/lib && cp librefblas.a /usr/local/lib && \
     cd LAPACKE && make && cd .. && cp liblapacke.a /usr/local/lib && \
     cd ../ && rm -rf ${LAPACK}'
-RUN apt-get install -y python3
+# install python36 for AWS Lambda execution
+RUN apt-get update && apt-get install -y python3.6 unzip libjansson-dev libmicrohttpd-dev 

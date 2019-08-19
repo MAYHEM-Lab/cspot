@@ -516,7 +516,8 @@ inline uint64_t get_time()
 extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size) 
 {
 	auto addr = force_get(parse_addr({woof_name, strlen(woof_name)}));
-    std::cerr << "got put\n";
+    addr.port.port = 9993;
+    std::cerr << "got put, sending message to: port " << (int)addr.port.port << " (original woofname: " << woof_name << ")\n";
 	std::vector<char> body(1024);
 	msgpack::packer bodyp{body};
 
@@ -563,7 +564,6 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 
 	auto res = p.get();
 
-
     std::cerr << addr.port.port << " : " << addr.woof_name << '\n';
     std::cerr << "calling socket\n";
 	auto sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -576,9 +576,9 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
 	sockaddr_in serv_addr;
 	serv_addr.sin_family = AF_INET;
 	std::memcpy(&serv_addr.sin_addr.s_addr, &addr.addr, 4);
-	serv_addr.sin_port = htons(addr.port.port - 10'000); // msgpack port is 10.000 less than the regular port
+	serv_addr.sin_port = htons(addr.port.port /*- 10'000*/); // msgpack port is 10.000 less than the regular port
 
-    std::cerr << "calling connect\n";
+    std::cerr << "calling connect: " << serv_addr.sin_port << "\n";
     if (connect(sock,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
     {
         perror("ERROR connecting");

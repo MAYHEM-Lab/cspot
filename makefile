@@ -112,10 +112,10 @@ ${URILIB}:
 	cd ./uriparser2;make
 
 docker-image:
-	cd Docker-build; docker build -t cspot-docker-centos7 - < Dockerfile.ubuntu
+	cd Docker-build; docker build -t cspot-docker-centos7 - < Dockerfile.centos7
 
 force-docker:
-	cd Docker-build; docker build --no-cache -t cspot-docker-centos7 - < Dockerfile.ubuntu
+	cd Docker-build; docker build --no-cache -t cspot-docker-centos7 - < Dockerfile.centos7
 
 clean:
 	rm -f *.o log-test *.so
