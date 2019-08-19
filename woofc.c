@@ -1105,13 +1105,8 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	ELID *el_id;
 
 	if((seq_no == 0) || WooFInvalid(seq_no)) {
-<<<<<<< HEAD
 		return(-1);
 	}
-=======
-                return(-1);
-        }
->>>>>>> 58dd47ca24b4f336a1e0a77042445e61a04a0607
 
 	wfs = wf->shared;
 
