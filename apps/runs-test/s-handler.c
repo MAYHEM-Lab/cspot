@@ -16,6 +16,8 @@
 #include "woofc.h"
 #include "cspot-runstat.h"
 
+char my_cwd[255];
+
 int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 {
 	FA *fa = (FA *)ptr;
@@ -53,8 +55,6 @@ int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 
 	end = fa->seq_no;
 	start = end - (fa->sample_size-1);
-printf("SHandler: start: %lu, end: %lu\n",start,end);
-fflush(stdout);
 
 	v = (double *)malloc(sizeof(double)*fa->sample_size);
 	i = 0;
@@ -74,15 +74,26 @@ fflush(stdout);
 		fprintf(stderr,"SHandler couldn't put stat\n");
 		exit(1);
 	}
-printf("shandler: seq_no %lu, i: %d\n",seq_no,fa->i);
-fflush(stdout);
 
 	if(fa->logfile[0] != 0) {
 		fd = fopen(fa->logfile,"a");
+		if(fd == NULL) {
+			fprintf(stderr,
+				"SHandler: ERROR couldn't open logfile %s\n",
+				fa->logfile);
+			fflush(stderr);
+			fd = stdout;
+			fa->logfile[0] = 0;
+		}
 	} else {
 		fd = stdout;
 	}
-	fprintf(fd,"i: %d stat: %f\n",fa->i,stat);
+	fprintf(fd,"Runs stat i: %d stat: %f, seq_no: %d\n",
+		fa->i,stat,seq_no);
+	fflush(fd);
+printf("SHandler Runs stat i: %d stat: %f, seq_no: %d, count %d\n",
+		fa->i,stat,seq_no,fa->count);
+fflush(stdout);
 	if(fa->logfile[0] != 0) {
 		fclose(fd);
 	} else {
@@ -91,10 +102,10 @@ fflush(stdout);
 
 
 	if(seq_no == fa->count) {
+printf("SHandler spawning KHandler at %d\n",seq_no);
+fflush(stdout);
 		memcpy(&next_k,fa,sizeof(FA));
 		next_k.seq_no = seq_no;
-printf("SHandler: putting seq_no: %lu\n",seq_no);
-fflush(stdout);
 		seq_no = WooFPut(fa->kargs,"KHandler",&next_k);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"SHandler: couldn't create KHandler\n");

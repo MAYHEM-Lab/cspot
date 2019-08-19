@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# client only script for raspbian
+# for now, no container support -- soon
+
+USER=$1
+
+if [[ $EUID -ne 0 ]]; then
+   echo "run as root"
+   exit 1
+fi
+
+if [[ -z $USER ]]; then
+  if [[ $# -ne 1 ]]; then
+    echo "usage: ./install-ubuntu.sh <github-username>"
+    exit 1
+  else
+    USER=$1
+  fi
+fi
+
 
 HERE=`pwd`
 cd ..

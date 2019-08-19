@@ -159,6 +159,7 @@ int main(int argc, char **argv)
 
 	if(UseNameSpace == 1) {
 		sprintf(Wname,"%s",Fname);
+		sprintf(Wname2,"%s",Fname);
 	} else {
 		sprintf(Wname,"%s/%s",NameSpace,Fname);
 		sprintf(Wname2,"%s/%s",NameSpace2,Fname);
@@ -167,8 +168,11 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-	printf("Creating %s\n", Wname);
-	err = WooFCreate(Wname,sizeof(PP_EL),size);
+	if(UseNameSpace == 1) {
+		err = WooFCreate(Wname,sizeof(PP_EL),size);
+	} else {
+		err = WooFCreate(Fname,sizeof(PP_EL),size);
+	}
 
 	if(err < 0) {
 		fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
@@ -180,11 +184,18 @@ int main(int argc, char **argv)
 	if(UseNameSpace == 1) {
 		strncpy(el.next_woof,Wname,sizeof(el.next_woof));
 		strncpy(el.next_woof2,Wname2,sizeof(el.next_woof2));
-	} 
+	} else {
+		strncpy(el.next_woof,Fname,sizeof(el.next_woof));
+		strncpy(el.next_woof2,Fname,sizeof(el.next_woof2));
+	}
 
 	el.counter = 0;
 	el.max = size;
-	seq_no = WooFPut(Wname,"pong",(void *)&el);
+	if(UseNameSpace == 1) {
+		seq_no = WooFPut(Wname,"pong",(void *)&el);
+	} else {
+		seq_no = WooFPut(Fname,"pong",(void *)&el);
+	}
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"first WooFPut failed\n");

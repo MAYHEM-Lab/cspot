@@ -28,62 +28,61 @@ void putenv(const char* arg, const std::string& val)
 
 int main(int argc, char **argv)
 {
-	std::string ns;
-	std::string fname;
-	std::string namelog_dir;
+	// std::string ns;
+	// std::string fname;
+	// std::string namelog_dir;
 
-	for(int c = getopt(argc,argv,args); c != EOF; c = getopt(argc,argv,args)) {
-		switch(c) {
-			case 'f':
-			case 'W':
-				fname = std::string(optarg);
-				break;
-			case 'N':
-				ns = std::string(optarg);
-				break;
-			case 'H':
-				namelog_dir = std::string(optarg);
-				break;
-			default:
-				std::cerr << "unrecognized command " << (char)c << '\n' << Usage << '\n';
-				return 1;
-		}
-	}
+	// for(int c = getopt(argc,argv,args); c != EOF; c = getopt(argc,argv,args)) {
+	// 	switch(c) {
+	// 		case 'f':
+	// 		case 'W':
+	// 			fname = std::string(optarg);
+	// 			break;
+	// 		case 'N':
+	// 			ns = std::string(optarg); 
+	// 			break;
+	// 		case 'H':
+	// 			namelog_dir = std::string(optarg);
+	// 			break;
+	// 		default:
+	// 			std::cerr << "unrecognized command " << (char)c << '\n' << Usage << '\n';
+	// 			return 1;
+	// 	}
+	// }
 
-	if(fname.empty()) {
-		std::cerr << "must specify filename for woof\n" << Usage << '\n';
+	// if(fname.empty()) {
+	// 	std::cerr << "must specify filename for woof\n" << Usage << '\n';
+	// 	return 1;
+	// }
+
+	// if(!namelog_dir.empty()) {
+	// 	putenv("WOOF_NAMELOG_DIR", namelog_dir);
+	// }
+
+	// if(!ns.empty()) {
+	// 	putenv("WOOFC_DIR", ns);
+	// 	ns = "woof://" + ns + "/" + fname;
+	// } else {
+	// 	ns = fname;
+	// }
+
+	// WooFInit();
+
+	// auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
+	// if(err < 0) {
+	// 	std::cerr << "couldn't create woof from " << ns << '\n';
+	// 	return 1;
+	// }
+
+	int32_t x = 0;
+	std::cout << "Attempting WooFMsgPut" << std::endl;
+	auto ndx = WooFMsgPut("woof://10.22.13.127:9993/my_nspace/wf1", "push", (void *)&x, sizeof(int32_t));
+
+	if(WooFInvalid(ndx)) {
+		std::cerr << "first WooFPut failed for " << ndx << '\n';
 		return 1;
 	}
-
-	if(!namelog_dir.empty()) {
-		putenv("WOOF_NAMELOG_DIR", namelog_dir);
-	}
-
-	if(!ns.empty()) {
-		putenv("WOOFC_DIR", ns);
-		ns = "woof://" + ns + "/" + fname;
-	} else {
-		ns = fname;
-	}
-
-	WooFInit();
-
-	auto err = WooFCreate(ns.c_str(), sizeof(HW_EL), 5);
-	if(err < 0) {
-		std::cerr << "couldn't create woof from " << ns << '\n';
-		return 1;
-	}
-
-	HW_EL el {};
-	strncpy(el.string, "my first bark", sizeof(el.string));
-
-	auto ndx = WooFPut(ns.c_str(), "hw_shepherd", (void *)&el);
-
-	if(WooFInvalid(err)) {
-		std::cerr << "first WooFPut failed for " << ns << '\n';
-		return 1;
-	}
-
+	std::cout << "WooFPut succeeded!" << std::endl;
 	std::cout << "Seqnum: " << ndx << '\n';
 }
 

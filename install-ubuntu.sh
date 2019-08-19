@@ -1,6 +1,6 @@
 #!/bin/bash
 
-USER=richwolski
+USER=$1
 
 if [[ $EUID -ne 0 ]]; then
    echo "run as root"

@@ -1,15 +1,13 @@
 #!/bin/bash
 
-
 HERE=`pwd`
 yum -y install docker gcc-gfortran python-devel python34-devel
 cd ..
-git clone git@github.com:richwolski/euca-cutils.git
-git clone git@github.com:MAYHEM-Lab/mio.git
-git clone git@github.com:MAYHEM-Lab/matrix.git
-git clone git@github.com:MAYHEM-Lab/distributions.git
-git clone git@github.com:MAYHEM-Lab/ssa-changepoint.git
-
+git clone https://github.com/richwolski/euca-cutils.git
+git clone https://github.com/MAYHEM-Lab/mio.git
+git clone https://github.com/MAYHEM-Lab/matrix.git
+git clone https://github.com/MAYHEM-Lab/distributions.git
+git clone https://github.com/MAYHEM-Lab/ssa-changepoint.git
 cd euca-cutils; make -j12
 cd ..
 cd mio; make -j12
