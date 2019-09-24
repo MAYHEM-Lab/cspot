@@ -7,7 +7,8 @@ struct Data{
 
     DI di;
     char lw_name[255];
-    unsigned long vs;
+    char pw_name[255];
+    unsigned long version_stamp;
 
 };
 

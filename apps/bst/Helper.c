@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "Helper.h"
 
@@ -8,7 +9,6 @@
 
 int createWooF(char *woof_name, unsigned long element_size, unsigned long history_size){
     int err;
-    WooFInit();
     err = WooFCreate(woof_name, element_size, history_size);
     if(err < 0){
         fprintf(stderr, "could not create WooF named %s\n", woof_name);
@@ -32,3 +32,21 @@ unsigned long insertIntoWooF(char *woof_name, char *handler_name, void *element)
         return ndx;
 
 }
+
+char *getRandomWooFName(int size){
+
+    int i;
+    int charset_size;
+    char *ret;
+    char charset[] = "abcdefghijklmnopqrstuvwxyz";
+    
+    charset_size = strlen(charset);
+    ret = (char *)malloc((size + 1) * sizeof(char));
+    for(i = 0; i < size; ++i){
+        ret[i] = charset[rand() % charset_size];
+    }
+    ret[i] = '\0';
+
+    return ret;
+}
+
