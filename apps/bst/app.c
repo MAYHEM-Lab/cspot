@@ -13,10 +13,14 @@ int main(int argc, char **argv)
 {
     DI di;
     
+    WooFInit();
     BST_init(1, "AP", 100, "DATA", 100);   
     
     di.val = 'E';BST_insert(di);
+    di.val = 'C';BST_insert(di);
     
+    BST_preorder(1);
+
     pthread_exit(NULL);
     return(0);
 }
