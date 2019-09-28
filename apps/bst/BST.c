@@ -146,9 +146,11 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     unsigned long right_vs;
 
     if(parent_dw == 0){//null
+        fprintf(stdout, "{%lu} !!!PARENT NULL!!!\n", working_vs);
+        fflush(stdout);
         ap.dw_seq_no = child_dw;
         ap.lw_seq_no = child_lw;
-        insertIntoWooF(AP_WOOF_NAME, "AccessPointerHandler", (void *)&ap);
+        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
         return;
     }
 
@@ -157,20 +159,18 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     max_seq = WooFGetLatestSeqno(data.lw_name);
     if((max_seq - parent_lw + 1) < NUM_OF_ENTRIES_PER_NODE){//no need to copy
         // add child
-        memset(&link, 0, sizeof(LINK));
         link.dw_seq_no = child_dw;
         link.lw_seq_no = child_lw;
         link.type = type;
         link.version_stamp = working_vs;
-        insertIntoWooF(data.lw_name, "LinkHandler", (void *)&link);
+        insertIntoWooF(data.lw_name, NULL, (void *)&link);
         // add parent
-        memset(&link_1, 0, sizeof(LINK));
         WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
-        link_1.dw_seq_no = parent_dw;
-        link_1.lw_seq_no = parent_lw;
-        link_1.type = 'P';
-        link_1.version_stamp = working_vs;
-        insertIntoWooF(data.pw_name, "LinkHandler", (void *)&link_1);
+        link.dw_seq_no = parent_dw;
+        link.lw_seq_no = parent_lw;
+        link.type = 'P';
+        link.version_stamp = working_vs;
+        insertIntoWooF(data.pw_name, NULL, (void *)&link);
         return;
     }
 
@@ -181,30 +181,37 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
         link.version_stamp = right_vs;
         link.type = 'R';
         WooFGet(DATA_WOOF_NAME, (void *)&data, parent_dw);
-        insertIntoWooF(data.lw_name, "LinkHandler", (void *)&link);
+        insertIntoWooF(data.lw_name, NULL, (void *)&link);
     }else{//copy left
         link.dw_seq_no = left_dw_seq_no;
         link.lw_seq_no = left_lw_seq_no;
         link.version_stamp = left_vs;
         link.type = 'L';
         WooFGet(DATA_WOOF_NAME, (void *)&data, parent_dw);
-        insertIntoWooF(data.lw_name, "LinkHandler", (void *)&link);
+        insertIntoWooF(data.lw_name, NULL, (void *)&link);
     }
     //add new link to parent
     link.dw_seq_no = child_dw;
     link.lw_seq_no = child_lw;
     link.version_stamp = working_vs;
     link.type = type;
-    insertIntoWooF(data.lw_name, "LinkHandler", (void *)&link);
+    insertIntoWooF(data.lw_name, NULL, (void *)&link);
     //set parent
-    link_1.dw_seq_no = parent_dw;
-    link_1.lw_seq_no = max_seq + 1;
-    link_1.type = 'P';
-    link_1.version_stamp = working_vs;
+    link.dw_seq_no = parent_dw;
+    link.lw_seq_no = max_seq + 1;
+    link.type = 'P';
+    link.version_stamp = working_vs;
     WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
-    insertIntoWooF(data.pw_name, "LinkHandler", (void *)&link_1);
+    insertIntoWooF(data.pw_name, NULL, (void *)&link);
+    //also if parent_dw happens to be head, update AP
+    WooFGet(AP_WOOF_NAME, (void *)&ap, WooFGetLatestSeqno(AP_WOOF_NAME));
+    if(ap.dw_seq_no == link.dw_seq_no){
+        ap.lw_seq_no = link.lw_seq_no;
+        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
+    }
 
-    WooFGet(DATA_WOOF_NAME, (void *)&data, parent_dw);
+    //WooFGet(DATA_WOOF_NAME, (void *)&data, parent_dw);
+    WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
     child_dw = parent_dw;
     child_lw = parent_lw;
     WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
@@ -236,11 +243,22 @@ void BST_insert(DI di){
         strcpy(data.lw_name, getRandomWooFName(WOOF_NAME_SIZE));
         strcpy(data.pw_name, getRandomWooFName(WOOF_NAME_SIZE));
         data.version_stamp = working_vs;
-        ndx = insertIntoWooF(DATA_WOOF_NAME, "DataHandler", (void *)&data);
+        ndx = insertIntoWooF(DATA_WOOF_NAME, NULL, (void *)&data);
+        WooFCreate(data.lw_name, sizeof(LINK), 100);
+        WooFCreate(data.pw_name, sizeof(LINK), 100);
+        link.dw_seq_no = 0;
+        link.lw_seq_no = 0;
+        link.version_stamp = data.version_stamp;
+        link.type = 'L';
+        WooFPut(data.lw_name, NULL, (void *)&link);
+        link.type = 'R';
+        WooFPut(data.lw_name, NULL, (void *)&link);
+        link.type = 'P';
+        WooFPut(data.pw_name, NULL, (void *)&link);
         /* insert into ap woof */
         ap.dw_seq_no = ndx;
         ap.lw_seq_no = 1;
-        insertIntoWooF(AP_WOOF_NAME, "AccessPointerHandler", (void *)&ap);
+        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
         VERSION_STAMP = working_vs;
         return;
     }
@@ -249,14 +267,26 @@ void BST_insert(DI di){
     strcpy(data.lw_name, getRandomWooFName(WOOF_NAME_SIZE));
     strcpy(data.pw_name, getRandomWooFName(WOOF_NAME_SIZE));
     data.version_stamp = working_vs;
-    ndx = insertIntoWooF(DATA_WOOF_NAME, "DataHandler", (void *)&data);
+    ndx = insertIntoWooF(DATA_WOOF_NAME, NULL, (void *)&data);
+    WooFCreate(data.lw_name, sizeof(LINK), 100);
+    WooFCreate(data.pw_name, sizeof(LINK), 100);
+    link.dw_seq_no = 0;
+    link.lw_seq_no = 0;
+    link.version_stamp = data.version_stamp;
+    link.type = 'L';
+    WooFPut(data.lw_name, NULL, (void *)&link);
+    link.type = 'R';
+    WooFPut(data.lw_name, NULL, (void *)&link);
+    link.type = 'P';
+    WooFPut(data.pw_name, NULL, (void *)&link);
+
     WooFGet(DATA_WOOF_NAME, (void *)&parent_data, ap.dw_seq_no);
     add_node(working_vs, (data.di.val < parent_data.di.val) ? 'L' : 'R', ndx, 1, ap.dw_seq_no, ap.lw_seq_no);
 
     ndx = WooFGetLatestSeqno(AP_WOOF_NAME);
     if(ndx < working_vs){
         WooFGet(AP_WOOF_NAME, (void *)&ap, ndx);
-        insertIntoWooF(AP_WOOF_NAME, "AccessPointerHandler", (void *)&ap);
+        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
     }
     VERSION_STAMP = working_vs;
 
@@ -298,7 +328,9 @@ void BST_preorder(unsigned long version_stamp){
 void BST_debug(){
     unsigned long i;
     LINK link;
-    char woof_name[] = "nwlrbbmqbh";
+    AP ap;
+
+    char woof_name[] = "bynecdyggx";
     //E - nwlrbbmqbh cdarzowkky
     //C - hiddqscdxr jmowfrxsjy
     //M - bldbefsarc bynecdyggx
@@ -307,4 +339,12 @@ void BST_debug(){
         fprintf(stdout, "%lu %lu %c %lu\n", link.dw_seq_no, link.lw_seq_no, link.type, link.version_stamp);
         fflush(stdout);
     }
+
+    //AP
+    for(i = 1; i <= WooFGetLatestSeqno("AP"); ++i){
+        WooFGet("AP", (void *)&ap, i);
+        fprintf(stdout, "%lu: %lu %lu\n", i, ap.dw_seq_no, ap.lw_seq_no);
+        fflush(stdout);
+    }
+
 }
