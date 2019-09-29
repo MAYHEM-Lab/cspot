@@ -12,6 +12,7 @@
 int main(int argc, char **argv)
 {
     DI di;
+    unsigned long i;
 
     WooFInit();
     BST_init(1, "AP", 100, "DATA", 100);   
@@ -19,10 +20,13 @@ int main(int argc, char **argv)
     di.val = 'E';BST_insert(di);
     di.val = 'C';BST_insert(di);
     di.val = 'M';BST_insert(di);
+    di.val = 'O';BST_insert(di);
+    di.val = 'A';BST_insert(di);
+    di.val = 'I';BST_insert(di);
 
-    BST_preorder(1);
-    BST_preorder(2);
-    BST_preorder(3);
+    for(i = 1; i <= 6; ++i){
+        BST_preorder(i);
+    }
 
     BST_debug();
 
