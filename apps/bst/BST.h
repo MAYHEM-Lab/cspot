@@ -51,6 +51,9 @@ void preorder_BST(unsigned long version_stamp, unsigned long dw_seq_no, unsigned
  **/
 void BST_preorder(unsigned long version_stamp);
 
+void dump_link_woof(char *name);
+void dump_data_woof();
+void dump_ap_woof();
 void BST_debug();
 
 #endif

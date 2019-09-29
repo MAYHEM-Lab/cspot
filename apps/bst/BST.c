@@ -325,26 +325,46 @@ void BST_preorder(unsigned long version_stamp){
     fflush(stdout);
 }
 
-void BST_debug(){
+void dump_link_woof(char *name){
     unsigned long i;
     LINK link;
-    AP ap;
-
-    char woof_name[] = "bynecdyggx";
-    //E - nwlrbbmqbh cdarzowkky
-    //C - hiddqscdxr jmowfrxsjy
-    //M - bldbefsarc bynecdyggx
-    for(i = 1; i <= WooFGetLatestSeqno(woof_name); ++i){
-        WooFGet(woof_name, (void *)&link, i);
-        fprintf(stdout, "%lu %lu %c %lu\n", link.dw_seq_no, link.lw_seq_no, link.type, link.version_stamp);
+    for(i = 1; i <= WooFGetLatestSeqno(name); ++i){
+        WooFGet(name, (void *)&link, i);
+        fprintf(stdout, "%lu: %lu %lu %c %lu\n", i, link.dw_seq_no, link.lw_seq_no, link.type, link.version_stamp);
         fflush(stdout);
     }
+}
 
-    //AP
+void dump_data_woof(){
+    unsigned long i;
+    DATA data;
+    for(i = 1; i <= WooFGetLatestSeqno("DATA"); ++i){
+        WooFGet("DATA", (void *)&data, i);
+        fprintf(stdout, "%lu: %c %s %s\n", i, data.di.val, data.lw_name, data.pw_name);
+        fflush(stdout);
+    }
+}
+
+void dump_ap_woof(){
+    unsigned long i;
+    AP ap;
     for(i = 1; i <= WooFGetLatestSeqno("AP"); ++i){
         WooFGet("AP", (void *)&ap, i);
         fprintf(stdout, "%lu: %lu %lu\n", i, ap.dw_seq_no, ap.lw_seq_no);
         fflush(stdout);
     }
+}
+
+void BST_debug(){
+
+    //dump_data_woof();
+    //dump_ap_woof();
+    dump_link_woof("bldbefsarc");
+    //E - nwlrbbmqbh cdarzowkky
+    //C - hiddqscdxr jmowfrxsjy
+    //M - bldbefsarc bynecdyggx
+    //O - xpklorelln mpapqfwkho
+    //A - pkmcoqhnwn kuewhsqmgb
+    //I - buqcljjivs wmdkqtbxix
 
 }
