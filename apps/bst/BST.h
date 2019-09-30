@@ -59,6 +59,17 @@ void search_BST(DI di, unsigned long version_stamp, unsigned long current_dw, un
 void BST_search(DI di, unsigned long version_stamp, unsigned long *dw_seq_no, unsigned long *lw_seq_no);
 
 /**
+ * helper function
+ * populates predecessor node of the given node
+ *
+ * target_dw: dw seq no of the target node
+ * target_lw: lw seq no of the target node
+ * pred_dw: out parameter, dw seq no of the predecessor
+ * pred_lw: out parameter, lw seq no of the predecessor
+ **/
+void populate_predecessor(unsigned long target_dw, unsigned long target_lw, unsigned long *pred_dw, unsigned long *pred_lw);
+
+/**
  * deletes data from the bst
  **/
 void BST_delete(DI di);
