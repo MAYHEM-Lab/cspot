@@ -167,12 +167,14 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
         link.version_stamp = working_vs;
         insertIntoWooF(data.lw_name, NULL, (void *)&link);
         // add parent
-        WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
-        link.dw_seq_no = parent_dw;
-        link.lw_seq_no = parent_lw;
-        link.type = 'P';
-        link.version_stamp = working_vs;
-        insertIntoWooF(data.pw_name, NULL, (void *)&link);
+        if(child_dw != 0){
+            WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
+            link.dw_seq_no = parent_dw;
+            link.lw_seq_no = parent_lw;
+            link.type = 'P';
+            link.version_stamp = working_vs;
+            insertIntoWooF(data.pw_name, NULL, (void *)&link);
+        }
         return;
     }
 
@@ -199,27 +201,29 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     link.type = type;
     insertIntoWooF(data.lw_name, NULL, (void *)&link);
     //add parent
-    link.dw_seq_no = parent_dw;
-    link.lw_seq_no = max_seq + 1;
-    link.type = 'P';
-    link.version_stamp = working_vs;
-    WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
-    insertIntoWooF(data.pw_name, NULL, (void *)&link);
+    if(child_dw != 0){
+        link.dw_seq_no = parent_dw;
+        link.lw_seq_no = max_seq + 1;
+        link.type = 'P';
+        link.version_stamp = working_vs;
+        WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
+        insertIntoWooF(data.pw_name, NULL, (void *)&link);
+    }
 
     WooFGet(AP_WOOF_NAME, (void *)&ap, WooFGetLatestSeqno(AP_WOOF_NAME));
     if(ap.dw_seq_no == link.dw_seq_no){//if parent_dw happens to be head, update AP
         ap.lw_seq_no = link.lw_seq_no;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
     }else{//add the copy as child node
-    child_dw = parent_dw;
-    //child_lw = parent_lw;
-    child_lw = max_seq + 1;
-    WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
-    WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
-    parent_dw = link.dw_seq_no;
-    parent_lw = link.lw_seq_no;
-    type = which_child(parent_dw, parent_lw, child_dw, child_lw);
-    add_node(working_vs, type, child_dw, child_lw, parent_dw, parent_lw);
+        child_dw = parent_dw;
+        //child_lw = parent_lw;
+        child_lw = max_seq + 1;
+        WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
+        WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
+        parent_dw = link.dw_seq_no;
+        parent_lw = link.lw_seq_no;
+        type = which_child(parent_dw, parent_lw, child_dw, child_lw);
+        add_node(working_vs, type, child_dw, child_lw, parent_dw, parent_lw);
     }
 }
 
@@ -331,6 +335,42 @@ void BST_search(DI di, unsigned long version_stamp, unsigned long *dw_seq_no, un
     AP ap;
     WooFGet(AP_WOOF_NAME, (void *)&ap, version_stamp);
     search_BST(di, version_stamp, ap.dw_seq_no, ap.lw_seq_no, dw_seq_no, lw_seq_no);
+}
+
+void BST_delete(DI di){
+
+    LINK link;
+    DATA data;
+    AP ap;
+    unsigned long working_vs;
+    unsigned long target_dw;
+    unsigned long target_lw;
+    unsigned long left_dw_seq_no;
+    unsigned long left_lw_seq_no;
+    unsigned long right_dw_seq_no;
+    unsigned long right_lw_seq_no;
+    unsigned long left_vs;
+    unsigned long right_vs;
+
+    working_vs = VERSION_STAMP + 1;
+    BST_search(di, VERSION_STAMP, &target_dw, &target_lw);
+
+    if(target_dw == 0) return;//not present
+
+    populate_current_left_right(VERSION_STAMP, target_dw, target_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+
+    if(left_dw_seq_no == 0 && right_dw_seq_no == 0){//no child present
+        WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
+        WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
+        add_node(working_vs, which_child(link.dw_seq_no, link.lw_seq_no, target_dw, target_lw), 0, 0, link.dw_seq_no, link.lw_seq_no);
+    }
+
+    if(WooFGetLatestSeqno(AP_WOOF_NAME) < working_vs){
+        WooFGet(AP_WOOF_NAME, (void *)&ap, VERSION_STAMP);
+        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
+        VERSION_STAMP = working_vs;
+    }
+
 }
 
 void preorder_BST(unsigned long version_stamp, unsigned long dw_seq_no, unsigned long lw_seq_no){
