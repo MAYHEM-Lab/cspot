@@ -363,6 +363,14 @@ void BST_delete(DI di){
         WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
         WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
         add_node(working_vs, which_child(link.dw_seq_no, link.lw_seq_no, target_dw, target_lw), 0, 0, link.dw_seq_no, link.lw_seq_no);
+    }else if(left_dw_seq_no != 0 && right_dw_seq_no == 0){//only left child present
+        WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
+        WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
+        add_node(working_vs, which_child(link.dw_seq_no, link.lw_seq_no, target_dw, target_lw), left_dw_seq_no, left_lw_seq_no, link.dw_seq_no, link.lw_seq_no);
+    }else if(left_dw_seq_no == 0 && right_dw_seq_no != 0){//only right child present
+        WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
+        WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
+        add_node(working_vs, which_child(link.dw_seq_no, link.lw_seq_no, target_dw, target_lw), right_dw_seq_no, right_lw_seq_no, link.dw_seq_no, link.lw_seq_no);
     }
 
     if(WooFGetLatestSeqno(AP_WOOF_NAME) < working_vs){
