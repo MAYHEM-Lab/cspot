@@ -172,9 +172,6 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
         link.lw_seq_no = parent_lw;
         link.type = 'P';
         link.version_stamp = working_vs;
-        fprintf(stdout, "parent:{%lu} child:{%lu}\n", parent_dw, child_dw);
-        fprintf(stdout, "adding to {%s}: (%lu, %lu)\n", data.pw_name, link.dw_seq_no, link.lw_seq_no);
-        fflush(stdout);
         insertIntoWooF(data.pw_name, NULL, (void *)&link);
         return;
     }
@@ -297,6 +294,45 @@ void BST_insert(DI di){
 
 }
 
+void search_BST(DI di, unsigned long version_stamp, unsigned long current_dw, unsigned long current_lw, unsigned long *dw_seq_no, unsigned long *lw_seq_no){
+
+    DATA data;
+    unsigned long left_dw_seq_no;
+    unsigned long left_lw_seq_no;
+    unsigned long right_dw_seq_no;
+    unsigned long right_lw_seq_no;
+    unsigned long left_vs;
+    unsigned long right_vs;
+
+    if(current_dw == 0){//null
+        *dw_seq_no = 0;
+        *lw_seq_no = 0;
+        return;
+    }
+
+    WooFGet(DATA_WOOF_NAME, (void *)&data, current_dw);
+    if(data.di.val == di.val){//found data
+        *dw_seq_no = current_dw;
+        *lw_seq_no = current_lw;
+        return;
+    }
+
+    populate_current_left_right(version_stamp, current_dw, current_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+
+    if(di.val < data.di.val){
+        search_BST(di, version_stamp, left_dw_seq_no, left_lw_seq_no, dw_seq_no, lw_seq_no);
+    }else{
+        search_BST(di, version_stamp, right_dw_seq_no, right_lw_seq_no, dw_seq_no, lw_seq_no);
+    }
+    
+}
+
+void BST_search(DI di, unsigned long version_stamp, unsigned long *dw_seq_no, unsigned long *lw_seq_no){
+    AP ap;
+    WooFGet(AP_WOOF_NAME, (void *)&ap, version_stamp);
+    search_BST(di, version_stamp, ap.dw_seq_no, ap.lw_seq_no, dw_seq_no, lw_seq_no);
+}
+
 void preorder_BST(unsigned long version_stamp, unsigned long dw_seq_no, unsigned long lw_seq_no){
 
     DATA data;
@@ -366,7 +402,7 @@ void BST_debug(){
     //dump_data_woof();
     //dump_ap_woof();
     
-    dump_link_woof("nwlrbbmqbh");
+    //dump_link_woof("nwlrbbmqbh");
     //dump_link_woof("xpklorelln");
     //dump_link_woof("mpapqfwkho");
     //dump_link_woof("pkmcoqhnwn");
@@ -380,5 +416,16 @@ void BST_debug(){
     //O - xpklorelln mpapqfwkho
     //A - pkmcoqhnwn kuewhsqmgb
     //I - buqcljjivs wmdkqtbxix
+    
+    DI di;
+    unsigned long dw_seq_no;
+    unsigned long lw_seq_no;
+    unsigned long version_stamp;
+
+    version_stamp = 3;
+    di.val = 'E';
+    BST_search(di, version_stamp, &dw_seq_no, &lw_seq_no);
+    fprintf(stdout, "{%lu:%c} found in {%lu} {%lu}\n", version_stamp, di.val, dw_seq_no, lw_seq_no);
+    fflush(stdout);
 
 }
