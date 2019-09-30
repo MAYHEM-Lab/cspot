@@ -23,10 +23,13 @@ int main(int argc, char **argv)
     di.val = 'O';BST_insert(di);
     di.val = 'A';BST_insert(di);
     di.val = 'I';BST_insert(di);
+    di.val = 'G';BST_insert(di);
+    di.val = 'K';BST_insert(di);
+    di.val = 'J';BST_insert(di);
 
-    for(i = 5; i <= 6; ++i){
-        BST_preorder(i);
-    }
+    //for(i = 1; i <= 9; ++i){
+    //    BST_preorder(i);
+    //}
 
     BST_debug();
 
