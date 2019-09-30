@@ -135,6 +135,7 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
 
     AP ap;
     DATA data;
+    DATA debug_data;
     LINK link, link_1;
     unsigned long max_seq;
 
@@ -148,8 +149,6 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     if(parent_dw == child_dw) return;
 
     if(parent_dw == 0){//null
-        fprintf(stdout, "{%lu} !!!PARENT NULL!!!\n", working_vs);
-        fflush(stdout);
         ap.dw_seq_no = child_dw;
         ap.lw_seq_no = child_lw;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
@@ -159,7 +158,8 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     //can fit in
     WooFGet(DATA_WOOF_NAME, (void *)&data, parent_dw);
     max_seq = WooFGetLatestSeqno(data.lw_name);
-    if((max_seq - parent_lw + 1) < NUM_OF_ENTRIES_PER_NODE){//no need to copy
+    //if((max_seq - parent_lw + 1) < NUM_OF_ENTRIES_PER_NODE){//no need to copy
+    if(! ((max_seq % NUM_OF_ENTRIES_PER_NODE) == 0)){//no need to copy
         // add child
         link.dw_seq_no = child_dw;
         link.lw_seq_no = child_lw;
@@ -215,8 +215,11 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
         ap.lw_seq_no = link.lw_seq_no;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
     }else{//add the copy as child node
+        WooFGet(DATA_WOOF_NAME, (void *)&data, parent_dw);
+        WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
+        if(link.dw_seq_no == child_dw) return;
+
         child_dw = parent_dw;
-        //child_lw = parent_lw;
         child_lw = max_seq + 1;
         WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
         WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
@@ -337,20 +340,68 @@ void BST_search(DI di, unsigned long version_stamp, unsigned long *dw_seq_no, un
     search_BST(di, version_stamp, ap.dw_seq_no, ap.lw_seq_no, dw_seq_no, lw_seq_no);
 }
 
-void BST_delete(DI di){
+void populate_predecessor(unsigned long target_dw, unsigned long target_lw, unsigned long *pred_dw, unsigned long *pred_lw){
 
-    LINK link;
-    DATA data;
-    AP ap;
-    unsigned long working_vs;
-    unsigned long target_dw;
-    unsigned long target_lw;
     unsigned long left_dw_seq_no;
     unsigned long left_lw_seq_no;
     unsigned long right_dw_seq_no;
     unsigned long right_lw_seq_no;
     unsigned long left_vs;
     unsigned long right_vs;
+
+    populate_current_left_right(VERSION_STAMP, target_dw, target_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+
+    target_dw = left_dw_seq_no;
+    target_lw = left_lw_seq_no;
+
+    while(1){
+        populate_current_left_right(VERSION_STAMP, target_dw, target_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+        if(right_dw_seq_no == 0) break;
+        target_dw = right_dw_seq_no;
+        target_lw = right_lw_seq_no;
+    }
+
+    *pred_dw = target_dw;
+    *pred_lw = target_lw;
+
+}
+
+void BST_delete(DI di){
+
+    LINK link;
+    LINK pred_parent_link;
+    LINK parent_link;
+    DATA data;
+    DATA pred_data;
+    DATA debug_data;
+    AP ap;
+
+    unsigned long working_vs;
+
+    unsigned long target_dw;
+    unsigned long target_lw;
+
+    unsigned long left_dw_seq_no;
+    unsigned long left_lw_seq_no;
+    unsigned long right_dw_seq_no;
+    unsigned long right_lw_seq_no;
+    unsigned long left_vs;
+    unsigned long right_vs;
+
+    unsigned long pred_left_dw_seq_no;
+    unsigned long pred_left_lw_seq_no;
+    unsigned long pred_right_dw_seq_no;
+    unsigned long pred_right_lw_seq_no;
+    unsigned long pred_left_vs;
+    unsigned long pred_right_vs;
+
+    unsigned long pred_dw;
+    unsigned long pred_lw;
+
+    unsigned long latest_seq;
+
+    char type;
+    char pred_type;
 
     working_vs = VERSION_STAMP + 1;
     BST_search(di, VERSION_STAMP, &target_dw, &target_lw);
@@ -371,13 +422,79 @@ void BST_delete(DI di){
         WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
         WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));
         add_node(working_vs, which_child(link.dw_seq_no, link.lw_seq_no, target_dw, target_lw), right_dw_seq_no, right_lw_seq_no, link.dw_seq_no, link.lw_seq_no);
+    }else{//both children present
+        populate_predecessor(target_dw, target_lw, &pred_dw, &pred_lw);
+        WooFGet(DATA_WOOF_NAME, (void *)&pred_data, pred_dw);
+        WooFGet(pred_data.pw_name, (void *)&pred_parent_link, WooFGetLatestSeqno(pred_data.pw_name));//pred_parent
+        WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
+        WooFGet(data.pw_name, (void *)&parent_link, WooFGetLatestSeqno(data.pw_name));//parent
+        type = which_child(parent_link.dw_seq_no, parent_link.lw_seq_no, target_dw, target_lw);
+        pred_type = which_child(pred_parent_link.dw_seq_no, pred_parent_link.lw_seq_no, pred_dw, pred_lw);
+
+        populate_current_left_right(VERSION_STAMP, pred_dw, pred_lw, &pred_left_dw_seq_no, &pred_left_lw_seq_no, &pred_left_vs, &pred_right_dw_seq_no, &pred_right_lw_seq_no, &pred_right_vs);
+        populate_current_left_right(VERSION_STAMP, target_dw, target_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+
+        if(pred_parent_link.dw_seq_no != target_dw){//parent of predecessor is not the target
+            add_node(working_vs, pred_type, pred_left_dw_seq_no, pred_left_lw_seq_no, pred_parent_link.dw_seq_no, pred_parent_link.lw_seq_no);
+            WooFGet(DATA_WOOF_NAME, (void *)&data, pred_parent_link.dw_seq_no);
+            latest_seq = WooFGetLatestSeqno(data.lw_name);
+            pred_parent_link.lw_seq_no = 
+                latest_seq - 
+                (
+                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ? 
+                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+                ) + 1;
+        }
+
+        if(left_dw_seq_no != pred_dw){//left of target is not the predecessor
+            add_node(working_vs, 'L', left_dw_seq_no, left_lw_seq_no, pred_dw, pred_lw);
+            WooFGet(DATA_WOOF_NAME, (void *)&data, pred_dw);
+            latest_seq = WooFGetLatestSeqno(data.lw_name);
+            pred_lw = 
+                latest_seq -
+                (
+                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+                ) + 1;
+        }
+
+        add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);
+        WooFGet(DATA_WOOF_NAME, (void *)&data, pred_dw);
+        latest_seq = WooFGetLatestSeqno(data.lw_name);
+        pred_lw = 
+            pred_lw -
+            (
+             (pred_lw % NUM_OF_ENTRIES_PER_NODE == 0) ?
+             (NUM_OF_ENTRIES_PER_NODE) : (pred_lw % NUM_OF_ENTRIES_PER_NODE)
+            ) + 1;
+
+        WooFGet(DATA_WOOF_NAME, (void *)&data, pred_dw);
+        latest_seq = WooFGetLatestSeqno(data.lw_name);
+        pred_lw = 
+            latest_seq -
+            (
+             (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+             (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+            ) + 1;
+        if(type == 'R' || type == 'L'){
+            add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);
+        }else{
+            ap.dw_seq_no = pred_dw;
+            ap.lw_seq_no = pred_lw;
+            insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
+            link.dw_seq_no = 0;
+            link.lw_seq_no = 0;
+            link.type = 'P';
+            link.version_stamp = working_vs;
+            insertIntoWooF(pred_data.pw_name, NULL, (void *)&link);
+        }
     }
 
     if(WooFGetLatestSeqno(AP_WOOF_NAME) < working_vs){
         WooFGet(AP_WOOF_NAME, (void *)&ap, VERSION_STAMP);
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
-        VERSION_STAMP = working_vs;
     }
+    VERSION_STAMP = working_vs;
 
 }
 
@@ -408,8 +525,10 @@ void preorder_BST(unsigned long version_stamp, unsigned long dw_seq_no, unsigned
 
 void BST_preorder(unsigned long version_stamp){
     AP ap;
-    WooFGet(AP_WOOF_NAME, (void *)&ap, version_stamp);
-    preorder_BST(version_stamp, ap.dw_seq_no, ap.lw_seq_no);
+    if(WooFGetLatestSeqno(AP_WOOF_NAME) >= version_stamp){
+        WooFGet(AP_WOOF_NAME, (void *)&ap, version_stamp);
+        preorder_BST(version_stamp, ap.dw_seq_no, ap.lw_seq_no);
+    }
     fprintf(stdout, "\n");
     fflush(stdout);
 }
@@ -447,33 +566,8 @@ void dump_ap_woof(){
 
 void BST_debug(){
 
-    //dump_data_woof();
-    //dump_ap_woof();
-    
-    //dump_link_woof("nwlrbbmqbh");
-    //dump_link_woof("xpklorelln");
-    //dump_link_woof("mpapqfwkho");
-    //dump_link_woof("pkmcoqhnwn");
-    //dump_link_woof("kuewhsqmgb");
-    //dump_link_woof("buqcljjivs");
-    //dump_link_woof("wmdkqtbxix");
-
-    //E - nwlrbbmqbh cdarzowkky
-    //C - hiddqscdxr jmowfrxsjy
-    //M - bldbefsarc bynecdyggx
-    //O - xpklorelln mpapqfwkho
-    //A - pkmcoqhnwn kuewhsqmgb
-    //I - buqcljjivs wmdkqtbxix
-    
-    DI di;
-    unsigned long dw_seq_no;
-    unsigned long lw_seq_no;
-    unsigned long version_stamp;
-
-    version_stamp = 3;
-    di.val = 'E';
-    BST_search(di, version_stamp, &dw_seq_no, &lw_seq_no);
-    fprintf(stdout, "{%lu:%c} found in {%lu} {%lu}\n", version_stamp, di.val, dw_seq_no, lw_seq_no);
-    fflush(stdout);
+    DATA data;
+    WooFGet(DATA_WOOF_NAME, (void *)&data, 2);
+    dump_link_woof(data.lw_name);
 
 }
