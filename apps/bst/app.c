@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     di.val = 'A';BST_insert(di);
     di.val = 'I';BST_insert(di);
 
-    for(i = 1; i <= 6; ++i){
+    for(i = 5; i <= 6; ++i){
         BST_preorder(i);
     }
 
