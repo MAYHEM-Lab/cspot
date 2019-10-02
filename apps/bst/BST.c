@@ -570,8 +570,6 @@ void dump_ap_woof(){
 
 void BST_debug(){
 
-    DATA data;
-    WooFGet(DATA_WOOF_NAME, (void *)&data, 2);
-    dump_link_woof(data.lw_name);
+    dump_data_woof();
 
 }
