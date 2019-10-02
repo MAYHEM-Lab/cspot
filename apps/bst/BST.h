@@ -13,7 +13,7 @@ extern unsigned long DATA_WOOF_SIZE;
 /**
  * initializes state variables
  **/
-void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_size, char *data_woof_name, unsigned long data_woof_size);
+void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_size, char *data_woof_name, unsigned long data_woof_size, unsigned long link_woof_size);
 
 /**
  * populates left and right nodes for the given node and version stamp

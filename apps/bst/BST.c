@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "BST.h"
 #include "Helper.h"
@@ -13,10 +14,12 @@ char AP_WOOF_NAME[255];
 unsigned long AP_WOOF_SIZE;
 char DATA_WOOF_NAME[255];
 unsigned long DATA_WOOF_SIZE;
+unsigned long LINK_WOOF_SIZE;
 int WOOF_NAME_SIZE;
 int NUM_OF_ENTRIES_PER_NODE;
 
-void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_size, char *data_woof_name, unsigned long data_woof_size){
+void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_size, char *data_woof_name, unsigned long data_woof_size, unsigned long link_woof_size){
+    srand(time(0));
     WOOF_NAME_SIZE = 10;
     NUM_OF_EXTRA_LINKS = num_of_extra_links;
     NUM_OF_ENTRIES_PER_NODE = NUM_OF_EXTRA_LINKS + 2;
@@ -25,6 +28,7 @@ void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_
     createWooF(ap_woof_name, sizeof(AP), ap_woof_size);
     strcpy(DATA_WOOF_NAME, data_woof_name);
     DATA_WOOF_SIZE = data_woof_size;
+    LINK_WOOF_SIZE = link_woof_size;
     createWooF(data_woof_name, sizeof(DATA), data_woof_size);
 }
 
@@ -253,17 +257,17 @@ void BST_insert(DI di){
         strcpy(data.pw_name, getRandomWooFName(WOOF_NAME_SIZE));
         data.version_stamp = working_vs;
         ndx = insertIntoWooF(DATA_WOOF_NAME, NULL, (void *)&data);
-        WooFCreate(data.lw_name, sizeof(LINK), 100);
-        WooFCreate(data.pw_name, sizeof(LINK), 100);
+        WooFCreate(data.lw_name, sizeof(LINK), LINK_WOOF_SIZE);
+        WooFCreate(data.pw_name, sizeof(LINK), LINK_WOOF_SIZE);
         link.dw_seq_no = 0;
         link.lw_seq_no = 0;
         link.version_stamp = data.version_stamp;
         link.type = 'L';
-        WooFPut(data.lw_name, NULL, (void *)&link);
+        insertIntoWooF(data.lw_name, NULL, (void *)&link);
         link.type = 'R';
-        WooFPut(data.lw_name, NULL, (void *)&link);
+        insertIntoWooF(data.lw_name, NULL, (void *)&link);
         link.type = 'P';
-        WooFPut(data.pw_name, NULL, (void *)&link);
+        insertIntoWooF(data.pw_name, NULL, (void *)&link);
         /* insert into ap woof */
         ap.dw_seq_no = ndx;
         ap.lw_seq_no = 1;
@@ -277,17 +281,17 @@ void BST_insert(DI di){
     strcpy(data.pw_name, getRandomWooFName(WOOF_NAME_SIZE));
     data.version_stamp = working_vs;
     ndx = insertIntoWooF(DATA_WOOF_NAME, NULL, (void *)&data);
-    WooFCreate(data.lw_name, sizeof(LINK), 100);
-    WooFCreate(data.pw_name, sizeof(LINK), 100);
+    WooFCreate(data.lw_name, sizeof(LINK), LINK_WOOF_SIZE);
+    WooFCreate(data.pw_name, sizeof(LINK), LINK_WOOF_SIZE);
     link.dw_seq_no = 0;
     link.lw_seq_no = 0;
     link.version_stamp = data.version_stamp;
     link.type = 'L';
-    WooFPut(data.lw_name, NULL, (void *)&link);
+    insertIntoWooF(data.lw_name, NULL, (void *)&link);
     link.type = 'R';
-    WooFPut(data.lw_name, NULL, (void *)&link);
+    insertIntoWooF(data.lw_name, NULL, (void *)&link);
     link.type = 'P';
-    WooFPut(data.pw_name, NULL, (void *)&link);
+    insertIntoWooF(data.pw_name, NULL, (void *)&link);
 
     WooFGet(DATA_WOOF_NAME, (void *)&parent_data, ap.dw_seq_no);
     add_node(working_vs, (data.di.val < parent_data.di.val) ? 'L' : 'R', ndx, 1, ap.dw_seq_no, ap.lw_seq_no);
