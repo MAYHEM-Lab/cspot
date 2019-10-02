@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     unsigned long i;
 
     WooFInit();
-    BST_init(1, "AP", 100, "DATA", 100);   
+    BST_init(1, "AP", 100, "DATA", 100, 100);   
     
     di.val = 'E';BST_insert(di);
     di.val = 'C';BST_insert(di);
