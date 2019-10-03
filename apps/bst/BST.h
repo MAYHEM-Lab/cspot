@@ -59,6 +59,11 @@ void search_BST(DI di, unsigned long version_stamp, unsigned long current_dw, un
 void BST_search(DI di, unsigned long version_stamp, unsigned long *dw_seq_no, unsigned long *lw_seq_no);
 
 /**
+ * searches for di in latest version of the bst
+ **/
+unsigned long BST_search_latest(DI di);
+
+/**
  * helper function
  * populates predecessor node of the given node
  *
