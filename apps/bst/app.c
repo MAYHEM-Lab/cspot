@@ -33,6 +33,8 @@ int main(int argc, char **argv)
         BST_preorder(i);
     }
 
+    BST_debug();
+
     return(0);
 }
 

@@ -344,6 +344,17 @@ void BST_search(DI di, unsigned long version_stamp, unsigned long *dw_seq_no, un
     search_BST(di, version_stamp, ap.dw_seq_no, ap.lw_seq_no, dw_seq_no, lw_seq_no);
 }
 
+unsigned long BST_search_latest(DI di){
+
+    unsigned long dw_seq_no;
+    unsigned long lw_seq_no;
+
+    BST_search(di, VERSION_STAMP, &dw_seq_no, &lw_seq_no);
+    
+    return dw_seq_no;
+
+}
+
 void populate_predecessor(unsigned long target_dw, unsigned long target_lw, unsigned long *pred_dw, unsigned long *pred_lw){
 
     unsigned long left_dw_seq_no;
@@ -570,6 +581,10 @@ void dump_ap_woof(){
 
 void BST_debug(){
 
-    dump_data_woof();
+    //dump_data_woof();
+    DI di;
+    di.val = 'Z';
+    fprintf(stdout, "%lu\n", BST_search_latest(di));
+    fflush(stdout);
 
 }
