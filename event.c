@@ -3,12 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include "event.h"
 
 EVENT *EventCreate(unsigned char type, unsigned long host)
 {
 	EVENT *ev;
+	struct timespec ts;
 
 	ev = (EVENT *)malloc(sizeof(EVENT));
 	if (ev == NULL)
@@ -19,6 +21,9 @@ EVENT *EventCreate(unsigned char type, unsigned long host)
 
 	ev->type = type;
 	ev->host = host;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	ev->timestamp = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 
 	return (ev);
 }
