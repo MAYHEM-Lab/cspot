@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        printf("repairing DataWooF[%lu], original val: %d\n", node.dw_seq_no, data.di.val);
+        printf("repairing DataWooF[%lu], original value: %d\n", node.dw_seq_no, data.di.val);
     }
 
     // change the DATA value to 4
