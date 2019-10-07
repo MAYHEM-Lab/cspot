@@ -4,6 +4,7 @@
 #define REPAIR
 
 #include <stdlib.h>
+#include <stdint.h>
 
 struct event_stc
 {
@@ -23,6 +24,7 @@ struct event_stc
 	char woofc_handler[128];
 	char namespace[1024];
 	unsigned long ino; // for caching if enabled
+	uint64_t timestamp;
 };
 
 typedef struct event_stc EVENT;

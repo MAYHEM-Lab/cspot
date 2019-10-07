@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 	ndx = WooFPut(Wname,"hw",(void *)&el);
 
-	if(WooFInvalid(err)) {
+	if(WooFInvalid(ndx)) {
 		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
 		fflush(stderr);
 		exit(1);
