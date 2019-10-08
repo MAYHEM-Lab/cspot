@@ -64,6 +64,12 @@ void LL_print(unsigned long version_stamp);
 
 /**
  * helper debugger
+ * displays LINK woof
+ **/
+void debug_LINK(char *name);
+
+/**
+ * helper debugger
  * displays DATA woof
  **/
 void debug_DATA();

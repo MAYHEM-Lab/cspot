@@ -13,16 +13,26 @@ int main(int argc, char **argv)
 {
     DI di;
     unsigned long i;
+    FILE *fp;
+    int num_ops;
+    int op;
+    int val;
 
-    LL_init(1, "AP", 100, "DATA", 100, 100);
+    LL_init(1, "AP", 10000, "DATA", 10000, 10000);
 
-    di.val = 2;LL_insert(di);
-    di.val = 5;LL_insert(di);
-    di.val = 7;LL_insert(di);
-    di.val = 9;LL_insert(di);
-    di.val = 7;LL_delete(di);
+    fp = fopen("../workload.txt", "r");
 
-    for(i = 1; i <= 5; ++i){
+    fscanf(fp, "%d", &num_ops);
+    for(i = 0; i < num_ops; ++i){
+        fscanf(fp, "%d", &op);
+        fscanf(fp, "%d", &val);
+        di.val = val;
+        (op == 0) ? LL_delete(di) : LL_insert(di);
+    }
+
+    fclose(fp);
+
+    for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
         LL_print(i);
     }
 
