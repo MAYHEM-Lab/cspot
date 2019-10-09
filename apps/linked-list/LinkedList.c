@@ -49,10 +49,17 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
     LINK grandparent_link;
     AP node;
     unsigned long ndx;
+    unsigned long latest_seq;
 
     if(parent.dw_seq_no == 0){//parent null
         node.dw_seq_no = child.dw_seq_no;
         node.lw_seq_no = child.lw_seq_no;
+        WooFGet(DATA_WOOF_NAME, (void *)&child_data, child.dw_seq_no);
+        link.dw_seq_no = 0;
+        link.lw_seq_no = 0;
+        link.type = 'P';
+        link.version_stamp = version_stamp;
+        insertIntoWooF(child_data.pw_name, NULL, (void *)&link);
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&node);
         return;
     }
@@ -251,10 +258,11 @@ void LL_delete(DI di){
     WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));//latest parent of target
     parent.dw_seq_no = link.dw_seq_no;
     parent.lw_seq_no = link.lw_seq_no;
-    populate_current_link(VERSION_STAMP, node, &link);
+    populate_current_link(VERSION_STAMP, node, &link);//latest child of target
     child.dw_seq_no = link.dw_seq_no;
     child.lw_seq_no = link.lw_seq_no;
 
+    //works till now
     add_node(working_vs, parent, child);
 
     latest_seq = WooFGetLatestSeqno(AP_WOOF_NAME);
@@ -273,9 +281,14 @@ void LL_print(unsigned long version_stamp){
     LINK current_link;
 
     WooFGet(AP_WOOF_NAME, (void *)&node, version_stamp);//head
+    fprintf(stdout, "%lu: ", version_stamp);
+    if(node.dw_seq_no == 0){
+        fprintf(stdout, "\n");
+        fflush(stdout);
+        return;
+    }
     WooFGet(DATA_WOOF_NAME, (void *)&data, node.dw_seq_no);//info of head
     populate_current_link(version_stamp, node, &current_link);
-    fprintf(stdout, "%lu: ", version_stamp);
     fprintf(stdout, "%d ", data.di.val);
     fflush(stdout);
     while(1){
@@ -318,6 +331,21 @@ void debug_DATA(){
     for(i = 1; i <= WooFGetLatestSeqno(DATA_WOOF_NAME); ++i){
         WooFGet(DATA_WOOF_NAME, (void *)&data, i);
         fprintf(stdout, "%lu: %lu %d %s %s\n", i, data.di.val, data.version_stamp, data.lw_name, data.pw_name);
+    }
+    fflush(stdout);
+
+}
+
+void debug_AP(){
+
+    unsigned long i;
+    AP ap;
+
+    fprintf(stdout, "********************\n");
+    fprintf(stdout, "DEBUGGING AP\n");
+    for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
+        WooFGet(AP_WOOF_NAME, (void *)&ap, i);
+        fprintf(stdout, "%lu: %lu %lu\n", i, ap.dw_seq_no, ap.lw_seq_no);
     }
     fflush(stdout);
 

@@ -75,6 +75,12 @@ void debug_LINK(char *name);
 void debug_DATA();
 
 /**
+ * helper debugger
+ * displays AP woof
+ **/
+void debug_AP();
+
+/**
  * debug
  **/
 void LL_debug();
