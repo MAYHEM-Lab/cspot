@@ -1,6 +1,11 @@
 #ifndef EVENT_H
 #define EVENT_H
 
+#define REPAIR
+
+#include <stdlib.h>
+#include <stdint.h>
+
 struct event_stc
 {
 	unsigned char type;
@@ -19,6 +24,7 @@ struct event_stc
 	char woofc_handler[128];
 	char namespace[1024];
 	unsigned long ino; // for caching if enabled
+	uint64_t timestamp;
 };
 
 typedef struct event_stc EVENT;
@@ -28,6 +34,15 @@ typedef struct event_stc EVENT;
 #define TRIGGER (3)
 #define TRIGGER_FIRING (4)
 #define FIRED (5)
+#define APPEND (6)
+#define READ (7)
+#define LATEST_SEQNO (8)
+
+#ifdef REPAIR
+#define MARKED (32) // for downstream events discovery in repair mode
+#define ROOT (64)
+#define INVALID (128)
+#endif
 
 EVENT *EventCreate(unsigned char type, unsigned long host);
 

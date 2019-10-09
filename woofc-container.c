@@ -70,6 +70,7 @@ int WooFContainerInit()
 	char putbuf[25];
 	pthread_t tid;
 	char *str;
+	char *ptr;
 	MIO *lmio;
 	unsigned long name_id;
 	int i;
@@ -267,8 +268,10 @@ void *WooFReaper(void *arg)
 				V(&ForkerThrottle);
 				pthread_mutex_lock(&Tlock);
 				Tcount++;
+#ifdef DEBUG
 				printf("Reaper: count after increment: %d\n", Tcount);
 				fflush(stdout);
+#endif
 				pthread_mutex_unlock(&Tlock);
 			}
 		}
@@ -369,6 +372,7 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 		log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+		// log_tail = LogTail(Name_log, last_seq_no, Name_log->seq_no - Name_log->last_trigger_seq_no);
 
 		if (log_tail == NULL)
 		{
@@ -475,7 +479,7 @@ void *WooFForker(void *arg)
 				memcpy(&last_event, &ev[first], sizeof(last_event));
 				V(&Name_log->tail_wait);
 			}
-
+// TODO: only go back to latest triggered
 			first = (first - 1);
 			if (first >= log_tail->size)
 			{
@@ -516,10 +520,10 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 
+		// Name_log->last_trigger_seq_no = (unsigned long long)trigger_seq_no;
 		/*
 		 * before dropping mutex, log a FIRING record
 		 */
-
 		fev = EventCreate(TRIGGER_FIRING, Name_id);
 		if (fev == NULL)
 		{
@@ -685,14 +689,18 @@ void *WooFForker(void *arg)
 		 * block here not to overload the machine
 		 */
 		pthread_mutex_lock(&Tlock);
+#ifdef DEBUG
 		printf("Forker calling P with Tcount %d\n", Tcount);
 		fflush(stdout);
+#endif
 		pthread_mutex_unlock(&Tlock);
 		P(&ForkerThrottle);
 		pthread_mutex_lock(&Tlock);
 		Tcount--;
+#ifdef DEBUG
 		printf("Forker awake, after decrement %d\n", Tcount);
 		fflush(stdout);
+#endif
 		pthread_mutex_unlock(&Tlock);
 
 		pid = fork();
@@ -979,8 +987,10 @@ void *WooFForker(void *arg)
 			V(&ForkerThrottle);
 			pthread_mutex_lock(&Tlock);
 			Tcount++;
+#ifdef DEBUG
 			printf("Parent: count after increment: %d\n", Tcount);
 			fflush(stdout);
+#endif
 			pthread_mutex_unlock(&Tlock);
 		}
 	}
@@ -999,7 +1009,10 @@ int main(int argc, char **argv)
 
 	WooFContainerInit();
 
-	while ((c = getopt(argc, argv, ARGS)) != EOF)
+	/*
+	 * check c != 255 for Raspberry Pi
+	 */
+	while ((c = getopt(argc, argv, ARGS)) != EOF && c != 255)
 	{
 		switch (c)
 		{

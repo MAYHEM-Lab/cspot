@@ -1,3 +1,5 @@
+#define TIMING
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -6,6 +8,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/time.h>
 
 #include "c-twist.h"
 #include "c-runstest.h"
@@ -29,6 +32,12 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	unsigned long seq_no;
 	unsigned long r_seq_no;
 
+#ifdef TIMING
+	struct timeval t1, t2;
+	double elapsedTime;
+	gettimeofday(&t1, NULL);
+#endif
+
 	/*
 	 * sanity checks
 	 */
@@ -47,6 +56,10 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	 * fix this to use woof for random state
 	 */
 	r = CTwistRandom();
+	// if (wf_seq_no % 4 == 0)
+	// {
+	// 	r = 0;
+	// }
 
 	memcpy(&next_r,fa,sizeof(FA));
 	if(next_r.j == (fa->sample_size-1)) {
@@ -59,6 +72,8 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	/*
 	 * generate next random number
 	 */
+printf("RHandler: seq_no: %d putting next RHandler\n",wf_seq_no);
+fflush(stdout);
 	seq_no = WooFPut(fa->rargs,"RHandler",&next_r);
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"RHandler couldn't put RHandler\n");
@@ -82,6 +97,8 @@ fflush(stdout);
 	 * if the buffer is full, create an SThread
 	 */
 	if(fa->j == (fa->sample_size - 1)) {
+printf("RHandler: spawning SHandler i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
+fflush(stdout);
 		/*
 	 	* launch the stat handler
 	 	*/
@@ -95,5 +112,11 @@ fflush(stdout);
 
 	}
 
+#ifdef TIMING
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("Timing:RHandler: %f ms\n", elapsedTime);
+	fflush(stdout);
+#endif
 	return(1);
 }

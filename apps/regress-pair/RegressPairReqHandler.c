@@ -1,3 +1,5 @@
+#define TIMING
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -24,6 +26,12 @@ int RegressPairReqHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	unsigned long f_seq_no;
 	unsigned long p_seq_no;
 	int err;
+
+#ifdef TIMING
+	struct timeval t1, t2;
+    double elapsedTime;
+    gettimeofday(&t1, NULL);
+#endif
 
 #ifdef DEBUG
 	fd = fopen("/cspot/req-handler.log","a+");
@@ -59,6 +67,12 @@ fflush(stdout);
 		}
 	}
 
+#ifdef TIMING
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("TIMING:RegressPairReqHandler: %f\n", elapsedTime);
+	fflush(stdout);
+#endif
 	return(1);
 }
 
