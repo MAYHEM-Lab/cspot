@@ -31,7 +31,7 @@ int main(int argc, char **argv)
         fscanf(fp, "%d %c", &op, &val);
         di.val = val;
         (op == 0) ? BST_delete(di) : BST_insert(di);
-        if(i == 31){
+        if(i == 70){
             fprintf(stdout, "last executed line %d: %d %c\n", line_number, op, val);
             fflush(stdout);
             break;
@@ -40,6 +40,7 @@ int main(int argc, char **argv)
     fclose(fp);
 
     for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
+        if(i == 37 || i == 38)
         BST_preorder(i);
     }
 
