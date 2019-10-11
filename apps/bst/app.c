@@ -8,32 +8,40 @@
 
 #include "BST.h"
 #include "DataItem.h"
+#include "Data.h"
 
 int main(int argc, char **argv)
 {
     DI di;
     unsigned long i;
+    FILE *fp;
+    int op;
+    char val;
+    int num_of_operations;
+    int line_number;
+    DATA debug_data;
 
     WooFInit();
-    BST_init(1, "AP", 100, "DATA", 100, 100);   
+    BST_init(1, "AP", 1000, "DATA", 20000, 20000);   
     
-    di.val = 'E';BST_insert(di);
-    di.val = 'C';BST_insert(di);
-    di.val = 'M';BST_insert(di);
-    di.val = 'O';BST_insert(di);
-    di.val = 'A';BST_insert(di);
-    di.val = 'I';BST_insert(di);
-    di.val = 'G';BST_insert(di);
-    di.val = 'K';BST_insert(di);
-    di.val = 'J';BST_insert(di);
-    di.val = 'M';BST_delete(di);
-    di.val = 'E';BST_delete(di);
+    fp = fopen("../workload.txt", "r");
+    fscanf(fp, "%d", &num_of_operations);
 
-    for(i = 1; i <= 11; ++i){
+    for(i = 0, line_number = 2; i < num_of_operations; ++i, ++line_number){
+        fscanf(fp, "%d %c", &op, &val);
+        di.val = val;
+        (op == 0) ? BST_delete(di) : BST_insert(di);
+        if(i == 31){
+            fprintf(stdout, "last executed line %d: %d %c\n", line_number, op, val);
+            fflush(stdout);
+            break;
+        }
+    }
+    fclose(fp);
+
+    for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
         BST_preorder(i);
     }
-
-    BST_debug();
 
     return(0);
 }
