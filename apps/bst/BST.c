@@ -179,9 +179,17 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     if(parent_dw == child_dw) return;
 
     if(parent_dw == 0){//null
-        ap.dw_seq_no = child_dw;
-        ap.lw_seq_no = child_lw;
-        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
+        if(WooFGetLatestSeqno(AP_WOOF_NAME) != working_vs){
+            ap.dw_seq_no = child_dw;
+            ap.lw_seq_no = child_lw;
+            WooFGet(DATA_WOOF_NAME, (void *)&data, child_dw);
+            link.dw_seq_no = 0;
+            link.lw_seq_no = 0;
+            link.type = 'P';
+            link.version_stamp = working_vs;
+            insertIntoWooF(data.pw_name, NULL, (void *)&link);
+            insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
+        }
         return;
     }
 
@@ -533,6 +541,13 @@ void BST_delete(DI di){
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add pred to target parent
         }else{//case 2: predecessor is not the immediate left child of target
 
+            //essentially delete the parent link from predecessor
+            link.dw_seq_no = 0;
+            link.lw_seq_no = 0;
+            link.version_stamp = working_vs;
+            link.type = 'P';
+            insertIntoWooF(pred_data.pw_name, NULL, (void *)&link);
+
             add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);//add target right to predecessor right
 
             if(pred_left_dw_seq_no != 0){
@@ -557,6 +572,7 @@ void BST_delete(DI di){
             }
 
             add_node(working_vs, 'R', pred_left_dw_seq_no, pred_left_lw_seq_no, pred_parent_link.dw_seq_no, pred_parent_link.lw_seq_no);//add predecessor left to predecessor parent right
+
 
             latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
             pred_lw = 
@@ -599,6 +615,7 @@ void BST_delete(DI di){
             }
 
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add target parent to predecessor parent
+
         }
     }//two children present else end
 
