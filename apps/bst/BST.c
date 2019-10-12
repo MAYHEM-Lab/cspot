@@ -205,7 +205,7 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
         return;
     }
 
-    populate_current_left_right(VERSION_STAMP, parent_dw, parent_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+    populate_current_left_right(working_vs, parent_dw, parent_lw, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
     if(type == 'L'){//copy right
         link.dw_seq_no = right_dw_seq_no;
         link.lw_seq_no = right_lw_seq_no;
@@ -523,7 +523,9 @@ void BST_delete(DI di){
 
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add pred to target parent
         }else{//case 2: predecessor is not the immediate left child of target
+
             add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);//add target right to predecessor right
+
 
             if(pred_left_dw_seq_no != 0){
                 WooFGet(DATA_WOOF_NAME, (void *)&parent_data, pred_left_dw_seq_no);
@@ -587,6 +589,7 @@ void BST_delete(DI di){
             }
 
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add target parent to predecessor parent
+
         }
     }//two children present else end
 
