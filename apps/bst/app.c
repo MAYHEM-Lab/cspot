@@ -31,7 +31,7 @@ int main(int argc, char **argv)
         fscanf(fp, "%d %c", &op, &val);
         di.val = val;
         (op == 0) ? BST_delete(di) : BST_insert(di);
-        if(i == 99){
+        if(i == 75){
             fprintf(stdout, "last executed line %d: %d %c\n", line_number, op, val);
             fflush(stdout);
             break;

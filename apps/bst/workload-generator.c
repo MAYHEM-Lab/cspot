@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
 
     FILE *fp;
 
-    num_of_operations = 200;
+    num_of_operations = 100;
     min_val = 'A';
     max_val = 'Z';
 
