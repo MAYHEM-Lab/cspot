@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -179,6 +180,7 @@ void add_node(unsigned long working_vs, char type, unsigned long child_dw, unsig
     if(parent_dw == child_dw) return;
 
     if(parent_dw == 0){//null
+        if(DELETE_OPERATION) return;
         if(WooFGetLatestSeqno(AP_WOOF_NAME) != working_vs){
             ap.dw_seq_no = child_dw;
             ap.lw_seq_no = child_lw;
@@ -452,6 +454,8 @@ void BST_delete(DI di){
     DATA pred_data;
     DATA parent_data;
     DATA debug_data;
+    DATA left_data;
+    DATA right_data;
     AP ap;
 
     unsigned long working_vs;
@@ -517,7 +521,36 @@ void BST_delete(DI di){
 
         type = which_child(parent_link.dw_seq_no, parent_link.lw_seq_no, target_dw, target_lw);//parent target relation
 
+
+
         if(pred_dw == left_dw_seq_no){//case 1: predecessor is the left child of target
+            //step 0: cut off parent of target, pred, and target right to stop propagation
+            link.dw_seq_no = 0;
+            link.lw_seq_no = 0;
+            link.type = 'P';
+            link.version_stamp = working_vs;
+            insertIntoWooF(pred_data.pw_name, NULL, (void *)&link);
+            insertIntoWooF(data.pw_name, NULL, (void *)&link);
+            if(right_dw_seq_no != 0){
+                WooFGet(DATA_WOOF_NAME, (void *)&right_data, right_dw_seq_no);
+                insertIntoWooF(right_data.pw_name, NULL, (void *)&link);
+            }
+
+            DELETE_OPERATION = 1;
+            add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);
+            DELETE_OPERATION = 0;
+
+            latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
+            pred_lw = 
+                latest_seq -
+                (
+                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+                ) + 1;
+
+            add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);
+
+            /*
             add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);//add target right to pred right
 
             latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
@@ -539,14 +572,73 @@ void BST_delete(DI di){
             }
 
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add pred to target parent
+            */
         }else{//case 2: predecessor is not the immediate left child of target
 
-            //essentially delete the parent link from predecessor
+            //step 0: cut off parent of pred (also target), target left and target right to stop propagation
             link.dw_seq_no = 0;
             link.lw_seq_no = 0;
-            link.version_stamp = working_vs;
             link.type = 'P';
+            link.version_stamp = working_vs;
             insertIntoWooF(pred_data.pw_name, NULL, (void *)&link);
+            insertIntoWooF(data.pw_name, NULL, (void *)&link);
+            WooFGet(DATA_WOOF_NAME, (void *)&left_data, left_dw_seq_no);
+            insertIntoWooF(left_data.pw_name, NULL, (void *)&link);
+            if(right_dw_seq_no != 0){
+                WooFGet(DATA_WOOF_NAME, (void *)&right_data, right_dw_seq_no);
+                insertIntoWooF(right_data.pw_name, NULL, (void *)&link);
+            }
+
+            //step 1: add left child of predecessor to right of parent of predecessor
+            DELETE_OPERATION = 1;
+            add_node(working_vs, 'R', pred_left_dw_seq_no, pred_left_lw_seq_no, pred_parent_link.dw_seq_no, pred_parent_link.lw_seq_no);
+            
+            //target left lw might have changed, update that
+            latest_seq = WooFGetLatestSeqno(left_data.lw_name);
+            left_lw_seq_no = 
+                latest_seq -
+                (
+                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+                ) + 1;
+
+            //step 2: add target left and target right to predecessor
+            add_node(working_vs, 'L', left_dw_seq_no, left_lw_seq_no, pred_dw, pred_lw);
+
+            //pred lw might have changed, update that
+            latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
+            pred_lw = 
+                latest_seq -
+                (
+                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+                ) + 1;
+
+            add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);
+
+            //pred lw might have changed, update that
+            latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
+            pred_lw = 
+                latest_seq -
+                (
+                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+                ) + 1;
+
+            DELETE_OPERATION = 0;
+
+            //step 3: add pred to parent
+            add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);
+
+            /*
+            return;
+
+            link.dw_seq_no = parent_link.dw_seq_no;
+            link.lw_seq_no = parent_link.lw_seq_no;
+            link.type = 'P';
+            link.version_stamp = working_vs;
+            WooFGet(DATA_WOOF_NAME, (void *)&data, pred_dw);
+            insertIntoWooF(data.pw_name, NULL, (void *)&link);
 
             add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);//add target right to predecessor right
 
@@ -615,7 +707,7 @@ void BST_delete(DI di){
             }
 
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add target parent to predecessor parent
-
+            */
         }
     }//two children present else end
 
