@@ -203,6 +203,7 @@ void PrintState(STATE *state)
 	printf("\t\tother_color: %c\n",state->other_color);
 	printf("\tclient_ip: %s\n",state->client_ip);
 	printf("\t\tclient_color: %c\n",state->client_color);
+	printf("IAM: %c\n",state->my_state);
 	fflush(stdout);
 	return;
 }
@@ -363,7 +364,7 @@ void DoClient(STATE *state)
 	return;
 }
 
-void DoMaster(STATE *state)
+void DoMaster(STATE *state, unsigned long start_seq_no)
 {
 	WOOF *l_state_w;
 	WOOF *l_status_w;
@@ -651,6 +652,8 @@ void DoMaster(STATE *state)
 		}
 	}
 
+	fprintf(stdout,"IAM: %c at seq_no %lu\n",new_state.my_state,start_seq_no);
+	fflush(stdout);
 			
 	WooFDrop(l_state_w);
 	WooFDrop(l_status_w);
@@ -658,7 +661,7 @@ void DoMaster(STATE *state)
 	return;
 }
 
-void DoSlave(STATE *state)
+void DoSlave(STATE *state, unsigned long start_seq_no)
 {
 	WOOF *l_state_w;
 	WOOF *l_status_w;
@@ -928,6 +931,9 @@ void DoSlave(STATE *state)
 		}
 	}
 			
+	fprintf(stdout,"IAM: %c at seq_no %lu\n",new_state.my_state,start_seq_no);
+	fflush(stdout);
+
 	WooFDrop(l_state_w);
 	WooFDrop(l_status_w);
 
@@ -988,11 +994,11 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 			break;
 		case 'M':
 		case 'm':
-			DoMaster(&l_state);
+			DoMaster(&l_state,my_seq_no);
 			break;
 		case 'S':
 		case 's':
-			DoSlave(&l_state);
+			DoSlave(&l_state,my_seq_no);
 			break;
 		default:
 			fprintf(stderr,
