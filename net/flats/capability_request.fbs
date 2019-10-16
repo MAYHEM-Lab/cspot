@@ -1,0 +1,9 @@
+include "requests.fbs";
+namespace cspot.caps;
+
+table Request
+{
+  request: requests.Request;
+  req_seqnum: long;
+  capability: [ubyte];
+}

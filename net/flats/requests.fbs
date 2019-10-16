@@ -23,3 +23,11 @@ table GetElemSize
 {
   woof: string;
 }
+
+union Request
+{
+  Put,
+  Get,
+  GetLastSeqnum,
+  GetElemSize
+}
