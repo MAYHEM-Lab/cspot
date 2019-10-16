@@ -22,11 +22,11 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: app workload-generator #repair_test
+all: app workload-generator repair_test
 
-#repair_test: repair_test.c
-#	${CC} ${CFLAGS} -o repair_test repair_test.c Helper.o LinkedList.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-#	mkdir -p cspot; cp repair_test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+repair_test: repair_test.c
+	${CC} ${CFLAGS} -o repair_test repair_test.c Helper.o LinkedList.o CheckPointer.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp repair_test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 workload-generator: workload-generator.c
 	${CC} ${CFLAGS} -o workload-generator workload-generator.c
@@ -42,5 +42,5 @@ LinkedList.o: LinkedList.c
 	${CC} ${CFLAGS} -c LinkedList.c Helper.o
 
 clean:
-	rm -f app *.o
+	rm -f app workload-generator repair-test *.o
 
