@@ -14,15 +14,14 @@ extern unsigned long DATA_WOOF_SIZE;
 extern unsigned long LINK_WOOF_SIZE;
 extern int LINK_WOOF_NAME_SIZE;
 extern int NUM_OF_LINKS_PER_NODE;
+extern int CHECKPOINT_MAX_ELEMENTS;
 
 /**
  * initializes state variables
  **/
 void LL_init(
         int num_of_extra_links,
-        char *ap_woof_name,
         unsigned long ap_woof_size,
-        char *data_woof_name,
         unsigned long data_woof_size,
         unsigned long link_woof_size
         );

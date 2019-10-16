@@ -7,6 +7,7 @@
 #include "Link.h"
 #include "LinkedList.h"
 #include "Helper.h"
+#include "CheckPointer.h"
 
 int NUM_OF_EXTRA_LINKS;
 unsigned long VERSION_STAMP;
@@ -17,28 +18,29 @@ unsigned long DATA_WOOF_SIZE;
 unsigned long LINK_WOOF_SIZE;
 int LINK_WOOF_NAME_SIZE;
 int NUM_OF_LINKS_PER_NODE;
+int CHECKPOINT_MAX_ELEMENTS;
 
 void LL_init(
         int num_of_extra_links,
-        char *ap_woof_name,
         unsigned long ap_woof_size,
-        char *data_woof_name,
         unsigned long data_woof_size,
         unsigned long link_woof_size
         ){
     WooFInit();
     srand(time(0));
+    LINK_WOOF_NAME_SIZE = 20;
     NUM_OF_EXTRA_LINKS = num_of_extra_links;
     VERSION_STAMP = 0;
-    strcpy(AP_WOOF_NAME, ap_woof_name);
+    strcpy(AP_WOOF_NAME, getRandomWooFName(LINK_WOOF_NAME_SIZE));
     AP_WOOF_SIZE = ap_woof_size;
     createWooF(AP_WOOF_NAME, sizeof(AP), AP_WOOF_SIZE);
-    strcpy(DATA_WOOF_NAME, data_woof_name);
+    strcpy(DATA_WOOF_NAME, getRandomWooFName(LINK_WOOF_NAME_SIZE));
     DATA_WOOF_SIZE = data_woof_size;
     createWooF(DATA_WOOF_NAME, sizeof(DATA), DATA_WOOF_SIZE);
     LINK_WOOF_SIZE = link_woof_size;
     NUM_OF_LINKS_PER_NODE = 1 + NUM_OF_EXTRA_LINKS;
-    LINK_WOOF_NAME_SIZE = 20;
+    CHECKPOINT_MAX_ELEMENTS = 8;
+    CP_init(1 + CHECKPOINT_MAX_ELEMENTS * (LINK_WOOF_NAME_SIZE + sizeof(unsigned long)), getRandomWooFName(LINK_WOOF_NAME_SIZE), LINK_WOOF_NAME_SIZE, ap_woof_size);
 }
 
 void add_node(unsigned long version_stamp, AP parent, AP child){
