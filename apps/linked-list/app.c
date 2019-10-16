@@ -48,10 +48,6 @@ int main(int argc, char **argv)
         fscanf(fp, "%d", &val);
         di.val = val;
         (op == 0) ? LL_delete(di) : LL_insert(di);
-        if(i == 1){
-            debug_DATA();
-            break;
-        }
     }
 
     fclose(fp);
@@ -60,7 +56,7 @@ int main(int argc, char **argv)
         LL_print(i);
     }
 
-    test_checkpointer();
+    //test_checkpointer();
 
     return(0);
 }

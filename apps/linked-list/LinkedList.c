@@ -159,7 +159,7 @@ void LL_insert(DI di){
         ap.dw_seq_no = 0;
         ap.lw_seq_no = 0;
         search(VERSION_STAMP, di, &ap);
-        if(ap.lw_seq_no != 0){//already present
+        if(ap.dw_seq_no != 0){//already present
             return;
         }
         ap.dw_seq_no = 0;
@@ -208,24 +208,25 @@ void search(unsigned long version_stamp, DI di, AP *node){
     AP iterator;
     DATA data;
     LINK current_link;
+    int get_status;
 
-    WooFGet(AP_WOOF_NAME, (void *)&iterator, version_stamp);
+    get_status = WooFGet(AP_WOOF_NAME, (void *)&iterator, version_stamp);
 
     while(1){
-        WooFGet(DATA_WOOF_NAME, (void *)&data, iterator.dw_seq_no);
+        get_status = WooFGet(DATA_WOOF_NAME, (void *)&data, iterator.dw_seq_no);
         if(data.di.val == di.val){
             node->dw_seq_no = iterator.dw_seq_no;
             node->lw_seq_no = iterator.lw_seq_no;
             return;
         }
+        populate_current_link(version_stamp, iterator, &current_link);
+        iterator.dw_seq_no = current_link.dw_seq_no;
+        iterator.lw_seq_no = current_link.lw_seq_no;
         if(iterator.dw_seq_no == 0){//end of line
             node->dw_seq_no = 0;
             node->lw_seq_no = 0;
             return;
         }
-        populate_current_link(version_stamp, iterator, &current_link);
-        iterator.dw_seq_no = current_link.dw_seq_no;
-        iterator.lw_seq_no = current_link.lw_seq_no;
     }
 
 }
