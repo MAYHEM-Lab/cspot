@@ -1,0 +1,2 @@
+add_library(cspot_net INTERFACE)
+target_include_directories(cspot_net INTERFACE include)

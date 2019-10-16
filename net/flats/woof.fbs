@@ -1,0 +1,17 @@
+namespace cspot;
+
+table WoofName
+{
+  name: string;
+}
+
+table WoofNum
+{
+  number: long;
+}
+
+union WoofId
+{
+  WoofName,
+  WoofNum
+}

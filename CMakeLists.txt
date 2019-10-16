@@ -8,6 +8,7 @@ add_subdirectory(mio)
 add_subdirectory(uriparser2)
 add_subdirectory(libemsha)
 add_subdirectory(caps)
+add_subdirectory(net)
 
 add_library(woof 
   src/log.c 
@@ -28,12 +29,13 @@ add_library(woof
   include/lsema.h
   src/msgpack-ep.cpp
   cwpack/cwpack.c
+  src/flat_ep.cpp
 )
 
 target_include_directories(woof PUBLIC include)
 target_include_directories(woof PUBLIC cwpack)
 target_compile_options(woof PUBLIC -g)
-target_link_libraries(woof PUBLIC mio euca_utils czmq m pthread uriparser2 caps)
+target_link_libraries(woof PUBLIC mio euca_utils czmq m pthread uriparser2 caps cspot_net)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 add_library(woof-thread 

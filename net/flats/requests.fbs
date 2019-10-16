@@ -1,0 +1,25 @@
+include "woof.fbs";
+namespace cspot.requests;
+
+table Put
+{
+  woof: string;
+  handler: string;
+  data: [ubyte];
+}
+
+table Get
+{
+  woof: string;
+  seq_num: long;
+}
+
+table GetLastSeqnum
+{
+  woof: string;
+}
+
+table GetElemSize
+{
+  woof: string;
+}
