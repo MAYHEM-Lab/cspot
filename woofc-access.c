@@ -1790,8 +1790,6 @@ int WooFMsgServer (const char *namespace)
 	exit(0);
 }
 
-	
-
 unsigned long WooFMsgGetElSize(const char *woof_name)
 {
 	char endpoint[255];
@@ -2257,7 +2255,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	}
 }
 
-unsigned long WooFMsgPut2(const char *woof_name, const char *hand_name, void *element, unsigned long el_size)
+unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size)
 {
 	char endpoint[255];
 	char namespace[2048];

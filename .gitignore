@@ -7,3 +7,4 @@ woofc-container
 hello
 .idea/
 build/
+cmake-build-*

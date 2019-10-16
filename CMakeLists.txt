@@ -4,6 +4,11 @@ project (cspot)
 
 include(cmake/Other.cmake)
 
+add_subdirectory(mio)
+add_subdirectory(uriparser2)
+add_subdirectory(libemsha)
+add_subdirectory(caps)
+
 add_library(woof 
   log.c 
   log.h
@@ -21,11 +26,15 @@ add_library(woof
   sema.h
   lsema.c
   lsema.h
+  msgpack-ep.cpp
+  cwpack/cwpack.c
 )
 
 target_include_directories(woof PUBLIC .)
+target_include_directories(woof PUBLIC cwpack)
 target_compile_options(woof PUBLIC -g)
-target_link_libraries(woof PUBLIC mio euca_utils czmq m pthread)
+target_link_libraries(woof PUBLIC mio euca_utils czmq m pthread uriparser2 caps)
+target_compile_features(woof PUBLIC cxx_std_17)
 
 add_library(woof-thread 
   woofc-thread.c 

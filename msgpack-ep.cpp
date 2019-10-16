@@ -353,12 +353,12 @@ namespace cspot
 auto client_key = []{
     caps::emsha::signer signer("sekkret");
 
-    return caps::mkcaps({
-        cspot::mkcap(cspot::root_cap, cspot::perms::root) }, signer);
+    return caps::mkcaps<caps::emsha::model>({
+                                                cspot::mkcap(cspot::root_cap, cspot::perms::root) }, signer);
 }();
 
 caps::emsha::signer signer("sekret");
-auto proc = caps::req_deserializer<cspot::cap_t>(signer, cspot::parse_req, cspot::satisfies);
+auto proc = caps::req_deserializer<cspot::cap_t, caps::emsha::model>(signer, cspot::parse_req, cspot::satisfies);
 
 template <class Ep>
 struct req_handlers
@@ -376,10 +376,10 @@ struct req_handlers
         p.insert(uint32_t(err));
         auto res = p.get();
 
-        auto h = signer.hash(res);
+        auto h = caps::emsha::hasher{}.hash(res);
 
         auto t = clone(*client_key);
-        t->signature = get_req_sign(*t, signer, 1000, h);
+        t->signature = get_req_sign(*t, caps::emsha::hasher{}, 1000, h);
 
         ep.write({res.data(), res.size()});
         caps::serialize(ep, *t);
@@ -420,8 +420,8 @@ void handle_sock(int sock_fd, sockaddr_in addr)
 	mpark::visit(handle, req);
 }
 
-using cap_ptr = caps::token_ptr<cspot::cap_t, caps::emsha::signer>;
-cap_ptr cap = caps::mkcaps({
+using cap_ptr = caps::token_ptr<cspot::cap_t, caps::emsha::model>;
+cap_ptr cap = caps::mkcaps<caps::emsha::model>({
     cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
 }, signer);
 
@@ -513,7 +513,7 @@ inline uint64_t get_time()
     return uint64_t(spec.tv_sec) * 1000 + uint64_t(spec.tv_nsec) / 1000000;
 }
 
-extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name, void *element, unsigned long el_size) 
+/*extern "C" unsigned long WooFMsgPut2(const char *woof_name, const char *hand_name, void *element, unsigned long el_size)
 {
 	auto addr = force_get(parse_addr({woof_name, strlen(woof_name)}));
     std::cerr << "got put\n";
@@ -595,7 +595,7 @@ extern "C" unsigned long WooFMsgPut(const char *woof_name, const char *hand_name
     auto d = ss->read(buffer);
 
     return 100;
-}
+}*/
 
 extern "C"
 {
@@ -631,7 +631,7 @@ extern "C"
 
 		std::cerr << "listening on " << port << '\n';
 
-        cap = caps::mkcaps({
+        cap = caps::mkcaps<caps::emsha::model>({
             cspot::cap_t{ cspot::woof_id_t{1}, cspot::perms::get | cspot::perms::put }
             }, signer);
 
