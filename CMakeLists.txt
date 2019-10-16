@@ -10,39 +10,40 @@ add_subdirectory(libemsha)
 add_subdirectory(caps)
 
 add_library(woof 
-  log.c 
-  log.h
-  woofc.c
-  woofc.h 
-  woofc-access.c
-  woofc-access.h 
-  woofc-cache.c
-  woofc-cache.h
-  event.c
-  event.h
-  host.c
-  host.h
-  sema.c
-  sema.h
-  lsema.c
-  lsema.h
-  msgpack-ep.cpp
+  src/log.c 
+  include/log.h
+  src/woofc.c
+  include/woofc.h 
+  src/woofc-access.c
+  include/woofc-access.h 
+  src/woofc-cache.c
+  include/woofc-cache.h
+  src/event.c
+  include/event.h
+  src/host.c
+  include/host.h
+  src/sema.c
+  include/sema.h
+  src/lsema.c
+  include/lsema.h
+  src/msgpack-ep.cpp
   cwpack/cwpack.c
 )
 
-target_include_directories(woof PUBLIC .)
+target_include_directories(woof PUBLIC include)
 target_include_directories(woof PUBLIC cwpack)
 target_compile_options(woof PUBLIC -g)
 target_link_libraries(woof PUBLIC mio euca_utils czmq m pthread uriparser2 caps)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 add_library(woof-thread 
-  woofc-thread.c 
-  woofc-thread.h
+  src/woofc-thread.c 
+  include/woofc-thread.h
 )
-target_include_directories(woof-thread PUBLIC .)
+target_include_directories(woof-thread PUBLIC include)
 target_link_libraries(woof-thread PUBLIC mio euca_utils)
 
-add_executable(woofc-namespace-platform woofc-host.c woofc-host.h)
+add_executable(woofc-namespace-platform src/woofc-host.c include/woofc-host.h)
+target_include_directories(woofc-namespace-platform PUBLIC include)
 target_link_libraries(woofc-namespace-platform PRIVATE woof)
 target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)

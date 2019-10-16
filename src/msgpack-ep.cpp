@@ -21,7 +21,7 @@
 #include <tos/print.hpp>
 
 #include <common/inet/tcp_ip.hpp>
-#include "uriparser2/uriparser2.h"
+#include "uriparser2.h"
 
 namespace cspot
 {

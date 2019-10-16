@@ -11,7 +11,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include "uriparser2/uriparser2.h"
+#include "uriparser2.h"
 
 
 #include "woofc.h"	/* for WooFPut */
