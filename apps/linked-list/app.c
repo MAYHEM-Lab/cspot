@@ -15,13 +15,7 @@ void test_checkpointer(){
 
     CPRR *cprr;
     int i;
-    char *WooF_names[] = {
-        "aaaaaaaaaaaaaaaaaaaa",
-        "bbbbbbbbbbbbbbbbbbbb"
-    };
-    unsigned long seq_nos[] = {5678, 3412};
 
-    CP_write(2, WooF_names, seq_nos);
     cprr = CP_read(1);
     printf("%d\n", cprr->num_of_elements);
     for(i = 0; i < cprr->num_of_elements; ++i){
@@ -48,6 +42,9 @@ int main(int argc, char **argv)
         fscanf(fp, "%d", &val);
         di.val = val;
         (op == 0) ? LL_delete(di) : LL_insert(di);
+        if(i == 1){
+            break;
+        }
     }
 
     fclose(fp);
@@ -56,7 +53,7 @@ int main(int argc, char **argv)
         LL_print(i);
     }
 
-    //test_checkpointer();
+    test_checkpointer();
 
     return(0);
 }
