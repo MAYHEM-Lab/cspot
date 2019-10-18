@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     DATA data;
     unsigned long seq;
 
-    LL_init(1, "AP", 100, "DATA", 100, 100);
+    LL_init(1, 100, 100, 100);
 
     di.val = 2;LL_insert(di);
     di.val = 5;LL_insert(di);
