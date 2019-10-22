@@ -58,8 +58,8 @@ int main(int argc, char **argv)
     int op;
     int val;
 
-    float startTime;
-    float endTime;
+    clock_t start_time;
+    clock_t end_time;
 
     if(argc == 2){
         num_ops_input = stoi(argv[1]);
@@ -67,12 +67,12 @@ int main(int argc, char **argv)
         num_ops_input = 1000;
     }
 
-    LL_init(3, 10000, 10000, 10000);
+    LL_init(1, 10000, 10000, 10000);
 
     fp = fopen("../workload.txt", "r");
 
     fscanf(fp, "%d", &num_ops);
-    startTime = (float) clock() / CLOCKS_PER_SEC;
+    start_time = clock();
     for(i = 0; i < num_ops; ++i){
         fscanf(fp, "%d", &op);
         fscanf(fp, "%d", &val);
@@ -82,13 +82,15 @@ int main(int argc, char **argv)
             break;
         }
     }
-    endTime = (float) clock() / CLOCKS_PER_SEC;
+    end_time = clock();
 
     fclose(fp);
 
 
-    fprintf(stdout, "%d,%f\n", num_ops_input, endTime - startTime);
-    fflush(stdout);
+    //fprintf(stdout, "%d,%f\n", num_ops_input, (double) (end_time - start_time) / CLOCKS_PER_SEC);
+    //fflush(stdout);
+
+    //display_all_versions();
 
     return(0);
 }

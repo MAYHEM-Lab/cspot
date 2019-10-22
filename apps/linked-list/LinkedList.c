@@ -26,6 +26,7 @@ int LINK_WOOF_NAME_SIZE;
 int NUM_OF_LINKS_PER_NODE;
 int CHECKPOINT_MAX_ELEMENTS;
 char LOG_FILENAME[256];
+int NUM_STEPS;
 
 void LL_init(
         int num_of_extra_links,
@@ -67,16 +68,25 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
     unsigned long latest_seq;
 
     #if LOG_ENABLED
+        NUM_STEPS += 1;
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "add_node START\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 
     if(parent.dw_seq_no == 0){//parent null
         #if LOG_ENABLED
+            fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "DATA:get child\n");
             }
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
         #endif
         node.dw_seq_no = child.dw_seq_no;
         node.lw_seq_no = child.lw_seq_no;
@@ -86,40 +96,60 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
         link.type = 'P';
         link.version_stamp = version_stamp;
         #if LOG_ENABLED
+            fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "LINK:new parent\n");
             }
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
         #endif
         insertIntoWooF(child_data.pw_name, NULL, (void *)&link);
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&node);
         #if LOG_ENABLED
+            fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "add_node END\n");
             }
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
         #endif
         return;
     }
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "DATA:get parent\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
     WooFGet(DATA_WOOF_NAME, (void *)&parent_data, parent.dw_seq_no);
     if(child.dw_seq_no != 0){
         #if LOG_ENABLED
+            fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "DATA:get child\n");
             }
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
         #endif
         WooFGet(DATA_WOOF_NAME, (void *)&child_data, child.dw_seq_no);
     }
 
     //parent to child link
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "LINK:new child\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
     link.version_stamp = version_stamp;
     link.dw_seq_no = child.dw_seq_no;
@@ -130,9 +160,13 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
     //child to parent link
     if(child.dw_seq_no != 0){
         #if LOG_ENABLED
+            fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "LINK:new parent\n");
             }
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
         #endif
         link.dw_seq_no = parent.dw_seq_no;
         link.lw_seq_no = ndx - ((ndx % NUM_OF_LINKS_PER_NODE == 0) ? NUM_OF_LINKS_PER_NODE : (ndx % NUM_OF_LINKS_PER_NODE)) + 1;
@@ -142,9 +176,13 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
     //overflow
     if(ndx % NUM_OF_LINKS_PER_NODE == 1){
         #if LOG_ENABLED
+            fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "LINK:get grandparent\n");
             }
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
         #endif
         WooFGet(parent_data.pw_name, (void *)&grandparent_link, WooFGetLatestSeqno(parent_data.pw_name));
         child.dw_seq_no = parent.dw_seq_no;
@@ -155,9 +193,13 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
     }
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "add_node END\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 }
 
@@ -170,10 +212,14 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
     unsigned long max_vs_seen;
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){   
             fprintf(fp, "populate_current_link START\n");
             fprintf(fp, "DATA:get node\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
     WooFGet(DATA_WOOF_NAME, (void *)&data, node.dw_seq_no);//need link woof name
     last_seq = WooFGetLatestSeqno(data.lw_name);
@@ -181,9 +227,13 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
     for(i = 0; i < NUM_OF_LINKS_PER_NODE; ++i){//traverse through all links of that woof
         if((node.lw_seq_no + i) <= last_seq){
             #if LOG_ENABLED
+                fp = fopen(LOG_FILENAME, "a");
                 if(fp != NULL){
                     fprintf(fp, "LINK:get child\n");
                 }
+                fflush(fp);
+                fclose(fp);
+                fp = NULL;
             #endif
             WooFGet(data.lw_name, (void *)&link, node.lw_seq_no + i);
             if(link.version_stamp >= max_vs_seen && link.version_stamp <= version_stamp){
@@ -197,9 +247,13 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
     }
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "populate_current_link END\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 
 }
@@ -210,9 +264,13 @@ void populate_terminal_node(AP *terminal_node){
     LINK current_link;
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "populate_terminal_node START\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 
     WooFGet(AP_WOOF_NAME, (void *)&head, VERSION_STAMP);
@@ -228,9 +286,13 @@ void populate_terminal_node(AP *terminal_node){
     terminal_node->lw_seq_no = head.lw_seq_no;
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "populate_terminal_node END\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 }
 
@@ -276,16 +338,24 @@ void LL_insert(DI di){
     }
 
     #if LOG_ENABLED
+        NUM_STEPS = 0;
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "INSERT START:%lu\n", working_vs);
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "DATA:new data\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
     data.di = di;
     strcpy(data.lw_name, getRandomWooFName(LINK_WOOF_NAME_SIZE));
@@ -300,10 +370,14 @@ void LL_insert(DI di){
     #endif
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "LINK:new child\n");
             fprintf(fp, "LINK:new parent\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
     status = WooFCreate(data.lw_name, sizeof(LINK), LINK_WOOF_SIZE);
     status = WooFCreate(data.pw_name, sizeof(LINK), LINK_WOOF_SIZE);
@@ -345,7 +419,12 @@ void LL_insert(DI di){
 
         VERSION_STAMP = working_vs;
         #if LOG_ENABLED
-            fprintf(fp, "INSERT END:%lu\n", working_vs);
+            fprintf(stdout, "1\n");
+            fflush(stdout);
+            fp = fopen(LOG_FILENAME, "a");
+            if(fp != NULL){
+                fprintf(fp, "INSERT END:%lu\n", working_vs);
+            }
             fflush(fp);
             fclose(fp);
             fp = NULL;
@@ -385,7 +464,12 @@ void LL_insert(DI di){
     VERSION_STAMP = working_vs;
 
     #if LOG_ENABLED
-        fprintf(fp, "INSERT END:%lu\n", working_vs);
+        fprintf(stdout, "%d\n", NUM_STEPS);
+        fflush(stdout);
+        fp = fopen(LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "INSERT END:%lu\n", working_vs);
+        }
         fflush(fp);
         fclose(fp);
         fp = NULL;
@@ -447,17 +531,25 @@ void LL_delete(DI di){
     }
 
     #if LOG_ENABLED
+        NUM_STEPS = 0;
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "DELETE START:%lu\n", working_vs);
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
 
     #if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "DATA:target data\n");
             fprintf(fp, "LINK:get parent\n");
         }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
     #endif
     WooFGet(DATA_WOOF_NAME, (void *)&data, node.dw_seq_no);//all info of target woof
     WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));//latest parent of target
@@ -477,7 +569,12 @@ void LL_delete(DI di){
     VERSION_STAMP = working_vs;
 
     #if LOG_ENABLED
-        fprintf(fp, "DELETE END:%lu\n", working_vs);
+        fprintf(stdout, "%d\n", NUM_STEPS);
+        fflush(stdout);
+        fp = fopen(LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "DELETE END:%lu\n", working_vs);
+        }
         fflush(fp);
         fclose(fp);
         fp = NULL;
