@@ -9,9 +9,11 @@
 #include "LinkedList.h"
 #include "Helper.h"
 #include "CheckPointer.h"
+#include "ledger.h"
 
 #define CHECKPOINT_ENABLED 0
 #define LOG_ENABLED 1
+#define LEDGER_ENABLED 1
 
 FILE *fp;
 
@@ -54,6 +56,10 @@ void LL_init(
         fclose(fp);
         fp = NULL;
     #endif
+
+#if LEDGER_ENABLED
+    ledger_init(LEDGER_DS_LINKEDLIST);
+#endif
 }
 
 void add_node(unsigned long version_stamp, AP parent, AP child){
@@ -343,6 +349,10 @@ void LL_insert(DI di){
         CP_write(cp_num_of_elements, WooF_names, seq_nos);
         #endif
 
+#if LEDGER_ENABLED
+        ledger_insert(di.val);
+#endif
+
         VERSION_STAMP = working_vs;
         #if LOG_ENABLED
             fprintf(fp, "INSERT END:%lu\n", working_vs);
@@ -381,6 +391,10 @@ void LL_insert(DI di){
     #if CHECKPOINT_ENABLED
     CP_write(cp_num_of_elements, WooF_names, seq_nos);
     #endif
+
+#if LEDGER_ENABLED
+    ledger_insert(di.val);
+#endif
 
     VERSION_STAMP = working_vs;
 
@@ -483,6 +497,9 @@ void LL_delete(DI di){
         fp = NULL;
     #endif
 
+#if LEDGER_ENABLED
+    ledger_delete(di.val);
+#endif
 }
 
 void LL_print(unsigned long version_stamp){

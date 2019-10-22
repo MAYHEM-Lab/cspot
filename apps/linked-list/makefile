@@ -22,25 +22,43 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: app workload-generator repair_test
+all: app workload-generator repair_test replica_test print_ledger slave
 
-repair_test: repair_test.c
-	${CC} ${CFLAGS} -o repair_test repair_test.c Helper.o LinkedList.o CheckPointer.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+repair_test: repair_test.c Helper.o LinkedList.o CheckPointer.o ledger.o
+	${CC} ${CFLAGS} -o repair_test repair_test.c Helper.o LinkedList.o CheckPointer.o ledger.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp repair_test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
+replica_test: replica_test.c Helper.o LinkedList.o CheckPointer.o ledger.o
+	${CC} ${CFLAGS} -o replica_test replica_test.c Helper.o LinkedList.o CheckPointer.o ledger.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp replica_test ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
+print_ledger: print_ledger.c Helper.o LinkedList.o CheckPointer.o ledger.o
+	${CC} ${CFLAGS} -o print_ledger print_ledger.c Helper.o LinkedList.o CheckPointer.o ledger.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp print_ledger ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
+slave: slave.c Helper.o LinkedList.o CheckPointer.o ledger.o
+	${CC} ${CFLAGS} -o slave slave.c Helper.o LinkedList.o CheckPointer.o ledger.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp slave ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 workload-generator: workload-generator.c
 	${CC} ${CFLAGS} -o workload-generator workload-generator.c
 
-app: app.c Helper.o LinkedList.o CheckPointer.o
-	${CC} ${CFLAGS} -o app app.c Helper.o LinkedList.o CheckPointer.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+app: app.c Helper.o LinkedList.o CheckPointer.o ledger.o
+	${CC} ${CFLAGS} -o app app.c Helper.o LinkedList.o CheckPointer.o ledger.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp app ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	
 CheckPointer.o: CheckPointer.c
 	${CC} ${CFLAGS} -c CheckPointer.c
+
 Helper.o: Helper.c
 	${CC} ${CFLAGS} -c Helper.c
+
 LinkedList.o: LinkedList.c
-	${CC} ${CFLAGS} -c LinkedList.c Helper.o
+	${CC} ${CFLAGS} -c LinkedList.c
+
+ledger.o: ledger.c ledger.h
+	${CC} ${CFLAGS} -c ledger.c
 
 clean:
-	rm -f app workload-generator repair-test *.o
+	rm -f app workload-generator repair_test replica_test print_ledger *.o
 
