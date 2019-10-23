@@ -13,7 +13,7 @@
 
 #define CHECKPOINT_ENABLED 0
 #define LOG_ENABLED 1
-#define LEDGER_ENABLED 1
+#define LEDGER_ENABLED 0
 
 FILE *fp;
 
