@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 	unsigned long element_size;
 	unsigned long seq_no;
 	LOG *log;
-    MIO *lmio;
+	MIO *lmio;
 	EVENT *ev_array;
 	EVENT ev;
 	char woof_name[4096];
@@ -117,9 +117,14 @@ int main(int argc, char **argv)
 		// send the latest event seqno to master
 		slave_seq = ev_array[Name_log->head].seq_no;
 		sprintf(buf, "%lu", slave_seq);
+		// printf("slave_seq: %lu\n", slave_seq);
 		write(sockfd, buf, sizeof(buf));
 
 		n = read(sockfd, buf, sizeof(buf));
+		while (n < sizeof(buf))
+		{
+			n += read(sockfd, buf + n, sizeof(buf) - n);
+		}
 		num_events = strtoul(buf, (char **)NULL, 10);
 		if (num_events > 0)
 		{
@@ -127,7 +132,11 @@ int main(int argc, char **argv)
 		}
 		for (i = 0; i < num_events; i++)
 		{
-			n = read(sockfd, buf, sizeof(EVENT));
+			n = read(sockfd, buf, sizeof(buf));
+			while (n < sizeof(buf))
+			{
+				n += read(sockfd, buf + n, sizeof(buf) - n);
+			}
 			memcpy(&ev, buf, sizeof(EVENT));
 			// printf("host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d timestamp: %lu\n",
 			// 	ev.host,
@@ -166,6 +175,7 @@ int main(int argc, char **argv)
 				buffer = (void *)malloc(woof->shared->element_size);
 				WooFDrop(woof);
 				WooFGet(ev.woofc_name, buffer, ev.woofc_seq_no);
+				free(buffer);
 				// printf("WooFGet(ev.woofc_name, buffer, ev.woofc_seq_no);\n");
 			}
 			else if (ev.type == APPEND)
@@ -177,12 +187,13 @@ int main(int argc, char **argv)
 				// WooFGetWithoutEvent(woof_name, buffer, ev.woofc_seq_no);
 				WooFGet(woof_name, buffer, ev.woofc_seq_no);
 				seq_no = WooFPut(ev.woofc_name, NULL, buffer);
+				free(buffer);
 			}
 		}
 		fflush(stdout);
 		usleep(100000);
 	}
-	
-    fflush(stdout);
+
+	fflush(stdout);
 	return (0);
 }

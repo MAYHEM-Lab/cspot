@@ -58,31 +58,45 @@ int main(int argc, char **argv)
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port = htons(port);
-	bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+	bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 	listen(listenfd, 1);
 
 	while (1)
 	{
-		connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-		
+		connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
+
 		memset(buf, 0, sizeof(buf));
-		while ((n = read(connfd, buf, sizeof(buf))) > 0)
+		while (1)
 		{
-			// printf("recv %d byte\n", n);
+			n = read(connfd, buf, sizeof(buf));
+			while (n < sizeof(buf))
+			{
+				n += read(connfd, buf + n, sizeof(buf) - n);
+			}
 			slave_seq = strtoul(buf, (char **)NULL, 10);
-			printf("latest seqno from slave: %lu\n", slave_seq);
-			// P(&Name_log->mutex);
 			master_seq = ev_array[Name_log->head].seq_no;
 
 			// send (master_seq - slave_seq) events to slave
 			memset(buf, 0, sizeof(buf));
-			num_events = master_seq - slave_seq;
-			if (num_events > 1000)
+			if (master_seq <= slave_seq)
 			{
-				num_events = 1000;
+				num_events = 0;
+			}
+			else
+			{
+				num_events = master_seq - slave_seq;
+				if (num_events > 10000)
+				{
+					num_events = 10000;
+				}
 			}
 			sprintf(buf, "%lu", num_events);
-			printf("sending %lu events\n", num_events);
+			if (num_events > 0)
+			{
+				printf("latest seqno from slave: %lu, master: %lu\n", slave_seq, master_seq);
+				printf("sending %lu events\n", num_events);
+				fflush(stdout);
+			}
 			write(connfd, buf, sizeof(buf));
 			while (num_events > 0)
 			{
@@ -114,7 +128,7 @@ int main(int argc, char **argv)
 				// 	ev_array[curr].type,
 				// 	ev_array[curr].timestamp);
 
-				write(connfd, buf, sizeof(EVENT));
+				write(connfd, buf, sizeof(buf));
 				fflush(stdout);
 				slave_seq++;
 			}
@@ -122,6 +136,6 @@ int main(int argc, char **argv)
 		}
 
 		close(connfd);
-		sleep(1);
+		usleep(100000);
 	}
 }
