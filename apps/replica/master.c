@@ -25,6 +25,7 @@ int main(int argc, char **argv)
 	int n;
 	int err;
 	unsigned long master_seq, slave_seq;
+	unsigned long num_events;
 	unsigned long curr;
 	int listenfd = 0, connfd = 0;
 	struct sockaddr_in serv_addr;
@@ -63,17 +64,34 @@ int main(int argc, char **argv)
 	while (1)
 	{
 		connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-		// write(connfd, buf, sizeof(buf));
+		
 		memset(buf, 0, sizeof(buf));
-		while ((n = read(connfd, buf, sizeof(buf)-1)) > 0)
+		while ((n = read(connfd, buf, sizeof(buf))) > 0)
 		{
+			// printf("recv %d byte\n", n);
 			slave_seq = strtoul(buf, (char **)NULL, 10);
 			printf("latest seqno from slave: %lu\n", slave_seq);
+			// P(&Name_log->mutex);
 			master_seq = ev_array[Name_log->head].seq_no;
-			sprintf(buf, "%lu", master_seq);
-			write(connfd, buf, strlen(buf));
-			if (master_seq > slave_seq)
+
+			// send (master_seq - slave_seq) events to slave
+			memset(buf, 0, sizeof(buf));
+			num_events = master_seq - slave_seq;
+			if (num_events > 1000)
 			{
+				num_events = 1000;
+			}
+			sprintf(buf, "%lu", num_events);
+			printf("sending %lu events\n", num_events);
+			write(connfd, buf, sizeof(buf));
+			while (num_events > 0)
+			{
+				num_events--;
+				if (ev_array[Name_log->tail].seq_no > slave_seq + 1)
+				{
+					printf("already rolled over\n");
+					fflush(stdout);
+				}
 				curr = Name_log->head;
 				while (ev_array[curr].seq_no != slave_seq + 1)
 				{
@@ -86,19 +104,21 @@ int main(int argc, char **argv)
 				memset(buf, 0, sizeof(buf));
 				memcpy(buf, &ev_array[curr], sizeof(EVENT));
 
-				printf("host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d timestamp: %lu\n",
-					ev_array[curr].host,
-					ev_array[curr].seq_no,
-					ev_array[curr].cause_host,
-					ev_array[curr].cause_seq_no,
-					ev_array[curr].woofc_seq_no,
-					ev_array[curr].woofc_name,
-					ev_array[curr].type,
-					ev_array[curr].timestamp);
+				// printf("host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d timestamp: %lu\n",
+				// 	ev_array[curr].host,
+				// 	ev_array[curr].seq_no,
+				// 	ev_array[curr].cause_host,
+				// 	ev_array[curr].cause_seq_no,
+				// 	ev_array[curr].woofc_seq_no,
+				// 	ev_array[curr].woofc_name,
+				// 	ev_array[curr].type,
+				// 	ev_array[curr].timestamp);
 
 				write(connfd, buf, sizeof(EVENT));
 				fflush(stdout);
+				slave_seq++;
 			}
+			// V(&Name_log->mutex);
 		}
 
 		close(connfd);

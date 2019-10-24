@@ -40,6 +40,7 @@ int main(int argc, char **argv)
 	WOOF *woof;
 	void *buffer;
 	unsigned long master_seq, slave_seq;
+	unsigned long num_events;
 
 	int port = 8080;
 	int sockfd = 0, n = 0;
@@ -112,25 +113,31 @@ int main(int argc, char **argv)
 	while (1)
 	{
 		connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+
+		// send the latest event seqno to master
 		slave_seq = ev_array[Name_log->head].seq_no;
 		sprintf(buf, "%lu", slave_seq);
-		write(sockfd, buf, strlen(buf));
+		write(sockfd, buf, sizeof(buf));
+
 		n = read(sockfd, buf, sizeof(buf));
-		master_seq = strtoul(buf, (char **)NULL, 10);
-		printf("master latest seqno: %lu\n", master_seq);
-		if (master_seq > slave_seq)
+		num_events = strtoul(buf, (char **)NULL, 10);
+		if (num_events > 0)
+		{
+			printf("receiving %lu events\n", num_events);
+		}
+		for (i = 0; i < num_events; i++)
 		{
 			n = read(sockfd, buf, sizeof(EVENT));
 			memcpy(&ev, buf, sizeof(EVENT));
-			printf("host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d timestamp: %lu\n",
-				ev.host,
-				ev.seq_no,
-				ev.cause_host,
-				ev.cause_seq_no,
-				ev.woofc_seq_no,
-				ev.woofc_name,
-				ev.type,
-				ev.timestamp);
+			// printf("host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d timestamp: %lu\n",
+			// 	ev.host,
+			// 	ev.seq_no,
+			// 	ev.cause_host,
+			// 	ev.cause_seq_no,
+			// 	ev.woofc_seq_no,
+			// 	ev.woofc_name,
+			// 	ev.type,
+			// 	ev.timestamp);
 
 			if (ev.woofc_name[0] != 0 && stat(ev.woofc_name, &sbuf) < 0)
 			{
@@ -151,7 +158,7 @@ int main(int argc, char **argv)
 			if (ev.type == LATEST_SEQNO)
 			{
 				WooFGetLatestSeqno(ev.woofc_name);
-				printf("WooFGetLatestSeqno(ev.woofc_name);\n");
+				// printf("WooFGetLatestSeqno(ev.woofc_name);\n");
 			}
 			else if (ev.type == READ)
 			{
@@ -159,7 +166,7 @@ int main(int argc, char **argv)
 				buffer = (void *)malloc(woof->shared->element_size);
 				WooFDrop(woof);
 				WooFGet(ev.woofc_name, buffer, ev.woofc_seq_no);
-				printf("WooFGet(ev.woofc_name, buffer, ev.woofc_seq_no);\n");
+				// printf("WooFGet(ev.woofc_name, buffer, ev.woofc_seq_no);\n");
 			}
 			else if (ev.type == APPEND)
 			{
@@ -173,6 +180,7 @@ int main(int argc, char **argv)
 			}
 		}
 		fflush(stdout);
+		usleep(100000);
 	}
 	
     fflush(stdout);
