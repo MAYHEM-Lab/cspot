@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     fflush(stdout);
 #endif
 
-    display_all_versions();
+    //display_all_versions();
 
     return(0);
 }
