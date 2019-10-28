@@ -16,13 +16,9 @@ WHINC=${WOOFC}/woofc-host.h
 WHOBJ=${WOOFC}/woofc-host.o 
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
-#HAND1=DataHandler
-#HAND2=AccessPointerHandler
-#HAND3=LinkHandler
-
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: app workload-generator repair_test replica_test print_ledger slave
+all: app workload-generator #repair_test replica_test print_ledger slave
 
 repair_test: repair_test.c Helper.o LinkedList.o CheckPointer.o ledger.o
 	${CC} ${CFLAGS} -o repair_test repair_test.c Helper.o LinkedList.o CheckPointer.o ledger.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}

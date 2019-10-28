@@ -12,6 +12,8 @@
 #include "CheckPointer.h"
 #include "Helper.h"
 
+#define TIMING_ENABLED 0
+
 void test_checkpointer(){
 
     CPRR *cprr;
@@ -58,8 +60,10 @@ int main(int argc, char **argv)
     int op;
     int val;
 
+#if TIMING_ENABLED
     clock_t start_time;
     clock_t end_time;
+#endif
 
     if(argc == 2){
         num_ops_input = stoi(argv[1]);
@@ -72,7 +76,11 @@ int main(int argc, char **argv)
     fp = fopen("../workload.txt", "r");
 
     fscanf(fp, "%d", &num_ops);
+
+#if TIMING_ENABLED
     start_time = clock();
+#endif
+
     for(i = 0; i < num_ops; ++i){
         fscanf(fp, "%d", &op);
         fscanf(fp, "%d", &val);
@@ -82,15 +90,19 @@ int main(int argc, char **argv)
             break;
         }
     }
+
+#if TIMING_ENABLED
     end_time = clock();
+#endif
 
     fclose(fp);
 
+#if TIMING_ENABLED
+    fprintf(stdout, "%d,%f\n", num_ops_input, (double) (end_time - start_time) / CLOCKS_PER_SEC);
+    fflush(stdout);
+#endif
 
-    //fprintf(stdout, "%d,%f\n", num_ops_input, (double) (end_time - start_time) / CLOCKS_PER_SEC);
-    //fflush(stdout);
-
-    //display_all_versions();
+    display_all_versions();
 
     return(0);
 }

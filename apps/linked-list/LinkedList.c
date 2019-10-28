@@ -12,7 +12,7 @@
 #include "ledger.h"
 
 #define CHECKPOINT_ENABLED 0
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 #define LEDGER_ENABLED 0
 
 FILE *fp;
@@ -29,6 +29,7 @@ int NUM_OF_LINKS_PER_NODE;
 int CHECKPOINT_MAX_ELEMENTS;
 char LOG_FILENAME[256];
 int NUM_STEPS;
+int FLAG_LOG_POPULATE;
 
 void LL_init(
         int num_of_extra_links,
@@ -51,6 +52,7 @@ void LL_init(
     NUM_OF_LINKS_PER_NODE = 1 + NUM_OF_EXTRA_LINKS;
     CHECKPOINT_MAX_ELEMENTS = 8;
     CP_init(1 + CHECKPOINT_MAX_ELEMENTS * (LINK_WOOF_NAME_SIZE + sizeof(unsigned long)), getRandomWooFName(LINK_WOOF_NAME_SIZE), LINK_WOOF_NAME_SIZE, ap_woof_size);
+    FLAG_LOG_POPULATE = 0;
     #if LOG_ENABLED
         strcpy(LOG_FILENAME, "remote-result.log");
         fp = fopen(LOG_FILENAME, "w");
@@ -84,6 +86,12 @@ void add_node(unsigned long version_stamp, AP parent, AP child){
         fp = NULL;
     #endif
 
+    if(parent.dw_seq_no == 0 && child.dw_seq_no == 0){
+        node.dw_seq_no = 0;
+        node.lw_seq_no = 0;
+        insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&node);
+        return;
+    }
     if(parent.dw_seq_no == 0){//parent null
         #if LOG_ENABLED
             fp = fopen(LOG_FILENAME, "a");
@@ -218,6 +226,7 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
     unsigned long max_vs_seen;
 
     #if LOG_ENABLED
+    if(FLAG_LOG_POPULATE){
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){   
             fprintf(fp, "populate_current_link START\n");
@@ -226,6 +235,7 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
         fflush(fp);
         fclose(fp);
         fp = NULL;
+    }
     #endif
     WooFGet(DATA_WOOF_NAME, (void *)&data, node.dw_seq_no);//need link woof name
     last_seq = WooFGetLatestSeqno(data.lw_name);
@@ -233,6 +243,7 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
     for(i = 0; i < NUM_OF_LINKS_PER_NODE; ++i){//traverse through all links of that woof
         if((node.lw_seq_no + i) <= last_seq){
             #if LOG_ENABLED
+            if(FLAG_LOG_POPULATE){
                 fp = fopen(LOG_FILENAME, "a");
                 if(fp != NULL){
                     fprintf(fp, "LINK:get child\n");
@@ -240,6 +251,7 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
                 fflush(fp);
                 fclose(fp);
                 fp = NULL;
+            }
             #endif
             WooFGet(data.lw_name, (void *)&link, node.lw_seq_no + i);
             if(link.version_stamp >= max_vs_seen && link.version_stamp <= version_stamp){
@@ -253,6 +265,7 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
     }
 
     #if LOG_ENABLED
+    if(FLAG_LOG_POPULATE){
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "populate_current_link END\n");
@@ -260,6 +273,7 @@ void populate_current_link(unsigned long version_stamp, AP node, LINK *current_l
         fflush(fp);
         fclose(fp);
         fp = NULL;
+    }
     #endif
 
 }
@@ -309,7 +323,9 @@ void LL_insert(DI di){
     unsigned long status;
     unsigned long working_vs;
     unsigned long latest_seq;
+    unsigned long latest_ap_seq;
     AP ap;
+    AP latest_ap;
     AP terminal_node;
     DATA data;
     LINK link;
@@ -335,7 +351,11 @@ void LL_insert(DI di){
     if(VERSION_STAMP != 0){
         ap.dw_seq_no = 0;
         ap.lw_seq_no = 0;
+
+        FLAG_LOG_POPULATE = 0; //dont log saerch for insert
+
         search(VERSION_STAMP, di, &ap);
+
         if(ap.dw_seq_no != 0){//already present
             return;
         }
@@ -344,6 +364,7 @@ void LL_insert(DI di){
     }
 
     #if LOG_ENABLED
+        FLAG_LOG_POPULATE = 1;
         NUM_STEPS = 0;
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
@@ -411,7 +432,13 @@ void LL_insert(DI di){
     ap.dw_seq_no = ndx;
     ap.lw_seq_no = 1;
 
-    if(WooFGetLatestSeqno(AP_WOOF_NAME) > 0){//there is at least one element in linked list
+    latest_ap_seq = WooFGetLatestSeqno(AP_WOOF_NAME);
+    latest_ap.dw_seq_no = latest_ap.lw_seq_no = 0;
+    if(latest_ap_seq > 0){
+        WooFGet(AP_WOOF_NAME, (void *)&latest_ap, latest_ap_seq);
+    }
+
+    if(latest_ap_seq > 0 && latest_ap.dw_seq_no != 0){//there is at least one element in linked list
         populate_terminal_node(&terminal_node);
     }else{//empty linked list
         cp_ndx = insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
@@ -499,6 +526,12 @@ void search(unsigned long version_stamp, DI di, AP *node){
 
     get_status = WooFGet(AP_WOOF_NAME, (void *)&iterator, version_stamp);
 
+    if(iterator.dw_seq_no == 0){
+        node->dw_seq_no = 0;
+        node->lw_seq_no = 0;
+        return;
+    }
+
     while(1){
         get_status = WooFGet(DATA_WOOF_NAME, (void *)&data, iterator.dw_seq_no);
         if(data.di.val == di.val){
@@ -535,6 +568,7 @@ void LL_delete(DI di){
     working_vs = VERSION_STAMP + 1;
 
     /* find node containing di */
+    FLAG_LOG_POPULATE = 0;
     node.dw_seq_no = 0;
     node.lw_seq_no = 0;
     search(VERSION_STAMP, di, &node);
@@ -544,7 +578,9 @@ void LL_delete(DI di){
         return;
     }
 
+
     #if LOG_ENABLED
+        FLAG_LOG_POPULATE = 1;
         NUM_STEPS = 0;
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
@@ -565,6 +601,7 @@ void LL_delete(DI di){
         fclose(fp);
         fp = NULL;
     #endif
+
     WooFGet(DATA_WOOF_NAME, (void *)&data, node.dw_seq_no);//all info of target woof
     WooFGet(data.pw_name, (void *)&link, WooFGetLatestSeqno(data.pw_name));//latest parent of target
     parent.dw_seq_no = link.dw_seq_no;
