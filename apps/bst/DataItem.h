@@ -2,7 +2,7 @@
 #define DATA_ITEM_H
 
 struct DataItem{
-    char val;
+    int val;
 };
 
 typedef struct DataItem DI;

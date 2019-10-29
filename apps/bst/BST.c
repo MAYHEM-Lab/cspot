@@ -550,29 +550,6 @@ void BST_delete(DI di){
 
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);
 
-            /*
-            add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);//add target right to pred right
-
-            latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
-            pred_lw = 
-                latest_seq -
-                (
-                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                ) + 1;
-            if(parent_link.dw_seq_no != 0){
-                WooFGet(DATA_WOOF_NAME, (void *)&parent_data, parent_link.dw_seq_no);
-                latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
-                parent_link.lw_seq_no = 
-                    latest_seq -
-                    (
-                     (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                     (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                    ) + 1;
-            }
-
-            add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add pred to target parent
-            */
         }else{//case 2: predecessor is not the immediate left child of target
 
             //step 0: cut off parent of pred (also target), target left and target right to stop propagation
@@ -630,84 +607,6 @@ void BST_delete(DI di){
             //step 3: add pred to parent
             add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);
 
-            /*
-            return;
-
-            link.dw_seq_no = parent_link.dw_seq_no;
-            link.lw_seq_no = parent_link.lw_seq_no;
-            link.type = 'P';
-            link.version_stamp = working_vs;
-            WooFGet(DATA_WOOF_NAME, (void *)&data, pred_dw);
-            insertIntoWooF(data.pw_name, NULL, (void *)&link);
-
-            add_node(working_vs, 'R', right_dw_seq_no, right_lw_seq_no, pred_dw, pred_lw);//add target right to predecessor right
-
-            if(pred_left_dw_seq_no != 0){
-                WooFGet(DATA_WOOF_NAME, (void *)&parent_data, pred_left_dw_seq_no);
-                latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
-                pred_left_lw_seq_no = 
-                    latest_seq -
-                    (
-                     (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                     (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                    ) + 1;
-            }
-            if(pred_parent_link.dw_seq_no != 0){
-                WooFGet(DATA_WOOF_NAME, (void *)&parent_data, pred_parent_link.dw_seq_no);
-                latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
-                pred_parent_link.lw_seq_no = 
-                    latest_seq -
-                    (
-                     (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                     (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                    ) + 1;
-            }
-
-            add_node(working_vs, 'R', pred_left_dw_seq_no, pred_left_lw_seq_no, pred_parent_link.dw_seq_no, pred_parent_link.lw_seq_no);//add predecessor left to predecessor parent right
-
-
-            latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
-            pred_lw = 
-                latest_seq -
-                (
-                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                ) + 1;
-            if(left_dw_seq_no != 0){
-                WooFGet(DATA_WOOF_NAME, (void *)&parent_data, left_dw_seq_no);
-                latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
-                left_lw_seq_no = 
-                    latest_seq -
-                    (
-                     (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                     (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                    ) + 1;
-            }
-
-            DELETE_OPERATION = 1;
-            add_node(working_vs, 'L', left_dw_seq_no, left_lw_seq_no, pred_dw, pred_lw);//add target left to predecessor left
-            DELETE_OPERATION = 0;
-
-            latest_seq = WooFGetLatestSeqno(pred_data.lw_name);
-            pred_lw = 
-                latest_seq -
-                (
-                 (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                 (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                ) + 1;
-            if(parent_link.dw_seq_no != 0){
-                WooFGet(DATA_WOOF_NAME, (void *)&parent_data, parent_link.dw_seq_no);
-                latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
-                parent_link.lw_seq_no = 
-                    latest_seq -
-                    (
-                     (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
-                     (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
-                    ) + 1;
-            }
-
-            add_node(working_vs, type, pred_dw, pred_lw, parent_link.dw_seq_no, parent_link.lw_seq_no);//add target parent to predecessor parent
-            */
         }
     }//two children present else end
 
@@ -736,7 +635,7 @@ void preorder_BST(unsigned long version_stamp, unsigned long dw_seq_no, unsigned
     populate_current_left_right(version_stamp, dw_seq_no, lw_seq_no, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
 
     WooFGet(DATA_WOOF_NAME, (void *)&data, dw_seq_no);
-    fprintf(stdout, "%c ", data.di);
+    fprintf(stdout, "%d ", data.di);
     fflush(stdout);
 
     preorder_BST(version_stamp, left_dw_seq_no, left_lw_seq_no);
@@ -771,7 +670,7 @@ void dump_data_woof(){
     DATA data;
     for(i = 1; i <= WooFGetLatestSeqno("DATA"); ++i){
         WooFGet("DATA", (void *)&data, i);
-        fprintf(stdout, "%lu: %c %s %s\n", i, data.di.val, data.lw_name, data.pw_name);
+        fprintf(stdout, "%lu: %d %s %s\n", i, data.di.val, data.lw_name, data.pw_name);
         fflush(stdout);
     }
 }

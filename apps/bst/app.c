@@ -16,9 +16,8 @@ int main(int argc, char **argv)
     unsigned long i;
     FILE *fp;
     int op;
-    char val;
+    int val;
     int num_of_operations;
-    int line_number;
     DATA debug_data;
 
     WooFInit();
@@ -27,15 +26,11 @@ int main(int argc, char **argv)
     fp = fopen("../workload.txt", "r");
     fscanf(fp, "%d", &num_of_operations);
 
-    for(i = 0, line_number = 2; i < num_of_operations; ++i, ++line_number){
-        fscanf(fp, "%d %c", &op, &val);
+    for(i = 0; i < num_of_operations; ++i){
+        fscanf(fp, "%d", &op);
+        fscanf(fp, "%d", &val);
         di.val = val;
         (op == 0) ? BST_delete(di) : BST_insert(di);
-        //if(i == 900){
-        //    fprintf(stdout, "last executed line %d: %d %c\n", line_number, op, val);
-        //    fflush(stdout);
-        //    break;
-        //}
     }
     fclose(fp);
 
