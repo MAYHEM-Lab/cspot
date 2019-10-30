@@ -9,6 +9,8 @@
 #include "Data.h"
 #include "Link.h"
 
+#define LOG_ENABLED 1
+
 unsigned long VERSION_STAMP = 0;
 char AP_WOOF_NAME[255];
 unsigned long AP_WOOF_SIZE;
@@ -16,6 +18,12 @@ char DATA_WOOF_NAME[255];
 unsigned long DATA_WOOF_SIZE;
 unsigned long LINK_WOOF_SIZE;
 int WOOF_NAME_SIZE;
+char *WORKLOAD_SUFFIX;
+char LOG_FILENAME[255]; //woof access
+char SECONDARY_LOG_FILENAME[255]; //steps
+char SPACE_LOG_FILENAME[255]; //space
+int NUM_STEPS;
+FILE *fp;
 
 void BST_init(unsigned long ap_woof_size, unsigned long data_woof_size, unsigned long link_woof_size){
     srand(time(0));
@@ -28,6 +36,28 @@ void BST_init(unsigned long ap_woof_size, unsigned long data_woof_size, unsigned
     LINK_WOOF_SIZE = link_woof_size;
     createWooF(DATA_WOOF_NAME, sizeof(DATA), data_woof_size);
     VERSION_STAMP = 0;
+#if LOG_ENABLED
+    strcpy(LOG_FILENAME, "ephemeral-binary-search-tree-woof-access-");
+    strcat(LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(LOG_FILENAME, ".log");
+    fp = fopen(LOG_FILENAME, "w");
+    fclose(fp);
+    fp = NULL;
+
+    strcpy(SECONDARY_LOG_FILENAME, "ephemeral-binary-search-tree-steps-");
+    strcat(SECONDARY_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(SECONDARY_LOG_FILENAME, ".log");
+    fp = fopen(SECONDARY_LOG_FILENAME, "w");
+    fclose(fp);
+    fp = NULL;
+#endif
+
+    strcpy(SPACE_LOG_FILENAME, "ephemeral-binary-search-tree-space-");
+    strcat(SPACE_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(SPACE_LOG_FILENAME, ".log");
+    fp = fopen(SPACE_LOG_FILENAME, "w");
+    fclose(fp);
+    fp = NULL;
 }
 
 void populate_terminal_node(DI di, unsigned long *dw_seq_no){
@@ -155,6 +185,28 @@ void BST_insert(DI di){
 
     VERSION_STAMP += 1;
 
+#if LOG_ENABLED
+    NUM_STEPS = 0;
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "INSERT START:%lu\n", VERSION_STAMP);
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
+
+#if LOG_ENABLED
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "DATA:new data\n");
+        fprintf(fp, "LINK:new child\n");
+        fprintf(fp, "LINK:new child\n");
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
     data.di = di;
     strcpy(data.lw_name, getRandomWooFName(WOOF_NAME_SIZE));
     strcpy(data.pw_name, getRandomWooFName(WOOF_NAME_SIZE));
@@ -172,14 +224,55 @@ void BST_insert(DI di){
     ap.dw_seq_no = 0;
     populate_terminal_node(di, &ap.dw_seq_no);
     if(ap.dw_seq_no == 0){//empty tree
+#if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "LINK:new parent\n");
+        }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
+#endif
         link.dw_seq_no = ap.dw_seq_no;
         link.type = 'P';
         insertIntoWooF(data.pw_name, NULL, (void *)&link);
         ap.dw_seq_no = ndx;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
+#if LOG_ENABLED
+        fp = fopen(SECONDARY_LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "1\n");
+            fflush(fp);
+        }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
+
+        fp = fopen(LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "INSERT END:%lu\n", VERSION_STAMP);
+        }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
+#endif
         return;
     }
 
+#if LOG_ENABLED
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "DATA:get parent\n");
+        fprintf(fp, "LINK:get child\n");
+        fprintf(fp, "LINK:get child\n");
+        fprintf(fp, "LINK:new child\n");
+        fprintf(fp, "LINK:new child\n");
+        fprintf(fp, "LINK:new parent\n");
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
     WooFGet(DATA_WOOF_NAME, (void *)&parent_data, ap.dw_seq_no);
     latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
     WooFGet(parent_data.lw_name, (void *)&left_link, latest_seq - 1);
@@ -196,6 +289,25 @@ void BST_insert(DI di){
     link.dw_seq_no = ap.dw_seq_no;
     link.type = 'P';
     insertIntoWooF(data.pw_name, NULL, (void *)&link);
+
+#if LOG_ENABLED
+    fp = fopen(SECONDARY_LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "1\n");
+        fflush(fp);
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "INSERT END:%lu\n", VERSION_STAMP);
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
 
 }
 
@@ -239,7 +351,31 @@ void add_node(unsigned long parent_dw, unsigned long child_dw, char type){
     LINK parent;
     unsigned long latest_seq;
 
+#if LOG_ENABLED
+    NUM_STEPS += 1;
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "add_node START\n");
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
+
     if(parent_dw != 0){
+#if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "DATA:get parent\n");
+            fprintf(fp, "LINK:get child\n");
+            fprintf(fp, "LINK:get child\n");
+            fprintf(fp, "LINK:new child\n");
+            fprintf(fp, "LINK:new child\n");
+        }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
+#endif
         WooFGet(DATA_WOOF_NAME, (void *)&parent_data, parent_dw);
         latest_seq = WooFGetLatestSeqno(parent_data.lw_name);
         WooFGet(parent_data.lw_name, (void *)&parent_left, latest_seq - 1);
@@ -254,11 +390,30 @@ void add_node(unsigned long parent_dw, unsigned long child_dw, char type){
     }
 
     if(child_dw != 0){
+#if LOG_ENABLED
+        fp = fopen(LOG_FILENAME, "a");
+        if(fp != NULL){
+            fprintf(fp, "DATA:get child\n");
+            fprintf(fp, "LINK:new parent\n");
+        }
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
+#endif
         WooFGet(DATA_WOOF_NAME, (void *)&child_data, child_dw);
         parent.dw_seq_no = parent_dw;
         insertIntoWooF(child_data.pw_name, NULL, (void *)&parent);
     }
 
+#if LOG_ENABLED
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "add_node END\n");
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
 }
 
 void BST_delete(DI di){
@@ -288,6 +443,17 @@ void BST_delete(DI di){
     }
 
     VERSION_STAMP += 1;
+
+#if LOG_ENABLED
+    NUM_STEPS = 0;
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "DELETE START:%lu\n", VERSION_STAMP);
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
 
     //get target data
     WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);
@@ -351,10 +517,37 @@ void BST_delete(DI di){
 
     }
 
+#if LOG_ENABLED
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "LINK:new parent\n");
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
     //make target parent null
     link.dw_seq_no = 0;
     link.type = 'P';
     insertIntoWooF(data.pw_name, NULL, (void *)&link);
+#if LOG_ENABLED
+    fp = fopen(SECONDARY_LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "%d\n", NUM_STEPS);
+        fflush(fp);
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+
+    fp = fopen(LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "DELETE END:%lu\n", VERSION_STAMP);
+    }
+    fflush(fp);
+    fclose(fp);
+    fp = NULL;
+#endif
 
 }
 
@@ -452,7 +645,12 @@ void log_size(int num_ops_input){
         break;
     }
 
-    fprintf(stdout, "%d,%zu\n", num_ops_input, total_size);
-    fflush(stdout);
+    fp = fopen(SPACE_LOG_FILENAME, "a");
+    if(fp != NULL){
+        fprintf(fp, "%d,%zu\n", num_ops_input, total_size);
+        fflush(fp);
+        fclose(fp);
+        fp = NULL;
+    }
 
 }
