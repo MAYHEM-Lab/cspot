@@ -96,4 +96,6 @@ void dump_data_woof();
 void dump_ap_woof();
 void BST_debug();
 
+void log_size(int num_ops_input);
+
 #endif
