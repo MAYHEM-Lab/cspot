@@ -12,7 +12,7 @@
 #include "ledger.h"
 
 #define CHECKPOINT_ENABLED 0
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 #define LEDGER_ENABLED 0
 
 FILE *fp;
@@ -322,22 +322,6 @@ void LL_insert(DI di){
     DATA data;
     LINK link;
 
-    #if CHECKPOINT_ENABLED
-    char **WooF_names;
-    unsigned long *seq_nos;
-    int cp_num_of_elements;
-    int cp_i;
-    LINK cp_link;
-    DATA cp_data;
-
-    WooF_names = (char **)malloc(CHECKPOINT_MAX_ELEMENTS * sizeof(char *));
-    for(cp_i = 0; cp_i < CHECKPOINT_MAX_ELEMENTS; ++cp_i){
-        WooF_names[cp_i] = (char *)malloc(LINK_WOOF_NAME_SIZE * sizeof(char));
-    }
-    seq_nos = (unsigned long *)malloc(CHECKPOINT_MAX_ELEMENTS * sizeof(unsigned long));
-    cp_num_of_elements = 0;
-    #endif
-
     working_vs = VERSION_STAMP + 1;
 
     if(VERSION_STAMP != 0){
@@ -373,17 +357,12 @@ void LL_insert(DI di){
         fclose(fp);
         fp = NULL;
     #endif
+
     data.di = di;
     strcpy(data.lw_name, getRandomWooFName(LINK_WOOF_NAME_SIZE));
     strcpy(data.pw_name, getRandomWooFName(LINK_WOOF_NAME_SIZE));
     data.version_stamp = working_vs;
     ndx = insertIntoWooF(DATA_WOOF_NAME, NULL, (void *)&data);//insert into data woof, ndx needed for insertion into ap woof
-
-    #if CHECKPOINT_ENABLED
-    strcpy(WooF_names[cp_num_of_elements], DATA_WOOF_NAME);
-    seq_nos[cp_num_of_elements] = ndx;
-    cp_num_of_elements++;
-    #endif
 
     #if LOG_ENABLED
         fp = fopen(LOG_FILENAME, "a");
@@ -395,6 +374,7 @@ void LL_insert(DI di){
         fclose(fp);
         fp = NULL;
     #endif
+
     status = WooFCreate(data.lw_name, sizeof(LINK), LINK_WOOF_SIZE);
     status = WooFCreate(data.pw_name, sizeof(LINK), LINK_WOOF_SIZE);
     link.dw_seq_no = 0;//points to null, for both parent and child
@@ -403,20 +383,8 @@ void LL_insert(DI di){
     link.type = 'T';//to or next
     cp_ndx = insertIntoWooF(data.lw_name, NULL, (void *)&link);//insert into link woof
 
-    #if CHECKPOINT_ENABLED
-    strcpy(WooF_names[cp_num_of_elements], data.lw_name);
-    seq_nos[cp_num_of_elements] = cp_ndx;
-    cp_num_of_elements++;
-    #endif
-
     link.type = 'P';//parent
     cp_ndx = insertIntoWooF(data.pw_name, NULL, (void *)&link);//insert into parent woof, note add_node changes it
-
-    #if CHECKPOINT_ENABLED
-    strcpy(WooF_names[cp_num_of_elements], data.pw_name);
-    seq_nos[cp_num_of_elements] = cp_ndx;
-    cp_num_of_elements++;
-    #endif
 
     ap.dw_seq_no = ndx;
     ap.lw_seq_no = 1;
@@ -431,13 +399,6 @@ void LL_insert(DI di){
         populate_terminal_node(&terminal_node);
     }else{//empty linked list
         cp_ndx = insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
-
-        #if CHECKPOINT_ENABLED
-        strcpy(WooF_names[cp_num_of_elements], AP_WOOF_NAME);
-        seq_nos[cp_num_of_elements] = cp_ndx;
-        cp_num_of_elements++;
-        CP_write(cp_num_of_elements, WooF_names, seq_nos);
-        #endif
 
 #if LEDGER_ENABLED
         ledger_insert(di.val);
@@ -460,17 +421,6 @@ void LL_insert(DI di){
 
     add_node(working_vs, terminal_node, ap);
 
-    #if CHECKPOINT_ENABLED
-    WooFGet(DATA_WOOF_NAME, (void *)&cp_data, terminal_node.dw_seq_no);
-    strcpy(WooF_names[cp_num_of_elements], cp_data.lw_name);
-    seq_nos[cp_num_of_elements] = WooFGetLatestSeqno(cp_data.lw_name);
-    cp_num_of_elements++;
-    WooFGet(DATA_WOOF_NAME, (void *)&cp_data, ap.dw_seq_no);
-    strcpy(WooF_names[cp_num_of_elements], cp_data.pw_name);
-    seq_nos[cp_num_of_elements] = WooFGetLatestSeqno(cp_data.pw_name);
-    cp_num_of_elements++;
-    #endif
-
     latest_seq = WooFGetLatestSeqno(AP_WOOF_NAME);
     if(latest_seq < working_vs){//latest entry has not been made to AP WooF
         WooFGet(AP_WOOF_NAME, (void *)&ap, latest_seq);
@@ -482,10 +432,6 @@ void LL_insert(DI di){
         cp_num_of_elements++;
         #endif
     }
-
-    #if CHECKPOINT_ENABLED
-    CP_write(cp_num_of_elements, WooF_names, seq_nos);
-    #endif
 
 #if LEDGER_ENABLED
     ledger_insert(di.val);
@@ -705,4 +651,28 @@ void LL_debug(){
     for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
         LL_print(i);
     }
+}
+
+void log_size(int num_ops_input){
+    
+    DATA data;
+    unsigned long latest_seq_data_woof;
+    unsigned long latest_seq;
+    unsigned long i;
+    size_t total_size = 0;
+
+    latest_seq_data_woof = WooFGetLatestSeqno(DATA_WOOF_NAME);
+    total_size += (latest_seq_data_woof * sizeof(DATA));
+    for(i = 1; i <= latest_seq_data_woof; ++i){
+        WooFGet(DATA_WOOF_NAME, (void *)&data, i);
+        latest_seq = WooFGetLatestSeqno(data.lw_name);
+        total_size += (latest_seq * sizeof(LINK));
+        latest_seq = WooFGetLatestSeqno(data.pw_name);
+        total_size += (latest_seq * sizeof(LINK));
+        break;
+    }
+
+    fprintf(stdout, "%d,%zu\n", num_ops_input, total_size);
+    fflush(stdout);
+
 }

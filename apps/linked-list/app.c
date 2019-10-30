@@ -13,6 +13,9 @@
 #include "Helper.h"
 
 #define TIMING_ENABLED 0
+#define LOG_SIZE_ENABLED 0
+#define DISPLAY_ENABLED 0
+#define GRANULAR_TIMING_ENABLED 1
 
 void test_checkpointer(){
 
@@ -64,6 +67,10 @@ int main(int argc, char **argv)
     clock_t start_time;
     clock_t end_time;
 #endif
+#if GRANULAR_TIMING_ENABLED
+    struct timeval ts_start;
+    struct timeval ts_end;
+#endif
 
     if(argc == 2){
         num_ops_input = stoi(argv[1]);
@@ -85,7 +92,21 @@ int main(int argc, char **argv)
         fscanf(fp, "%d", &op);
         fscanf(fp, "%d", &val);
         di.val = val;
+#if GRANULAR_TIMING_ENABLED
+        gettimeofday(&ts_start, NULL);
+#endif
         (op == 0) ? LL_delete(di) : LL_insert(di);
+#if GRANULAR_TIMING_ENABLED
+        gettimeofday(&ts_end, NULL);
+        fprintf(stdout, "1,%lu,%d\n",  
+                (uint64_t)((ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec)), op);
+        fflush(stdout);
+#endif
+
+#if LOG_SIZE_ENABLED
+    log_size(i + 1);
+#endif
+
         if(i == (num_ops_input - 1)){
             break;
         }
@@ -102,7 +123,9 @@ int main(int argc, char **argv)
     fflush(stdout);
 #endif
 
-    //display_all_versions();
+#if DISPLAY_ENABLED
+    display_all_versions();
+#endif
 
     return(0);
 }
