@@ -12,7 +12,7 @@
 #include "Data.h"
 
 #define LOG_SIZE_ENABLED 0
-#define DISPLAY_ENABLED 0
+#define DISPLAY_ENABLED 1
 #define GRANULAR_TIMING_ENABLED 0
 
 int main(int argc, char **argv)

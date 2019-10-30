@@ -9,7 +9,7 @@
 #include "Data.h"
 #include "Link.h"
 
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 
 int NUM_OF_EXTRA_LINKS = 1;
 unsigned long VERSION_STAMP = 0;
@@ -917,6 +917,14 @@ void BST_delete(DI di){
 
     if(WooFGetLatestSeqno(AP_WOOF_NAME) < working_vs){
         WooFGet(AP_WOOF_NAME, (void *)&ap, VERSION_STAMP);
+        WooFGet(DATA_WOOF_NAME, (void *)&data, ap.dw_seq_no);
+        latest_seq = WooFGetLatestSeqno(data.lw_name);
+        ap.lw_seq_no = 
+            latest_seq -
+            (
+             (latest_seq % NUM_OF_ENTRIES_PER_NODE == 0) ?
+             (NUM_OF_ENTRIES_PER_NODE) : (latest_seq % NUM_OF_ENTRIES_PER_NODE)
+            ) + 1;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
     }
     VERSION_STAMP = working_vs;
@@ -1003,11 +1011,9 @@ void dump_ap_woof(){
 
 void BST_debug(){
 
-    //dump_data_woof();
-    DI di;
-    di.val = 'Z';
-    fprintf(stdout, "%lu\n", BST_search_latest(di));
-    fflush(stdout);
+    DATA debug_data;
+    WooFGet(DATA_WOOF_NAME, (void *)&debug_data, 59);
+    dump_link_woof(debug_data.lw_name);
 
 }
 
