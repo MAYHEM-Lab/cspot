@@ -370,7 +370,7 @@ void preorder_BST(unsigned long dw_seq_no){
     }
 
     WooFGet(DATA_WOOF_NAME, (void *)&data, dw_seq_no);
-    fprintf(stdout, "%c ", data.di);
+    fprintf(stdout, "%d ", data.di);
     fflush(stdout);
 
     latest_seq = WooFGetLatestSeqno(data.lw_name);
@@ -430,5 +430,29 @@ void dump_ap_woof(){
 void BST_debug(){
 
     dump_data_woof();
+
+}
+
+void log_size(int num_ops_input){
+    
+    DATA data;
+    unsigned long latest_seq_data_woof;
+    unsigned long latest_seq;
+    unsigned long i;
+    size_t total_size = 0;
+
+    latest_seq_data_woof = WooFGetLatestSeqno(DATA_WOOF_NAME);
+    total_size += (latest_seq_data_woof * sizeof(DATA));
+    for(i = 1; i <= latest_seq_data_woof; ++i){
+        WooFGet(DATA_WOOF_NAME, (void *)&data, i);
+        latest_seq = WooFGetLatestSeqno(data.lw_name);
+        total_size += (latest_seq * sizeof(LINK));
+        latest_seq = WooFGetLatestSeqno(data.pw_name);
+        total_size += (latest_seq * sizeof(LINK));
+        break;
+    }
+
+    fprintf(stdout, "%d,%zu\n", num_ops_input, total_size);
+    fflush(stdout);
 
 }
