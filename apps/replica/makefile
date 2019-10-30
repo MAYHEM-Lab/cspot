@@ -20,11 +20,11 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
 all: master slave
 
-master: master.c repair.h
+master: master.c
 	${CC} ${CFLAGS} -o master master.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp master ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
-slave: slave.c repair.h
+slave: slave.c
 	${CC} ${CFLAGS} -o slave slave.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp slave ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 

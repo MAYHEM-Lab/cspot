@@ -73,9 +73,13 @@ int main(int argc, char **argv)
 			{
 				n += read(connfd, buf + n, sizeof(buf) - n);
 			}
+			if (buf[0] == '-' && buf[1] == '1')
+			{
+				close(connfd);
+				return 0;
+			}
 			slave_seq = strtoul(buf, (char **)NULL, 10);
 			master_seq = ev_array[Name_log->head].seq_no;
-
 			// send (master_seq - slave_seq) events to slave
 			memset(buf, 0, sizeof(buf));
 			if (master_seq <= slave_seq)
@@ -85,10 +89,10 @@ int main(int argc, char **argv)
 			else
 			{
 				num_events = master_seq - slave_seq;
-				if (num_events > 10000)
-				{
-					num_events = 10000;
-				}
+				// if (num_events > 1000)
+				// {
+				// 	num_events = 1000;
+				// }
 			}
 			sprintf(buf, "%lu", num_events);
 			if (num_events > 0)
@@ -98,22 +102,23 @@ int main(int argc, char **argv)
 				fflush(stdout);
 			}
 			write(connfd, buf, sizeof(buf));
+			curr = 0;
 			while (num_events > 0)
 			{
+				// printf("remaining: %d\n", num_events);
 				num_events--;
 				if (ev_array[Name_log->tail].seq_no > slave_seq + 1)
 				{
 					printf("already rolled over\n");
 					fflush(stdout);
 				}
-				curr = Name_log->head;
-				while (ev_array[curr].seq_no != slave_seq + 1)
+				if (ev_array[curr].seq_no < slave_seq + 1)
 				{
-					curr = curr - 1;
-					if (curr >= Name_log->size)
-					{
-						curr = (Name_log->size - 1);
-					}
+					curr += (slave_seq + 1 - ev_array[curr].seq_no);
+				}
+				else if (ev_array[curr].seq_no > slave_seq + 1)
+				{
+					curr += (Name_log->size - (ev_array[curr].seq_no - (slave_seq + 1)));
 				}
 				memset(buf, 0, sizeof(buf));
 				memcpy(buf, &ev_array[curr], sizeof(EVENT));
@@ -129,6 +134,7 @@ int main(int argc, char **argv)
 				// 	ev_array[curr].timestamp);
 
 				write(connfd, buf, sizeof(buf));
+				// printf("sent %lu\n", ev_array[curr].seq_no);
 				fflush(stdout);
 				slave_seq++;
 			}

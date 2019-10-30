@@ -28,3 +28,6 @@ cd zmq
 ./install-zmq.sh
 cd ..
 make
+
+echo '/usr/local/lib' >> /etc/ld.so.conf
+ldconfig
