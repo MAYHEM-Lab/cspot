@@ -11,7 +11,7 @@
 #include "DataItem.h"
 #include "Data.h"
 
-#define LOG_SIZE_ENABLED 1
+#define LOG_SIZE_ENABLED 0
 #define DISPLAY_ENABLED 0
 #define GRANULAR_TIMING_ENABLED 0
 
