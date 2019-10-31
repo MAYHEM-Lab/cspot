@@ -91,6 +91,8 @@ int main(int argc, char **argv)
 	
 	while (1)
 	{
+		printf("connecting to master\n");
+		fflush(stdout);
 		connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 
 		// send the latest event seqno to master
@@ -99,11 +101,18 @@ int main(int argc, char **argv)
 		{
 			gettimeofday(&begin, NULL);
 		}
+		memset(buf, 0, sizeof(buf));
 		sprintf(buf, "%lu", slave_seq);
 		// printf("slave_seq: %lu\n", slave_seq);
 
 		gettimeofday(&t1, NULL);
+		printf("sending the latest seqno %lu to master\n", slave_seq);
+		fflush(stdout);
+		printf("sending buf: %s\n", buf);
+		fflush(stdout);
 		write(sockfd, buf, sizeof(buf));
+		printf("sent buf: %s\n", buf);
+		fflush(stdout);
 		n = read(sockfd, buf, sizeof(buf));
 		while (n < sizeof(buf))
 		{
@@ -116,6 +125,7 @@ int main(int argc, char **argv)
 		if (num_events > 0)
 		{
 			printf("receiving %lu events\n", num_events);
+			fflush(stdout);
 		}
 		for (i = 0; i < num_events; i++)
 		{
@@ -198,6 +208,7 @@ int main(int argc, char **argv)
 			break;
 		}
 		printf("seqno: %lu\n", ev_array[Name_log->head].seq_no);
+		fflush(stdout);
 		last_seqno = ev_array[Name_log->head].seq_no;
 		usleep(100000);
 	}
