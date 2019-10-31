@@ -8,6 +8,7 @@ extern char AP_WOOF_NAME[255];
 extern unsigned long AP_WOOF_SIZE;
 extern char DATA_WOOF_NAME[255];
 extern unsigned long DATA_WOOF_SIZE;
+extern char *WORKLOAD_SUFFIX;
 
 /**
  * initializes state variables

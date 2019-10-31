@@ -12,7 +12,7 @@
 #include "Data.h"
 
 #define LOG_SIZE_ENABLED 0
-#define DISPLAY_ENABLED 0
+#define DISPLAY_ENABLED 1
 #define GRANULAR_TIMING_ENABLED 0
 
 int main(int argc, char **argv)
@@ -30,10 +30,21 @@ int main(int argc, char **argv)
     struct timeval ts_end;
 #endif
 
+    if(argc != 2){
+        fprintf(stdout, "USAGE: %s <filename-relative-to-executable>\n", argv[0]);
+        fflush(stdout);
+        exit(1);
+    }
+
     WooFInit();
     BST_init(1, "AP", 1000, "DATA", 20000, 20000);   
     
-    fp = fopen("../workload.txt", "r");
+    fp = fopen(argv[1], "r");
+    if(!fp){
+        fprintf(stdout, "could not open workload file\n");
+        fflush(stdout);
+        exit(1);
+    }
     fscanf(fp, "%d", &num_of_operations);
 
     for(i = 0; i < num_of_operations; ++i){
@@ -58,7 +69,9 @@ int main(int argc, char **argv)
 
 #if DISPLAY_ENABLED
     for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
+        if(i == 1000){
         BST_preorder(i);
+        }
     }
 #endif
 
