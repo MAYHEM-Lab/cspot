@@ -61,9 +61,15 @@ int main(int argc, char **argv)
 	bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 	listen(listenfd, 1);
 
+	printf("start listening\n");
+	fflush(stdout);
 	while (1)
 	{
+		printf("waiting connection\n");
+		fflush(stdout);
 		connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
+		printf("incoming connection\n");
+		fflush(stdout);
 
 		memset(buf, 0, sizeof(buf));
 		while (1)
@@ -73,12 +79,20 @@ int main(int argc, char **argv)
 			{
 				n += read(connfd, buf + n, sizeof(buf) - n);
 			}
+			printf("recv buf: %s\n", buf);
+			fflush(stdout);
 			if (buf[0] == '-' && buf[1] == '1')
 			{
+				printf("closing connection\n");
+				fflush(stdout);
 				close(connfd);
+				printf("closed connection\n");
+				fflush(stdout);
 				return 0;
 			}
 			slave_seq = strtoul(buf, (char **)NULL, 10);
+			printf("latest seqno from slave: %lu\n", slave_seq);
+			fflush(stdout);
 			master_seq = ev_array[Name_log->head].seq_no;
 			// send (master_seq - slave_seq) events to slave
 			memset(buf, 0, sizeof(buf));
@@ -139,9 +153,15 @@ int main(int argc, char **argv)
 				slave_seq++;
 			}
 			// V(&Name_log->mutex);
+			usleep(100000);
 		}
 
+		printf("closing connection\n");
+		fflush(stdout);
 		close(connfd);
+		printf("closed connection\n");
+		fflush(stdout);
 		usleep(100000);
 	}
+	return 0;
 }
