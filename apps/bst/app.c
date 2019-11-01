@@ -11,9 +11,30 @@
 #include "DataItem.h"
 #include "Data.h"
 
-#define LOG_SIZE_ENABLED 0
-#define DISPLAY_ENABLED 1
+#define LOG_SPACE_ENABLED 0
+#define DISPLAY_ENABLED 0
 #define GRANULAR_TIMING_ENABLED 0
+
+char *WORKLOAD_SUFFIX;
+
+char *get_workload_suffix(char *filename){
+    char *suffix;
+    int suffix_size;
+    int j;
+    
+    suffix_size = 3;
+    suffix = (char *)malloc((suffix_size + 1) * sizeof(char));
+    memset(suffix, 0, (suffix_size + 1));
+
+    for(; *filename; filename++){
+        if(*filename == '-'){
+            for(j = 0; j < suffix_size; ++j){
+                suffix[j] = *(filename + j + 1);
+            }
+            return suffix;
+        }
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -28,12 +49,43 @@ int main(int argc, char **argv)
 #if GRANULAR_TIMING_ENABLED
     struct timeval ts_start;
     struct timeval ts_end;
+
+    FILE *fp_t;
+    char TIMING_LOG_FILENAME[255];
+#endif
+
+#if LOG_SPACE_ENABLED
+    FILE *fp_s;
+    char SPACE_LOG_FILENAME[255];
 #endif
 
     if(argc != 2){
         fprintf(stdout, "USAGE: %s <filename-relative-to-executable>\n", argv[0]);
         fflush(stdout);
         exit(1);
+    }else{
+        WORKLOAD_SUFFIX = get_workload_suffix(argv[1]);
+
+#if GRANULAR_TIMING_ENABLED
+        strcpy(TIMING_LOG_FILENAME, "../timing/persistent-binary-search-tree-granular-time-");
+        strcat(TIMING_LOG_FILENAME, WORKLOAD_SUFFIX);
+        strcat(TIMING_LOG_FILENAME, ".log");
+
+        fp_t = fopen(TIMING_LOG_FILENAME, "w");
+        fclose(fp_t);
+        fp_t = NULL;
+#endif
+
+#if LOG_SPACE_ENABLED
+        strcpy(SPACE_LOG_FILENAME, "../space/persistent-binary-search-tree-space-");
+        strcat(SPACE_LOG_FILENAME, WORKLOAD_SUFFIX);
+        strcat(SPACE_LOG_FILENAME, ".log");
+
+        fp_s = fopen(SPACE_LOG_FILENAME, "w");
+        fclose(fp_s);
+        fp_s = NULL;
+#endif
+        
     }
 
     WooFInit();
@@ -57,19 +109,28 @@ int main(int argc, char **argv)
         (op == 0) ? BST_delete(di) : BST_insert(di);
 #if GRANULAR_TIMING_ENABLED
         gettimeofday(&ts_end, NULL);
-        fprintf(stdout, "1,%lu,%d\n",
-                (uint64_t)((ts_end.tv_sec*1000000+ts_end.tv_usec)-(ts_start.tv_sec*1000000+ts_start.tv_usec)), op);
-        fflush(stdout);
+        fp_t = fopen(TIMING_LOG_FILENAME, "a");
+        if(fp_t != NULL){
+            fprintf(fp_t, "1,%lu,%d\n",
+                (ts_end.tv_sec*1000000+ts_end.tv_usec)-(ts_start.tv_sec*1000000+ts_start.tv_usec), op);
+        }
+        fflush(fp_t);
+        fclose(fp_t);
+        fp_t = NULL;
 #endif
-#if LOG_SIZE_ENABLED
-        log_size(i + 1);
+#if LOG_SPACE_ENABLED
+        fp_s = fopen(SPACE_LOG_FILENAME, "a");
+        log_size(i + 1, fp_s);
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
 #endif
     }
     fclose(fp);
 
 #if DISPLAY_ENABLED
     for(i = 1; i <= WooFGetLatestSeqno(AP_WOOF_NAME); ++i){
-        if(i == 1000){
+        if(i == 995){
         BST_preorder(i);
         }
     }

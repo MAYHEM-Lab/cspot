@@ -23,9 +23,13 @@ int NUM_OF_ENTRIES_PER_NODE;
 int DELETE_OPERATION;
 
 char LOG_FILENAME[255];
+char STEPS_LOG_FILENAME[255];
 int NUM_STEPS;
 
 FILE *fp;
+FILE *fp_s;
+
+char *WORKLOAD_SUFFIX;
 
 void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_size, char *data_woof_name, unsigned long data_woof_size, unsigned long link_woof_size){
     srand(time(0));
@@ -42,10 +46,19 @@ void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_
     DELETE_OPERATION = 0;
 
 #if LOG_ENABLED
-    strcpy(LOG_FILENAME, "remote-result.log");
+    strcpy(LOG_FILENAME, "../woof-access/persistent-binary-search-tree-woof-access-");
+    strcat(LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(LOG_FILENAME, ".log");
     fp = fopen(LOG_FILENAME, "w");
     fclose(fp);
     fp = NULL;
+
+    strcpy(STEPS_LOG_FILENAME, "../steps/persistent-binary-search-tree-steps-");
+    strcat(STEPS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(STEPS_LOG_FILENAME, ".log");
+    fp_s = fopen(STEPS_LOG_FILENAME, "w");
+    fclose(fp_s);
+    fp_s = NULL;
 #endif
 }
 
@@ -576,8 +589,14 @@ void BST_insert(DI di){
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
         VERSION_STAMP = working_vs;
 #if LOG_ENABLED
-        fprintf(stdout, "1\n");
-        fflush(stdout);
+        fp_s = fopen(STEPS_LOG_FILENAME, "a");
+        if(fp_s != NULL){
+            fprintf(fp_s, "1\n");
+        }
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
+
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "INSERT END:%lu\n", working_vs);
@@ -630,8 +649,14 @@ void BST_insert(DI di){
     VERSION_STAMP = working_vs;
 
 #if LOG_ENABLED
-    fprintf(stdout, "%d\n", NUM_STEPS);
-    fflush(stdout);
+    fp_s = fopen(STEPS_LOG_FILENAME, "a");
+    if(fp_s != NULL){
+        fprintf(fp_s, "%d\n", NUM_STEPS);
+    }
+    fflush(fp_s);
+    fclose(fp_s);
+    fp_s = NULL;
+
     fp = fopen(LOG_FILENAME, "a");
     if(fp != NULL){
         fprintf(fp, "INSERT END:%lu\n", working_vs);
@@ -930,8 +955,14 @@ void BST_delete(DI di){
     VERSION_STAMP = working_vs;
 
 #if LOG_ENABLED
-    fprintf(stdout, "%d\n", NUM_STEPS);
-    fflush(stdout);
+    fp_s = fopen(STEPS_LOG_FILENAME, "a");
+    if(fp_s != NULL){
+        fprintf(fp_s, "%d\n", NUM_STEPS);
+    }
+    fflush(fp_s);
+    fclose(fp_s);
+    fp_s = NULL;
+
     fp = fopen(LOG_FILENAME, "a");
     if(fp != NULL){
         fprintf(fp, "DELETE END:%lu\n", working_vs);
@@ -1017,7 +1048,7 @@ void BST_debug(){
 
 }
 
-void log_size(int num_ops_input){
+void log_size(int num_ops_input, FILE *fp_s){
     
     DATA data;
     unsigned long latest_seq_data_woof;
@@ -1036,7 +1067,6 @@ void log_size(int num_ops_input){
         break;
     }
 
-    fprintf(stdout, "%d,%zu\n", num_ops_input, total_size);
-    fflush(stdout);
+    fprintf(fp_s, "%d,%zu\n", num_ops_input, total_size);
 
 }

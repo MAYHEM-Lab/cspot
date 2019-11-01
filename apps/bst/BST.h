@@ -10,6 +10,7 @@ extern unsigned long AP_WOOF_SIZE;
 extern char DATA_WOOF_NAME[255];
 extern unsigned long DATA_WOOF_SIZE;
 extern int DELETE_OPERATION;
+extern char *WORKLOAD_SUFFIX;
 
 /**
  * initializes state variables
@@ -96,6 +97,6 @@ void dump_data_woof();
 void dump_ap_woof();
 void BST_debug();
 
-void log_size(int num_ops_input);
+void log_size(int num_ops_input, FILE *fp_s);
 
 #endif
