@@ -10,11 +10,30 @@
 #include "DataItem.h"
 #include "Data.h"
 
-#define LOG_SIZE_ENABLED 0
+#define LOG_SPACE_ENABLED 0
 #define DISPLAY_ENABLED 0
 #define GRANULAR_TIMING_ENABLED 0
 
 char *WORKLOAD_SUFFIX;
+
+char *get_workload_suffix(char *filename){
+    char *suffix;
+    int suffix_size;
+    int j;
+    
+    suffix_size = 3;
+    suffix = (char *)malloc((suffix_size + 1) * sizeof(char));
+    memset(suffix, 0, (suffix_size + 1));
+
+    for(; *filename; filename++){
+        if(*filename == '-'){
+            for(j = 0; j < suffix_size; ++j){
+                suffix[j] = *(filename + j + 1);
+            }
+            return suffix;
+        }
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -35,19 +54,20 @@ int main(int argc, char **argv)
     char TIMING_LOG_FILENAME[255];
 #endif
 
+#if LOG_SPACE_ENABLED
+    FILE *fp_s;
+    char SPACE_LOG_FILENAME[255];
+#endif
+
     if(argc != 2){
         fprintf(stdout, "please provide workload file\n");
         fprintf(stdout, "USAGE: %s <workload-filename>\n", argv[0]);
         exit(1);
     }else{
-        WORKLOAD_SUFFIX = (char *)malloc(4 * sizeof(char));
-        memset(WORKLOAD_SUFFIX, 0, 4);
-        WORKLOAD_SUFFIX[0] = argv[1][9];
-        WORKLOAD_SUFFIX[1] = argv[1][10];
-        WORKLOAD_SUFFIX[2] = argv[1][11];
+        WORKLOAD_SUFFIX = get_workload_suffix(argv[1]);
 
 #if GRANULAR_TIMING_ENABLED
-        strcpy(TIMING_LOG_FILENAME, "ephemeral-binary-search-tree-granular-time-");
+        strcpy(TIMING_LOG_FILENAME, "../timing/ephemeral-binary-search-tree-granular-time-");
         strcat(TIMING_LOG_FILENAME, WORKLOAD_SUFFIX);
         strcat(TIMING_LOG_FILENAME, ".log");
 
@@ -55,6 +75,17 @@ int main(int argc, char **argv)
         fclose(fp_t);
         fp_t = NULL;
 #endif
+
+#if LOG_SPACE_ENABLED
+        strcpy(SPACE_LOG_FILENAME, "../space/ephemeral-binary-search-tree-space-");
+        strcat(SPACE_LOG_FILENAME, WORKLOAD_SUFFIX);
+        strcat(SPACE_LOG_FILENAME, ".log");
+
+        fp_s = fopen(SPACE_LOG_FILENAME, "w");
+        fclose(fp_s);
+        fp_s = NULL;
+#endif
+        
     }
 
     WooFInit();
@@ -82,9 +113,14 @@ int main(int argc, char **argv)
         fclose(fp_t);
         fp_t = NULL;
 #endif
-#if LOG_SIZE_ENABLED
-        log_size(i + 1);
+#if LOG_SPACE_ENABLED
+        fp_s = fopen(SPACE_LOG_FILENAME, "a");
+        log_size(i + 1, fp_s);
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
 #endif
+
 #if DISPLAY_ENABLED
         if(vs != VERSION_STAMP){
             BST_preorder();

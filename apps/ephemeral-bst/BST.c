@@ -18,12 +18,15 @@ char DATA_WOOF_NAME[255];
 unsigned long DATA_WOOF_SIZE;
 unsigned long LINK_WOOF_SIZE;
 int WOOF_NAME_SIZE;
-char *WORKLOAD_SUFFIX;
-char LOG_FILENAME[255]; //woof access
-char SECONDARY_LOG_FILENAME[255]; //steps
-char SPACE_LOG_FILENAME[255]; //space
+
+char LOG_FILENAME[255];
+char STEPS_LOG_FILENAME[255];
 int NUM_STEPS;
+
 FILE *fp;
+FILE *fp_s;
+
+char *WORKLOAD_SUFFIX;
 
 void BST_init(unsigned long ap_woof_size, unsigned long data_woof_size, unsigned long link_woof_size){
     srand(time(0));
@@ -37,27 +40,20 @@ void BST_init(unsigned long ap_woof_size, unsigned long data_woof_size, unsigned
     createWooF(DATA_WOOF_NAME, sizeof(DATA), data_woof_size);
     VERSION_STAMP = 0;
 #if LOG_ENABLED
-    strcpy(LOG_FILENAME, "ephemeral-binary-search-tree-woof-access-");
+    strcpy(LOG_FILENAME, "../woof-access/ephemeral-binary-search-tree-woof-access-");
     strcat(LOG_FILENAME, WORKLOAD_SUFFIX);
     strcat(LOG_FILENAME, ".log");
     fp = fopen(LOG_FILENAME, "w");
     fclose(fp);
     fp = NULL;
 
-    strcpy(SECONDARY_LOG_FILENAME, "ephemeral-binary-search-tree-steps-");
-    strcat(SECONDARY_LOG_FILENAME, WORKLOAD_SUFFIX);
-    strcat(SECONDARY_LOG_FILENAME, ".log");
-    fp = fopen(SECONDARY_LOG_FILENAME, "w");
-    fclose(fp);
-    fp = NULL;
+    strcpy(STEPS_LOG_FILENAME, "../steps/ephemeral-binary-search-tree-steps-");
+    strcat(STEPS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(STEPS_LOG_FILENAME, ".log");
+    fp_s = fopen(STEPS_LOG_FILENAME, "w");
+    fclose(fp_s);
+    fp_s = NULL;
 #endif
-
-    strcpy(SPACE_LOG_FILENAME, "ephemeral-binary-search-tree-space-");
-    strcat(SPACE_LOG_FILENAME, WORKLOAD_SUFFIX);
-    strcat(SPACE_LOG_FILENAME, ".log");
-    fp = fopen(SPACE_LOG_FILENAME, "w");
-    fclose(fp);
-    fp = NULL;
 }
 
 void populate_terminal_node(DI di, unsigned long *dw_seq_no){
@@ -239,14 +235,14 @@ void BST_insert(DI di){
         ap.dw_seq_no = ndx;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
 #if LOG_ENABLED
-        fp = fopen(SECONDARY_LOG_FILENAME, "a");
-        if(fp != NULL){
-            fprintf(fp, "1\n");
-            fflush(fp);
+        fp_s = fopen(STEPS_LOG_FILENAME, "a");
+        if(fp_s != NULL){
+            fprintf(fp_s, "1\n");
+            fflush(fp_s);
         }
-        fflush(fp);
-        fclose(fp);
-        fp = NULL;
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
 
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
@@ -291,14 +287,14 @@ void BST_insert(DI di){
     insertIntoWooF(data.pw_name, NULL, (void *)&link);
 
 #if LOG_ENABLED
-    fp = fopen(SECONDARY_LOG_FILENAME, "a");
-    if(fp != NULL){
-        fprintf(fp, "1\n");
-        fflush(fp);
+    fp_s = fopen(STEPS_LOG_FILENAME, "a");
+    if(fp_s != NULL){
+        fprintf(fp_s, "1\n");
+        fflush(fp_s);
     }
-    fflush(fp);
-    fclose(fp);
-    fp = NULL;
+    fflush(fp_s);
+    fclose(fp_s);
+    fp_s = NULL;
 
     fp = fopen(LOG_FILENAME, "a");
     if(fp != NULL){
@@ -531,14 +527,14 @@ void BST_delete(DI di){
     link.type = 'P';
     insertIntoWooF(data.pw_name, NULL, (void *)&link);
 #if LOG_ENABLED
-    fp = fopen(SECONDARY_LOG_FILENAME, "a");
-    if(fp != NULL){
-        fprintf(fp, "%d\n", NUM_STEPS);
-        fflush(fp);
+    fp_s = fopen(STEPS_LOG_FILENAME, "a");
+    if(fp_s != NULL){
+        fprintf(fp_s, "%d\n", NUM_STEPS);
+        fflush(fp_s);
     }
-    fflush(fp);
-    fclose(fp);
-    fp = NULL;
+    fflush(fp_s);
+    fclose(fp_s);
+    fp_s = NULL;
 
     fp = fopen(LOG_FILENAME, "a");
     if(fp != NULL){
@@ -626,7 +622,7 @@ void BST_debug(){
 
 }
 
-void log_size(int num_ops_input){
+void log_size(int num_ops_input, FILE *fp_s){
     
     DATA data;
     unsigned long latest_seq_data_woof;
@@ -645,12 +641,6 @@ void log_size(int num_ops_input){
         break;
     }
 
-    fp = fopen(SPACE_LOG_FILENAME, "a");
-    if(fp != NULL){
-        fprintf(fp, "%d,%zu\n", num_ops_input, total_size);
-        fflush(fp);
-        fclose(fp);
-        fp = NULL;
-    }
+    fprintf(fp_s, "%d,%zu\n", num_ops_input, total_size);
 
 }
