@@ -15,6 +15,7 @@ extern unsigned long LINK_WOOF_SIZE;
 extern int LINK_WOOF_NAME_SIZE;
 extern int NUM_OF_LINKS_PER_NODE;
 extern int CHECKPOINT_MAX_ELEMENTS;
+extern char *WORKLOAD_SUFFIX;
 
 /**
  * initializes state variables
@@ -83,5 +84,7 @@ void debug_AP();
  * debug
  **/
 void LL_debug();
+
+void log_size(int num_ops_input, FILE *fp_s);
 
 #endif

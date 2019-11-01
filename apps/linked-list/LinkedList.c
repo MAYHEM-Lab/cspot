@@ -12,7 +12,7 @@
 #include "ledger.h"
 
 #define CHECKPOINT_ENABLED 0
-#define LOG_ENABLED 0
+#define LOG_ENABLED 1
 #define LEDGER_ENABLED 0
 
 FILE *fp;
@@ -27,8 +27,15 @@ unsigned long LINK_WOOF_SIZE;
 int LINK_WOOF_NAME_SIZE;
 int NUM_OF_LINKS_PER_NODE;
 int CHECKPOINT_MAX_ELEMENTS;
-char LOG_FILENAME[256];
+
+char LOG_FILENAME[255];
+char STEPS_LOG_FILENAME[255];
 int NUM_STEPS;
+
+FILE *fp;
+FILE *fp_s;
+
+char *WORKLOAD_SUFFIX;
 
 void LL_init(
         int num_of_extra_links,
@@ -51,12 +58,22 @@ void LL_init(
     NUM_OF_LINKS_PER_NODE = 1 + NUM_OF_EXTRA_LINKS;
     CHECKPOINT_MAX_ELEMENTS = 8;
     CP_init(1 + CHECKPOINT_MAX_ELEMENTS * (LINK_WOOF_NAME_SIZE + sizeof(unsigned long)), getRandomWooFName(LINK_WOOF_NAME_SIZE), LINK_WOOF_NAME_SIZE, ap_woof_size);
-    #if LOG_ENABLED
-        strcpy(LOG_FILENAME, "remote-result.log");
-        fp = fopen(LOG_FILENAME, "w");
-        fclose(fp);
-        fp = NULL;
-    #endif
+
+#if LOG_ENABLED
+    strcpy(LOG_FILENAME, "../woof-access/persistent-linked-list-woof-access-");
+    strcat(LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(LOG_FILENAME, ".log");
+    fp = fopen(LOG_FILENAME, "w");
+    fclose(fp);
+    fp = NULL;
+
+    strcpy(STEPS_LOG_FILENAME, "../steps/persistent-linked-list-steps-");
+    strcat(STEPS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(STEPS_LOG_FILENAME, ".log");
+    fp_s = fopen(STEPS_LOG_FILENAME, "w");
+    fclose(fp_s);
+    fp_s = NULL;
+#endif
 
 #if LEDGER_ENABLED
     ledger_init(LEDGER_DS_LINKEDLIST);
@@ -406,8 +423,14 @@ void LL_insert(DI di){
 
         VERSION_STAMP = working_vs;
         #if LOG_ENABLED
-            fprintf(stdout, "1\n");
-            fflush(stdout);
+            fp_s = fopen(STEPS_LOG_FILENAME, "a");
+            if(fp_s != NULL){
+                fprintf(fp_s, "1\n");
+            }
+            fflush(fp_s);
+            fclose(fp_s);
+            fp_s = NULL;
+
             fp = fopen(LOG_FILENAME, "a");
             if(fp != NULL){
                 fprintf(fp, "INSERT END:%lu\n", working_vs);
@@ -440,8 +463,14 @@ void LL_insert(DI di){
     VERSION_STAMP = working_vs;
 
     #if LOG_ENABLED
-        fprintf(stdout, "%d\n", NUM_STEPS);
-        fflush(stdout);
+        fp_s = fopen(STEPS_LOG_FILENAME, "a");
+        if(fp_s != NULL){
+            fprintf(fp_s, "%d\n", NUM_STEPS);
+        }
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
+
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "INSERT END:%lu\n", working_vs);
@@ -553,8 +582,14 @@ void LL_delete(DI di){
     VERSION_STAMP = working_vs;
 
     #if LOG_ENABLED
-        fprintf(stdout, "%d\n", NUM_STEPS);
-        fflush(stdout);
+        fp_s = fopen(STEPS_LOG_FILENAME, "a");
+        if(fp_s != NULL){
+            fprintf(fp_s, "%d\n", NUM_STEPS);
+        }
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
+
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "DELETE END:%lu\n", working_vs);
@@ -653,7 +688,7 @@ void LL_debug(){
     }
 }
 
-void log_size(int num_ops_input){
+void log_size(int num_ops_input, FILE *fp_s){
     
     DATA data;
     unsigned long latest_seq_data_woof;
@@ -672,7 +707,6 @@ void log_size(int num_ops_input){
         break;
     }
 
-    fprintf(stdout, "%d,%zu\n", num_ops_input, total_size);
-    fflush(stdout);
+    fprintf(fp_s, "%d,%zu\n", num_ops_input, total_size);
 
 }

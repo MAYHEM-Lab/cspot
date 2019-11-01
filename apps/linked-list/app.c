@@ -12,10 +12,30 @@
 #include "CheckPointer.h"
 #include "Helper.h"
 
-#define TIMING_ENABLED 0
-#define LOG_SIZE_ENABLED 0
+#define LOG_SPACE_ENABLED 0
 #define DISPLAY_ENABLED 0
-#define GRANULAR_TIMING_ENABLED 1
+#define GRANULAR_TIMING_ENABLED 0
+
+char *WORKLOAD_SUFFIX;
+
+char *get_workload_suffix(char *filename){
+    char *suffix;
+    int suffix_size;
+    int j;
+    
+    suffix_size = 3;
+    suffix = (char *)malloc((suffix_size + 1) * sizeof(char));
+    memset(suffix, 0, (suffix_size + 1));
+
+    for(; *filename; filename++){
+        if(*filename == '-'){
+            for(j = 0; j < suffix_size; ++j){
+                suffix[j] = *(filename + j + 1);
+            }
+            return suffix;
+        }
+    }
+}
 
 void test_checkpointer(){
 
@@ -63,30 +83,56 @@ int main(int argc, char **argv)
     int op;
     int val;
 
-#if TIMING_ENABLED
-    clock_t start_time;
-    clock_t end_time;
-#endif
 #if GRANULAR_TIMING_ENABLED
     struct timeval ts_start;
     struct timeval ts_end;
+
+    FILE *fp_t;
+    char TIMING_LOG_FILENAME[255];
 #endif
 
-    if(argc == 2){
-        num_ops_input = stoi(argv[1]);
+#if LOG_SPACE_ENABLED
+    FILE *fp_s;
+    char SPACE_LOG_FILENAME[255];
+#endif
+
+    if(argc != 2){
+        fprintf(stdout, "USAGE: %s <filename-relative-to-executable>\n", argv[0]);
+        fflush(stdout);
+        exit(1);
     }else{
-        num_ops_input = 1000;
+        WORKLOAD_SUFFIX = get_workload_suffix(argv[1]);
+
+#if GRANULAR_TIMING_ENABLED
+        strcpy(TIMING_LOG_FILENAME, "../timing/persistent-linked-list-granular-time-");
+        strcat(TIMING_LOG_FILENAME, WORKLOAD_SUFFIX);
+        strcat(TIMING_LOG_FILENAME, ".log");
+
+        fp_t = fopen(TIMING_LOG_FILENAME, "w");
+        fclose(fp_t);
+        fp_t = NULL;
+#endif
+
+#if LOG_SPACE_ENABLED
+        strcpy(SPACE_LOG_FILENAME, "../space/persistent-linked-list-space-");
+        strcat(SPACE_LOG_FILENAME, WORKLOAD_SUFFIX);
+        strcat(SPACE_LOG_FILENAME, ".log");
+
+        fp_s = fopen(SPACE_LOG_FILENAME, "w");
+        fclose(fp_s);
+        fp_s = NULL;
+#endif
+        
     }
 
     LL_init(1, 10000, 10000, 10000);
-
-    fp = fopen("../workload.txt", "r");
-
+    fp = fopen(argv[1], "r");
+    if(!fp){
+        fprintf(stdout, "could not open workload file\n");
+        fflush(stdout);
+        exit(1);
+    }
     fscanf(fp, "%d", &num_ops);
-
-#if TIMING_ENABLED
-    start_time = clock();
-#endif
 
     for(i = 0; i < num_ops; ++i){
         fscanf(fp, "%d", &op);
@@ -98,30 +144,26 @@ int main(int argc, char **argv)
         (op == 0) ? LL_delete(di) : LL_insert(di);
 #if GRANULAR_TIMING_ENABLED
         gettimeofday(&ts_end, NULL);
-        fprintf(stdout, "1,%lu,%d\n",  
-                (uint64_t)((ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec)), op);
-        fflush(stdout);
-#endif
-
-#if LOG_SIZE_ENABLED
-    log_size(i + 1);
-#endif
-
-        if(i == (num_ops_input - 1)){
-            break;
+        fp_t = fopen(TIMING_LOG_FILENAME, "a");
+        if(fp_t != NULL){
+            fprintf(fp_t, "1,%lu,%d\n",
+                (ts_end.tv_sec*1000000+ts_end.tv_usec)-(ts_start.tv_sec*1000000+ts_start.tv_usec), op);
         }
+        fflush(fp_t);
+        fclose(fp_t);
+        fp_t = NULL;
+#endif
+
+#if LOG_SPACE_ENABLED
+    fp_s = fopen(SPACE_LOG_FILENAME, "a");
+    log_size(i + 1, fp_s);
+    fflush(fp_s);
+    fclose(fp_s);
+    fp_s = NULL;
+#endif
     }
 
-#if TIMING_ENABLED
-    end_time = clock();
-#endif
-
     fclose(fp);
-
-#if TIMING_ENABLED
-    fprintf(stdout, "%d,%f\n", num_ops_input, (double) (end_time - start_time) / CLOCKS_PER_SEC);
-    fflush(stdout);
-#endif
 
 #if DISPLAY_ENABLED
     display_all_versions();
