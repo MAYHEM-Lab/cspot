@@ -9,9 +9,7 @@
 #include "LinkedList.h"
 #include "Helper.h"
 
-#define LOG_ENABLED 0
-
-FILE *fp;
+#define LOG_ENABLED 1
 
 char AP_WOOF_NAME[255];
 unsigned long AP_WOOF_SIZE;
@@ -19,8 +17,16 @@ char DATA_WOOF_NAME[255];
 unsigned long DATA_WOOF_SIZE;
 unsigned long LINK_WOOF_SIZE;
 int LINK_WOOF_NAME_SIZE;
-char LOG_FILENAME[256];
 unsigned long VERSION_STAMP;
+
+char LOG_FILENAME[255];
+char STEPS_LOG_FILENAME[255];
+int NUM_STEPS;
+
+FILE *fp;
+FILE *fp_s;
+
+char *WORKLOAD_SUFFIX;
 
 void LL_init(
         int num_of_extra_links,
@@ -39,12 +45,22 @@ void LL_init(
     createWooF(DATA_WOOF_NAME, sizeof(DATA), DATA_WOOF_SIZE);
     LINK_WOOF_SIZE = link_woof_size;
     VERSION_STAMP = 0;
-    #if LOG_ENABLED
-        strcpy(LOG_FILENAME, "remote-result.log");
-        fp = fopen(LOG_FILENAME, "w");
-        fclose(fp);
-        fp = NULL;
-    #endif
+
+#if LOG_ENABLED
+    strcpy(LOG_FILENAME, "../woof-access/ephemeral-linked-list-woof-access-");
+    strcat(LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(LOG_FILENAME, ".log");
+    fp = fopen(LOG_FILENAME, "w");
+    fclose(fp);
+    fp = NULL;
+
+    strcpy(STEPS_LOG_FILENAME, "../steps/ephemeral-linked-list-steps-");
+    strcat(STEPS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(STEPS_LOG_FILENAME, ".log");
+    fp_s = fopen(STEPS_LOG_FILENAME, "w");
+    fclose(fp_s);
+    fp_s = NULL;
+#endif
 }
 
 void search(DI di, AP *node){
@@ -153,8 +169,14 @@ void LL_insert(DI di){
     VERSION_STAMP += 1;
 
     #if LOG_ENABLED
-        fprintf(stdout, "1\n");
-        fflush(stdout);
+        fp_s = fopen(STEPS_LOG_FILENAME, "a");
+        if(fp_s != NULL){
+            fprintf(fp_s, "1\n");
+        }
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
+
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "INSERT START\n");
@@ -250,8 +272,14 @@ void LL_delete(DI di){
     VERSION_STAMP += 1;
 
     #if LOG_ENABLED
-        fprintf(stdout, "1\n");
-        fflush(stdout);
+        fp_s = fopen(STEPS_LOG_FILENAME, "a");
+        if(fp_s != NULL){
+            fprintf(fp_s, "1\n");
+        }
+        fflush(fp_s);
+        fclose(fp_s);
+        fp_s = NULL;
+
         fp = fopen(LOG_FILENAME, "a");
         if(fp != NULL){
             fprintf(fp, "DELETE START\n");
@@ -270,6 +298,12 @@ void LL_delete(DI di){
     if(parent.dw_seq_no == 0 && child.dw_seq_no == 0){
         node.dw_seq_no = 0;
         insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&node);
+        #if LOG_ENABLED
+            fprintf(fp, "DELETE END\n");
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
+        #endif
         return;
     }
 
@@ -402,7 +436,7 @@ void LL_debug(){
     LL_print();
 }
 
-void log_size(int num_ops_input){
+void log_size(int num_ops_input, FILE *fp_s){
     
     DATA data;
     unsigned long latest_seq_data_woof;
@@ -421,7 +455,6 @@ void log_size(int num_ops_input){
         break;
     }
 
-    fprintf(stdout, "%d,%zu\n", num_ops_input, total_size);
-    fflush(stdout);
+    fprintf(fp_s, "%d,%zu\n", num_ops_input, total_size);
 
 }

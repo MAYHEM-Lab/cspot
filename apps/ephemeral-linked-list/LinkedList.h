@@ -12,6 +12,7 @@ extern unsigned long DATA_WOOF_SIZE;
 extern unsigned long LINK_WOOF_SIZE;
 extern int LINK_WOOF_NAME_SIZE;
 extern unsigned long VERSION_STAMP;
+extern char *WORKLOAD_SUFFIX;
 
 /**
  * initializes state variables
@@ -70,5 +71,7 @@ void debug_AP();
  * debug
  **/
 void LL_debug();
+
+void log_size(int num_ops_input, FILE *fp_s);
 
 #endif
