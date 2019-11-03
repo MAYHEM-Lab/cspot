@@ -14,7 +14,11 @@ struct senspot_stc
 	unsigned int tv_usec;
 	unsigned int pad_1;
 	unsigned int pad_2;
+#ifdef JUMBO
+	unsigned char payload[8*1024]; // for strings
+#else
 	unsigned char payload[1024]; // for strings
+#endif
 };
 
 typedef struct senspot_stc SENSPOT;
