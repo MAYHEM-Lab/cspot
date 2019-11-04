@@ -179,21 +179,21 @@ int main(int argc, char **argv)
 					exit(1);
 				}
 			}
-			// if (ev.type == LATEST_SEQNO)
-			// {
-			// 	WooFGetLatestSeqno(ev.woofc_name);
-			// 	// printf("WooFGetLatestSeqno(ev.woofc_name);\n");
-			// }
-			// else if (ev.type == READ)
-			// {
-			// 	WooFGet(ev.woofc_name, &woof_element, ev.woofc_seq_no);
-			// }
-			// else if (ev.type == APPEND)
-			// {
-			// 	sprintf(woof_name, "%s/%s", master_namespace, ev.woofc_name);
-			// 	WooFGet(woof_name, &woof_element, ev.woofc_seq_no);
-			// 	seq_no = WooFPut(ev.woofc_name, NULL, &woof_element);
-			// }
+			if (ev.type == LATEST_SEQNO)
+			{
+				WooFGetLatestSeqno(ev.woofc_name);
+				// printf("WooFGetLatestSeqno(ev.woofc_name);\n");
+			}
+			else if (ev.type == READ)
+			{
+				WooFGet(ev.woofc_name, &woof_element, ev.woofc_seq_no);
+			}
+			else if (ev.type == APPEND)
+			{
+				sprintf(woof_name, "%s/%s", master_namespace, ev.woofc_name);
+				WooFGet(woof_name, &woof_element, ev.woofc_seq_no);
+				seq_no = WooFPut(ev.woofc_name, NULL, &woof_element);
+			}
 			ev_array[Name_log->head].seq_no++;
 		}
 		if (ev_array[Name_log->head].seq_no == last_seqno)
