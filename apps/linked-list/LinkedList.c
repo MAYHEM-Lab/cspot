@@ -14,8 +14,10 @@
 #define CHECKPOINT_ENABLED 0
 #define LOG_ENABLED 0
 #define LEDGER_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 FILE *fp;
+FILE *fp_access;
 
 int NUM_OF_EXTRA_LINKS;
 unsigned long VERSION_STAMP;
@@ -30,6 +32,7 @@ int CHECKPOINT_MAX_ELEMENTS;
 
 char LOG_FILENAME[255];
 char STEPS_LOG_FILENAME[255];
+char ACCESS_LOG_FILENAME[255];
 int NUM_STEPS;
 
 FILE *fp;
@@ -77,6 +80,15 @@ void LL_init(
     fp_s = fopen(STEPS_LOG_FILENAME, "w");
     fclose(fp_s);
     fp_s = NULL;
+#endif
+
+#if ACCESS_TIMING_ENABLED
+    strcpy(ACCESS_LOG_FILENAME, "../access/persistent-linked-list-access-");
+    strcat(ACCESS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(ACCESS_LOG_FILENAME, ".log");
+    fp_access = fopen(ACCESS_LOG_FILENAME, "w");
+    fclose(fp_access);
+    fp_access = NULL;
 #endif
 
 #if LEDGER_ENABLED
@@ -327,6 +339,59 @@ void populate_terminal_node(AP *terminal_node){
         fclose(fp);
         fp = NULL;
     #endif
+}
+
+void populate_terminal_node_access(AP *terminal_node){
+
+    AP head;
+    LINK current_link;
+    
+    int access_steps;
+    unsigned long elapsed_time;
+    struct timeval ts_start_access;
+    struct timeval ts_end_access;
+
+    access_steps = 1;
+
+    gettimeofday(&ts_start_access, NULL);
+
+    WooFGet(AP_WOOF_NAME, (void *)&head, VERSION_STAMP);
+
+    if(head.dw_seq_no == 0){
+        gettimeofday(&ts_end_access, NULL);
+        elapsed_time = (ts_end_access.tv_sec*1000000+ts_end_access.tv_usec) - (ts_start_access.tv_sec*1000000+ts_start_access.tv_usec);
+
+        fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+        if(fp_access != NULL){
+            fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+        }
+        fflush(fp_access);
+        fclose(fp_access);
+        fp_access = NULL;
+        return;
+    }
+
+    while(1){
+        access_steps += 1;
+        populate_current_link(VERSION_STAMP, head, &current_link);
+        if(current_link.dw_seq_no == 0) break;
+        head.dw_seq_no = current_link.dw_seq_no;
+        head.lw_seq_no = current_link.lw_seq_no;
+    }
+
+    terminal_node->dw_seq_no = head.dw_seq_no;
+    terminal_node->lw_seq_no = head.lw_seq_no;
+
+    gettimeofday(&ts_end_access, NULL);
+    elapsed_time = (ts_end_access.tv_sec*1000000+ts_end_access.tv_usec) - (ts_start_access.tv_sec*1000000+ts_start_access.tv_usec);
+
+    fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+    if(fp_access != NULL){
+        fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+    }
+    fflush(fp_access);
+    fclose(fp_access);
+    fp_access = NULL;
 }
 
 void LL_insert(DI di){

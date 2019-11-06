@@ -31,6 +31,11 @@ void LL_init(
 void populate_terminal_node(AP *terminal_node);
 
 /**
+ * populate terminal node
+ **/
+void populate_terminal_node_access(AP *terminal_node);
+
+/**
  * insert into linked list
  **/
 void LL_insert(DI di);

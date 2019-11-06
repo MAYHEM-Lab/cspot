@@ -13,7 +13,8 @@
 
 #define DISPLAY_ENABLED 0
 #define LOG_SPACE_ENABLED 0
-#define GRANULAR_TIMING_ENABLED 1
+#define GRANULAR_TIMING_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 char *WORKLOAD_SUFFIX;
 unsigned long EXTRA_TIME;
@@ -64,6 +65,7 @@ int main(int argc, char **argv)
     int num_ops_input;
     int op;
     int val;
+    AP ap;
 
 #if GRANULAR_TIMING_ENABLED
     struct timeval ts_start;
@@ -147,6 +149,10 @@ int main(int argc, char **argv)
 
 #if DISPLAY_ENABLED
         LL_print();
+#endif
+
+#if ACCESS_TIMING_ENABLED
+    populate_terminal_node_access(&ap);
 #endif
     }
 

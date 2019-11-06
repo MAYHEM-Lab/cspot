@@ -10,6 +10,7 @@
 #include "Helper.h"
 
 #define LOG_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 char AP_WOOF_NAME[255];
 unsigned long AP_WOOF_SIZE;
@@ -21,10 +22,12 @@ unsigned long VERSION_STAMP;
 
 char LOG_FILENAME[255];
 char STEPS_LOG_FILENAME[255];
+char ACCESS_LOG_FILENAME[255];
 int NUM_STEPS;
 
 FILE *fp;
 FILE *fp_s;
+FILE *fp_access;
 
 char *WORKLOAD_SUFFIX;
 unsigned long EXTRA_TIME;
@@ -64,6 +67,14 @@ void LL_init(
     fp_s = fopen(STEPS_LOG_FILENAME, "w");
     fclose(fp_s);
     fp_s = NULL;
+#endif
+#if ACCESS_TIMING_ENABLED
+    strcpy(ACCESS_LOG_FILENAME, "../access/ephemeral-linked-list-access-");
+    strcat(ACCESS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(ACCESS_LOG_FILENAME, ".log");
+    fp_access = fopen(ACCESS_LOG_FILENAME, "w");
+    fclose(fp_access);
+    fp_access = NULL;
 #endif
 }
 
@@ -132,6 +143,7 @@ void populate_terminal_node(AP *terminal_node){
                 fprintf(fp, "populate_terminal_node END\n");
             }
         #endif
+
         return;
     }
     WooFGet(AP_WOOF_NAME, (void *)&head, latest_seq);
@@ -150,6 +162,63 @@ void populate_terminal_node(AP *terminal_node){
             fprintf(fp, "populate_terminal_node END\n");
         }
     #endif
+}
+
+void populate_terminal_node_access(AP *terminal_node){
+
+    AP head;
+    DATA data;
+    LINK current_link;
+    unsigned long latest_seq;
+
+    struct timeval access_ts_start;
+    struct timeval access_ts_end;
+    int access_steps;
+    unsigned long elapsed_time;
+
+    access_steps = 1;
+    gettimeofday(&access_ts_start, NULL);
+
+    latest_seq = WooFGetLatestSeqno(AP_WOOF_NAME);
+    head.dw_seq_no = 0;
+    if(latest_seq > 0){
+        WooFGet(AP_WOOF_NAME, (void *)&head, latest_seq);
+    }
+    if(latest_seq == 0 || head.dw_seq_no == 0){
+        terminal_node->dw_seq_no = 0;
+
+        gettimeofday(&access_ts_end, NULL);
+        elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+        fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+        if(fp_access != NULL){
+            fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+        }
+        fflush(fp_access);
+        fclose(fp_access);
+        fp_access = NULL;
+        return;
+    }
+    WooFGet(AP_WOOF_NAME, (void *)&head, latest_seq);
+
+    while(1){
+        WooFGet(DATA_WOOF_NAME, (void *)&data, head.dw_seq_no);
+        WooFGet(data.lw_name, (void *)&current_link, WooFGetLatestSeqno(data.lw_name));
+        access_steps += 1;
+        if(current_link.dw_seq_no == 0) break;
+        head.dw_seq_no = current_link.dw_seq_no;
+    }
+
+    terminal_node->dw_seq_no = head.dw_seq_no;
+
+    gettimeofday(&access_ts_end, NULL);
+    elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+    fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+    if(fp_access != NULL){
+        fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+    }
+    fflush(fp_access);
+    fclose(fp_access);
+    fp_access = NULL;
 }
 
 void LL_insert(DI di){
