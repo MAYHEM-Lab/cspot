@@ -13,6 +13,7 @@ extern unsigned long LINK_WOOF_SIZE;
 extern int LINK_WOOF_NAME_SIZE;
 extern unsigned long VERSION_STAMP;
 extern char *WORKLOAD_SUFFIX;
+extern unsigned long EXTRA_TIME;
 
 /**
  * initializes state variables

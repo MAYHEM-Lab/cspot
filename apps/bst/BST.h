@@ -11,6 +11,7 @@ extern char DATA_WOOF_NAME[255];
 extern unsigned long DATA_WOOF_SIZE;
 extern int DELETE_OPERATION;
 extern char *WORKLOAD_SUFFIX;
+extern unsigned long EXTRA_TIME;
 
 /**
  * initializes state variables

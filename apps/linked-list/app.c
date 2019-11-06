@@ -14,9 +14,10 @@
 
 #define LOG_SPACE_ENABLED 0
 #define DISPLAY_ENABLED 0
-#define GRANULAR_TIMING_ENABLED 0
+#define GRANULAR_TIMING_ENABLED 1
 
 char *WORKLOAD_SUFFIX;
+unsigned long EXTRA_TIME;
 
 char *get_workload_suffix(char *filename){
     char *suffix;
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
         fp_t = fopen(TIMING_LOG_FILENAME, "a");
         if(fp_t != NULL){
             fprintf(fp_t, "1,%lu,%d\n",
-                (ts_end.tv_sec*1000000+ts_end.tv_usec)-(ts_start.tv_sec*1000000+ts_start.tv_usec), op);
+                (ts_end.tv_sec*1000000+ts_end.tv_usec)-(ts_start.tv_sec*1000000+ts_start.tv_usec)-EXTRA_TIME, op);
         }
         fflush(fp_t);
         fclose(fp_t);

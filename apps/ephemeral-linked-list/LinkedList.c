@@ -9,7 +9,7 @@
 #include "LinkedList.h"
 #include "Helper.h"
 
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 
 char AP_WOOF_NAME[255];
 unsigned long AP_WOOF_SIZE;
@@ -27,6 +27,10 @@ FILE *fp;
 FILE *fp_s;
 
 char *WORKLOAD_SUFFIX;
+unsigned long EXTRA_TIME;
+
+struct timeval ts_start;
+struct timeval ts_end;
 
 void LL_init(
         int num_of_extra_links,
@@ -159,8 +163,13 @@ void LL_insert(DI di){
     DATA terminal_node_data;
     LINK link;
 
+    EXTRA_TIME = 0;
+
     ap.dw_seq_no = 0;
+    gettimeofday(&ts_start, NULL);
     search(di, &ap);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(ap.dw_seq_no != 0){
         //already present
         return;
@@ -191,7 +200,10 @@ void LL_insert(DI di){
     status = WooFCreate(data.lw_name, sizeof(LINK), LINK_WOOF_SIZE);
     status = WooFCreate(data.pw_name, sizeof(LINK), LINK_WOOF_SIZE);
 
+    gettimeofday(&ts_start, NULL);
     populate_terminal_node(&terminal_node);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(terminal_node.dw_seq_no == 0){
         #if LOG_ENABLED
             if(fp != NULL){
@@ -260,9 +272,14 @@ void LL_delete(DI di){
     LINK link;
     unsigned long latest_seq;
 
+    EXTRA_TIME = 0;
+
     /* find node containing di */
     node.dw_seq_no = 0;
+    gettimeofday(&ts_start, NULL);
     search(di, &node);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME = (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
 
     /* node not found */
     if(node.dw_seq_no == 0){

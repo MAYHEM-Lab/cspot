@@ -12,7 +12,7 @@
 #include "ledger.h"
 
 #define CHECKPOINT_ENABLED 0
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 #define LEDGER_ENABLED 0
 
 FILE *fp;
@@ -36,6 +36,10 @@ FILE *fp;
 FILE *fp_s;
 
 char *WORKLOAD_SUFFIX;
+unsigned long EXTRA_TIME;
+
+struct timeval ts_start;
+struct timeval ts_end;
 
 void LL_init(
         int num_of_extra_links,
@@ -339,13 +343,17 @@ void LL_insert(DI di){
     DATA data;
     LINK link;
 
+    EXTRA_TIME = 0;
     working_vs = VERSION_STAMP + 1;
 
     if(VERSION_STAMP != 0){
         ap.dw_seq_no = 0;
         ap.lw_seq_no = 0;
 
+        gettimeofday(&ts_start, NULL);
         search(VERSION_STAMP, di, &ap);
+        gettimeofday(&ts_end, NULL);
+        EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
 
         if(ap.dw_seq_no != 0){//already present
             return;
@@ -413,7 +421,10 @@ void LL_insert(DI di){
     }
 
     if(latest_ap_seq > 0 && latest_ap.dw_seq_no != 0){//there is at least one element in linked list
+        gettimeofday(&ts_start, NULL);
         populate_terminal_node(&terminal_node);
+        gettimeofday(&ts_end, NULL);
+        EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     }else{//empty linked list
         cp_ndx = insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
 
@@ -526,6 +537,8 @@ void LL_delete(DI di){
     unsigned long latest_seq;
     DATA debug_data;
 
+    EXTRA_TIME = 0;
+
     /* trying to delete from empty tree */
     if(VERSION_STAMP == 0) return;
 
@@ -534,7 +547,10 @@ void LL_delete(DI di){
     /* find node containing di */
     node.dw_seq_no = 0;
     node.lw_seq_no = 0;
+    gettimeofday(&ts_start, NULL);
     search(VERSION_STAMP, di, &node);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME = (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
 
     /* node not found */
     if(node.dw_seq_no == 0){

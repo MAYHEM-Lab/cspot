@@ -9,7 +9,7 @@
 #include "Data.h"
 #include "Link.h"
 
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 
 unsigned long VERSION_STAMP = 0;
 char AP_WOOF_NAME[255];
@@ -27,6 +27,10 @@ FILE *fp;
 FILE *fp_s;
 
 char *WORKLOAD_SUFFIX;
+unsigned long EXTRA_TIME;
+
+struct timeval ts_start;
+struct timeval ts_end;
 
 void BST_init(unsigned long ap_woof_size, unsigned long data_woof_size, unsigned long link_woof_size){
     srand(time(0));
@@ -173,8 +177,13 @@ void BST_insert(DI di){
     LINK right_link;
     AP ap;
 
+    EXTRA_TIME = 0;
+
     target_dw_seq_no = 0;
+    gettimeofday(&ts_start, NULL);
     BST_search(di, &target_dw_seq_no);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME = (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(target_dw_seq_no != 0){//already present
         return;
     }
@@ -431,8 +440,13 @@ void BST_delete(DI di){
     unsigned long target_dw;
     unsigned long pred_dw;
 
+    EXTRA_TIME = 0;
+
     target_dw = 0;
+    gettimeofday(&ts_start, NULL);
     BST_search(di, &target_dw);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
 
     if(target_dw == 0){//not present
         return;
@@ -481,7 +495,10 @@ void BST_delete(DI di){
             insertIntoWooF(AP_WOOF_NAME, NULL, (void *)&ap);
         }
     }else{//both children present
+        gettimeofday(&ts_start, NULL);
         populate_predecessor(target_dw, &pred_dw);
+        gettimeofday(&ts_end, NULL);
+        EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
         WooFGet(DATA_WOOF_NAME, (void *)&pred_data, pred_dw);
         if(pred_dw == left_link.dw_seq_no){//predecessor is immediate left child
             add_node(pred_dw, right_link.dw_seq_no, 'R');

@@ -16,6 +16,7 @@ extern int LINK_WOOF_NAME_SIZE;
 extern int NUM_OF_LINKS_PER_NODE;
 extern int CHECKPOINT_MAX_ELEMENTS;
 extern char *WORKLOAD_SUFFIX;
+extern unsigned long EXTRA_TIME;
 
 /**
  * initializes state variables

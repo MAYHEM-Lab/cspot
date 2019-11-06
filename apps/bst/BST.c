@@ -30,6 +30,10 @@ FILE *fp;
 FILE *fp_s;
 
 char *WORKLOAD_SUFFIX;
+unsigned long EXTRA_TIME;
+
+struct timeval ts_start;
+struct timeval ts_end;
 
 void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_size, char *data_woof_name, unsigned long data_woof_size, unsigned long link_woof_size){
     srand(time(0));
@@ -528,8 +532,13 @@ void BST_insert(DI di){
     LINK link;
     AP ap;
 
+    EXTRA_TIME = 0;
+
     target_dw_seq_no = target_lw_seq_no = 0;
+    gettimeofday(&ts_start, NULL);
     BST_search(di, VERSION_STAMP, &target_dw_seq_no, &target_lw_seq_no);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME = (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(target_dw_seq_no != 0){//already present
         return;
     }
@@ -783,11 +792,16 @@ void BST_delete(DI di){
     char type;
     char pred_type;
     
+    EXTRA_TIME = 0;
+
     /**
      * first search whether the item is present
      **/
     target_dw = target_lw = 0;
+    gettimeofday(&ts_start, NULL);
     BST_search(di, VERSION_STAMP, &target_dw, &target_lw);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(target_dw == 0) return;//not present
 
     working_vs = VERSION_STAMP + 1;
@@ -821,7 +835,10 @@ void BST_delete(DI di){
         WooFGet(DATA_WOOF_NAME, (void *)&data, target_dw);//get target info
         WooFGet(data.pw_name, (void *)&parent_link, WooFGetLatestSeqno(data.pw_name));//get target parent link
 
+        gettimeofday(&ts_start, NULL);
         populate_predecessor(target_dw, target_lw, &pred_dw, &pred_lw);//get predecessor
+        gettimeofday(&ts_end, NULL);
+        EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
         WooFGet(DATA_WOOF_NAME, (void *)&pred_data, pred_dw);//get predecessor info
         WooFGet(pred_data.pw_name, (void *)&pred_parent_link, WooFGetLatestSeqno(pred_data.pw_name));//get predecessor parent link
         
