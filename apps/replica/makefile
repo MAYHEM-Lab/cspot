@@ -18,7 +18,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: master slave
+all: master slave master_payload slave_payload
 
 master: master.c
 	${CC} ${CFLAGS} -o master master.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -28,5 +28,13 @@ slave: slave.c
 	${CC} ${CFLAGS} -o slave slave.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp slave ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
+master_payload: master_payload.c
+	${CC} ${CFLAGS} -o master_payload master_payload.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp master_payload ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
+slave_payload: slave_payload.c
+	${CC} ${CFLAGS} -o slave_payload slave_payload.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp slave_payload ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
 clean:
-	rm -f master slave
+	rm -f master slave master_payload slave_payload

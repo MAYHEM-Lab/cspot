@@ -16,7 +16,7 @@
 #include "woofc-access.h"
 
 #define ARGS "m:p:"
-char *Usage = "slave -m master_namespace -p port\n";
+char *Usage = "slave_payload -m master_namespace -p port\n";
 
 extern LOG *Name_log;
 
@@ -33,7 +33,6 @@ int main(int argc, char **argv)
 	char woof_name[4096];
 	unsigned long i;
 	struct stat sbuf;
-	char woof_element[4096];
 	unsigned long master_seq, slave_seq;
 	unsigned long num_events;
 	int port = 8080;
@@ -41,6 +40,7 @@ int main(int argc, char **argv)
 	char buf[2048];
 	char master_ip[1024];
 	struct sockaddr_in serv_addr;
+	void *payload;
 
 	struct timeval socket_t1, socket_t2;
 	struct timeval read_t1, read_t2;
@@ -196,12 +196,34 @@ int main(int argc, char **argv)
 
 			if (ev.type == APPEND)
 			{
-				sprintf(woof_name, "%s/%s", master_namespace, ev.woofc_name);
 				gettimeofday(&read_t1, NULL);
-				WooFGet(woof_name, &woof_element, ev.woofc_seq_no);
+
+				// read element size from socket
+				n = read(sockfd, buf, sizeof(buf));
+				while (n < sizeof(buf))
+				{
+					n += read(sockfd, buf + n, sizeof(buf) - n);
+				}
+				element_size = strtoul(buf, (char **)NULL, 10);
+				// printf("receiving element_size: %lu\n", element_size);
+				// fflush(stdout);
+				payload = malloc(element_size);
+				if (payload == NULL)
+				{
+					fprintf(stderr, "failed to allocate memory for payload\n");
+					fflush(stderr);
+					exit(1);
+				}
+				// read payload from socket
+				n = read(sockfd, payload, sizeof(payload));
+				while (n < sizeof(payload))
+				{
+					n += read(sockfd, payload + n, sizeof(payload) - n);
+				}
+
 				gettimeofday(&read_t2, NULL);
 				read_time += (read_t2.tv_sec - read_t1.tv_sec) * 1000.0 + (read_t2.tv_usec - read_t1.tv_usec) / 1000.0;
-				seq_no = WooFPut(ev.woofc_name, NULL, &woof_element);
+				seq_no = WooFPut(ev.woofc_name, NULL, &payload);
 				if (WooFInvalid(seq_no))
 				{
 					fprintf(stderr, "failed to replay event to %s\n", ev.woofc_name);
@@ -213,6 +235,7 @@ int main(int argc, char **argv)
 			{
 				fprintf(stderr, "received event other than append\n");
 				fflush(stderr);
+				return 1;
 			}
 			master_seq = ev.seq_no;
 		}
