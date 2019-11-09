@@ -12,7 +12,8 @@
 
 #define LOG_SPACE_ENABLED 0
 #define DISPLAY_ENABLED 0
-#define GRANULAR_TIMING_ENABLED 1
+#define GRANULAR_TIMING_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 char *WORKLOAD_SUFFIX;
 unsigned long EXTRA_TIME;
@@ -126,6 +127,10 @@ int main(int argc, char **argv)
         if(vs != VERSION_STAMP){
             BST_preorder();
         }
+#endif
+
+#if ACCESS_TIMING_ENABLED
+        get_max_access();
 #endif
     }
     fclose(fp);

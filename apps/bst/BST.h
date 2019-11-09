@@ -1,6 +1,7 @@
 #ifndef BST_H
 #define BST_H
 
+#include "AccessPointer.h"
 #include "DataItem.h"
 
 extern int NUM_OF_EXTRA_LINKS;
@@ -99,5 +100,7 @@ void dump_ap_woof();
 void BST_debug();
 
 void log_size(int num_ops_input, FILE *fp_s);
+
+AP get_max_access(unsigned long version_stamp);
 
 #endif

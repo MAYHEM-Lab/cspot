@@ -10,6 +10,7 @@
 #include "Link.h"
 
 #define LOG_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 int NUM_OF_EXTRA_LINKS = 1;
 unsigned long VERSION_STAMP = 0;
@@ -24,10 +25,12 @@ int DELETE_OPERATION;
 
 char LOG_FILENAME[255];
 char STEPS_LOG_FILENAME[255];
+char ACCESS_LOG_FILENAME[255];
 int NUM_STEPS;
 
 FILE *fp;
 FILE *fp_s;
+FILE *fp_access;
 
 char *WORKLOAD_SUFFIX;
 unsigned long EXTRA_TIME;
@@ -63,6 +66,14 @@ void BST_init(int num_of_extra_links, char *ap_woof_name, unsigned long ap_woof_
     fp_s = fopen(STEPS_LOG_FILENAME, "w");
     fclose(fp_s);
     fp_s = NULL;
+#endif
+#if ACCESS_TIMING_ENABLED
+    strcpy(ACCESS_LOG_FILENAME, "../access/persistent-binary-search-tree-access-");
+    strcat(ACCESS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(ACCESS_LOG_FILENAME, ".log");
+    fp_access = fopen(ACCESS_LOG_FILENAME, "w");
+    fclose(fp_access);
+    fp_access = NULL;
 #endif
 }
 
@@ -538,7 +549,7 @@ void BST_insert(DI di){
     gettimeofday(&ts_start, NULL);
     BST_search(di, VERSION_STAMP, &target_dw_seq_no, &target_lw_seq_no);
     gettimeofday(&ts_end, NULL);
-    EXTRA_TIME = (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(target_dw_seq_no != 0){//already present
         return;
     }
@@ -549,7 +560,10 @@ void BST_insert(DI di){
     ap.lw_seq_no = 0;
     if(WooFGetLatestSeqno(AP_WOOF_NAME) > 0){
         WooFGet(AP_WOOF_NAME, (void *)&ap, VERSION_STAMP);
+        gettimeofday(&ts_start, NULL);
         populate_terminal_node(VERSION_STAMP, di, &ap.dw_seq_no, &ap.lw_seq_no);
+        gettimeofday(&ts_end, NULL);
+        EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     }
 
 #if LOG_ENABLED
@@ -1086,4 +1100,76 @@ void log_size(int num_ops_input, FILE *fp_s){
 
     fprintf(fp_s, "%d,%zu\n", num_ops_input, total_size);
 
+}
+
+AP get_max_access(unsigned long version_stamp){
+    AP ap;
+    DATA data;
+    unsigned long left_dw_seq_no;
+    unsigned long left_lw_seq_no;
+    unsigned long right_dw_seq_no;
+    unsigned long right_lw_seq_no;
+    unsigned long left_vs;
+    unsigned long right_vs;
+    AP retval;
+
+    struct timeval access_ts_start;
+    struct timeval access_ts_end;
+    int access_steps;
+    unsigned long elapsed_time;
+
+    access_steps = 1;
+    gettimeofday(&access_ts_start, NULL);
+
+    if(WooFGetLatestSeqno(AP_WOOF_NAME) < version_stamp){//empty tree
+        gettimeofday(&access_ts_end, NULL);
+        elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+        fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+        if(fp_access != NULL){
+            fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+        }
+        fflush(fp_access);
+        fclose(fp_access);
+        fp_access = NULL;
+        retval.dw_seq_no = 0;
+        retval.lw_seq_no = 0;
+        return retval;
+    }
+
+    WooFGet(AP_WOOF_NAME, (void *)&ap, version_stamp);
+    if(ap.dw_seq_no == 0){//empty tree
+        gettimeofday(&access_ts_end, NULL);
+        elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+        fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+        if(fp_access != NULL){
+            fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+        }
+        fflush(fp_access);
+        fclose(fp_access);
+        fp_access = NULL;
+        retval.dw_seq_no = 0;
+        retval.lw_seq_no = 0;
+        return retval;
+    }
+    while(1){
+        access_steps += 1;
+        populate_current_left_right(version_stamp, ap.dw_seq_no, ap.lw_seq_no, &left_dw_seq_no, &left_lw_seq_no, &left_vs, &right_dw_seq_no, &right_lw_seq_no, &right_vs);
+        if(right_dw_seq_no == 0){//we found the terminal node
+            gettimeofday(&access_ts_end, NULL);
+            elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+            fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+            if(fp_access != NULL){
+                fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+            }
+            fflush(fp_access);
+            fclose(fp_access);
+            fp_access = NULL;
+            retval.dw_seq_no = ap.dw_seq_no;
+            retval.lw_seq_no = ap.lw_seq_no;
+            return retval;
+        }else{
+            ap.dw_seq_no = right_dw_seq_no;
+            ap.lw_seq_no = right_lw_seq_no;
+        }
+    }
 }

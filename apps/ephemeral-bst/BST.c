@@ -10,6 +10,7 @@
 #include "Link.h"
 
 #define LOG_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 unsigned long VERSION_STAMP = 0;
 char AP_WOOF_NAME[255];
@@ -21,10 +22,12 @@ int WOOF_NAME_SIZE;
 
 char LOG_FILENAME[255];
 char STEPS_LOG_FILENAME[255];
+char ACCESS_LOG_FILENAME[255];
 int NUM_STEPS;
 
 FILE *fp;
 FILE *fp_s;
+FILE *fp_access;
 
 char *WORKLOAD_SUFFIX;
 unsigned long EXTRA_TIME;
@@ -57,6 +60,14 @@ void BST_init(unsigned long ap_woof_size, unsigned long data_woof_size, unsigned
     fp_s = fopen(STEPS_LOG_FILENAME, "w");
     fclose(fp_s);
     fp_s = NULL;
+#endif
+#if ACCESS_TIMING_ENABLED
+    strcpy(ACCESS_LOG_FILENAME, "../access/ephemeral-binary-search-tree-access-");
+    strcat(ACCESS_LOG_FILENAME, WORKLOAD_SUFFIX);
+    strcat(ACCESS_LOG_FILENAME, ".log");
+    fp_access = fopen(ACCESS_LOG_FILENAME, "w");
+    fclose(fp_access);
+    fp_access = NULL;
 #endif
 }
 
@@ -183,7 +194,7 @@ void BST_insert(DI di){
     gettimeofday(&ts_start, NULL);
     BST_search(di, &target_dw_seq_no);
     gettimeofday(&ts_end, NULL);
-    EXTRA_TIME = (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(target_dw_seq_no != 0){//already present
         return;
     }
@@ -227,7 +238,10 @@ void BST_insert(DI di){
     insertIntoWooF(data.lw_name, NULL, (void *)&right_link);
 
     ap.dw_seq_no = 0;
+    gettimeofday(&ts_start, NULL);
     populate_terminal_node(di, &ap.dw_seq_no);
+    gettimeofday(&ts_end, NULL);
+    EXTRA_TIME += (ts_end.tv_sec*1000000+ts_end.tv_usec) - (ts_start.tv_sec*1000000+ts_start.tv_usec);
     if(ap.dw_seq_no == 0){//empty tree
 #if LOG_ENABLED
         fp = fopen(LOG_FILENAME, "a");
@@ -660,4 +674,69 @@ void log_size(int num_ops_input, FILE *fp_s){
 
     fprintf(fp_s, "%d,%zu\n", num_ops_input, total_size);
 
+}
+
+unsigned long get_max_access(){
+    AP ap;
+    DATA data;
+    LINK left_link;
+    LINK right_link;
+    unsigned long latest_seq;
+
+    struct timeval access_ts_start;
+    struct timeval access_ts_end;
+    int access_steps;
+    unsigned long elapsed_time;
+
+    access_steps = 1;
+    gettimeofday(&access_ts_start, NULL);
+
+    latest_seq = WooFGetLatestSeqno(AP_WOOF_NAME);
+    if(latest_seq == 0){//empty tree
+        gettimeofday(&access_ts_end, NULL);
+        elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+        fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+        if(fp_access != NULL){
+            fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+        }
+        fflush(fp_access);
+        fclose(fp_access);
+        fp_access = NULL;
+        return 0;
+    }
+
+    WooFGet(AP_WOOF_NAME, (void *)&ap, latest_seq);
+    if(ap.dw_seq_no == 0){//empty tree
+        gettimeofday(&access_ts_end, NULL);
+        elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+        fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+        if(fp_access != NULL){
+            fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+        }
+        fflush(fp_access);
+        fclose(fp_access);
+        fp_access = NULL;
+        return 0;
+    }
+
+    while(1){
+        access_steps += 1;
+        WooFGet(DATA_WOOF_NAME, (void *)&data, ap.dw_seq_no);
+        latest_seq = WooFGetLatestSeqno(data.lw_name);
+        WooFGet(data.lw_name, (void *)&right_link, latest_seq);
+        if(right_link.dw_seq_no == 0){//we found the max node
+            gettimeofday(&access_ts_end, NULL);
+            elapsed_time = (access_ts_end.tv_sec*1000000+access_ts_end.tv_usec) - (access_ts_start.tv_sec*1000000+access_ts_start.tv_usec);
+            fp_access = fopen(ACCESS_LOG_FILENAME, "a");
+            if(fp_access != NULL){
+                fprintf(fp_access, "%d,%lu\n", access_steps, elapsed_time);
+            }
+            fflush(fp_access);
+            fclose(fp_access);
+            fp_access = NULL;
+            return ap.dw_seq_no;
+        }else{
+            ap.dw_seq_no = right_link.dw_seq_no;
+        }
+    }
 }

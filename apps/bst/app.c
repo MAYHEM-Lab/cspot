@@ -13,7 +13,8 @@
 
 #define LOG_SPACE_ENABLED 0
 #define DISPLAY_ENABLED 0
-#define GRANULAR_TIMING_ENABLED 1
+#define GRANULAR_TIMING_ENABLED 0
+#define ACCESS_TIMING_ENABLED 1
 
 char *WORKLOAD_SUFFIX;
 unsigned long EXTRA_TIME;
@@ -125,6 +126,9 @@ int main(int argc, char **argv)
         fflush(fp_s);
         fclose(fp_s);
         fp_s = NULL;
+#endif
+#if ACCESS_TIMING_ENABLED
+        get_max_access(i + 1);
 #endif
     }
     fclose(fp);

@@ -80,4 +80,6 @@ void BST_debug();
 
 void log_size(int num_ops_input, FILE *fp_s);
 
+unsigned long get_max_access();
+
 #endif
