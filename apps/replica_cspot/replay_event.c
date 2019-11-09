@@ -30,13 +30,23 @@ int replay_event(WOOF *wf, unsigned long seq_no, void *ptr)
 	char local_ip[25];
 	unsigned int port;
 
-	printf("received %d events\n", slave_progress->number_event);
-	fflush(stdout);
+	struct timeval t1, t2, tv;
+	struct timeval begin, end;
+	double msg_time = 0, read_time = 0;
+
+	gettimeofday(&begin, NULL);
+
 	events = slave_progress->event;
 	memcpy(master_namespace, slave_progress->master_namespace, sizeof(master_namespace));
 	for (i = 0; i < slave_progress->number_event; i++)
 	{
 		ev = events[i];
+		if (ev.seq_no == 1)
+		{
+			gettimeofday(&tv, NULL);
+			printf("received the first event at %lu ms\n", (unsigned long)(tv.tv_sec * 1000.0 + tv.tv_sec / 1000.0));
+			fflush(stdout);
+		}
 		// printf("master[%lu]: type: %d, woof: %s, seqno: %lu\n", ev.seq_no, ev.type, ev.woofc_name, ev.woofc_seq_no);
 		sprintf(woof_file_in_cspot, "%s%s", DEFAULT_WOOF_DIR, ev.woofc_name);
 		// printf("stat(%s): %d\n", woof_file_in_cspot, stat(woof_file_in_cspot, &sbuf));
@@ -78,33 +88,37 @@ int replay_event(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 		if (ev.type == LATEST_SEQNO)
 		{
-			WooFGetLatestSeqno(ev.woofc_name);
+			// WooFGetLatestSeqno(ev.woofc_name);
 		}
 		else if (ev.type == READ)
 		{
 			// printf("master[%lu]: WooFGet(%s, &woof_element, %lu)\n", ev.seq_no, ev.woofc_name, ev.woofc_seq_no);
 			// fflush(stdout);
-			err = WooFGet(ev.woofc_name, &woof_element, ev.woofc_seq_no);
-			if (err < 0){
-				fprintf(stderr, "master[%lu]: can't get woof %s[%lu]\n", ev.seq_no, ev.woofc_name, ev.woofc_seq_no);
-				fflush(stderr);
-				exit(1);
-			}
+			// err = WooFGet(ev.woofc_name, &woof_element, ev.woofc_seq_no);
+			// if (err < 0){
+			// 	fprintf(stderr, "master[%lu]: can't get woof %s[%lu]\n", ev.seq_no, ev.woofc_name, ev.woofc_seq_no);
+			// 	fflush(stderr);
+			// 	exit(1);
+			// }
 		}
 		else if (ev.type == APPEND)
 		{
 			// printf("master[%lu]: WooFGet(%s, &woof_element, %lu)\n", ev.seq_no, woof_name, ev.woofc_seq_no);
 			// fflush(stdout);
 			sprintf(woof_name, "%s/%s", master_namespace, ev.woofc_name);
+			gettimeofday(&t1, NULL);
 			err = WooFGet(woof_name, &woof_element, ev.woofc_seq_no);
+			gettimeofday(&t2, NULL);
+			read_time += (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
 			if (err < 0){
 				fprintf(stderr, "master[%lu]: can't get woof %s[%lu]\n", ev.seq_no, woof_name, ev.woofc_seq_no);
 				fflush(stderr);
 				exit(1);
 			}
-			// printf("master[%lu]: WooFPut(%s, NULL, &woof_element)\n", ev.seq_no, ev.woofc_name);
-			// fflush(stdout);
+			gettimeofday(&t1, NULL);
 			seq = WooFPut(ev.woofc_name, NULL, &woof_element);
+			gettimeofday(&t2, NULL);
+			msg_time += (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
 			if (WooFInvalid(seq))
 			{
 				fprintf(stderr, "master[%lu]: can't put to woof %s\n", ev.seq_no, ev.woofc_name);
@@ -118,8 +132,10 @@ int replay_event(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	if (slave_progress->number_event == 0)
 	{
-		// usleep(500000);
-		sleep(1);
+		gettimeofday(&tv, NULL);
+		printf("received the last event at %lu ms\n", (unsigned long)(tv.tv_sec * 1000.0 + tv.tv_sec / 1000.0));
+		fflush(stdout);
+		return 1;
 	}
 	el.log_seqno = slave_progress->log_seqno;
 	port = WooFPortHash(WooF_namespace);
@@ -132,15 +148,22 @@ int replay_event(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 	sprintf(el.events_woof, "woof://%s:%u%s/events_woof_for_replica", local_ip, port, WooF_namespace);
 	sprintf(master_woof, "%s/slave_progress_for_replica", master_namespace);
+	gettimeofday(&t1, NULL);
 	seq = WooFPut(master_woof, "replicate_event", (void *)&el);
+	gettimeofday(&t2, NULL);
+	msg_time += (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
 	if (WooFInvalid(seq))
 	{
 		fprintf(stderr, "failed to put to %s\n", master_woof);
 		fflush(stderr);
 		exit(1);
 	}
-	printf("ask master %s for more events\n", master_woof);
-	fflush(stdout);
 
+	gettimeofday(&end, NULL);
+	printf("total(%d): %lu ms\n", slave_progress->number_event, (unsigned long)((end.tv_sec - begin.tv_sec) * 1000.0 + (end.tv_usec - begin.tv_usec) / 1000.0));
+	printf("msg(%d): %lu ms\n", slave_progress->number_event, (unsigned long)msg_time);
+	printf("read(%d): %lu ms\n", slave_progress->number_event, (unsigned long)read_time);
+	fflush(stdout);
+	
 	return 1;
 }

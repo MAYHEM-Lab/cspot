@@ -14,7 +14,7 @@
 #include "woofc-host.h"
 
 #define ARGS "p:"
-char *Usage = "master -p port\n";
+char *Usage = "master_payload -p port\n";
 
 extern LOG *Name_log;
 
@@ -31,6 +31,8 @@ int main(int argc, char **argv)
 	int port = 8080;
 	EVENT *ev_array;
 	unsigned long num_latest = 0, num_read = 0, num_append = 0;
+	WOOF *woof;
+	void *payload;
 
 	char buf[2048];
 
@@ -157,6 +159,38 @@ int main(int argc, char **argv)
 					// 	ev_array[curr].timestamp);
 					// fflush(stdout);
 					write(connfd, buf, sizeof(buf));
+					woof = WooFOpen(ev_array[curr].woofc_name);
+					if (woof == NULL){
+						fprintf(stderr, "failed to open WooF %s\n", ev_array[curr].woofc_name);
+						fflush(stderr);
+						exit(1);
+					}
+					// telling the slave the element size
+					memset(buf, 0, sizeof(buf));
+					sprintf(buf, "%lu", woof->shared->element_size);
+					write(connfd, buf, sizeof(buf));
+					// printf("told slave the element size is %lu\n", woof->shared->element_size);
+					// fflush(stdout);
+					payload = malloc(woof->shared->element_size);
+					if (payload == NULL)
+					{
+						fprintf(stderr, "failed to allocate memory for payload\n");
+						fflush(stderr);
+						exit(1);
+					}
+					err = WooFRead(woof, payload, ev_array[curr].woofc_seq_no);
+					if (err < 0)
+					{
+						fprintf(stderr, "failed to read woof %s[%lu]\n", ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
+						fflush(stderr);
+						exit(1);
+					}
+					WooFDrop(woof);
+					write(connfd, payload, sizeof(payload));
+					// printf("send the element\n");
+					// fflush(stdout);
+					
+					free(payload);
 				}
 				curr = (curr + 1) % Name_log->size;
 			}
