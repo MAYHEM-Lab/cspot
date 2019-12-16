@@ -13,15 +13,15 @@ int main(int argc, char **argv)
 	int err;
 	
 	WooFInit();
-	err = WooFCreate("slave_progress_for_replica", sizeof(REPLICA_EL), 10);
+	err = WooFCreate(PROGRESS_WOOF_NAME, sizeof(SLAVE_PROGRESS), 10);
 	if (err < 0)
 	{
-		fprintf(stderr, "couldn't create woof slave_progress_for_replica\n");
+		fprintf(stderr, "couldn't create woof %s\n", PROGRESS_WOOF_NAME);
 		fflush(stderr);
 		exit(1);
 	}
 	printf("master started\n");
-	printf("slave_progress_for_replica created\n");
+	printf("%s created\n", PROGRESS_WOOF_NAME);
 	fflush(stdout);
 
 	return (0);

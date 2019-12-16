@@ -2,17 +2,18 @@
 #define replica_H
 
 #define EVENT_PER_BATCH 256
+#define PROGRESS_WOOF_NAME "progress_for_replica"
+#define EVENTS_WOOF_NAME "events_woof_for_replica"
 
-struct replica_stc
+struct slave_progress
 {
 	char events_woof[256];
 	unsigned long log_seqno;
-	// unsigned long events_count;
 };
 
-typedef struct replica_stc REPLICA_EL;
+typedef struct slave_progress SLAVE_PROGRESS;
 
-struct slave_progress
+struct event_batch
 {
 	unsigned long log_seqno;
 	char master_namespace[256];
@@ -20,6 +21,6 @@ struct slave_progress
 	EVENT event[EVENT_PER_BATCH];
 };
 
-typedef struct slave_progress SLAVE_PROGRESS;
+typedef struct event_batch EVENT_BATCH;
 
 #endif

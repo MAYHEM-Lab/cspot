@@ -21,16 +21,13 @@ int main(int argc, char **argv)
 	char master_woof[4096];
 	char local_ip[25];
 	unsigned int port;
-	REPLICA_EL el;
+	SLAVE_PROGRESS slave_progress;
 	unsigned long seq;
 
 	while ((c = getopt(argc, argv, ARGS)) != EOF)
 	{
 		switch (c)
 		{
-		// case 'S':
-		// 	strncpy(slave_namespace, optarg, sizeof(slave_namespace));
-		// 	break;
 		case 'M':
 			strncpy(master_namespace, optarg, sizeof(master_namespace));
 			break;
@@ -60,26 +57,35 @@ int main(int argc, char **argv)
 	}
 	port = WooFPortHash(WooF_namespace);
 	sprintf(slave_namespace, "woof://%s:%u%s", local_ip, port, WooF_namespace);
-	// printf("slave_namespace: %s\n", slave_namespace);
-	// fflush(stdout);
 
-	err = WooFCreate("events_woof_for_replica", sizeof(SLAVE_PROGRESS), 1000);
+	// create events woof
+	err = WooFCreate(EVENTS_WOOF_NAME, sizeof(EVENT_BATCH), 1000);
 	if (err < 0)
 	{
-		fprintf(stderr, "couldn't create woof events_woof_for_replica\n");
+		fprintf(stderr, "couldn't create woof %s\n", EVENTS_WOOF_NAME);
 		fflush(stderr);
 		exit(1);
 	}
-	printf("events_woof_for_replica created\n");
+	printf("%s created\n", EVENTS_WOOF_NAME);
 	fflush(stdout);
 
-	memset(el.events_woof, 0, sizeof(el.events_woof));
-	sprintf(el.events_woof, "%s/events_woof_for_replica", slave_namespace);
-	el.log_seqno = 0;
-	// el.events_count = 0;
+	// create progress woof
+	err = WooFCreate(PROGRESS_WOOF_NAME, sizeof(SLAVE_PROGRESS), 1000);
+	if (err < 0)
+	{
+		fprintf(stderr, "couldn't create woof %s\n", PROGRESS_WOOF_NAME);
+		fflush(stderr);
+		exit(1);
+	}
+	printf("%s created\n", PROGRESS_WOOF_NAME);
+	fflush(stdout);
 
-	sprintf(master_woof, "%s/slave_progress_for_replica", master_namespace);
-	seq = WooFPut(master_woof, "replicate_event", (void *)&el);
+	memset(slave_progress.events_woof, 0, sizeof(slave_progress.events_woof));
+	sprintf(slave_progress.events_woof, "%s/%s", slave_namespace, EVENTS_WOOF_NAME);
+	slave_progress.log_seqno = 0;
+
+	sprintf(master_woof, "%s/%s", master_namespace, PROGRESS_WOOF_NAME);
+	seq = WooFPut(master_woof, "replicate_event", (void *)&slave_progress);
 	if (WooFInvalid(seq))
 	{
 		fprintf(stderr, "failed to put to %s\n", master_woof);

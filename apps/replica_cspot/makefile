@@ -18,7 +18,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: start_master start_slave replicate_event replay_event
+all: start_master start_slave elect replicate_event replay_event
 
 start_master: start_master.c
 	${CC} ${CFLAGS} -o start_master start_master.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -27,6 +27,10 @@ start_master: start_master.c
 start_slave: start_slave.c
 	${CC} ${CFLAGS} -o start_slave start_slave.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp start_slave ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+
+elect: elect.c
+	${CC} ${CFLAGS} -o elect elect.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp elect ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
 replicate_event: replicate_event.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC} ${LMINC}
 	sed 's/WOOF_HANDLER_NAME/replicate_event/g' ${SHEP_SRC} > replicate_event_shepherd.c
