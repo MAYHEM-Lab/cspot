@@ -3,7 +3,7 @@
 ME=`whoami`
 ISADMIN=`id -G $ME | grep ' 80 '`
 if ( test -z "$ISADMIN" ) ; then
-	echo "must be admin user under OSX to install deps
+	echo "must be admin user under OSX to install deps"
 	exit 1
 fi 
 
