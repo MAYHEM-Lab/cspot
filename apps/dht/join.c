@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
-
+	
 	WooFInit();
 
 	for (i = 0; i < 9; i++)
@@ -95,6 +95,12 @@ int main(int argc, char **argv)
 
 	sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCESSOR_RESULT_WOOF);
 	sprintf(arg.callback_handler, "join_callback", sizeof(arg.callback_handler));
+	if (node_woof[strlen(node_woof) - 1] == '/') {
+		sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCESSOR_ARG_WOOF);
+	} else {
+		sprintf(node_woof, "%s/%s", node_woof, DHT_FIND_SUCESSOR_ARG_WOOF);
+	}
+
 	seq_no = WooFPut(node_woof, "find_successor", &arg);
 	if (WooFInvalid(seq_no))
 	{
