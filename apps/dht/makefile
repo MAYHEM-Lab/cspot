@@ -18,7 +18,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: create join find find_result find_successor join_callback stablize fix_fingers check_predecessor get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback daemon test sub_test test2
+all: create join find find_result find_successor join_callback stablize fix_fingers check_predecessor get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon test sub_test test2
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp create ./cspot;
 	cp join ./cspot;
@@ -36,7 +36,7 @@ all: create join find find_result find_successor join_callback stablize fix_fing
 	cp trigger ./cspot;
 	cp stablize_callback ./cspot;
 	cp fix_fingers_callback ./cspot;
-	cp daemon ./cspot;
+	cp dht_daemon ./cspot;
 	cp test ./cspot;
 	cp sub_test ./cspot;
 	cp test2 ./cspot;
@@ -59,8 +59,8 @@ fix_fingers: fix_fingers.c dht.o
 check_predecessor: check_predecessor.c dht.o
 	${CC} ${CFLAGS} -o check_predecessor check_predecessor.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-daemon: daemon.c dht.o
-	${CC} ${CFLAGS} -o daemon daemon.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+dht_daemon: dht_daemon.c dht.o
+	${CC} ${CFLAGS} -o dht_daemon dht_daemon.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 dht.o: dht.c dht.h
 	${CC} ${CFLAGS} -c dht.c
@@ -129,5 +129,5 @@ test2: test2.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o test2 test2.c test2_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -f create join find find_result find_successor join_callback stablize fix_fingers check_predecessor get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback daemon dht_* *.o
+	rm -rf ./cspot create join find find_result find_successor join_callback stablize fix_fingers check_predecessor get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon *.o
 
