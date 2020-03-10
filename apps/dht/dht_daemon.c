@@ -45,8 +45,8 @@ int main(int argc, char **argv)
 	GET_PREDECESSOR_ARG arg;
 	char msg[128];
 
-	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(LOG_DEBUG);
+	// log_set_level(LOG_INFO);
 	// FILE *f = fopen("log_daemon","w");
 	// log_set_output(f);
 	log_set_output(stdout);
@@ -204,6 +204,8 @@ void *check_predecessor(void *ptr)
 			continue;
 		}
 
+		sprintf(msg, "current predecessor_addr: %s", dht_tbl.predecessor_addr);
+		log_debug("check_predecessor", msg);
 		if (dht_tbl.predecessor_addr[0] == 0)
 		{
 			log_debug("check_predecessor", "predecessor is nil");
