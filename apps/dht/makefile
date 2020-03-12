@@ -18,7 +18,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: create join find find_result find_successor join_callback stablize fix_fingers check_predecessor get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon test sub_test test2
+all: create join find find_result find_successor join_callback print_fingers get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon test sub_test test2
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp create ./cspot;
 	cp join ./cspot;
@@ -26,9 +26,7 @@ all: create join find find_result find_successor join_callback stablize fix_fing
 	cp find_result ./cspot;
 	cp find_successor ./cspot;
 	cp join_callback ./cspot;
-	cp stablize ./cspot;
-	cp fix_fingers ./cspot;
-	cp check_predecessor ./cspot;
+	cp print_fingers ./cspot;
 	cp get_predecessor ./cspot;
 	cp notify ./cspot;
 	cp init_topic ./cspot;
@@ -50,14 +48,8 @@ join: join.c dht.o
 find: find.c dht.o
 	${CC} ${CFLAGS} -o find find.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-stablize: stablize.c dht.o
-	${CC} ${CFLAGS} -o stablize stablize.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-fix_fingers: fix_fingers.c dht.o
-	${CC} ${CFLAGS} -o fix_fingers fix_fingers.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-check_predecessor: check_predecessor.c dht.o
-	${CC} ${CFLAGS} -o check_predecessor check_predecessor.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+print_fingers: print_fingers.c dht.o
+	${CC} ${CFLAGS} -o print_fingers print_fingers.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 dht_daemon: dht_daemon.c dht.o
 	${CC} ${CFLAGS} -o dht_daemon dht_daemon.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -129,5 +121,5 @@ test2: test2.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o test2 test2.c test2_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot create join find find_result find_successor join_callback stablize fix_fingers check_predecessor get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon *.o
+	rm -rf ./cspot create join find find_result find_successor join_callback print_fingers get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon *.o
 

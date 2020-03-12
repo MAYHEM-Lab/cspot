@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 
 	sprintf(msg, "predecessor: %s", el.predecessor_addr);
 	log_info("create", msg);
-	sprintf(msg, "successor: %s", el.successor_addr);
+	sprintf(msg, "successor: %s", el.finger_addr[0]);
 	log_info("create", msg);
 	return (0);
 }

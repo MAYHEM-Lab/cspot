@@ -10,8 +10,8 @@
 #include "woofc-host.h"
 #include "dht.h"
 
-int stablize_freq = 1000;		 // 10 secs
-int chk_predecessor_freq = 1000; // 10 secs
+int stablize_freq = 1000;		 // 1 secs
+int chk_predecessor_freq = 1000; // 1 secs
 int fix_fingers_freq = 100;		 // 100 msec (for each finger)
 
 static int running = 1;
@@ -27,7 +27,7 @@ void get_finger_id(unsigned char *dst, const unsigned char *n, int i);
 
 void signal_handler(int signum)
 {
-	log_info("daemon", "SIGINT caught");
+	log_info("dht_daemon", "SIGINT caught");
 	running = 0;
 	pthread_join(stablize_thread, NULL);
 	pthread_join(check_predecessor_thread, NULL);
@@ -53,11 +53,11 @@ int main(int argc, char **argv)
 	WooFInit();
 
 	sprintf(msg, "stablize every %d ms", stablize_freq);
-	log_debug("daemon", msg);
+	log_debug("dht_daemon", msg);
 	sprintf(msg, "check_predecessor every %d ms", chk_predecessor_freq);
-	log_debug("daemon", msg);
+	log_debug("dht_daemon", msg);
 	sprintf(msg, "fix_fingers every %d ms", fix_fingers_freq);
-	log_debug("daemon", msg);
+	log_debug("dht_daemon", msg);
 	signal(SIGINT, signal_handler);
 
 	pthread_create(&stablize_thread, NULL, stablize, (void *)NULL);
@@ -108,17 +108,17 @@ void *stablize(void *ptr)
 			continue;
 		}
 
-		if (memcmp(dht_tbl.successor_hash, dht_tbl.node_hash, SHA_DIGEST_LENGTH) == 0)
+		if (memcmp(dht_tbl.finger_hash[0], dht_tbl.node_hash, SHA_DIGEST_LENGTH) == 0)
 		{
 			sprintf(msg, "current successor is its self");
 			log_debug("stablize", msg);
 
 			// successor = predecessor;
 			if ((dht_tbl.predecessor_hash[0] != 0)
-				&& (memcmp(dht_tbl.successor_hash, dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH) != 0))
+				&& (memcmp(dht_tbl.finger_hash[0], dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH) != 0))
 			{
-				memcpy(dht_tbl.successor_hash, dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH);
-				strncpy(dht_tbl.successor_addr, dht_tbl.predecessor_addr, sizeof(dht_tbl.successor_addr));
+				memcpy(dht_tbl.finger_hash[0], dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH);
+				strncpy(dht_tbl.finger_addr[0], dht_tbl.predecessor_addr, sizeof(dht_tbl.finger_addr[0]));
 				seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
 				if (WooFInvalid(seq_no))
 				{
@@ -126,7 +126,7 @@ void *stablize(void *ptr)
 					continue;
 				}
 
-				sprintf(msg, "updated successor to %s", dht_tbl.successor_addr);
+				sprintf(msg, "updated successor to %s", dht_tbl.finger_addr[0]);
 				log_info("stablize", msg);
 			}
 
@@ -142,15 +142,16 @@ void *stablize(void *ptr)
 				continue;
 			}
 
-			sprintf(msg, "called notify on self %s", dht_tbl.successor_addr);
+			sprintf(msg, "called notify on self %s", dht_tbl.finger_addr[0]);
 			log_debug("stablize", msg);
 		}
 		else
 		{
-			sprintf(msg, "current successor_addr: %s", dht_tbl.successor_addr);
-			log_debug("stablize", msg);
+			sprintf(msg, "current successor_addr: %s", dht_tbl.finger_addr[0]);
+			// log_debug("stablize", msg);
+			log_info("stablize", msg);
 
-			sprintf(successor_woof_name, "%s/%s", dht_tbl.successor_addr, DHT_GET_PREDECESSOR_ARG_WOOF);
+			sprintf(successor_woof_name, "%s/%s", dht_tbl.finger_addr[0], DHT_GET_PREDECESSOR_ARG_WOOF);
 			sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCESSOR_RESULT_WOOF);
 			sprintf(arg.callback_handler, "stablize_callback", sizeof(arg.callback_handler));
 
@@ -177,6 +178,7 @@ void *check_predecessor(void *ptr)
 	char woof_name[2048];
 	char predecessor_woof_name[2048];
 	char msg[128];
+	int i;
 
 	while (running)
 	{
@@ -196,6 +198,8 @@ void *check_predecessor(void *ptr)
 			log_error("check_predecessor", "couldn't get latest dht_table seq_no");
 			continue;
 		}
+		sprintf(msg, "seq: %lu\n", seq_no);
+		log_debug("finger_addr", msg);
 		err = WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq_no);
 		if (err < 0)
 		{
@@ -205,7 +209,8 @@ void *check_predecessor(void *ptr)
 		}
 
 		sprintf(msg, "current predecessor_addr: %s", dht_tbl.predecessor_addr);
-		log_debug("check_predecessor", msg);
+		// log_debug("check_predecessor", msg);
+		log_info("check_predecessor", msg);
 		if (dht_tbl.predecessor_addr[0] == 0)
 		{
 			log_debug("check_predecessor", "predecessor is nil");
@@ -235,6 +240,13 @@ void *check_predecessor(void *ptr)
 		}
 		sprintf(msg, "predecessor %s is working", dht_tbl.predecessor_addr);
 		log_debug("check_predecessor", msg);
+
+		// print fingers
+		sprintf(msg, "finger_addr ");
+		for (i = 1; i <= SHA_DIGEST_LENGTH * 8; i++) {
+			sprintf(msg + strlen(msg), "%c ", dht_tbl.finger_addr[i][strlen(dht_tbl.finger_addr[i]) - 16]);
+		}
+		log_debug("finger_addr", msg);
 	}
 	thread_finished++;
 }
@@ -248,6 +260,7 @@ void *fix_fingers(void *ptr)
 	unsigned long seq_no;
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	char msg[128];
+	int finger_id;
 
 	err = node_woof_name(woof_name);
 	if (err < 0)
@@ -262,13 +275,16 @@ void *fix_fingers(void *ptr)
 	while (running)
 	{
 		FIND_SUCESSOR_ARG arg;
-		sprintf(msg, "fixing finger[%d]", i);
-		log_debug("fix_fingers", msg);
+		finger_id = i + 1;
 
-		// finger[i] = find_successor(n + 2^i)
-		// finger_hash = n + 2^i
-		get_finger_id(arg.id_hash, node_hash, i);
-		arg.finger_index = i;
+		// finger[i] = find_successor(n + 2^(i-1))
+		// finger_hash = n + 2^(i-1)
+		get_finger_id(arg.id_hash, node_hash, finger_id);
+		sprintf(msg, "fixing finger[%d](", finger_id);
+		print_node_hash(msg + strlen(msg), arg.id_hash);
+		log_debug("fix_fingers", msg);
+		
+		arg.finger_index = finger_id;
 		sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCESSOR_RESULT_WOOF);
 		sprintf(arg.callback_handler, "fix_fingers_callback", sizeof(arg.callback_handler));
 
@@ -277,6 +293,7 @@ void *fix_fingers(void *ptr)
 		{
 			sprintf(msg, "couldn't call find_successor on woof %s", DHT_FIND_SUCESSOR_ARG_WOOF);
 			log_error("fix_fingers", msg);
+			usleep(fix_fingers_freq * 1000);
 			continue;
 		}
 		i = (i + 1) % (SHA_DIGEST_LENGTH * 8);
@@ -288,14 +305,15 @@ void *fix_fingers(void *ptr)
 void get_finger_id(unsigned char *dst, const unsigned char *n, int i)
 {
 	int j;
-	int carry = 0;
-	// dst += 2^i
+	unsigned char carry = 0;
+	// dst = n + 2^(i-1)
+	int shift = i - 1;
 	for (j = SHA_DIGEST_LENGTH - 1; j >= 0; j--)
 	{
 		dst[j] = carry;
-		if (SHA_DIGEST_LENGTH - 1 - (i / 8) == j)
+		if (SHA_DIGEST_LENGTH - 1 - (shift / 8) == j)
 		{
-			dst[j] += (1 << (i % 8));
+			dst[j] += (unsigned char)(1 << (shift % 8));
 		}
 		if (n[j] >= (256 - dst[j]))
 		{
@@ -308,17 +326,11 @@ void get_finger_id(unsigned char *dst, const unsigned char *n, int i)
 		dst[j] += n[j];
 	}
 #ifdef DEBUG
-	printf("get_finger_id: dst=(n + 2 ^ %d)\n", i);
-	printf("get_finger_id:   n= ");
-	for (j = 0; j < SHA_DIGEST_LENGTH; j++)
-	{
-		printf("%d ", n[j]);
-	}
-	printf("\nget_finger_id: dst= ");
-	for (j = 0; j < SHA_DIGEST_LENGTH; j++)
-	{
-		printf("%d ", dst[j]);
-	}
-	printf("\n");
+	printf("get_finger_id: dst=(n + 2 ^ (%d - 1))\n", i);
+	char msg[256];
+	print_node_hash(msg, n);
+	printf("get_finger_id:   n= %s\n", msg);
+	print_node_hash(msg, dst);
+	printf("get_finger_id: dst= %s\n", msg);
 #endif
 }
