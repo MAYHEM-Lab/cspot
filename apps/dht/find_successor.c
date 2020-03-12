@@ -11,8 +11,8 @@
 
 int find_successor(WOOF *wf, unsigned long seq_no, void *ptr)
 {
-	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(LOG_DEBUG);
+	// log_set_level(LOG_INFO);
 	log_set_output(stdout);
 	
 	FIND_SUCESSOR_ARG *arg = (FIND_SUCESSOR_ARG *)ptr;
@@ -58,17 +58,18 @@ int find_successor(WOOF *wf, unsigned long seq_no, void *ptr)
 	arg->hops++;
 
 	// if id in (n, successor]
-	if (in_range(arg->id_hash, dht_tbl.node_hash, dht_tbl.successor_hash)
-		|| memcmp(arg->id_hash, dht_tbl.successor_hash, SHA_DIGEST_LENGTH) == 0)
+	if (in_range(arg->id_hash, dht_tbl.node_hash, dht_tbl.finger_hash[0])
+		|| memcmp(arg->id_hash, dht_tbl.finger_hash[0], SHA_DIGEST_LENGTH) == 0)
 	{
 		// return successor
 		if (arg->callback_woof[0] != 0)
 		{
+			memcpy(result.target_hash, arg->id_hash, SHA_DIGEST_LENGTH);
 			result.request_seq_no = arg->request_seq_no;
 			result.finger_index = arg->finger_index;
 			result.hops = arg->hops;
-			strncpy(result.node_addr, dht_tbl.successor_addr, sizeof(result.node_addr));
-			memcpy(result.node_hash, dht_tbl.successor_hash, SHA_DIGEST_LENGTH);
+			strncpy(result.node_addr, dht_tbl.finger_addr[0], sizeof(result.node_addr));
+			memcpy(result.node_hash, dht_tbl.finger_hash[0], SHA_DIGEST_LENGTH);
 
 			seq = WooFPut(arg->callback_woof, arg->callback_handler, &result);
 			if (WooFInvalid(seq))
@@ -86,7 +87,7 @@ int find_successor(WOOF *wf, unsigned long seq_no, void *ptr)
 		return 1;
 	}
 	// else closest_preceding_node(id)
-	for (i = SHA_DIGEST_LENGTH * 8 - 1; i >= 0; i--)
+	for (i = SHA_DIGEST_LENGTH * 8; i >= 0; i--)
 	{
 		if (dht_tbl.finger_addr[i][0] == 0)
 		{
@@ -111,7 +112,8 @@ int find_successor(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 
 	// return n.find_succesor(id)
-	sleep(1); // self-forwarding delay
+	sprintf(msg, "closest_preceding_node not found in finger table");
+	log_debug("find_successor", msg);
 
 	sprintf(req_forward_woof, "%s/%s", dht_tbl.node_addr, DHT_FIND_SUCESSOR_ARG_WOOF);
 	seq_no = WooFPut(req_forward_woof, "find_successor", arg);

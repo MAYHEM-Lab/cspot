@@ -11,8 +11,8 @@
 
 int fix_fingers_callback(WOOF *wf, unsigned long seq_no, void *ptr)
 {
-	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(LOG_DEBUG);
+	// log_set_level(LOG_INFO);
 	log_set_output(stdout);
 
 	FIND_SUCESSOR_RESULT *result = (FIND_SUCESSOR_RESULT *)ptr;
@@ -21,7 +21,7 @@ int fix_fingers_callback(WOOF *wf, unsigned long seq_no, void *ptr)
 	DHT_TABLE_EL dht_tbl;
 	char woof_name[2048];
 	char notify_woof_name[2048];
-	unsigned char id_hash[SHA_DIGEST_LENGTH];
+	unsigned char target_hash[SHA_DIGEST_LENGTH];
 	unsigned long seq;
 	NOTIFY_ARG notify_arg;
 	char msg[256];
@@ -71,7 +71,9 @@ int fix_fingers_callback(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-	sprintf(msg, "updated finger_addr[%d] = %s", i, dht_tbl.finger_addr[i]);
+	print_node_hash(target_hash, result->target_hash);
+	sprintf(msg, "updated finger_addr[%d](%s) = %s(", i, target_hash, dht_tbl.finger_addr[i]);
+	print_node_hash(msg + strlen(msg), dht_tbl.finger_hash[i]);
 	log_info("fix_fingers_callback", msg);
 
 	return 1;

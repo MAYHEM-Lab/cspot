@@ -10,10 +10,10 @@ void dht_init(unsigned char *node_hash, char *node_addr, DHT_TABLE_EL *el)
 {
 	memcpy(el->node_hash, node_hash, sizeof(el->node_hash));
 	strncpy(el->node_addr, node_addr, sizeof(el->node_addr));
-	memset(el->finger_addr, 0, sizeof(char) * SHA_DIGEST_LENGTH * 8 * 256);
-	memset(el->finger_hash, 0, sizeof(unsigned char) * SHA_DIGEST_LENGTH * 8 * SHA_DIGEST_LENGTH);
-	memcpy(el->successor_hash, node_hash, sizeof(el->successor_hash));
-	strncpy(el->successor_addr, node_addr, sizeof(el->successor_addr));
+	memset(el->finger_addr, 0, sizeof(char) * (SHA_DIGEST_LENGTH * 8 + 1) * 256);
+	memset(el->finger_hash, 0, sizeof(unsigned char) * (SHA_DIGEST_LENGTH * 8 + 1) * SHA_DIGEST_LENGTH);
+	memcpy(el->finger_hash[0], node_hash, sizeof(el->finger_hash[0]));
+	strncpy(el->finger_addr[0], node_addr, sizeof(el->finger_addr[0]));
 	memset(el->predecessor_addr, 0, sizeof(char) * 256);
 	memset(el->predecessor_hash, 0, sizeof(unsigned char) * SHA_DIGEST_LENGTH);
 }
@@ -55,7 +55,7 @@ int node_woof_name(char *node_woof)
 	return 0;
 }
 
-void print_node_hash(char *dst, unsigned char *id_hash)
+void print_node_hash(char *dst, const unsigned char *id_hash)
 {
 	int i;
 	sprintf(dst, "");
