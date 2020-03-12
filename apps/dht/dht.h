@@ -26,10 +26,8 @@ struct tbl_stc
 {
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	char node_addr[256];
-	char finger_addr[SHA_DIGEST_LENGTH * 8][256];
-	unsigned char finger_hash[SHA_DIGEST_LENGTH * 8][SHA_DIGEST_LENGTH];
-	char successor_addr[256];
-	unsigned char successor_hash[SHA_DIGEST_LENGTH];
+	char finger_addr[SHA_DIGEST_LENGTH * 8 + 1][256];
+	unsigned char finger_hash[SHA_DIGEST_LENGTH * 8 + 1][SHA_DIGEST_LENGTH];
 	char predecessor_addr[256];
 	unsigned char predecessor_hash[SHA_DIGEST_LENGTH];
 };
@@ -51,6 +49,7 @@ struct find_result_stc
 	unsigned long request_seq_no; // the first resuest's seq_no
 	int finger_index;
 	int hops;
+	unsigned char target_hash[SHA_DIGEST_LENGTH];
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	unsigned char node_addr[256];
 };
@@ -109,7 +108,7 @@ typedef struct trigger_arg_stc TRIGGER_ARG;
 void dht_init(unsigned char *node_hash, char *node_addr, DHT_TABLE_EL *el);
 void find_init(char *node_addr, char *callback, char *topic, FIND_SUCESSOR_ARG *arg);
 int node_woof_name(char *node_woof);
-void print_node_hash(char *dst, unsigned char *id_hash);
+void print_node_hash(char *dst, const unsigned char *id_hash);
 int in_range(unsigned char *n, unsigned char *lower, unsigned char *upper);
 void log_set_level(int level);
 void log_set_output(FILE *file);
