@@ -16,6 +16,7 @@ int notify(WOOF *wf, unsigned long seq_no, void *ptr)
 	log_set_output(stdout);
 
 	NOTIFY_ARG *arg = (NOTIFY_ARG *)ptr;
+	NOTIFY_RESULT result;
 	int err;
 	DHT_TABLE_EL dht_tbl;
 	unsigned long seq;
@@ -24,7 +25,8 @@ int notify(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	sprintf(msg, "potential predecessor_addr: %s", arg->node_addr);
 	log_debug("notify", msg);
-
+sprintf(msg, "callback: %s/%s", arg->callback_woof, arg->callback_handler);
+		log_debug("stablize", msg);
 	seq = WooFGetLatestSeqno(DHT_TABLE_WOOF);
 	if (WooFInvalid(seq))
 	{
@@ -64,6 +66,29 @@ int notify(WOOF *wf, unsigned long seq_no, void *ptr)
 		sprintf(msg, "updated predecessor_addr: %s", dht_tbl.predecessor_addr);
 		log_info("notify", msg);
 	}
+
+	if (arg->callback_woof[0] == 0)
+	{
+		return 1;
+	}
+
+	// call notify_callback, where it updates successor list
+	memcpy(result.successor_addr[0], dht_tbl.node_addr, sizeof(result.successor_addr[0]));
+	memcpy(result.successor_hash[0], dht_tbl.node_hash, sizeof(result.successor_hash[0]));
+	for (i = 0; i < DHT_SUCCESSOR_LIST_R - 1; i++)
+	{
+		memcpy(result.successor_addr[i + 1], dht_tbl.successor_addr[i], sizeof(result.successor_addr[i + 1]));
+		memcpy(result.successor_hash[i + 1], dht_tbl.successor_hash[i], sizeof(result.successor_hash[i + 1]));
+	}
+
+	seq = WooFPut(arg->callback_woof, arg->callback_handler, &result);
+	if (WooFInvalid(seq))
+	{
+		sprintf(msg, "couldn't put notify result to woof %s", arg->callback_woof);
+		log_error("notify", msg);
+		exit(1);
+	}
+	log_debug("notify", "returned successor list");
 	
 	return 1;
 }

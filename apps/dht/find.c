@@ -73,11 +73,11 @@ int main(int argc, char **argv)
 	find_init(local_woof, "find_result", topic, &arg);
 
 	WooFInit();
-	sprintf(remote_woof, "%s/%s", node_addr, DHT_FIND_SUCESSOR_ARG_WOOF);
+	sprintf(remote_woof, "%s/%s", node_addr, DHT_FIND_SUCCESSOR_ARG_WOOF);
 	seq_no = WooFPut(remote_woof, "find_successor", &arg);
 	if (WooFInvalid(seq_no))
 	{
-		fprintf(stderr, "couldn't put woof to %s\n", DHT_FIND_SUCESSOR_ARG_WOOF);
+		fprintf(stderr, "couldn't put woof to %s\n", DHT_FIND_SUCCESSOR_ARG_WOOF);
 		fflush(stderr);
 		exit(1);
 	}
