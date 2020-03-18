@@ -11,8 +11,8 @@
 
 int fix_fingers_callback(WOOF *wf, unsigned long seq_no, void *ptr)
 {
-	log_set_level(LOG_DEBUG);
-	// log_set_level(LOG_INFO);
+	// log_set_level(LOG_DEBUG);
+	log_set_level(LOG_INFO);
 	log_set_output(stdout);
 
 	FIND_SUCESSOR_RESULT *result = (FIND_SUCESSOR_RESULT *)ptr;

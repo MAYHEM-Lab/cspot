@@ -5,15 +5,17 @@
 #include <openssl/sha.h>
 
 #define DHT_TABLE_WOOF "dht_table"
-#define DHT_FIND_SUCESSOR_ARG_WOOF "dht_find_successor_arg"
-#define DHT_FIND_SUCESSOR_RESULT_WOOF "dht_find_successor_result"
+#define DHT_FIND_SUCCESSOR_ARG_WOOF "dht_find_successor_arg"
+#define DHT_FIND_SUCCESSOR_RESULT_WOOF "dht_find_successor_result"
 #define DHT_GET_PREDECESSOR_ARG_WOOF "dht_get_predecessor_arg"
 #define DHT_GET_PREDECESSOR_RESULT_WOOF "dht_get_predecessor_result"
 #define DHT_NOTIFY_ARG_WOOF "dht_notify_arg"
+#define DHT_NOTIFY_RESULT_WOOF "dht_notify_result"
 #define DHT_INIT_TOPIC_ARG_WOOF "dht_init_topic_arg"
 #define DHT_SUBSCRIPTION_ARG_WOOF "dht_subscription_arg"
 #define DHT_SUBSCRIPTION_LIST_WOOF "dht_subscription_list"
 #define DHT_TRIGGER_ARG_WOOF "dht_trigger_arg"
+#define DHT_SUCCESSOR_LIST_R 3
 #define LOG_DEBUG 0
 #define LOG_INFO 1
 #define LOG_WARN 2
@@ -28,6 +30,8 @@ struct tbl_stc
 	char node_addr[256];
 	char finger_addr[SHA_DIGEST_LENGTH * 8 + 1][256];
 	unsigned char finger_hash[SHA_DIGEST_LENGTH * 8 + 1][SHA_DIGEST_LENGTH];
+	char successor_addr[DHT_SUCCESSOR_LIST_R][256];
+	unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
 	char predecessor_addr[256];
 	unsigned char predecessor_hash[SHA_DIGEST_LENGTH];
 };
@@ -73,8 +77,17 @@ struct notify_arg_stc
 {
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	unsigned char node_addr[256];
+	char callback_woof[256];
+	char callback_handler[256];
 };
 typedef struct notify_arg_stc NOTIFY_ARG;
+
+struct notify_result_stc
+{
+	char successor_addr[DHT_SUCCESSOR_LIST_R][256];
+	unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
+};
+typedef struct notify_result_stc NOTIFY_RESULT;
 
 struct init_topic_arg_stc
 {
@@ -116,6 +129,7 @@ void log_info(const char *tag, const char *message);
 void log_warn(const char *tag, const char *message);
 void log_error(const char *tag, const char *message);
 void log_debug(const char *tag, const char *message);
+void shift_successor_list(char successor_addr[DHT_SUCCESSOR_LIST_R][256], unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH]);
 
 struct test_stc
 {
