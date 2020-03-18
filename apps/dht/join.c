@@ -15,11 +15,11 @@ char *Usage = "join -w node_woof\n";
 
 char node_woof[256];
 
-char *woof_to_create[] = {DHT_TABLE_WOOF, DHT_FIND_SUCESSOR_ARG_WOOF, DHT_FIND_SUCESSOR_RESULT_WOOF,
-	DHT_GET_PREDECESSOR_ARG_WOOF, DHT_GET_PREDECESSOR_RESULT_WOOF, DHT_NOTIFY_ARG_WOOF,
+char *woof_to_create[] = {DHT_TABLE_WOOF, DHT_FIND_SUCCESSOR_ARG_WOOF, DHT_FIND_SUCCESSOR_RESULT_WOOF,
+	DHT_GET_PREDECESSOR_ARG_WOOF, DHT_GET_PREDECESSOR_RESULT_WOOF, DHT_NOTIFY_ARG_WOOF, DHT_NOTIFY_RESULT_WOOF,
 	DHT_INIT_TOPIC_ARG_WOOF, DHT_SUBSCRIPTION_ARG_WOOF, DHT_TRIGGER_ARG_WOOF};
 unsigned long woof_element_size[] = {sizeof(DHT_TABLE_EL), sizeof(FIND_SUCESSOR_ARG), sizeof(FIND_SUCESSOR_RESULT),
-	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG),
+	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG), sizeof(NOTIFY_RESULT), 
 	sizeof(INIT_TOPIC_ARG), sizeof(SUBSCRIPTION_ARG), sizeof(TRIGGER_ARG)};
 
 int main(int argc, char **argv)
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 	
 	WooFInit();
 
-	for (i = 0; i < 9; i++)
+	for (i = 0; i < 10; i++)
 	{
 		err = WooFCreate(woof_to_create[i], woof_element_size[i], 10);
 		if (err < 0)
@@ -93,12 +93,12 @@ int main(int argc, char **argv)
 	print_node_hash(msg + 6, arg.id_hash);
 	log_info("join", msg);
 
-	sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCESSOR_RESULT_WOOF);
+	sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCCESSOR_RESULT_WOOF);
 	sprintf(arg.callback_handler, "join_callback", sizeof(arg.callback_handler));
 	if (node_woof[strlen(node_woof) - 1] == '/') {
-		sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCESSOR_ARG_WOOF);
+		sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCCESSOR_ARG_WOOF);
 	} else {
-		sprintf(node_woof, "%s/%s", node_woof, DHT_FIND_SUCESSOR_ARG_WOOF);
+		sprintf(node_woof, "%s/%s", node_woof, DHT_FIND_SUCCESSOR_ARG_WOOF);
 	}
 
 	seq_no = WooFPut(node_woof, "find_successor", &arg);

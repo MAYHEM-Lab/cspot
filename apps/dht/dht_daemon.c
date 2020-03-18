@@ -45,23 +45,22 @@ int main(int argc, char **argv)
 	GET_PREDECESSOR_ARG arg;
 	char msg[128];
 
-	log_set_level(LOG_DEBUG);
-	// log_set_level(LOG_INFO);
+	// log_set_level(LOG_DEBUG);
+	log_set_level(LOG_INFO);
 	// FILE *f = fopen("log_daemon","w");
 	// log_set_output(f);
 	log_set_output(stdout);
 	WooFInit();
 
 	sprintf(msg, "stablize every %d ms", stablize_freq);
-	log_debug("dht_daemon", msg);
+	log_info("dht_daemon", msg);
 	sprintf(msg, "check_predecessor every %d ms", chk_predecessor_freq);
-	log_debug("dht_daemon", msg);
+	log_info("dht_daemon", msg);
 	sprintf(msg, "fix_fingers every %d ms", fix_fingers_freq);
-	log_debug("dht_daemon", msg);
+	log_info("dht_daemon", msg);
 	signal(SIGINT, signal_handler);
 
 	pthread_create(&stablize_thread, NULL, stablize, (void *)NULL);
-	// usleep(stablize_freq * 1000 / 2);
 	pthread_create(&check_predecessor_thread, NULL, check_predecessor, (void *)NULL);
 	pthread_create(&fix_fingers_thread, NULL, fix_fingers, (void *)NULL);
 	while (running || thread_finished < 3)
@@ -108,17 +107,17 @@ void *stablize(void *ptr)
 			continue;
 		}
 
-		if (memcmp(dht_tbl.finger_hash[0], dht_tbl.node_hash, SHA_DIGEST_LENGTH) == 0)
+		if (memcmp(dht_tbl.successor_hash[0], dht_tbl.node_hash, SHA_DIGEST_LENGTH) == 0)
 		{
 			sprintf(msg, "current successor is its self");
 			log_debug("stablize", msg);
 
 			// successor = predecessor;
 			if ((dht_tbl.predecessor_hash[0] != 0)
-				&& (memcmp(dht_tbl.finger_hash[0], dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH) != 0))
+				&& (memcmp(dht_tbl.successor_hash[0], dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH) != 0))
 			{
-				memcpy(dht_tbl.finger_hash[0], dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH);
-				strncpy(dht_tbl.finger_addr[0], dht_tbl.predecessor_addr, sizeof(dht_tbl.finger_addr[0]));
+				memcpy(dht_tbl.successor_hash[0], dht_tbl.predecessor_hash, SHA_DIGEST_LENGTH);
+				strncpy(dht_tbl.successor_addr[0], dht_tbl.predecessor_addr, sizeof(dht_tbl.successor_addr[0]));
 				seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
 				if (WooFInvalid(seq_no))
 				{
@@ -126,7 +125,7 @@ void *stablize(void *ptr)
 					continue;
 				}
 
-				sprintf(msg, "updated successor to %s", dht_tbl.finger_addr[0]);
+				sprintf(msg, "updated successor to %s", dht_tbl.successor_addr[0]);
 				log_info("stablize", msg);
 			}
 
@@ -142,25 +141,48 @@ void *stablize(void *ptr)
 				continue;
 			}
 
-			sprintf(msg, "called notify on self %s", dht_tbl.finger_addr[0]);
+			sprintf(msg, "calling notify on self %s", dht_tbl.successor_addr[0]);
 			log_debug("stablize", msg);
+		}
+		else if (dht_tbl.successor_addr[0][0] == 0) {
+			log_info("stablize", "no successor, set it back to self");
+			memcpy(dht_tbl.successor_addr[0], dht_tbl.node_addr, sizeof(dht_tbl.successor_addr[0]));
+			memcpy(dht_tbl.successor_hash[0], dht_tbl.node_hash, sizeof(dht_tbl.successor_hash[0]));
+			seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
+			if (WooFInvalid(seq_no))
+			{
+				log_error("stablize", "couldn't set successor back to self");
+				continue;
+			}
+			sprintf(msg, "successor set to self: %s", dht_tbl.successor_addr[0]);
+			log_info("stablize", msg);
 		}
 		else
 		{
-			sprintf(msg, "current successor_addr: %s", dht_tbl.finger_addr[0]);
-			// log_debug("stablize", msg);
-			log_info("stablize", msg);
+			sprintf(msg, "current successor_addr: %s", dht_tbl.successor_addr[0]);
+			log_debug("stablize", msg);
 
-			sprintf(successor_woof_name, "%s/%s", dht_tbl.finger_addr[0], DHT_GET_PREDECESSOR_ARG_WOOF);
-			sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCESSOR_RESULT_WOOF);
+			sprintf(successor_woof_name, "%s/%s", dht_tbl.successor_addr[0], DHT_GET_PREDECESSOR_ARG_WOOF);
+			sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCCESSOR_RESULT_WOOF);
 			sprintf(arg.callback_handler, "stablize_callback", sizeof(arg.callback_handler));
 
 			// x = successor.predecessor
 			seq_no = WooFPut(successor_woof_name, "get_predecessor", &arg);
 			if (WooFInvalid(seq_no))
 			{
-				sprintf(msg, "couldn't get put to woof %s to get_predecessor", successor_woof_name);
-				log_error("stablize", msg);
+				sprintf(msg, "couldn't put to woof %s to get_predecessor", successor_woof_name);
+				log_warn("stablize", msg);
+
+				// couldn't contact successor, use the next one
+				shift_successor_list(dht_tbl.successor_addr, dht_tbl.successor_hash);
+				seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
+				if (WooFInvalid(seq_no))
+				{
+					log_error("stablize", "couldn't shift successor");
+					continue;
+				}
+				sprintf(msg, "successor shifted. new: %s", dht_tbl.successor_addr[0]);
+				log_info("stablize", msg);
 				continue;
 			}
 			sprintf(msg, "asked to get_predecessor from %s", successor_woof_name);
@@ -198,8 +220,6 @@ void *check_predecessor(void *ptr)
 			log_error("check_predecessor", "couldn't get latest dht_table seq_no");
 			continue;
 		}
-		sprintf(msg, "seq: %lu\n", seq_no);
-		log_debug("finger_addr", msg);
 		err = WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq_no);
 		if (err < 0)
 		{
@@ -236,17 +256,10 @@ void *check_predecessor(void *ptr)
 				log_error("check_predecessor", "couldn't set predecessor to nil");
 				continue;
 			}
-			log_debug("check_predecessor", "set predecessor to nil");
+			log_warn("check_predecessor", "set predecessor to nil");
 		}
 		sprintf(msg, "predecessor %s is working", dht_tbl.predecessor_addr);
 		log_debug("check_predecessor", msg);
-
-		// print fingers
-		sprintf(msg, "finger_addr ");
-		for (i = 1; i <= SHA_DIGEST_LENGTH * 8; i++) {
-			sprintf(msg + strlen(msg), "%c ", dht_tbl.finger_addr[i][strlen(dht_tbl.finger_addr[i]) - 16]);
-		}
-		log_debug("finger_addr", msg);
 	}
 	thread_finished++;
 }
@@ -280,18 +293,18 @@ void *fix_fingers(void *ptr)
 		// finger[i] = find_successor(n + 2^(i-1))
 		// finger_hash = n + 2^(i-1)
 		get_finger_id(arg.id_hash, node_hash, finger_id);
-		sprintf(msg, "fixing finger[%d](", finger_id);
-		print_node_hash(msg + strlen(msg), arg.id_hash);
-		log_debug("fix_fingers", msg);
+		// sprintf(msg, "fixing finger[%d](", finger_id);
+		// print_node_hash(msg + strlen(msg), arg.id_hash);
+		// log_debug("fix_fingers", msg);
 		
 		arg.finger_index = finger_id;
-		sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCESSOR_RESULT_WOOF);
+		sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCCESSOR_RESULT_WOOF);
 		sprintf(arg.callback_handler, "fix_fingers_callback", sizeof(arg.callback_handler));
 
-		seq_no = WooFPut(DHT_FIND_SUCESSOR_ARG_WOOF, "find_successor", &arg);
+		seq_no = WooFPut(DHT_FIND_SUCCESSOR_ARG_WOOF, "find_successor", &arg);
 		if (WooFInvalid(seq_no))
 		{
-			sprintf(msg, "couldn't call find_successor on woof %s", DHT_FIND_SUCESSOR_ARG_WOOF);
+			sprintf(msg, "couldn't call find_successor on woof %s", DHT_FIND_SUCCESSOR_ARG_WOOF);
 			log_error("fix_fingers", msg);
 			usleep(fix_fingers_freq * 1000);
 			continue;

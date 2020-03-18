@@ -15,7 +15,7 @@ char *Usage = "sub -t topic -h handler\n";
 
 char node_woof[256];
 
-char *woof_to_create[] = {DHT_TABLE_WOOF, DHT_FIND_SUCESSOR_ARG_WOOF, DHT_FIND_SUCESSOR_RESULT_WOOF,
+char *woof_to_create[] = {DHT_TABLE_WOOF, DHT_FIND_SUCCESSOR_ARG_WOOF, DHT_FIND_SUCCESSOR_RESULT_WOOF,
 	DHT_GET_PREDECESSOR_ARG_WOOF, DHT_GET_PREDECESSOR_RESULT_WOOF, DHT_NOTIFY_ARG_WOOF};
 unsigned long woof_element_size[] = {sizeof(DHT_TABLE_EL), sizeof(FIND_SUCESSOR_ARG), sizeof(FIND_SUCESSOR_RESULT),
 	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG)};

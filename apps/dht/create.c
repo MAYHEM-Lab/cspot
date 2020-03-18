@@ -8,11 +8,11 @@
 #include "woofc-host.h"
 #include "dht.h"
 
-char *woof_to_create[] = {DHT_TABLE_WOOF, DHT_FIND_SUCESSOR_ARG_WOOF, DHT_FIND_SUCESSOR_RESULT_WOOF,
-	DHT_GET_PREDECESSOR_ARG_WOOF, DHT_GET_PREDECESSOR_RESULT_WOOF, DHT_NOTIFY_ARG_WOOF,
+char *woof_to_create[] = {DHT_TABLE_WOOF, DHT_FIND_SUCCESSOR_ARG_WOOF, DHT_FIND_SUCCESSOR_RESULT_WOOF,
+	DHT_GET_PREDECESSOR_ARG_WOOF, DHT_GET_PREDECESSOR_RESULT_WOOF, DHT_NOTIFY_ARG_WOOF, DHT_NOTIFY_RESULT_WOOF,
 	DHT_INIT_TOPIC_ARG_WOOF, DHT_SUBSCRIPTION_ARG_WOOF, DHT_TRIGGER_ARG_WOOF};
 unsigned long woof_element_size[] = {sizeof(DHT_TABLE_EL), sizeof(FIND_SUCESSOR_ARG), sizeof(FIND_SUCESSOR_RESULT),
-	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG),
+	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG), sizeof(NOTIFY_RESULT),
 	sizeof(INIT_TOPIC_ARG), sizeof(SUBSCRIPTION_ARG), sizeof(TRIGGER_ARG)};
 
 int main(int argc, char **argv)
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	log_set_output(stdout);
 	WooFInit();
 
-	for (i = 0; i < 9; i++)
+	for (i = 0; i < 10; i++)
 	{
 		err = WooFCreate(woof_to_create[i], woof_element_size[i], 10);
 		if (err < 0)
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 
 	sprintf(msg, "predecessor: %s", el.predecessor_addr);
 	log_info("create", msg);
-	sprintf(msg, "successor: %s", el.finger_addr[0]);
+	sprintf(msg, "successor: %s", el.successor_addr[0]);
 	log_info("create", msg);
 	return (0);
 }

@@ -18,7 +18,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: create join find find_result find_successor join_callback print_fingers get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon test sub_test test2
+all: create join find find_result find_successor join_callback node_info get_predecessor notify notify_callback init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon test sub_test test2
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp create ./cspot;
 	cp join ./cspot;
@@ -26,9 +26,10 @@ all: create join find find_result find_successor join_callback print_fingers get
 	cp find_result ./cspot;
 	cp find_successor ./cspot;
 	cp join_callback ./cspot;
-	cp print_fingers ./cspot;
+	cp node_info ./cspot;
 	cp get_predecessor ./cspot;
 	cp notify ./cspot;
+	cp notify_callback ./cspot;
 	cp init_topic ./cspot;
 	cp subscribe ./cspot;
 	cp trigger ./cspot;
@@ -48,8 +49,8 @@ join: join.c dht.o
 find: find.c dht.o
 	${CC} ${CFLAGS} -o find find.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-print_fingers: print_fingers.c dht.o
-	${CC} ${CFLAGS} -o print_fingers print_fingers.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+node_info: node_info.c dht.o
+	${CC} ${CFLAGS} -o node_info node_info.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 dht_daemon: dht_daemon.c dht.o
 	${CC} ${CFLAGS} -o dht_daemon dht_daemon.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -81,6 +82,11 @@ notify: notify.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/notify/g' ${SHEP_SRC} > notify_shepherd.c
 	${CC} ${CFLAGS} -c notify_shepherd.c -o notify_shepherd.o
 	${CC} ${CFLAGS} -o notify notify.c notify_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+notify_callback: notify_callback.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/notify_callback/g' ${SHEP_SRC} > notify_callback_shepherd.c
+	${CC} ${CFLAGS} -c notify_callback_shepherd.c -o notify_callback_shepherd.o
+	${CC} ${CFLAGS} -o notify_callback notify_callback.c notify_callback_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 init_topic: init_topic.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/init_topic/g' ${SHEP_SRC} > init_topic_shepherd.c
@@ -121,5 +127,5 @@ test2: test2.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	${CC} ${CFLAGS} -o test2 test2.c test2_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot create join find find_result find_successor join_callback print_fingers get_predecessor notify init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon *.o
+	rm -rf ./cspot create join find find_result find_successor join_callback node_info get_predecessor notify notify_callback init_topic subscribe trigger stablize_callback fix_fingers_callback dht_daemon *.o
 

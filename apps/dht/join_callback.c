@@ -45,8 +45,8 @@ int join_callback(WOOF *wf, unsigned long seq_no, void *ptr)
 	log_debug("join_callback", msg);
 
 	dht_init(id_hash, woof_name, &dht_tbl);
-	strncpy(dht_tbl.finger_hash[0], result->node_hash, sizeof(dht_tbl.finger_hash[0]));
-	strncpy(dht_tbl.finger_addr[0], result->node_addr, sizeof(dht_tbl.finger_addr[0]));
+	strncpy(dht_tbl.successor_hash[0], result->node_hash, sizeof(dht_tbl.successor_hash[0]));
+	strncpy(dht_tbl.successor_addr[0], result->node_addr, sizeof(dht_tbl.successor_addr[0]));
 	seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
 	if (WooFInvalid(seq_no))
 	{
@@ -57,7 +57,7 @@ int join_callback(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	sprintf(msg, "updated predecessor: %s", dht_tbl.predecessor_addr);
 	log_info("join_callback", msg);
-	sprintf(msg, "updated successor: %s", dht_tbl.finger_addr[0]);
+	sprintf(msg, "updated successor: %s", dht_tbl.successor_addr[0]);
 	log_info("join_callback", msg);
 
 	return 1;
