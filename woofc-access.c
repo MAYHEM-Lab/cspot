@@ -1144,7 +1144,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 	else
 	{
 		el_size = wf->shared->element_size;
-		WooFFree(wf);
+//		WooFFree(wf);
 	}
 
 	if (wf != NULL)
@@ -1160,6 +1160,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 
 		el_read = WooFReadTail(wf, ptr, el_count);
 		WooFFree(wf);
+		wf = NULL;
 	}
 
 #ifdef DEBUG
