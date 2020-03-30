@@ -8,7 +8,7 @@ if ( test -z "$1" ) ; then
 	exit 1
 fi
 
-DISTRO="debian"
+DISTRO="CENTOS"
 
 WNAME=$1
 
@@ -16,6 +16,8 @@ if ( test "$DISTRO" == "debian" ) ; then
         TEMP1=`/opt/vc/bin/vcgencmd measure_temp | sed 's/temp=//' | awk -F "'"  '{print ($1*9/5)+32}'`
         TEMP=`cat /sys/class/thermal/thermal_zone0/temp | awk '{print (($1/1000)*9/5)+32}'`
 else
+# yum -y install lm_sensors
+# sensors-detect
         TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
 fi
 
