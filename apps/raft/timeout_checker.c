@@ -12,8 +12,8 @@ int timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 	RAFT_TIMEOUT_ARG *arg = (RAFT_TIMEOUT_ARG *)ptr;
 
-	log_set_level(LOG_INFO);
-	// log_set_level(LOG_DEBUG);
+	// log_set_level(LOG_INFO);
+	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 	
 	// get the last heartbeat
@@ -32,10 +32,6 @@ int timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	unsigned long local_timestamp = get_milliseconds();
 	if ((local_timestamp - last_heartbeat.local_timestamp) > last_heartbeat.timeout) {
-		sprintf(log_msg, "timeout after %dms", last_heartbeat.timeout);
-		log_info(function_tag, log_msg);
-
-		// TODO: new term
 		// new term
 		RAFT_SERVER_STATE server_state;
 		seq = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
@@ -49,6 +45,19 @@ int timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr)
 			log_error(function_tag, "couldn't get the current server state");
 			exit(1);
 		}
+		if (server_state.role == RAFT_LEADER) {
+			// sprintf(log_msg, "as leader at term %lu, ignore timeout", server_state.current_term);
+			// log_debug(function_tag, log_msg);
+			usleep(RAFT_LOOP_RATE * 1000);
+			seq = WooFPut(RAFT_TIMEOUT_ARG_WOOF, "timeout_checker", arg);
+			if (WooFInvalid(seq)) {
+				log_error(function_tag, "couldn't queue the next timeout_checker function");
+				exit(1);
+			}
+			return 1;
+		}
+		sprintf(log_msg, "timeout after %dms at term %lu", last_heartbeat.timeout, server_state.current_term);
+		log_warn(function_tag, log_msg);
 		
 		RAFT_TERM_ENTRY new_term;
 		new_term.term = server_state.current_term + 1;
@@ -73,9 +82,10 @@ int timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 	}
 
+	usleep(RAFT_LOOP_RATE * 1000);
 	seq = WooFPut(RAFT_TIMEOUT_ARG_WOOF, "timeout_checker", arg);
 	if (WooFInvalid(seq)) {
-		log_error(function_tag, "couldn't queue the next timeout function");
+		log_error(function_tag, "couldn't queue the next timeout_checker function");
 		exit(1);
 	}
 	return 1;

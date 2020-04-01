@@ -79,6 +79,7 @@ int WooFRepair(char *wf_name, Dlist *seq_no);
 int WooFShadowCreate(char *name, char *original_name, unsigned long element_size, unsigned long history_size, Dlist *seq_no);
 int WooFShadowForward(WOOF *wf);
 int WooFReplace(WOOF *dst, WOOF *src, unsigned long ndx, unsigned long size);
+int WooFTruncate(char *name, unsigned long seq_no);
 unsigned long WooFIndexFromSeqno(WOOF *wf, unsigned long seq_no);
 void WooFPrintMeta(FILE *fd, char *name);
 void WooFDump(FILE *fd, char *name);

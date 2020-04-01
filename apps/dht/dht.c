@@ -103,7 +103,9 @@ void log_debug(const char *tag, const char *message)
 	}
 	time_t now;
 	time(&now);
+	fprintf(dht_log_output, "\033[0;32m");
 	fprintf(dht_log_output, "DEBUG| %.19s [%s]: %s\n", ctime(&now), tag, message);
+	fprintf(dht_log_output, "\033[0m");
 }
 
 void log_info(const char *tag, const char *message)
@@ -114,7 +116,9 @@ void log_info(const char *tag, const char *message)
 	}
 	time_t now;
 	time(&now);
+	fprintf(dht_log_output, "\033[0;34m");
 	fprintf(dht_log_output, "INFO | %.19s [%s]: %s\n", ctime(&now), tag, message);
+	fprintf(dht_log_output, "\033[0m");
 }
 
 void log_warn(const char *tag, const char *message)
@@ -125,7 +129,9 @@ void log_warn(const char *tag, const char *message)
 	}
 	time_t now;
 	time(&now);
+	fprintf(dht_log_output, "\033[0;33m");
 	fprintf(dht_log_output, "WARN | %.19s [%s]: %s\n", ctime(&now), tag, message);
+	fprintf(dht_log_output, "\033[0m");
 }
 
 void log_error(const char *tag, const char *message)
@@ -136,7 +142,9 @@ void log_error(const char *tag, const char *message)
 	}
 	time_t now;
 	time(&now);
+	fprintf(dht_log_output, "\033[0;31m");
 	fprintf(dht_log_output, "ERROR| %.19s [%s]: %s\n", ctime(&now), tag, message);
+	fprintf(dht_log_output, "\033[0m");
 }
 
 void shift_successor_list(char successor_addr[DHT_SUCCESSOR_LIST_R][256], unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH])
