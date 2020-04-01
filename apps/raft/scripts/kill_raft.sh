@@ -1,6 +1,6 @@
-ssh dht1 'sudo pkill -9 woof; sudo pkill -9 dht_daemon' &
-ssh dht2 'sudo pkill -9 woof; sudo pkill -9 dht_daemon' &
-ssh dht3 'sudo pkill -9 woof; sudo pkill -9 dht_daemon' &
+ssh dht1 'sudo pkill -9 woof' &
+ssh dht2 'sudo pkill -9 woof' &
+ssh dht3 'sudo pkill -9 woof' &
 
 sleep 2
 

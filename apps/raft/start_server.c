@@ -118,32 +118,30 @@ int main(int argc, char **argv)
 	printf("Started timeout_checker function loop\n");
 	fflush(stdout);
 
-	RAFT_REVIEW_REQUEST_ARG review_arg;
-	review_arg.last_request_seqno = 0;
-	review_arg.term = 0;
-	memset(review_arg.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
-	seq = WooFPut(RAFT_REVIEW_REQUEST_ARG_WOOF, "review_request", &review_arg);
+	RAFT_REVIEW_REQUEST_VOTE_ARG review_vote_arg;
+	review_vote_arg.last_request_seqno = 0;
+	review_vote_arg.term = 0;
+	memset(review_vote_arg.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+	seq = WooFPut(RAFT_REVIEW_REQUEST_VOTE_ARG_WOOF, "review_request_vote", &review_vote_arg);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start the review_request function loop\n");
+		fprintf(stderr, "Couldn't start the review_request_vote function loop\n");
 		fflush(stderr);
 		exit(1);
 	}
-	printf("Started review_request function loop\n");
+	printf("Started review_request_vote function loop\n");
 	fflush(stdout);
 
-	// RAFT_COUNT_VOTE_ARG review_arg;
-	// review_arg.last_request_seqno = 0;
-	// review_arg.term = 0;
-	// memset(review_arg.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
-	// seq = WooFPut(RAFT_REVIEW_REQUEST_ARG_WOOF, "review_request", &review_arg);
-	// if (WooFInvalid(seq)) {
-	// 	fprintf(stderr, "Couldn't start the review_request function loop\n");
-	// 	fflush(stderr);
-	// 	exit(1);
-	// }
-	// printf("Started review_request function loop\n");
-	// fflush(stdout);
-
+	RAFT_REVIEW_APPEND_ENTRIES_ARG review_append_arg;
+	review_append_arg.last_request_seqno = 0;
+	seq = WooFPut(RAFT_REVIEW_APPEND_ENTRIES_ARG_WOOF, "review_append_entries", &review_append_arg);
+	if (WooFInvalid(seq)) {
+		fprintf(stderr, "Couldn't start the review_append_entries function loop\n");
+		fflush(stderr);
+		exit(1);
+	}
+	printf("Started review_append_entries function loop\n");
+	fflush(stdout);
+	
 	return 0;
 }
 

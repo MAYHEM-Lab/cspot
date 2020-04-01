@@ -18,17 +18,25 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: raft.o count_vote create_woofs review_request start_server term_chair timeout_checker 
+all: raft.o append_entries_result count_vote create_woofs replicate_entries review_append_entries review_request_vote start_server term_chair timeout_checker 
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	cp append_entries_result ./cspot;
 	cp count_vote ./cspot;
 	cp create_woofs ./cspot;
-	cp review_request ./cspot;
+	cp replicate_entries ./cspot;
+	cp review_append_entries ./cspot;
+	cp review_request_vote ./cspot;
 	cp start_server ./cspot;
 	cp term_chair ./cspot;
 	cp timeout_checker ./cspot;
 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
+
+append_entries_result: append_entries_result.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/append_entries_result/g' ${SHEP_SRC} > append_entries_result_shepherd.c
+	${CC} ${CFLAGS} -c append_entries_result_shepherd.c -o append_entries_result_shepherd.o
+	${CC} ${CFLAGS} -o append_entries_result append_entries_result.c append_entries_result_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 count_vote: count_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/count_vote/g' ${SHEP_SRC} > count_vote_shepherd.c
@@ -39,10 +47,20 @@ create_woofs: create_woofs.c raft.h
 	${CC} ${CFLAGS} -o create_woofs create_woofs.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp create_woofs ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 
-review_request: review_request.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/review_request/g' ${SHEP_SRC} > review_request_shepherd.c
-	${CC} ${CFLAGS} -c review_request_shepherd.c -o review_request_shepherd.o
-	${CC} ${CFLAGS} -o review_request review_request.c review_request_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+replicate_entries: replicate_entries.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/replicate_entries/g' ${SHEP_SRC} > replicate_entries_shepherd.c
+	${CC} ${CFLAGS} -c replicate_entries_shepherd.c -o replicate_entries_shepherd.o
+	${CC} ${CFLAGS} -o replicate_entries replicate_entries.c replicate_entries_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+review_append_entries: review_append_entries.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/review_append_entries/g' ${SHEP_SRC} > review_append_entries_shepherd.c
+	${CC} ${CFLAGS} -c review_append_entries_shepherd.c -o review_append_entries_shepherd.o
+	${CC} ${CFLAGS} -o review_append_entries review_append_entries.c review_append_entries_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+review_request_vote: review_request_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/review_request_vote/g' ${SHEP_SRC} > review_request_vote_shepherd.c
+	${CC} ${CFLAGS} -c review_request_vote_shepherd.c -o review_request_vote_shepherd.o
+	${CC} ${CFLAGS} -o review_request_vote review_request_vote.c review_request_vote_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 start_server: start_server.c raft.h
 	${CC} ${CFLAGS} -o start_server start_server.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -59,5 +77,5 @@ timeout_checker: timeout_checker.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} $
 	${CC} ${CFLAGS} -o timeout_checker timeout_checker.c timeout_checker_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o count_vote create_woofs review_request start_server term_chair timeout_checker 
+	rm -rf ./cspot raft.o count_vote create_woofs review_request_vote start_server term_chair timeout_checker 
 

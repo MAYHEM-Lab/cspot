@@ -36,7 +36,7 @@ typedef struct woof_fork_cache_stc WOOF_FORK_EL;
 
 static int WooFDone;
 
-#define WOOF_CONTAINER_FORKERS (5)
+#define WOOF_CONTAINER_FORKERS (10)
 sema ForkerThrottle;
 pthread_mutex_t Tlock;
 int Tcount;

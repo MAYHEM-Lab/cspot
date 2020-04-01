@@ -4,8 +4,8 @@
 #include <time.h>
 #include "raft.h"
 
-FILE *dht_log_output;
-int dht_log_level;
+FILE *raft_log_output;
+int raft_log_level;
 
 int random_timeout(unsigned long seed) {
 	srand(seed);
@@ -47,55 +47,63 @@ int node_woof_name(char *node_woof)
 
 void log_set_level(int level)
 {
-	dht_log_level = level;
+	raft_log_level = level;
 }
 
 void log_set_output(FILE *file)
 {
-	dht_log_output = file;
+	raft_log_output = file;
 	// log_set_level(LOG_DEBUG);
 }
 
 void log_debug(const char *tag, const char *message)
 {
-	if (dht_log_level > LOG_DEBUG)
+	if (raft_log_level > LOG_DEBUG)
 	{
 		return;
 	}
 	time_t now;
 	time(&now);
-	fprintf(dht_log_output, "DEBUG| %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0;32m");
+	fprintf(raft_log_output, "DEBUG| %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0m");
 }
 
 void log_info(const char *tag, const char *message)
 {
-	if (dht_log_level > LOG_INFO)
+	if (raft_log_level > LOG_INFO)
 	{
 		return;
 	}
 	time_t now;
 	time(&now);
-	fprintf(dht_log_output, "INFO | %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0;34m");
+	fprintf(raft_log_output, "INFO | %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0m");
 }
 
 void log_warn(const char *tag, const char *message)
 {
-	if (dht_log_level > LOG_WARN)
+	if (raft_log_level > LOG_WARN)
 	{
 		return;
 	}
 	time_t now;
 	time(&now);
-	fprintf(dht_log_output, "WARN | %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0;33m");
+	fprintf(raft_log_output, "WARN | %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0m");
 }
 
 void log_error(const char *tag, const char *message)
 {
-	if (dht_log_level > LOG_ERROR)
+	if (raft_log_level > LOG_ERROR)
 	{
 		return;
 	}
 	time_t now;
 	time(&now);
-	fprintf(dht_log_output, "ERROR| %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0;31m");
+	fprintf(raft_log_output, "ERROR| %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
+	fprintf(raft_log_output, "\033[0m");
 }
