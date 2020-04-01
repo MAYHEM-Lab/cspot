@@ -58,6 +58,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			exit(1);
 		}
 
+		result.candidate_vote_pool_seqno = request.candidate_vote_pool_seqno;
 		if (request.term < reviewing->term) { // current term is higher than the request
 			result.term = server_state.current_term; // server term will always be greater than reviewing term
 			result.granted = false;
@@ -92,7 +93,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 		// return the request
 		char candidate_result_woof[RAFT_WOOF_NAME_LENGTH];
 		sprintf(candidate_result_woof, "%s/%s", request.candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
-		unsigned long seq = WooFPut(candidate_result_woof, NULL, &result);
+		unsigned long seq = WooFPut(candidate_result_woof, "count_vote", &result);
 		if (WooFInvalid(seq)) {
 			sprintf(log_msg, "couldn't return the vote result to %s", candidate_result_woof);
 			log_error(function_tag, log_msg);

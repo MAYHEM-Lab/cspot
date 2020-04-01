@@ -9,7 +9,7 @@ char function_tag[] = "count_vote";
 
 int count_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 {
-	RAFT_COUNT_VOTE_ARG *count_vote_arg = (RAFT_COUNT_VOTE_ARG *)ptr;
+	RAFT_REQUEST_VOTE_RESULT *result = (RAFT_REQUEST_VOTE_RESULT *)ptr;
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
@@ -27,69 +27,55 @@ int count_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 		exit(1);
 	}
 
-	// server's term is higher than the election, ignore it
-	if (count_vote_arg->term < server_state.current_term) {
-		sprintf(log_msg, "current term %lu is higher than election's term %lu, ignore the election", server_state.current_term, count_vote_arg->term);
+	// server's term is higher than the vote's term, ignore it
+	if (result->term < server_state.current_term) {
+		sprintf(log_msg, "current term %lu is higher than vote's term %lu, ignore the election", server_state.current_term, result->term);
+		log_debug(function_tag, log_msg);
+		return 1;
+	}
+	// the server is already a leader at vote's term, ifnore the vote
+	if (result->term == server_state.current_term && server_state.role == RAFT_LEADER) {
+		sprintf(log_msg, "already a leader at term %lu, ignore the election", server_state.current_term);
 		log_debug(function_tag, log_msg);
 		return 1;
 	}
 
 	// start counting the votes
-	unsigned long last_vote_result = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_RESULT_WOOF);
-	if (WooFInvalid(last_vote_result)) {
-		sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_REQUEST_VOTE_RESULT_WOOF);
-		log_error(function_tag, log_msg);
-		exit(1);
+	int granted_votes = 0;
+	if (result->granted == true) {
+		granted_votes++;
 	}
-	if (count_vote_arg->pool_seqno < last_vote_result) {
-		RAFT_REQUEST_VOTE_RESULT vote;
-		unsigned long i;
-		// sprintf(log_msg, "counting votes from seqno %lu to %lu", count_vote_arg->pool_seqno + 1, last_vote_result);
-		// log_debug(function_tag, log_msg);
-		for (i = count_vote_arg->pool_seqno + 1; i <= last_vote_result; ++i) {
-			err = WooFGet(RAFT_REQUEST_VOTE_RESULT_WOOF, &vote, i);
-			if (err < 0) {
-				sprintf(log_msg, "couldn't get the vote at seqno %lu", i);
-				log_error(function_tag, log_msg);
-				exit(1);
-			}
-			if (vote.term > count_vote_arg->term) {
-				// there is a vote with higher rank, no need to keep counting vote for this term
-				sprintf(log_msg, "found a vote with higher term %lu, stop counting for term %lu", vote.term, count_vote_arg->term);
-				log_debug(function_tag, log_msg);
-				return 1; 
-			}
-			if (vote.granted == true && vote.term == count_vote_arg->term) {
-				count_vote_arg->granted_votes++;
+	RAFT_REQUEST_VOTE_RESULT vote;
+	unsigned long i;
+	for (i = seq_no - 1; i > result->candidate_vote_pool_seqno; --i) {
+		err = WooFGet(RAFT_REQUEST_VOTE_RESULT_WOOF, &vote, i);
+		if (err < 0) {
+			sprintf(log_msg, "couldn't get the vote result at seqno %lu", i);
+			log_error(function_tag, log_msg);
+			exit(1);
+		}
+		if (vote.granted == true && vote.term == result->term) {
+			granted_votes++;
+			if (granted_votes > server_state.members / 2) {
+				break;
 			}
 		}
-		sprintf(log_msg, "counted %d granted votes for term %lu", count_vote_arg->granted_votes, count_vote_arg->term);
-		log_debug(function_tag, log_msg);
+	}
+	sprintf(log_msg, "counted %d granted votes for term %lu", granted_votes, result->term);
+	log_info(function_tag, log_msg);
 
-		// if the majority granted, promoted to leader
-		if (count_vote_arg->granted_votes > server_state.members / 2) {
-			RAFT_TERM_ENTRY new_term;
-			new_term.term = count_vote_arg->term;
-			new_term.role = RAFT_LEADER;
-			unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
-			if (WooFInvalid(seq)) {
-				log_error(function_tag, "couldn't queue the new term request to chair");
-				exit(1);
-			}
-			sprintf(log_msg, "asked the term chair to be promoted to leader for term %lu", count_vote_arg->term);
-			log_info(function_tag, log_msg);
-			return 1;
+	// if the majority granted, promoted to leader
+	if (granted_votes > server_state.members / 2) {
+		RAFT_TERM_ENTRY new_term;
+		new_term.term = result->term;
+		new_term.role = RAFT_LEADER;
+		unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
+		if (WooFInvalid(seq)) {
+			log_error(function_tag, "couldn't queue the new term request to chair");
+			exit(1);
 		}
+		sprintf(log_msg, "asked the term chair to be promoted to leader for term %lu", result->term);
+		log_info(function_tag, log_msg);
 	}
-	// else keep counting
-	count_vote_arg->pool_seqno = last_vote_result;
-	unsigned long seq = WooFPut(RAFT_COUNT_VOTE_ARG_WOOF, "count_vote", count_vote_arg);
-	if (WooFInvalid(seq)) {
-		sprintf(log_msg, "couldn't queue the next count_vote function for term %lu", count_vote_arg->term);
-		log_error(function_tag, log_msg);
-		exit(1);
-	}
-	// sprintf(log_msg, "queued the next count_vote function for term %lu", count_vote_arg->term);
-	// log_debug(function_tag, log_msg);
 	return 1;
 }
