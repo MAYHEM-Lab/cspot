@@ -12,7 +12,6 @@
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg_woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result_woof"
 #define RAFT_REVIEW_REQUEST_VOTE_ARG_WOOF "raft_review_request_vote_arg_woof"
-#define RAFT_COUNT_VOTE_ARG_WOOF "raft_count_vote_progress_woof"
 #define RAFT_APPEND_ENTRIES_ARG_WOOF "raft_append_entries_arg_woof"
 #define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result_woof"
 #define RAFT_REVIEW_APPEND_ENTRIES_ARG_WOOF "raft_review_append_entries_arg_woof"
@@ -53,6 +52,7 @@ typedef struct raft_server_state {
 typedef struct raft_request_vote_arg {
 	unsigned long term;
 	char candidate_woof[RAFT_WOOF_NAME_LENGTH];
+	unsigned long candidate_vote_pool_seqno;
 	//TODO: unsigned long lastLogIndex;
 	//TODO: unsigned long lastLogTerm;
 } RAFT_REQUEST_VOTE_ARG;
@@ -60,6 +60,7 @@ typedef struct raft_request_vote_arg {
 typedef struct raft_request_vote_result {
 	unsigned long term;
 	bool granted;
+	unsigned long candidate_vote_pool_seqno;
 } RAFT_REQUEST_VOTE_RESULT;
 
 typedef struct raft_review_request_vote_arg {
@@ -67,12 +68,6 @@ typedef struct raft_review_request_vote_arg {
 	unsigned long term;
 	char voted_for[RAFT_WOOF_NAME_LENGTH];
 } RAFT_REVIEW_REQUEST_VOTE_ARG;
-
-typedef struct raft_count_vote_arg {
-	unsigned long pool_seqno;
-	unsigned long term;
-	int granted_votes;
-} RAFT_COUNT_VOTE_ARG;
 
 typedef struct raft_append_entries_arg {
 	unsigned long term;

@@ -102,7 +102,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 	arg->last_term_seqno = last_term_entry;
 
 	// if there is a new term
-	if (next_term >= server_state.current_term) {
+	if (next_term > server_state.current_term || (next_term == server_state.current_term && next_role != server_state.role)) {
 		// update the server's current term
 		server_state.current_term = next_term;
 		server_state.role = next_role;
@@ -144,23 +144,13 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 
 		if (next_role == RAFT_CANDIDATE) {
 			// initialize the vote progress
-			RAFT_COUNT_VOTE_ARG count_vote_arg;
-			count_vote_arg.term = server_state.current_term;
-			count_vote_arg.granted_votes = 0;
-			count_vote_arg.pool_seqno = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_RESULT_WOOF);
-			if (WooFInvalid(count_vote_arg.pool_seqno)) {
+			// remember the latest seqno of request_vote_result before requesting votes
+			unsigned long vote_pool_seqno = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_RESULT_WOOF);
+			if (WooFInvalid(vote_pool_seqno)) {
 				sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_REQUEST_VOTE_RESULT_WOOF);
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
-			seq = WooFPut(RAFT_COUNT_VOTE_ARG_WOOF, "count_vote", &count_vote_arg);
-			if (WooFInvalid(seq)) {
-				sprintf(log_msg, "couldn't queue the count_vote function for term %lu", count_vote_arg.term);
-				log_error(function_tag, log_msg);
-				exit(1);
-			}
-			sprintf(log_msg, "queued count_vote function for term %lu", count_vote_arg.term);
-			log_debug(function_tag, log_msg);
 			
 			// requesting votes from members
 			int i;
@@ -170,6 +160,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 				sprintf(thread_arg.member_woof, "%s/%s", server_state.member_woofs[i], RAFT_REQUEST_VOTE_ARG_WOOF);
 				thread_arg.arg.term = server_state.current_term;
 				strncpy(thread_arg.arg.candidate_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+				thread_arg.arg.candidate_vote_pool_seqno = vote_pool_seqno;
 				pthread_create(&thread_id[i], NULL, request_vote, (void *)&thread_arg); 
 			}
 			for (i = 0; i < server_state.members; ++i) {

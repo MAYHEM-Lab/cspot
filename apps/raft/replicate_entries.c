@@ -96,9 +96,9 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 		RAFT_LOG_ENTRY *entries = malloc(sizeof(RAFT_LOG_ENTRY) * num_entries);
 		for (j = 0; j < num_entries + 1; j++) {
-			err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[j], min_seqno_to_send - 1 + i);
+			err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[j], min_seqno_to_send - 1 + j);
 			if (err < 0) {
-				sprintf(log_msg, "couldn't get the log entries at %lu", min_seqno_to_send - 1 + i);
+				sprintf(log_msg, "couldn't get the log entries at %lu", min_seqno_to_send - 1 + j);
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
