@@ -82,10 +82,34 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			}
 			
 			result.term = reviewing->term;
-			// TODO: check if the log is up-to-date ($5.4)
 			if (reviewing->voted_for[0] == 0 || strcmp(reviewing->voted_for, request.candidate_woof) == 0) {
-				memcpy(reviewing->voted_for, request.candidate_woof, RAFT_WOOF_NAME_LENGTH);
-				result.granted = true;
+				// check if the log is up-to-date ($5.4)
+				// we don't need to worry about append_entries running in parallel
+				// because if we're receiveing append_entries request, it means the majority has voted and this vote doesn't matter
+				unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+				if (WooFInvalid(latest_log_entry)) {
+					sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+					log_error(function_tag, log_msg);
+					exit(1);
+				}
+				RAFT_LOG_ENTRY last_log_entry;
+				int err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry);
+				if (err < 0) {
+					sprintf(log_msg, "couldn't get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
+					log_error(function_tag, log_msg);
+					exit(1);
+				}
+				if (last_log_entry.term > request.last_log_term) {
+					// the server has more up-to-dated entries than the candidate
+					result.granted = false;
+				} else if (last_log_entry.term == request.last_log_term && latest_log_entry > request.last_log_index) {
+					// both have same term but the server has more entries
+					result.granted = false;
+				} else {
+					// the candidate has more up-to-dated log entries
+					memcpy(reviewing->voted_for, request.candidate_woof, RAFT_WOOF_NAME_LENGTH);
+					result.granted = true;
+				}
 			} else {
 				result.granted = false;
 			}
@@ -99,15 +123,6 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			log_error(function_tag, log_msg);
 			exit(1);
 		}
-		// TODO: if granting a vote, put a new heartbeat
-		// RAFT_HEARTBEAT_ARG heartbeat_arg;
-		// heartbeat_arg.term = 
-		// seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, NULL, &heartbeat_arg);
-		// if (WooFInvalid(seq)) {
-		// 	log_error(function_tag, "couldn't put a new heartbeat after granting a vote");
-		// 	exit(1);
-		// }
-		// log_debug(function_tag, "put a new heartbeat after granting a vote");
 	}
 	// queue the next review function
 	usleep(RAFT_LOOP_RATE * 1000);

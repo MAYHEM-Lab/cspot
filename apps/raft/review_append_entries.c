@@ -89,6 +89,8 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
+// sprintf(log_msg, "received heartbeat (%lu)", i);
+// log_error(function_tag, log_msg);
 
 			// if it's a request without entry, it's just a heartbeat
 			if (request.entries[0].term == 0) {
@@ -155,25 +157,25 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 					result.success = true;
 					result.next_index = seq + 1;
 					
-					// // check if it's still in the same term,
-					// // to avoid timeout happen and the server request_vote without using the latest last_log_index and term
-					// last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-					// if (WooFInvalid(last_server_state)) {
-					// 	sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-					// 	log_error(function_tag, log_msg);
-					// 	exit(1);
-					// }
-					// err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
-					// if (err < 0) {
-					// 	log_error(function_tag, "couldn't get the server's latest state");
-					// 	exit(1);
-					// }
-					// if (server_state.current_term != request.term) {
-					// 	// reply false to stop leader from commiting the entry
-					// 	result.term = server_state.current_term;
-					// 	result.success = false;
-					// 	result.next_index = request.prev_log_index;
-					// }
+					// check if it's still in the same term,
+					// to avoid timeout happen and the server request_vote without using the latest last_log_index and term
+					last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
+					if (WooFInvalid(last_server_state)) {
+						sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
+						log_error(function_tag, log_msg);
+						exit(1);
+					}
+					err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
+					if (err < 0) {
+						log_error(function_tag, "couldn't get the server's latest state");
+						exit(1);
+					}
+					if (server_state.current_term != request.term) {
+						// reply false to stop leader from commiting the entry
+						result.term = server_state.current_term;
+						result.success = false;
+						result.next_index = request.prev_log_index;
+					}
 				}
 			}
 		}
