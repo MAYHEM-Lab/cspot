@@ -27,7 +27,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	RAFT_SERVER_STATE server_state;
 	int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
 	if (err < 0) {
-		log_error(function_tag, "couldn't get the server state");
+		log_error(function_tag, "couldn't get the server's latest state");
 		exit(1);
 	}
 
@@ -51,7 +51,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			exit(1);
 		}
 		if (get_milliseconds() - request.created_ts > RAFT_TIMEOUT_MIN) {
-			sprintf(log_msg, "request %lu took %lu to process", i, get_milliseconds() - request.created_ts);
+			sprintf(log_msg, "request %lu took %lums to process", i, get_milliseconds() - request.created_ts);
 			log_warn(function_tag, log_msg);
 		}
 		if (request.term > server_state.current_term) {
@@ -82,9 +82,8 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 		} else {
 			// it's a valid append_entries request, treat as a heartbeat from leader
 			RAFT_HEARTBEAT_ARG heartbeat_arg;
-			heartbeat_arg.local_timestamp = get_milliseconds();
-			heartbeat_arg.timeout = random_timeout(heartbeat_arg.local_timestamp);
-			unsigned long seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, NULL, &heartbeat_arg);
+			heartbeat_arg.term = request.term;
+			unsigned long seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, "timeout_checker", &heartbeat_arg);
 			if (WooFInvalid(seq)) {
 				sprintf(log_msg, "couldn't put a new heartbeat from term %lu", request.term);
 				log_error(function_tag, log_msg);
@@ -155,6 +154,26 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 					result.term = request.term;
 					result.success = true;
 					result.next_index = seq + 1;
+					
+					// // check if it's still in the same term,
+					// // to avoid timeout happen and the server request_vote without using the latest last_log_index and term
+					// last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
+					// if (WooFInvalid(last_server_state)) {
+					// 	sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
+					// 	log_error(function_tag, log_msg);
+					// 	exit(1);
+					// }
+					// err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
+					// if (err < 0) {
+					// 	log_error(function_tag, "couldn't get the server's latest state");
+					// 	exit(1);
+					// }
+					// if (server_state.current_term != request.term) {
+					// 	// reply false to stop leader from commiting the entry
+					// 	result.term = server_state.current_term;
+					// 	result.success = false;
+					// 	result.next_index = request.prev_log_index;
+					// }
 				}
 			}
 		}

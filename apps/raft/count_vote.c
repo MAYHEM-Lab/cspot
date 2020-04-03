@@ -10,8 +10,8 @@ char function_tag[] = "count_vote";
 int count_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 	RAFT_REQUEST_VOTE_RESULT *result = (RAFT_REQUEST_VOTE_RESULT *)ptr;
-	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	log_set_level(LOG_INFO);
+	// log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
 	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);

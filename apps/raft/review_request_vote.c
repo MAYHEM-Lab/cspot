@@ -99,15 +99,14 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			log_error(function_tag, log_msg);
 			exit(1);
 		}
-		// if granting a vote, put a new heartbeat
-		RAFT_HEARTBEAT_ARG heartbeat_arg;
-		heartbeat_arg.local_timestamp = get_milliseconds();
-		heartbeat_arg.timeout = random_timeout(heartbeat_arg.local_timestamp);
-		seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, NULL, &heartbeat_arg);
-		if (WooFInvalid(seq)) {
-			log_error(function_tag, "couldn't put a new heartbeat after granting a vote");
-			exit(1);
-		}
+		// TODO: if granting a vote, put a new heartbeat
+		// RAFT_HEARTBEAT_ARG heartbeat_arg;
+		// heartbeat_arg.term = 
+		// seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, NULL, &heartbeat_arg);
+		// if (WooFInvalid(seq)) {
+		// 	log_error(function_tag, "couldn't put a new heartbeat after granting a vote");
+		// 	exit(1);
+		// }
 		// log_debug(function_tag, "put a new heartbeat after granting a vote");
 	}
 	// queue the next review function
