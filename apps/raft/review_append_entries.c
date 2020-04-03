@@ -127,6 +127,8 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				} else {
 					// if the server has more entries that conflict with the leader, delete them	
 					if (latest_entry_seqno > request.prev_log_index) {
+						// TODO: check if the entries after prev_log_index match
+						// if so, we don't need to call WooFTruncate()
 						err = WooFTruncate(RAFT_LOG_ENTRIES_WOOF, request.prev_log_index);
 						if (err < 0) {
 							log_error(function_tag, "couldn't truncate log entries woof");

@@ -44,23 +44,5 @@ int append_entries_result(WOOF *wf, unsigned long seq_no, void *ptr)
 		sprintf(log_msg, "result term %lu is higher than server's term %lu, fall back to follower", result->term, server_state.current_term);
 		log_debug(function_tag, log_msg);
 	}
-	int i;
-	for (i = 0; i < server_state.members; i++) {
-		if (memcmp(result->server_woof, server_state.member_woofs[i], RAFT_WOOF_NAME_LENGTH) == 0) {
-			RAFT_NEXT_INDEX next_indexes;
-			next_indexes.term = result->term;
-			// TODO: guess we can ignore result->success since we have next_index anyway
-			next_indexes.next_index[i] = result->next_index;
-			unsigned long seq = WooFPut(RAFT_NEXT_INDEX_WOOF, NULL, &next_indexes);
-			if (WooFInvalid(seq)) {
-				sprintf(log_msg, "couldn't update next_index for member %d", i);
-				log_debug(function_tag, log_msg);
-				exit(1);
-			}
-			sprintf(log_msg, "updated next_index for member %d: %lu", i, result->next_index);
-			log_debug(function_tag, log_msg);
-			break;
-		}
-	}
 	return 1;
 }
