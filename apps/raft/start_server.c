@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
 	char buffer[256];
 	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-		fprintf(stderr, "Wrong format of  config file\n");
+		fprintf(stderr, "Wrong format of config file\n");
 		fflush(stderr);
 		exit(1);
 	}
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 	int i;
 	for (i = 0; i < server_state.members; ++i) {
 		if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-			fprintf(stderr, "Wrong format of  config file\n");
+			fprintf(stderr, "Wrong format of config file\n");
 			fflush(stderr);
 			exit(1);
 		}
@@ -85,18 +85,6 @@ int main(int argc, char **argv)
 	}
 	fflush(stdout);
 
-	RAFT_HEARTBEAT_ARG heartbeat_arg;
-	heartbeat_arg.local_timestamp = get_milliseconds();
-	heartbeat_arg.timeout = random_timeout(heartbeat_arg.local_timestamp);
-	seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, NULL, &heartbeat_arg);
-	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't put the initial heartbear\n");
-		fflush(stderr);
-		exit(1);
-	}
-	printf("Put a heartbeat at %lu, timeout: %dms.\n", heartbeat_arg.local_timestamp, heartbeat_arg.timeout);
-	fflush(stdout);
-
 	RAFT_TERM_CHAIR_ARG term_chair_arg;
 	term_chair_arg.last_term_seqno = 0;
 	seq = WooFPut(RAFT_TERM_CHAIR_ARG_WOOF, "term_chair", &term_chair_arg);
@@ -108,14 +96,15 @@ int main(int argc, char **argv)
 	printf("Started term_chair function loop\n");
 	fflush(stdout);
 
-	RAFT_TIMEOUT_ARG timeout_arg;
-	seq = WooFPut(RAFT_TIMEOUT_ARG_WOOF, "timeout_checker", &timeout_arg);
+	RAFT_HEARTBEAT_ARG heartbeat_arg;
+	heartbeat_arg.term = 0;
+	seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, "timeout_checker", &heartbeat_arg);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start the timeout_checker function loop\n");
+		fprintf(stderr, "Couldn't put the initial heartbear\n");
 		fflush(stderr);
 		exit(1);
 	}
-	printf("Started timeout_checker function loop\n");
+	printf("Put a heartbeat\n");
 	fflush(stdout);
 
 	RAFT_REVIEW_REQUEST_VOTE_ARG review_vote_arg;

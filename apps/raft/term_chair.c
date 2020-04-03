@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "woofc.h"
 #include "raft.h"
@@ -20,6 +21,7 @@ void *request_vote(void *arg) {
 		sprintf(log_msg, "couldn't request vote from %s", thread_arg->member_woof);
 		log_warn(function_tag, log_msg);
 	}
+	free(arg);
 }
 
 int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
@@ -31,14 +33,14 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 	log_set_output(stdout);
 	
 	// get the current term
-	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-	if (WooFInvalid(last_server_state)) {
+	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
+	if (WooFInvalid(latest_server_state)) {
 		sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
 		log_error(function_tag, log_msg);
 		exit(1);
 	}
 	RAFT_SERVER_STATE server_state;
-	int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
+	int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, latest_server_state);
 	if (err < 0) {
 		log_error(function_tag, "couldn't get the server state");
 		exit(1);
@@ -131,9 +133,8 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 
 		// new term, new heartbeat
 		RAFT_HEARTBEAT_ARG heartbeat_arg;
-		heartbeat_arg.local_timestamp = get_milliseconds();
-		heartbeat_arg.timeout = random_timeout(heartbeat_arg.local_timestamp);
-		seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, NULL, &heartbeat_arg);
+		heartbeat_arg.term = next_term;
+		seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, "timeout_checker", &heartbeat_arg);
 		if (WooFInvalid(seq)) {
 			sprintf(log_msg, "couldn't put a new heartbeat for new term %lu", next_term);
 			log_error(function_tag, log_msg);
@@ -156,12 +157,15 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 			int i;
 			pthread_t thread_id[server_state.members];
 			for (i = 0; i < server_state.members; ++i) {
-				REQUEST_VOTE_THREAD_ARG thread_arg;
-				sprintf(thread_arg.member_woof, "%s/%s", server_state.member_woofs[i], RAFT_REQUEST_VOTE_ARG_WOOF);
-				thread_arg.arg.term = server_state.current_term;
-				strncpy(thread_arg.arg.candidate_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
-				thread_arg.arg.candidate_vote_pool_seqno = vote_pool_seqno;
-				pthread_create(&thread_id[i], NULL, request_vote, (void *)&thread_arg); 
+				REQUEST_VOTE_THREAD_ARG *thread_arg = malloc(sizeof(REQUEST_VOTE_THREAD_ARG));
+				sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_REQUEST_VOTE_ARG_WOOF);
+				thread_arg->arg.term = server_state.current_term;
+				strncpy(thread_arg->arg.candidate_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+				thread_arg->arg.candidate_vote_pool_seqno = vote_pool_seqno;
+				// TODO
+				// thread_arg->arg.last_log_index = 
+				// thread_arg->arg.last_log_term
+				pthread_create(&thread_id[i], NULL, request_vote, (void *)thread_arg); 
 			}
 			for (i = 0; i < server_state.members; ++i) {
 				pthread_join(thread_id[i], NULL);

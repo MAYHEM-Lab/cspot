@@ -64,7 +64,7 @@ void log_debug(const char *tag, const char *message)
 	}
 	time_t now;
 	time(&now);
-	fprintf(raft_log_output, "\033[0;32m");
+	fprintf(raft_log_output, "\033[0;34m");
 	fprintf(raft_log_output, "DEBUG| %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
 	fprintf(raft_log_output, "\033[0m");
 }
@@ -77,7 +77,7 @@ void log_info(const char *tag, const char *message)
 	}
 	time_t now;
 	time(&now);
-	fprintf(raft_log_output, "\033[0;34m");
+	fprintf(raft_log_output, "\033[0;32m");
 	fprintf(raft_log_output, "INFO | %.19s:%.3d [%s]: %s\n", ctime(&now), get_milliseconds()% 1000, tag, message);
 	fprintf(raft_log_output, "\033[0m");
 }

@@ -19,7 +19,6 @@
 #define RAFT_NEXT_INDEX_WOOF "raft_next_index_woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries_woof"
 #define RAFT_TERM_CHAIR_ARG_WOOF "raft_chair_arg_woof"
-#define RAFT_TIMEOUT_ARG_WOOF "raft_timeout_arg_woof"
 #define RAFT_HEARTBEAT_ARG_WOOF "raft_heartbeat_arg_woof"
 #define RAFT_WOOF_HISTORY_SIZE 65536
 #define RAFT_WOOF_NAME_LENGTH 256
@@ -53,8 +52,8 @@ typedef struct raft_request_vote_arg {
 	unsigned long term;
 	char candidate_woof[RAFT_WOOF_NAME_LENGTH];
 	unsigned long candidate_vote_pool_seqno;
-	//TODO: unsigned long lastLogIndex;
-	//TODO: unsigned long lastLogTerm;
+	unsigned long last_log_index;
+	unsigned long last_log_term;
 } RAFT_REQUEST_VOTE_ARG;
 
 typedef struct raft_request_vote_result {
@@ -109,13 +108,8 @@ typedef struct raft_term_chair_arg {
 	unsigned long last_term_seqno;
 } RAFT_TERM_CHAIR_ARG;
 
-typedef struct raft_timeout_arg {
-
-} RAFT_TIMEOUT_ARG;
-
 typedef struct raft_heartbeat_arg {
-	unsigned long local_timestamp;
-	int timeout;
+	unsigned long term;
 } RAFT_HEARTBEAT_ARG;
 
 int random_timeout(unsigned long seed);

@@ -28,10 +28,10 @@ def read_tail(i):
         if not line:
             time.sleep(0.1)
             continue
-        if 'promoted to leader' in line:
-            term = int(line.strip().split(' ')[-1])
-            timestamp = line.strip().split(' ')[5]
-            print('{} Term {}: {}'.format(timestamp, term, i + 1))
+        if 'role: LEADER' in line:
+            term = int(line.strip().split(' ')[-3][:-1])
+            timestamp = ' '.join(line.strip().split(' ')[3:7])
+            print('[{}] Term {}: {}'.format(timestamp, term, i + 1))
     logfile.close()
 
 def handler(sig, frame):
