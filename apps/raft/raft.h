@@ -16,7 +16,6 @@
 #define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result_woof"
 #define RAFT_REVIEW_APPEND_ENTRIES_ARG_WOOF "raft_review_append_entries_arg_woof"
 #define RAFT_TERM_ENTRIES_WOOF "raft_term_entries_woof"
-#define RAFT_NEXT_INDEX_WOOF "raft_next_index_woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries_woof"
 #define RAFT_TERM_CHAIR_ARG_WOOF "raft_chair_arg_woof"
 #define RAFT_HEARTBEAT_ARG_WOOF "raft_heartbeat_arg_woof"
@@ -93,15 +92,12 @@ typedef struct raft_term_entry {
 	int role;
 } RAFT_TERM_ENTRY;
 
-typedef struct raft_next_index {
-	unsigned long term;
-	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
-} RAFT_NEXT_INDEX;
-
 typedef struct raft_replicate_entries_arg {
 	unsigned long term;
-	unsigned long last_seen_seqno;
+	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
+	unsigned long match_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long last_timestamp[RAFT_MAX_SERVER_NUMBER];
+	unsigned long last_result_seqno;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_term_chair_arg {

@@ -194,24 +194,21 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
-			RAFT_NEXT_INDEX next_index_arg;
-			next_index_arg.term = next_term;
-			int i;
-			for (i = 0; i < server_state.members; i++) {
-				next_index_arg.next_index[i] = seq + 1;
-			}
-			seq = WooFPut(RAFT_NEXT_INDEX_WOOF, NULL, &next_index_arg);
-			if (WooFInvalid(seq)) {
-				sprintf(log_msg, "couldn't initialize next_index array at term %lu to %s", next_term, RAFT_NEXT_INDEX_WOOF);
-				log_debug(function_tag, log_msg);
-				exit(1);
-			}
 			RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg;
 			replicate_entries_arg.term = next_term;
-			replicate_entries_arg.last_seen_seqno = seq;
+			memset(replicate_entries_arg.match_index, 0, sizeof(unsigned long) * server_state.members);
+			memset(replicate_entries_arg.last_timestamp, 0, sizeof(unsigned long) * server_state.members);
+			int i;
 			for (i = 0; i < server_state.members; i++) {
-				replicate_entries_arg.last_timestamp[i] = 0;
+				replicate_entries_arg.next_index[i] = seq + 1;
 			}
+			seq = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
+			if (WooFInvalid(seq)) {
+				sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
+				log_error(function_tag, log_msg);
+				exit(1);
+			}
+			replicate_entries_arg.last_result_seqno = seq;
 			seq = WooFPut(RAFT_REPLICATE_ENTRIES_WOOF, "replicate_entries", &replicate_entries_arg);
 			if (WooFInvalid(seq)) {
 				log_error(function_tag, "couldn't start the replicate_entries function loop");

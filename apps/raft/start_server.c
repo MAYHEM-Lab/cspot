@@ -65,6 +65,9 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		buffer[strcspn(buffer, "\n")] = 0;
+		if (buffer[strlen(buffer) - 1] == '/') {
+			buffer[strlen(buffer) - 1] = 0;
+		}
 		strncpy(server_state.member_woofs[i], buffer, RAFT_WOOF_NAME_LENGTH);
 	}
 
