@@ -153,6 +153,21 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 				exit(1);
 			}
 			
+			// get last log entry info
+			unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+			if (WooFInvalid(latest_log_entry)) {
+				sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+				log_error(function_tag, log_msg);
+				exit(1);
+			}
+			RAFT_LOG_ENTRY last_log_entry;
+			int err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry);
+			if (err < 0) {
+				sprintf(log_msg, "couldn't get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
+				log_error(function_tag, log_msg);
+				exit(1);
+			}
+
 			// requesting votes from members
 			int i;
 			pthread_t thread_id[server_state.members];
@@ -162,9 +177,8 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 				thread_arg->arg.term = server_state.current_term;
 				strncpy(thread_arg->arg.candidate_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 				thread_arg->arg.candidate_vote_pool_seqno = vote_pool_seqno;
-				// TODO
-				// thread_arg->arg.last_log_index = 
-				// thread_arg->arg.last_log_term
+				thread_arg->arg.last_log_index = latest_log_entry;
+				thread_arg->arg.last_log_term = last_log_entry.term;
 				pthread_create(&thread_id[i], NULL, request_vote, (void *)thread_arg); 
 			}
 			for (i = 0; i < server_state.members; ++i) {

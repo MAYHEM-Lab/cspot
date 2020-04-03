@@ -22,6 +22,8 @@ void *append_entries(void *arg) {
 		sprintf(log_msg, "couldn't send append_entries request to %s", thread_arg->member_woof);
 		log_error(function_tag, log_msg);
 	}
+// sprintf(log_msg, "sent heartbeat (%lu) to %s", seq, thread_arg->member_woof);
+// log_error(function_tag, log_msg);
 	free(arg);
 }
 
@@ -32,7 +34,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
-
+// log_info(function_tag, "triggered");
 	// get the server's current term and cluster members
 	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(last_server_state)) {

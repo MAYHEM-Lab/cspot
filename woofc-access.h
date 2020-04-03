@@ -30,7 +30,7 @@ int WooFMsgRepair(char *woof_name, Dlist *holes);
 // #define WOOF_MSG_REQ_TIMEOUT (120000)
 #define WOOF_MSG_REQ_TIMEOUT (150)
 
-#define WOOF_MSG_THREADS (5)
+#define WOOF_MSG_THREADS (15)
 
 #define WOOF_MSG_PUT (1)
 #define WOOF_MSG_GET_EL_SIZE (2)
