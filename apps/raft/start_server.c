@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	}
 	if(config_file[0] == 0) {
 		fprintf(stderr, "Must specify config file\n");
-		fprintf(stderr, "%s",Usage);
+		fprintf(stderr, "%s", Usage);
 		fflush(stderr);
 		exit(1);
 	}
@@ -91,9 +91,10 @@ int main(int argc, char **argv)
 	fflush(stdout);
 
 	RAFT_FUNCTION_LOOP function_loop;
-	function_loop.review_append_entries.last_request_seqno = 0;
-	function_loop.review_request_vote.last_request_seqno = 0;
-	function_loop.term_chair.last_term_seqno = 0;
+	function_loop.last_reviewed_append_entries = 0;
+	function_loop.last_reviewed_request_vote = 0;
+	function_loop.last_reviewed_term_chair = 0;
+	function_loop.last_reviewed_client_put = 0;
 	// function_loop.replicate_entries will be set when promoted to leader
 	sprintf(function_loop.next_invoking, "review_append_entries");
 	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", &function_loop);
