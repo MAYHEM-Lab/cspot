@@ -41,6 +41,7 @@ typedef struct raft_server_state {
 	int role;
 	unsigned long current_term;
 	char voted_for[RAFT_WOOF_NAME_LENGTH];
+	unsigned long commit_index;
 	int members;
 	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
 } RAFT_SERVER_STATE;
