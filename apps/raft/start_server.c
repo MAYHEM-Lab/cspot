@@ -88,50 +88,30 @@ int main(int argc, char **argv)
 	}
 	fflush(stdout);
 
-	RAFT_TERM_CHAIR_ARG term_chair_arg;
-	term_chair_arg.last_term_seqno = 0;
-	seq = WooFPut(RAFT_TERM_CHAIR_ARG_WOOF, "term_chair", &term_chair_arg);
+	RAFT_FUNCTION_LOOP function_loop;
+	function_loop.review_append_entries.last_request_seqno = 0;
+	function_loop.review_request_vote.last_request_seqno = 0;
+	memset(function_loop.review_request_vote.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+	function_loop.term_chair.last_term_seqno = 0;
+	// function_loop.replicate_entries will be set when promoted to leader
+	sprintf(function_loop.next_invoking, "review_append_entries");
+	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", &function_loop);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start the term_chair function loop\n");
+		fprintf(stderr, "Couldn't start function loop\n");
 		fflush(stderr);
 		exit(1);
 	}
-	printf("Started term_chair function loop\n");
+	printf("Started function loop\n");
 	fflush(stdout);
 
-	RAFT_HEARTBEAT_ARG heartbeat_arg;
-	heartbeat_arg.term = 0;
-	seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, "timeout_checker", &heartbeat_arg);
+	RAFT_HEARTBEAT heartbeat_arg;
+	seq = WooFPut(RAFT_HEARTBEAT_WOOF, "timeout_checker", &heartbeat_arg);
 	if (WooFInvalid(seq)) {
 		fprintf(stderr, "Couldn't put the initial heartbear\n");
 		fflush(stderr);
 		exit(1);
 	}
 	printf("Put a heartbeat\n");
-	fflush(stdout);
-
-	RAFT_REVIEW_REQUEST_VOTE_ARG review_vote_arg;
-	review_vote_arg.last_request_seqno = 0;
-	review_vote_arg.term = 0;
-	memset(review_vote_arg.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
-	seq = WooFPut(RAFT_REVIEW_REQUEST_VOTE_ARG_WOOF, "review_request_vote", &review_vote_arg);
-	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start the review_request_vote function loop\n");
-		fflush(stderr);
-		exit(1);
-	}
-	printf("Started review_request_vote function loop\n");
-	fflush(stdout);
-
-	RAFT_REVIEW_APPEND_ENTRIES_ARG review_append_arg;
-	review_append_arg.last_request_seqno = 0;
-	seq = WooFPut(RAFT_REVIEW_APPEND_ENTRIES_ARG_WOOF, "review_append_entries", &review_append_arg);
-	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start the review_append_entries function loop\n");
-		fflush(stderr);
-		exit(1);
-	}
-	printf("Started review_append_entries function loop\n");
 	fflush(stdout);
 	
 	return 0;

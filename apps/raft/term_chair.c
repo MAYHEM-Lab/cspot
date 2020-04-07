@@ -26,7 +26,8 @@ void *request_vote(void *arg) {
 
 int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 {
-	RAFT_TERM_CHAIR_ARG *arg = (RAFT_TERM_CHAIR_ARG *)ptr;
+	RAFT_FUNCTION_LOOP *function_loop = (RAFT_FUNCTION_LOOP *)ptr;
+	RAFT_TERM_CHAIR *arg = &(function_loop->term_chair);
 
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
@@ -56,10 +57,18 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 	// log_debug(function_tag, log_msg);
 	if (arg->last_term_seqno >= last_term_entry) {
 		usleep(RAFT_LOOP_RATE * 1000);
-		unsigned long seq = WooFPut(RAFT_TERM_CHAIR_ARG_WOOF, "term_chair", arg);
-		if (WooFInvalid(seq)) {
-			log_error(function_tag, "couldn't queue the next term_chair function handler");
-			exit(1);
+		if (server_state.role == RAFT_LEADER) {
+			unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "replicate_entries", function_loop);
+			if (WooFInvalid(seq)) {
+				log_error(function_tag, "couldn't queue the next function_loop: replicate_entries");
+				exit(1);
+			}
+		} else {
+			unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", function_loop);
+			if (WooFInvalid(seq)) {
+				log_error(function_tag, "couldn't queue the next function_loop: review_append_entries");
+				exit(1);
+			}
 		}
 		return 1;
 	}
@@ -76,35 +85,21 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 			log_error(function_tag, log_msg);
 			exit(1);
 		}
-		if (entry.term > next_term) {
+		if (entry.term >= next_term) {
 			next_term = entry.term;
 			next_role = entry.role;
-		} else if (entry.term == next_term) {
-			switch (entry.role) {
-				case RAFT_LEADER: {
-					// leader at the same term has highest priority
-					next_role = RAFT_LEADER;
-					break;
-				}
-				case RAFT_FOLLOWER: {
-					// not possible being elected as leader for this term
-					// if was going to be candidate, there's no need since another has being elected as leader
-					next_role = RAFT_FOLLOWER;
-					break;
-				}
-				case RAFT_CANDIDATE: {
-					if (next_role != RAFT_LEADER && next_role != RAFT_FOLLOWER) {
-						next_role = RAFT_CANDIDATE;
-						break;
-					}
-				}
-			}
 		}
+		arg->last_term_seqno = i;
 	}
-	arg->last_term_seqno = last_term_entry;
 
-	// if there is a new term
+	// if there is a new term or new role
 	if (next_term > server_state.current_term || (next_term == server_state.current_term && next_role != server_state.role)) {
+		// if there's a new term, reset voted_for
+		if (next_term > server_state.current_term) {
+			RAFT_REVIEW_REQUEST_VOTE *reviewing_vote = &(function_loop->review_request_vote);
+			memset(reviewing_vote->voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+		}
+
 		// update the server's current term
 		server_state.current_term = next_term;
 		server_state.role = next_role;
@@ -114,34 +109,34 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 			log_error(function_tag, log_msg);
 			exit(1);
 		}
-		sprintf(log_msg, "incremented the current term to %lu, role: ", next_term);
 		switch (next_role) {
 			case RAFT_LEADER: {
-				strcat(log_msg, "LEADER");
+				sprintf(log_msg, "incremented the current term to %lu, role: LEADER", next_term);
 				break;
 			}
 			case RAFT_FOLLOWER: {
-				strcat(log_msg, "FOLLOWER");
+				sprintf(log_msg, "incremented the current term to %lu, role: FOLLOWER", next_term);
 				break;
 			}
 			case RAFT_CANDIDATE: {
-				strcat(log_msg, "CANDIDATE");
+				sprintf(log_msg, "incremented the current term to %lu, role: CANDIDATE", next_term);
 				break;
 			}
 		}
 		log_info(function_tag, log_msg);
 
 		// new term, new heartbeat
-		RAFT_HEARTBEAT_ARG heartbeat_arg;
-		heartbeat_arg.term = next_term;
-		seq = WooFPut(RAFT_HEARTBEAT_ARG_WOOF, "timeout_checker", &heartbeat_arg);
-		if (WooFInvalid(seq)) {
-			sprintf(log_msg, "couldn't put a new heartbeat for new term %lu", next_term);
-			log_error(function_tag, log_msg);
-			exit(1);
+		if (next_role != RAFT_LEADER) { // leader won't timeout
+			RAFT_HEARTBEAT heartbeat;
+			seq = WooFPut(RAFT_HEARTBEAT_WOOF, "timeout_checker", &heartbeat);
+			if (WooFInvalid(seq)) {
+				sprintf(log_msg, "couldn't put a new heartbeat for new term %lu", next_term);
+				log_error(function_tag, log_msg);
+				exit(1);
+			}
+			// sprintf(log_msg, "put a new heartbeat at term %lu", next_term);
+			// log_debug(function_tag, log_msg);
 		}
-		// sprintf(log_msg, "put a new heartbeat at term %lu", next_term);
-		// log_debug(function_tag, log_msg);
 
 		if (next_role == RAFT_CANDIDATE) {
 			// initialize the vote progress
@@ -187,42 +182,43 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 			sprintf(log_msg, "requested vote from %d members", server_state.members);
 			log_debug(function_tag, log_msg);
 		} else if (next_role == RAFT_LEADER) {
-			// start replicate_entries function
-			seq = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-			if (WooFInvalid(seq)) {
+			// reinitialize replicate_entries parameters
+			unsigned long last_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+			if (WooFInvalid(last_log_entry)) {
 				sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
-			RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg;
-			replicate_entries_arg.term = next_term;
-			memset(replicate_entries_arg.match_index, 0, sizeof(unsigned long) * server_state.members);
-			memset(replicate_entries_arg.last_timestamp, 0, sizeof(unsigned long) * server_state.members);
+			memset(function_loop->replicate_entries.match_index, 0, sizeof(unsigned long) * server_state.members);
+			memset(function_loop->replicate_entries.last_timestamp, 0, sizeof(unsigned long) * server_state.members);
 			int i;
 			for (i = 0; i < server_state.members; i++) {
-				replicate_entries_arg.next_index[i] = seq + 1;
+				function_loop->replicate_entries.next_index[i] = last_log_entry + 1;
 			}
-			seq = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
-			if (WooFInvalid(seq)) {
+			unsigned long last_append_result = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
+			if (WooFInvalid(last_append_result)) {
 				sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
-			replicate_entries_arg.last_result_seqno = seq;
-			seq = WooFPut(RAFT_REPLICATE_ENTRIES_WOOF, "replicate_entries", &replicate_entries_arg);
-			if (WooFInvalid(seq)) {
-				log_error(function_tag, "couldn't start the replicate_entries function loop");
-				exit(1);
-			}
-			log_debug(function_tag, "started replicate_entries function loop");
+			function_loop->replicate_entries.last_result_seqno = last_append_result;
+			// replicate_entries will be queued as next function_loop
 		}
 	}
 
 	usleep(RAFT_LOOP_RATE * 1000);
-	unsigned long seq = WooFPut(RAFT_TERM_CHAIR_ARG_WOOF, "term_chair", arg);
-	if (WooFInvalid(seq)) {
-		log_error(function_tag, "couldn't queue the next term_chair function handler");
-		exit(1);
+	if (server_state.role == RAFT_LEADER) {
+		unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "replicate_entries", function_loop);
+		if (WooFInvalid(seq)) {
+			log_error(function_tag, "couldn't queue the next function_loop: replicate_entries");
+			exit(1);
+		}
+	} else {
+		unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", function_loop);
+		if (WooFInvalid(seq)) {
+			log_error(function_tag, "couldn't queue the next function_loop: review_append_entries");
+			exit(1);
+		}
 	}
 	return 1;
 

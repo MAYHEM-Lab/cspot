@@ -47,7 +47,7 @@ int count_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 	RAFT_REQUEST_VOTE_RESULT vote;
 	unsigned long i;
-	for (i = seq_no - 1; i > result->candidate_vote_pool_seqno; --i) {
+	for (i = result->candidate_vote_pool_seqno + 1; i < seq_no; ++i) {
 		err = WooFGet(RAFT_REQUEST_VOTE_RESULT_WOOF, &vote, i);
 		if (err < 0) {
 			sprintf(log_msg, "couldn't get the vote result at seqno %lu", i);

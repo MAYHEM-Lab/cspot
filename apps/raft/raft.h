@@ -9,16 +9,13 @@
 #define RAFT_CANDIDATE 2
 #define RAFT_LOG_ENTRIES_WOOF "raft_log_entries_woof"
 #define RAFT_SERVER_STATE_WOOF "raft_server_state_woof"
-#define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg_woof"
-#define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result_woof"
-#define RAFT_REVIEW_REQUEST_VOTE_ARG_WOOF "raft_review_request_vote_arg_woof"
+#define RAFT_TERM_ENTRIES_WOOF "raft_term_entries_woof"
 #define RAFT_APPEND_ENTRIES_ARG_WOOF "raft_append_entries_arg_woof"
 #define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result_woof"
-#define RAFT_REVIEW_APPEND_ENTRIES_ARG_WOOF "raft_review_append_entries_arg_woof"
-#define RAFT_TERM_ENTRIES_WOOF "raft_term_entries_woof"
-#define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries_woof"
-#define RAFT_TERM_CHAIR_ARG_WOOF "raft_chair_arg_woof"
-#define RAFT_HEARTBEAT_ARG_WOOF "raft_heartbeat_arg_woof"
+#define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg_woof"
+#define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result_woof"
+#define RAFT_FUNCTION_LOOP_WOOF "raft_function_loop_woof"
+#define RAFT_HEARTBEAT_WOOF "raft_heartbeat_woof"
 #define RAFT_WOOF_HISTORY_SIZE 65536
 #define RAFT_WOOF_NAME_LENGTH 256
 #define RAFT_MAX_SERVER_NUMBER 16
@@ -47,6 +44,11 @@ typedef struct raft_server_state {
 	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
 } RAFT_SERVER_STATE;
 
+typedef struct raft_term_entry {
+	unsigned long term;
+	int role;
+} RAFT_TERM_ENTRY;
+
 typedef struct raft_request_vote_arg {
 	unsigned long term;
 	char candidate_woof[RAFT_WOOF_NAME_LENGTH];
@@ -61,18 +63,13 @@ typedef struct raft_request_vote_result {
 	unsigned long candidate_vote_pool_seqno;
 } RAFT_REQUEST_VOTE_RESULT;
 
-typedef struct raft_review_request_vote_arg {
-	unsigned long last_request_seqno;
-	unsigned long term;
-	char voted_for[RAFT_WOOF_NAME_LENGTH];
-} RAFT_REVIEW_REQUEST_VOTE_ARG;
-
 typedef struct raft_append_entries_arg {
 	unsigned long term;
 	char leader_woof[RAFT_WOOF_NAME_LENGTH];
 	unsigned long prev_log_index;
 	unsigned long prev_log_term;
 	RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
+	unsigned long leader_commit;
 	unsigned long created_ts;
 } RAFT_APPEND_ENTRIES_ARG;
 
@@ -83,30 +80,37 @@ typedef struct raft_append_entries_result {
 	bool success;
 } RAFT_APPEND_ENTRIES_RESULT;
 
-typedef struct raft_review_append_entries_arg {
+typedef struct raft_review_append_entries {
 	unsigned long last_request_seqno;
-} RAFT_REVIEW_APPEND_ENTRIES_ARG;
+} RAFT_REVIEW_APPEND_ENTRIES;
 
-typedef struct raft_term_entry {
-	unsigned long term;
-	int role;
-} RAFT_TERM_ENTRY;
+typedef struct raft_review_request_vote {
+	unsigned long last_request_seqno;
+	char voted_for[RAFT_WOOF_NAME_LENGTH];
+} RAFT_REVIEW_REQUEST_VOTE;
 
-typedef struct raft_replicate_entries_arg {
-	unsigned long term;
+typedef struct raft_term_chair {
+	unsigned long last_term_seqno;
+} RAFT_TERM_CHAIR;
+
+typedef struct raft_replicate_entries {
 	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long match_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long last_timestamp[RAFT_MAX_SERVER_NUMBER];
 	unsigned long last_result_seqno;
-} RAFT_REPLICATE_ENTRIES_ARG;
+} RAFT_REPLICATE_ENTRIES;
 
-typedef struct raft_term_chair_arg {
-	unsigned long last_term_seqno;
-} RAFT_TERM_CHAIR_ARG;
+typedef struct raft_function_loop {
+	RAFT_REVIEW_APPEND_ENTRIES review_append_entries;
+	RAFT_REVIEW_REQUEST_VOTE review_request_vote;
+	RAFT_TERM_CHAIR term_chair;
+	RAFT_REPLICATE_ENTRIES replicate_entries;
+	char next_invoking[RAFT_WOOF_NAME_LENGTH]; // for debugging purpose
+} RAFT_FUNCTION_LOOP;
 
-typedef struct raft_heartbeat_arg {
-	unsigned long term;
-} RAFT_HEARTBEAT_ARG;
+typedef struct raft_heartbeat {
+	
+} RAFT_HEARTBEAT;
 
 int random_timeout(unsigned long seed);
 unsigned long get_milliseconds();
