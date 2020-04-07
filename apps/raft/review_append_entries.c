@@ -154,13 +154,13 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 					}
 
 					// TODO: // check if there's new entry to commit
-					// if (request.leader_commit > commit_index) {
-					// 	// commit_index = min(leader_commit, index of last new entry)
-					// 	commit_index = request.leader_commit;
-					// 	if (seq < commit_index) {
-					// 		commit_index = seq;
-					// 	}
-					// }
+					if (request.leader_commit > server_state.commit_index) {
+						// commit_index = min(leader_commit, index of last new entry)
+						server_state.commit_index = request.leader_commit;
+						if (seq < server_state.commit_index) {
+							server_state.commit_index = seq;
+						}
+					}
 					result.term = request.term;
 					result.success = true;
 					result.next_index = seq + 1;

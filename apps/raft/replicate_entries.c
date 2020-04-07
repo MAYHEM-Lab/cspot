@@ -124,7 +124,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 	for (i = 0; i < server_state.members; ++i) {
 		if (memcmp(server_state.member_woofs[i], server_state.woof_name, RAFT_WOOF_NAME_LENGTH) == 0) {
-			arg->match_index[i] = last_log_index;
+			arg->match_index[i] = last_log_index; // if it's leader itself, match_index is set to last_log_index
 		}
 		unsigned long num_entries_to_send = last_log_index - arg->next_index[i] + 1;
 		if (num_entries_to_send > RAFT_MAX_ENTRIES_PER_REQUEST) {
@@ -172,33 +172,43 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	// TODO:check if there's new commit_index
 // sprintf(log_msg, "match_index: ");
 // for (i = 0; i < server_state.members; ++i) {
-// 	sprintf(log_msg + strlen(log_msg), "$lu ", arg->match_index[i]);
+// 	sprintf(log_msg + strlen(log_msg), "%lu ", arg->match_index[i]);
 // }
 // log_error(function_tag, log_msg);
-// 	unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
-// 	memcpy(sorted_match_index, arg->match_index, sizeof(unsigned long) * server_state.members);
-// 	qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
+	unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
+	memcpy(sorted_match_index, arg->match_index, sizeof(unsigned long) * server_state.members);
+	qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
 // sprintf(log_msg, "sorted : ");
 // for (i = 0; i < server_state.members; ++i) {
-// 	sprintf(log_msg + strlen(log_msg), "$lu ", sorted_match_index[i]);
+// 	sprintf(log_msg + strlen(log_msg), "%lu ", sorted_match_index[i]);
 // }
 // log_error(function_tag, log_msg);
-// 	for (i = server_state.members / 2; i < server_state.members; ++i) {
-// 		if (sorted_match_index[i] <= commit_index) {
-// 			break;
-// 		}
-// 		RAFT_LOG_ENTRY entry;
-// 		err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]);
-// 		if (err < 0) {
-// 			log_error(function_tag, "couldn't get the log_entry at %lu", sorted_match_index[i]);
-// 			free(thread_id);
-// 			exit(1);
-// 		}
-// 		if (entry.term == arg->term) {
-// 			commit_index = sorted_match_index[i];
-// 			break;
-// 		}
-// 	}
+	for (i = server_state.members / 2; i < server_state.members; ++i) {
+		if (sorted_match_index[i] <= server_state.commit_index) {
+			break;
+		}
+		RAFT_LOG_ENTRY entry;
+		err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]);
+		if (err < 0) {
+			sprintf(log_msg, "couldn't get the log_entry at %lu", sorted_match_index[i]);
+			log_error(function_tag, log_msg);
+			free(thread_id);
+			exit(1);
+		}
+		if (entry.term == server_state.current_term && sorted_match_index[i] > server_state.commit_index) {
+			// update commit_index
+			server_state.commit_index = sorted_match_index[i];
+			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+			if (WooFInvalid(seq)) {
+				sprintf(log_msg, "couldn't update commit_index at term %lu", server_state.current_term);
+				log_error(function_tag, log_msg);
+				exit(1);
+			}
+			sprintf(log_msg, "updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
+			log_debug(function_tag, log_msg);
+			break;
+		}
+	}
 	
 	// queue the next replicate_entries function
 	usleep(RAFT_LOOP_RATE * 1000);

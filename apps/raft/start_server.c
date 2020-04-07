@@ -38,6 +38,7 @@ int main(int argc, char **argv)
 	server_state.current_term = 0;
 	server_state.role = RAFT_FOLLOWER;
 	memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+	server_state.commit_index = 0;
 	int err = node_woof_name(server_state.woof_name);
 	if (err < 0) {
 		fprintf(stderr, "Couldn't get woof name\n");
