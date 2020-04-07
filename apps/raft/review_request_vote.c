@@ -82,7 +82,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			}
 			
 			result.term = request.term;
-			if (reviewing->voted_for[0] == 0 || strcmp(reviewing->voted_for, request.candidate_woof) == 0) {
+			if (server_state.voted_for[0] == 0 || strcmp(server_state.voted_for, request.candidate_woof) == 0) {
 				// check if the log is up-to-date ($5.4)
 				// we don't need to worry about append_entries running in parallel
 				// because if we're receiveing append_entries request, it means the majority has voted and this vote doesn't matter
@@ -113,13 +113,21 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 					log_debug(function_tag, log_msg);
 				} else {
 					// the candidate has more up-to-dated log entries
-					memcpy(reviewing->voted_for, request.candidate_woof, RAFT_WOOF_NAME_LENGTH);
+					memcpy(server_state.voted_for, request.candidate_woof, RAFT_WOOF_NAME_LENGTH);
+					unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+					if (WooFInvalid(seq)) {
+						sprintf(log_msg, "couldn't update voted_for at term %lu", server_state.current_term);
+						log_error(function_tag, log_msg);
+						exit(1);
+					}
 					result.granted = true;
 					sprintf(log_msg, "granted vote at term %lu", server_state.current_term);
 					log_debug(function_tag, log_msg);
 				}
 			} else {
 				result.granted = false;
+				sprintf(log_msg, "rejected vote from since already voted at term %lu", server_state.current_term);
+				log_debug(function_tag, log_msg);
 			}
 		}
 		// return the request

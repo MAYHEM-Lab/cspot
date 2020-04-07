@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 	RAFT_SERVER_STATE server_state;
 	server_state.current_term = 0;
 	server_state.role = RAFT_FOLLOWER;
+	memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 	int err = node_woof_name(server_state.woof_name);
 	if (err < 0) {
 		fprintf(stderr, "Couldn't get woof name\n");
@@ -91,7 +92,6 @@ int main(int argc, char **argv)
 	RAFT_FUNCTION_LOOP function_loop;
 	function_loop.review_append_entries.last_request_seqno = 0;
 	function_loop.review_request_vote.last_request_seqno = 0;
-	memset(function_loop.review_request_vote.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 	function_loop.term_chair.last_term_seqno = 0;
 	// function_loop.replicate_entries will be set when promoted to leader
 	sprintf(function_loop.next_invoking, "review_append_entries");

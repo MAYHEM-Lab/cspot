@@ -96,10 +96,8 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 	if (next_term > server_state.current_term || (next_term == server_state.current_term && next_role != server_state.role)) {
 		// if there's a new term, reset voted_for
 		if (next_term > server_state.current_term) {
-			RAFT_REVIEW_REQUEST_VOTE *reviewing_vote = &(function_loop->review_request_vote);
-			memset(reviewing_vote->voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+			memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 		}
-
 		// update the server's current term
 		server_state.current_term = next_term;
 		server_state.role = next_role;

@@ -40,6 +40,7 @@ typedef struct raft_server_state {
 	char woof_name[RAFT_WOOF_NAME_LENGTH];
 	int role;
 	unsigned long current_term;
+	char voted_for[RAFT_WOOF_NAME_LENGTH];
 	int members;
 	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
 } RAFT_SERVER_STATE;
@@ -86,7 +87,6 @@ typedef struct raft_review_append_entries {
 
 typedef struct raft_review_request_vote {
 	unsigned long last_request_seqno;
-	char voted_for[RAFT_WOOF_NAME_LENGTH];
 } RAFT_REVIEW_REQUEST_VOTE;
 
 typedef struct raft_term_chair {
@@ -96,6 +96,7 @@ typedef struct raft_term_chair {
 typedef struct raft_replicate_entries {
 	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long match_index[RAFT_MAX_SERVER_NUMBER];
+	unsigned long commit_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long last_timestamp[RAFT_MAX_SERVER_NUMBER];
 	unsigned long last_result_seqno;
 } RAFT_REPLICATE_ENTRIES;
@@ -109,7 +110,7 @@ typedef struct raft_function_loop {
 } RAFT_FUNCTION_LOOP;
 
 typedef struct raft_heartbeat {
-	
+
 } RAFT_HEARTBEAT;
 
 int random_timeout(unsigned long seed);
