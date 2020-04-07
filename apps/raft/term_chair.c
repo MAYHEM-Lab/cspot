@@ -27,12 +27,11 @@ void *request_vote(void *arg) {
 int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 	RAFT_FUNCTION_LOOP *function_loop = (RAFT_FUNCTION_LOOP *)ptr;
-	RAFT_TERM_CHAIR *arg = &(function_loop->term_chair);
 
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
-	
+
 	// get the current term
 	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(latest_server_state)) {
@@ -53,10 +52,10 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 		log_error(function_tag, log_msg);
 		exit(1);
 	}
-	// sprintf(log_msg, "reviewing new term request from %lu to %lu", arg->last_term_seqno + 1, last_term_entry);
+	// sprintf(log_msg, "reviewing new term request from %lu to %lu", function_loop->last_reviewed_term_chair + 1, last_term_entry);
 	// log_debug(function_tag, log_msg);
-	if (arg->last_term_seqno >= last_term_entry) {
-		usleep(RAFT_LOOP_RATE * 1000);
+	if (function_loop->last_reviewed_term_chair >= last_term_entry) {
+		usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
 		if (server_state.role == RAFT_LEADER) {
 			unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "replicate_entries", function_loop);
 			if (WooFInvalid(seq)) {
@@ -78,7 +77,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 	int next_role = server_state.role;
 	unsigned long i;
 	RAFT_TERM_ENTRY entry;
-	for (i = arg->last_term_seqno + 1; i <= last_term_entry; ++i) {
+	for (i = function_loop->last_reviewed_term_chair + 1; i <= last_term_entry; ++i) {
 		err = WooFGet(RAFT_TERM_ENTRIES_WOOF, &entry, i);
 		if (err < 0) {
 			sprintf(log_msg, "couldn't get the term entry at %lu", i);
@@ -89,7 +88,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 			next_term = entry.term;
 			next_role = entry.role;
 		}
-		arg->last_term_seqno = i;
+		function_loop->last_reviewed_term_chair = i;
 	}
 
 	// if there is a new term or new role
@@ -204,7 +203,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 	}
 
-	usleep(RAFT_LOOP_RATE * 1000);
+	usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
 	if (server_state.role == RAFT_LEADER) {
 		unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "replicate_entries", function_loop);
 		if (WooFInvalid(seq)) {

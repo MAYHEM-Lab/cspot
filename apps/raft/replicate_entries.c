@@ -69,7 +69,6 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 		log_error(function_tag, log_msg);
 		exit(1);
 	}
-
 	pthread_t *thread_id = malloc(sizeof(pthread_t) * server_state.members);
 	memset(thread_id, 0, sizeof(pthread_t) * server_state.members);
 	unsigned long min_seqno_to_send = last_log_index + 1;
@@ -110,45 +109,48 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	if (last_log_index - min_seqno_to_send + 1 < num_entries) {
 		num_entries = last_log_index - min_seqno_to_send + 1;
 	}
-	RAFT_LOG_ENTRY *entries = malloc(sizeof(RAFT_LOG_ENTRY) * num_entries);
-	int i;
-	for (i = 0; i < num_entries + 1; ++i) {
-		err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[i], min_seqno_to_send - 1 + i);
-		if (err < 0) {
-			sprintf(log_msg, "couldn't get the log entries at %lu", min_seqno_to_send - 1 + i);
-			log_error(function_tag, log_msg);
-			free(thread_id);
-			free(entries);
-			exit(1);
+	if (num_entries > 0) {
+		RAFT_LOG_ENTRY *entries = malloc(sizeof(RAFT_LOG_ENTRY) * (num_entries + 1));
+		int i;
+		for (i = 0; i < num_entries + 1; ++i) {
+			err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[i], min_seqno_to_send - 1 + i);
+			if (err < 0) {
+				sprintf(log_msg, "couldn't get the log entries at %lu", min_seqno_to_send - 1 + i);
+				log_error(function_tag, log_msg);
+				free(thread_id);
+				free(entries);
+				exit(1);
+			}
 		}
+		for (i = 0; i < server_state.members; ++i) {
+			if (memcmp(server_state.member_woofs[i], server_state.woof_name, RAFT_WOOF_NAME_LENGTH) == 0) {
+				arg->match_index[i] = last_log_index; // if it's leader itself, match_index is set to last_log_index
+			}
+			unsigned long num_entries_to_send = last_log_index - arg->next_index[i] + 1;
+			if (num_entries_to_send > RAFT_MAX_ENTRIES_PER_REQUEST) {
+				num_entries_to_send = RAFT_MAX_ENTRIES_PER_REQUEST;
+			}
+			if (num_entries_to_send > 0) {
+				APPEND_ENTRIES_THREAD_ARG *thread_arg = malloc(sizeof(APPEND_ENTRIES_THREAD_ARG));
+				thread_arg->arg.term = server_state.current_term;
+				memcpy(thread_arg->arg.leader_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+				thread_arg->arg.prev_log_index = arg->next_index[i] - 1;
+				int first_entry_index = arg->next_index[i] - min_seqno_to_send + 1;
+				thread_arg->arg.prev_log_term = entries[first_entry_index - 1].term;
+				memcpy(thread_arg->arg.entries, entries, sizeof(RAFT_LOG_ENTRY) * num_entries_to_send);
+				thread_arg->arg.leader_commit = server_state.commit_index;
+				thread_arg->arg.created_ts = get_milliseconds();
+				// send append_entries request 
+				sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_APPEND_ENTRIES_ARG_WOOF);
+				pthread_create(&thread_id[i], NULL, append_entries, (void *)thread_arg);
+				// update last timestamp it send request to member
+				arg->last_timestamp[i] = get_milliseconds();
+			}
+		}
+		free(entries);
 	}
-	for (i = 0; i < server_state.members; ++i) {
-		if (memcmp(server_state.member_woofs[i], server_state.woof_name, RAFT_WOOF_NAME_LENGTH) == 0) {
-			arg->match_index[i] = last_log_index; // if it's leader itself, match_index is set to last_log_index
-		}
-		unsigned long num_entries_to_send = last_log_index - arg->next_index[i] + 1;
-		if (num_entries_to_send > RAFT_MAX_ENTRIES_PER_REQUEST) {
-			num_entries_to_send = RAFT_MAX_ENTRIES_PER_REQUEST;
-		}
-		if (num_entries_to_send > 0) {
-			APPEND_ENTRIES_THREAD_ARG *thread_arg = malloc(sizeof(APPEND_ENTRIES_THREAD_ARG));
-			thread_arg->arg.term = server_state.current_term;
-			memcpy(thread_arg->arg.leader_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
-			thread_arg->arg.prev_log_index = arg->next_index[i] - 1;
-			int first_entry_index = arg->next_index[i] - min_seqno_to_send + 1;
-			thread_arg->arg.prev_log_term = entries[first_entry_index - 1].term;
-			memcpy(thread_arg->arg.entries, entries, sizeof(RAFT_LOG_ENTRY) * num_entries_to_send);
-			// TODO: thread_arg->arg.leader_commit = commit_index;
-			thread_arg->arg.created_ts = get_milliseconds();
-			// send append_entries request 
-			sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_APPEND_ENTRIES_ARG_WOOF);
-			pthread_create(&thread_id[i], NULL, append_entries, (void *)thread_arg);
-			// update last timestamp it send request to member
-			arg->last_timestamp[i] = get_milliseconds();
-		}
-	}
-	free(entries);
 
+	int i;
 	for (i = 0; i < server_state.members; ++i) {
 		if (memcmp(server_state.member_woofs[i], server_state.woof_name, RAFT_WOOF_NAME_LENGTH) == 0) {
 			// no need to send heartbeat to itself
@@ -169,7 +171,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 	}
 
-	// TODO:check if there's new commit_index
+	// check if there's new commit_index
 // sprintf(log_msg, "match_index: ");
 // for (i = 0; i < server_state.members; ++i) {
 // 	sprintf(log_msg + strlen(log_msg), "%lu ", arg->match_index[i]);
@@ -193,6 +195,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			sprintf(log_msg, "couldn't get the log_entry at %lu", sorted_match_index[i]);
 			log_error(function_tag, log_msg);
 			free(thread_id);
+			free(sorted_match_index);
 			exit(1);
 		}
 		if (entry.term == server_state.current_term && sorted_match_index[i] > server_state.commit_index) {
@@ -202,6 +205,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			if (WooFInvalid(seq)) {
 				sprintf(log_msg, "couldn't update commit_index at term %lu", server_state.current_term);
 				log_error(function_tag, log_msg);
+				free(sorted_match_index);
 				exit(1);
 			}
 			sprintf(log_msg, "updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
@@ -209,9 +213,10 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			break;
 		}
 	}
+	free(sorted_match_index);
 	
 	// queue the next replicate_entries function
-	usleep(RAFT_LOOP_RATE * 1000);
+	usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
 	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", function_loop);
 	if (WooFInvalid(seq)) {
 		log_error(function_tag, "couldn't queue the next function_loop: review_append_entries");
