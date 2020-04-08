@@ -99,7 +99,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				// check if the previouse log matches with the leader
 				unsigned long latest_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
 				if (latest_entry_seqno < request.prev_log_index) {
-					sprintf(log_msg, "no log entry exists at prevLogIndex %lu, latest: %lu", request.prev_log_index, latest_entry_seqno);
+					sprintf(log_msg, "no log entry exists at prev_log_index %lu, latest: %lu", request.prev_log_index, latest_entry_seqno);
 					log_debug(function_tag, log_msg);
 					result.term = request.term;
 					result.success = false;
@@ -107,15 +107,17 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				} else {
 					// read the previous log entry
 					RAFT_LOG_ENTRY entry;
-					err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, request.prev_log_index);
-					if (err < 0) {
-						sprintf(log_msg, "couldn't get log entry at prevLogIndex %lu", request.prev_log_index);
-						log_error(function_tag, log_msg);
-						exit(1);
+					if (request.prev_log_index > 0) {
+						err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, request.prev_log_index);
+						if (err < 0) {
+							sprintf(log_msg, "couldn't get log entry at prev_log_index %lu", request.prev_log_index);
+							log_error(function_tag, log_msg);
+							exit(1);
+						}
 					}
 					// term doesn't match
-					if (entry.term != request.prev_log_term) {
-						sprintf(log_msg, "previous log entry at prevLogIndex %lu doesn't match request.prevLogTerm %lu: %lu", request.prev_log_index, request.prev_log_term, entry.term);
+					if (request.prev_log_index > 0 && entry.term != request.prev_log_term) {
+						sprintf(log_msg, "previous log entry at prev_log_index %lu doesn't match request.prevLogTerm %lu: %lu", request.prev_log_index, request.prev_log_term, entry.term);
 						log_debug(function_tag, log_msg);
 						result.term = request.term;
 						result.success = false;
@@ -130,6 +132,8 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 								log_error(function_tag, "couldn't truncate log entries woof");
 								exit(1);
 							}
+							sprintf(log_msg, "log truncated to %lu", request.prev_log_index);
+							log_debug(function_tag, log_msg);
 						}
 						// appending entries
 						unsigned long seq;
@@ -144,9 +148,14 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 								log_error(function_tag, log_msg);
 								exit(1);
 							}
+							sprintf(log_msg, "appended one entry at %lu", seq);
+							log_error(function_tag, log_msg);
 						}
+						result.term = request.term;
+						result.success = true;
+						result.next_index = seq + 1;
 						if (j > 0) {
-							sprintf(log_msg, "appended %d entries", j);
+							sprintf(log_msg, "appended %d entries for request [%lu], result.next_index %lu", j, i, result.next_index);
 							log_debug(function_tag, log_msg);
 						}
 
@@ -156,11 +165,16 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 							server_state.commit_index = request.leader_commit;
 							if (seq < server_state.commit_index) {
 								server_state.commit_index = seq;
+								unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+								if (WooFInvalid(seq)) {
+									sprintf(log_msg, "couldn't update commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
+									log_error(function_tag, log_msg);
+									exit(1);
+								}
+								sprintf(log_msg, "updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
+								log_debug(function_tag, log_msg);
 							}
 						}
-						result.term = request.term;
-						result.success = true;
-						result.next_index = seq + 1;
 					}
 				}
 			}

@@ -3593,21 +3593,27 @@ int WooFTruncate(char *name, unsigned long seq_no) {
 	P(&wfs->tail_wait);
 	P(&wfs->mutex);
 
-	// if new seq_no is less than earliest seq_no, return -1
-	unsigned long earliest_seqno = (wfs->tail + 1) % wfs->history_size;
-	if (seq_no < earliest_seqno) {
-		fprintf(stderr, "WooFTruncate: seq_no %lu is less than the earliest seq_no %lu\n", seq_no, earliest_seqno);
-		fflush(stderr);
-		V(&wfs->mutex);
-		V(&wfs->tail_wait);
-		WooFFree(wf);
-		return -1;
-	}
+	if (seq_no == 0) {
+		wfs->head = 0;
+		wfs->tail = 0;
+		wfs->seq_no = 1;
+	} else {
+		// if new seq_no is less than earliest seq_no, return -1
+		unsigned long earliest_seqno = (wfs->tail + 1) % wfs->history_size;
+		if (seq_no < earliest_seqno) {
+			fprintf(stderr, "WooFTruncate: seq_no %lu is less than the earliest seq_no %lu\n", seq_no, earliest_seqno);
+			fflush(stderr);
+			V(&wfs->mutex);
+			V(&wfs->tail_wait);
+			WooFFree(wf);
+			return -1;
+		}
 
-	unsigned long latest_seqno = wfs->seq_no - 1;
-	unsigned long trunc_head = (wfs->head + wfs->history_size - (latest_seqno - seq_no)) % wfs->history_size;
-	wfs->head = trunc_head;
-	wfs->seq_no = seq_no + 1;
+		unsigned long latest_seqno = wfs->seq_no - 1;
+		unsigned long trunc_head = (wfs->head + wfs->history_size - (latest_seqno - seq_no)) % wfs->history_size;
+		wfs->head = trunc_head;
+		wfs->seq_no = seq_no + 1;
+	}
 	
 	V(&wfs->mutex);
 	V(&wfs->tail_wait);

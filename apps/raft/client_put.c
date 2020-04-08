@@ -73,13 +73,23 @@ int main(int argc, char **argv)
 		fflush(stdout);
 	} else {
 		if (sync) {
-			RAFT_LOG_ENTRY entry;
-			sprintf(woof_name, "%s/%s", server_woof, RAFT_LOG_ENTRIES_WOOF);
-			unsigned long latest_log_entry = 0;
-			while (latest_log_entry < result.seq_no) {
-				latest_log_entry = WooFGetLatestSeqno(woof_name);
+			RAFT_SERVER_STATE server_state;
+			sprintf(woof_name, "%s/%s", server_woof, RAFT_SERVER_STATE_WOOF);
+			unsigned long commit_index = 0;
+			while (commit_index < result.seq_no) {
+				unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+				err = WooFGet(woof_name, &server_state, latest_server_state);
+				if (err < 0) {
+					fprintf(stderr, "error, 0, 0\n");
+					fflush(stderr);
+					exit(1);
+				}
+				commit_index = server_state.commit_index;
 				usleep(get_result_delay * 1000);
 			}
+
+			RAFT_LOG_ENTRY entry;
+			sprintf(woof_name, "%s/%s", server_woof, RAFT_LOG_ENTRIES_WOOF);
 			err = WooFGet(woof_name, &entry, result.seq_no);
 			if (err < 0) {
 				fprintf(stderr, "error, 0, 0\n");
