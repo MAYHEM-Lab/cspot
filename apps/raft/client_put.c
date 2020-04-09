@@ -13,8 +13,7 @@ char *Usage = "client_put -h server_woof -d data\n-s for synchronously put\n";
 
 int get_result_delay = 20;
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	char server_woof[RAFT_WOOF_NAME_LENGTH];
 	RAFT_CLIENT_PUT_ARG arg;
 	bool sync = false;

@@ -13,8 +13,7 @@ char *Usage = "client_get -h server_woof -s seq_no\n";
 
 int get_result_delay = 20;
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	char server_woof[RAFT_WOOF_NAME_LENGTH];
 	unsigned long seq_no;
 
