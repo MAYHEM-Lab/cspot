@@ -25,7 +25,7 @@
 #define RAFT_TIMEOUT_MIN 150
 #define RAFT_TIMEOUT_MAX 300
 #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
-#define RAFT_FUNCTION_LOOP_DELAY 0
+#define RAFT_FUNCTION_LOOP_DELAY 10
 #define LOG_DEBUG 0
 #define LOG_INFO 1
 #define LOG_WARN 2
@@ -127,13 +127,14 @@ int random_timeout(unsigned long seed);
 unsigned long get_milliseconds();
 int node_woof_name(char *node_woof);
 
-char log_msg[1024];
+char log_tag[1024];
 void log_set_level(int level);
 void log_set_output(FILE *file);
-void log_info(const char *tag, const char *message);
-void log_warn(const char *tag, const char *message);
-void log_error(const char *tag, const char *message);
-void log_debug(const char *tag, const char *message);
+void log_set_tag(const char *tag);
+void log_debug(const char *message, ...);
+void log_info(const char *message, ...);
+void log_warn(const char *message, ...);
+void log_error(const char *message, ...);
 
 #endif
 

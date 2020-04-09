@@ -17,8 +17,7 @@ unsigned long WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_LOG_ENTRY), sizeof(RAFT_SERVER_
 	sizeof(RAFT_APPEND_ENTRIES_ARG), sizeof(RAFT_APPEND_ENTRIES_RESULT), sizeof(RAFT_REQUEST_VOTE_ARG), sizeof(RAFT_REQUEST_VOTE_RESULT),
 	sizeof(RAFT_FUNCTION_LOOP), sizeof(RAFT_HEARTBEAT), sizeof(RAFT_CLIENT_PUT_ARG), sizeof(RAFT_CLIENT_PUT_RESULT)};
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	WooFInit();
 	int i, err;
 	for (i = 0; i < NUMBER_OF_WOOF; i++) {

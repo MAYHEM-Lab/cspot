@@ -7,34 +7,30 @@
 #include "woofc.h"
 #include "raft.h"
 
-char function_tag[] = "review_request_vote";
-
-int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
-{
+int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_FUNCTION_LOOP *function_loop = (RAFT_FUNCTION_LOOP *)ptr;
 
+	log_set_tag("review_request_vote");
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
 	unsigned long latest_vote_request = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_ARG_WOOF);
 	if (WooFInvalid(latest_vote_request)) {
-		sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_REQUEST_VOTE_ARG_WOOF);
-		log_error(function_tag, log_msg);
+		log_error("couldn't get the latest seqno from %s", RAFT_REQUEST_VOTE_ARG_WOOF);
 		exit(1);
 	}
 	if (function_loop->last_reviewed_request_vote < latest_vote_request) {
 		// get the server's current term
 		unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 		if (WooFInvalid(last_server_state)) {
-			sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-			log_error(function_tag, log_msg);
+			log_error("couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
 			exit(1);
 		}
 		RAFT_SERVER_STATE server_state;
 		int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
 		if (err < 0) {
-			log_error(function_tag, "couldn't get the server state");
+			log_error("couldn't get the server state");
 			exit(1);
 		}
 
@@ -45,8 +41,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			// read the request
 			err = WooFGet(RAFT_REQUEST_VOTE_ARG_WOOF, &request, i);
 			if (err < 0) {
-				sprintf(log_msg, "couldn't get the request at %lu", i);
-				log_error(function_tag, log_msg);
+				log_error("couldn't get the request at %lu", i);
 				exit(1);
 			}
 
@@ -54,8 +49,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			if (request.term < server_state.current_term) { // current term is higher than the request
 				result.term = server_state.current_term; // server term will always be greater than reviewing term
 				result.granted = false;
-				sprintf(log_msg, "rejected vote from lower term %lu at term %lu", request.term, server_state.current_term);
-				log_debug(function_tag, log_msg);
+				log_debug("rejected vote from lower term %lu at term %lu", request.term, server_state.current_term);
 			} else {
 				if (request.term > server_state.current_term) {
 					// fallback to follower
@@ -64,17 +58,16 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 					new_term.role = RAFT_FOLLOWER;
 					unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
 					if (WooFInvalid(seq)) {
-						log_error(function_tag, "couldn't queue the new term request to chair");
+						log_error("couldn't queue the new term request to chair");
 						exit(1);
 					}
-					sprintf(log_msg, "request term %lu is higher than the current term %lu, fall back to follower", request.term, server_state.current_term);
-					log_debug(function_tag, log_msg);
+					log_debug("request term %lu is higher than the current term %lu, fall back to follower", request.term, server_state.current_term);
 
 					function_loop->last_reviewed_request_vote = i - 1;
 					sprintf(function_loop->next_invoking, "review_client_put");
 					seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_client_put", function_loop);
 					if (WooFInvalid(seq)) {
-						log_error(function_tag, "couldn't queue the next function_loop: review_client_put");
+						log_error("couldn't queue the next function_loop: review_client_put");
 						exit(1);
 					}
 					return 1;
@@ -87,46 +80,39 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 					// because if we're receiveing append_entries request, it means the majority has voted and this vote doesn't matter
 					unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);	
 					if (WooFInvalid(latest_log_entry)) {
-						sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
-						log_error(function_tag, log_msg);
+						log_error("couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
 						exit(1);
 					}
 					RAFT_LOG_ENTRY last_log_entry;
 					if (latest_log_entry > 0) {
 						int err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry);
 						if (err < 0) {
-							sprintf(log_msg, "couldn't get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
-							log_error(function_tag, log_msg);
+							log_error("couldn't get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
 							exit(1);
 						}
 					}
 					if (latest_log_entry > 0 && last_log_entry.term > request.last_log_term) {
 						// the server has more up-to-dated entries than the candidate
 						result.granted = false;
-						sprintf(log_msg, "rejected vote from server with outdated log (last entry at term %lu)", request.last_log_term);
-						log_debug(function_tag, log_msg);
+						log_debug("rejected vote from server with outdated log (last entry at term %lu)", request.last_log_term);
 					} else if (latest_log_entry > 0 && last_log_entry.term == request.last_log_term && latest_log_entry > request.last_log_index) {
 						// both have same term but the server has more entries
 						result.granted = false;
-						sprintf(log_msg, "rejected vote from server with outdated log (last entry at index %lu)", request.last_log_index);
-						log_debug(function_tag, log_msg);
+						log_debug("rejected vote from server with outdated log (last entry at index %lu)", request.last_log_index);
 					} else {
 						// the candidate has more up-to-dated log entries
 						memcpy(server_state.voted_for, request.candidate_woof, RAFT_WOOF_NAME_LENGTH);
 						unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 						if (WooFInvalid(seq)) {
-							sprintf(log_msg, "couldn't update voted_for at term %lu", server_state.current_term);
-							log_error(function_tag, log_msg);
+							log_error("couldn't update voted_for at term %lu", server_state.current_term);
 							exit(1);
 						}
 						result.granted = true;
-						sprintf(log_msg, "granted vote at term %lu", server_state.current_term);
-						log_debug(function_tag, log_msg);
+						log_debug("granted vote at term %lu", server_state.current_term);
 					}
 				} else {
 					result.granted = false;
-					sprintf(log_msg, "rejected vote from since already voted at term %lu", server_state.current_term);
-					log_debug(function_tag, log_msg);
+					log_debug("rejected vote from since already voted at term %lu", server_state.current_term);
 				}
 			}
 			// return the request
@@ -135,15 +121,13 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 			if (result.granted == true) {
 				unsigned long seq = WooFPut(candidate_result_woof, "count_vote", &result);
 				if (WooFInvalid(seq)) {
-					sprintf(log_msg, "couldn't return the vote result to %s", candidate_result_woof);
-					log_error(function_tag, log_msg);
+					log_error("couldn't return the vote result to %s", candidate_result_woof);
 					exit(1);
 				}
 			} else {
 				unsigned long seq = WooFPut(candidate_result_woof, NULL, &result);
 				if (WooFInvalid(seq)) {
-					sprintf(log_msg, "couldn't return the vote result to %s", candidate_result_woof);
-					log_error(function_tag, log_msg);
+					log_error("couldn't return the vote result to %s", candidate_result_woof);
 					exit(1);
 				}
 			}
@@ -157,7 +141,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr)
 	sprintf(function_loop->next_invoking, "review_client_put");
 	unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_client_put", function_loop);
 	if (WooFInvalid(seq)) {
-		log_error(function_tag, "couldn't queue the next function_loop: review_client_put");
+		log_error("couldn't queue the next function_loop: review_client_put");
 		exit(1);
 	}
 	return 1;

@@ -7,34 +7,30 @@
 #include "woofc.h"
 #include "raft.h"
 
-char function_tag[] = "review_append_entries";
-
-int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
-{
+int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_FUNCTION_LOOP *function_loop = (RAFT_FUNCTION_LOOP *)ptr;
 
+	log_set_tag("review_append_entries");
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
 	unsigned long latest_append_request = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_ARG_WOOF);
 	if (WooFInvalid(latest_append_request)) {
-		sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_APPEND_ENTRIES_ARG_WOOF);
-		log_error(function_tag, log_msg);
+		log_error("couldn't get the latest seqno from %s", RAFT_APPEND_ENTRIES_ARG_WOOF);
 		exit(1);
 	}
 	if (function_loop->last_reviewed_append_entries < latest_append_request) {
 		// get the server's current term
 		unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 		if (WooFInvalid(last_server_state)) {
-			sprintf(log_msg, "couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-			log_error(function_tag, log_msg);
+			log_error("couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
 			exit(1);
 		}
 		RAFT_SERVER_STATE server_state;
 		int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
 		if (err < 0) {
-			log_error(function_tag, "couldn't get the server's latest state");
+			log_error("couldn't get the server's latest state");
 			exit(1);
 		}
 
@@ -46,13 +42,11 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			// read the request
 			err = WooFGet(RAFT_APPEND_ENTRIES_ARG_WOOF, &request, i);
 			if (err < 0) {
-				sprintf(log_msg, "couldn't get the request at %lu", i);
-				log_error(function_tag, log_msg);
+				log_error("couldn't get the request at %lu", i);
 				exit(1);
 			}
 			if (get_milliseconds() - request.created_ts > RAFT_TIMEOUT_MIN) {
-				sprintf(log_msg, "request %lu took %lums to process", i, get_milliseconds() - request.created_ts);
-				log_warn(function_tag, log_msg);
+				log_warn("request %lu took %lums to process", i, get_milliseconds() - request.created_ts);
 			}
 			if (request.term > server_state.current_term) {
 				// increment the current term
@@ -61,17 +55,16 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				new_term.role = RAFT_FOLLOWER;
 				unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
 				if (WooFInvalid(seq)) {
-					log_error(function_tag, "couldn't queue the new term request to chair");
+					log_error("couldn't queue the new term request to chair");
 					exit(1);
 				}
-				sprintf(log_msg, "request term %lu is higher than server's term %lu, fall back to follower", request.term, server_state.current_term);
-				log_debug(function_tag, log_msg);
+				log_debug("request term %lu is higher than server's term %lu, fall back to follower", request.term, server_state.current_term);
 
 				function_loop->last_reviewed_append_entries = i - 1;
 				sprintf(function_loop->next_invoking, "review_request_vote");
 				seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_request_vote", function_loop);
 				if (WooFInvalid(seq)) {
-					log_error(function_tag, "couldn't queue the next function_loop: review_request_vote");
+					log_error("couldn't queue the next function_loop: review_request_vote");
 					exit(1);
 				}
 				return 1;
@@ -85,8 +78,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				RAFT_HEARTBEAT heartbeat;
 				unsigned long seq = WooFPut(RAFT_HEARTBEAT_WOOF, "timeout_checker", &heartbeat);
 				if (WooFInvalid(seq)) {
-					sprintf(log_msg, "couldn't put a new heartbeat from term %lu", request.term);
-					log_error(function_tag, log_msg);
+					log_error("couldn't put a new heartbeat from term %lu", request.term);
 					exit(1);
 				}
 
@@ -99,8 +91,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 				// check if the previouse log matches with the leader
 				unsigned long latest_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
 				if (latest_entry_seqno < request.prev_log_index) {
-					sprintf(log_msg, "no log entry exists at prev_log_index %lu, latest: %lu", request.prev_log_index, latest_entry_seqno);
-					log_debug(function_tag, log_msg);
+					log_debug("no log entry exists at prev_log_index %lu, latest: %lu", request.prev_log_index, latest_entry_seqno);
 					result.term = request.term;
 					result.success = false;
 					result.next_index = request.prev_log_index; // decrement next_index
@@ -110,15 +101,13 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 					if (request.prev_log_index > 0) {
 						err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, request.prev_log_index);
 						if (err < 0) {
-							sprintf(log_msg, "couldn't get log entry at prev_log_index %lu", request.prev_log_index);
-							log_error(function_tag, log_msg);
+							log_error("couldn't get log entry at prev_log_index %lu", request.prev_log_index);
 							exit(1);
 						}
 					}
 					// term doesn't match
 					if (request.prev_log_index > 0 && entry.term != request.prev_log_term) {
-						sprintf(log_msg, "previous log entry at prev_log_index %lu doesn't match request.prev_log_term %lu: %lu [%lu]", request.prev_log_index, request.prev_log_term, entry.term, i);
-						log_debug(function_tag, log_msg);
+						log_debug("previous log entry at prev_log_index %lu doesn't match request.prev_log_term %lu: %lu [%lu]", request.prev_log_index, request.prev_log_term, entry.term, i);
 						result.term = request.term;
 						result.success = false;
 						result.next_index = request.prev_log_index; // decrement next_index
@@ -129,11 +118,10 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 							// if so, we don't need to call WooFTruncate()
 							err = WooFTruncate(RAFT_LOG_ENTRIES_WOOF, request.prev_log_index);
 							if (err < 0) {
-								log_error(function_tag, "couldn't truncate log entries woof");
+								log_error("couldn't truncate log entries woof");
 								exit(1);
 							}
-							sprintf(log_msg, "log truncated to %lu", request.prev_log_index);
-							log_debug(function_tag, log_msg);
+							log_debug("log truncated to %lu", request.prev_log_index);
 						}
 						// appending entries
 						unsigned long seq;
@@ -144,8 +132,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 							}
 							seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request.entries[j]);
 							if (WooFInvalid(seq)) {
-								sprintf(log_msg, "couldn't append entries[%d]", j);
-								log_error(function_tag, log_msg);
+								log_error("couldn't append entries[%d]", j);
 								exit(1);
 							}
 						}
@@ -153,8 +140,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 						result.success = true;
 						result.next_index = seq + 1;
 						if (j > 0) {
-							sprintf(log_msg, "appended %d entries for request [%lu], result.next_index %lu", j, i, result.next_index);
-							log_debug(function_tag, log_msg);
+							log_debug("appended %d entries for request [%lu], result.next_index %lu", j, i, result.next_index);
 						}
 
 						// check if there's new commit_index
@@ -165,12 +151,10 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 								server_state.commit_index = seq;
 								unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 								if (WooFInvalid(seq)) {
-									sprintf(log_msg, "couldn't update commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
-									log_error(function_tag, log_msg);
+									log_error("couldn't update commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
 									exit(1);
 								}
-								sprintf(log_msg, "updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
-								log_debug(function_tag, log_msg);
+								log_debug("updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
 							}
 						}
 					}
@@ -182,8 +166,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			sprintf(leader_result_woof, "%s/%s", request.leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
 			unsigned long seq = WooFPut(leader_result_woof, "append_entries_result", &result);
 			if (WooFInvalid(seq)) {
-				sprintf(log_msg, "couldn't return the append_entries result to %s", leader_result_woof);
-				log_error(function_tag, log_msg);
+				log_error("couldn't return the append_entries result to %s", leader_result_woof);
 				exit(1);
 			}
 			function_loop->last_reviewed_append_entries = i;
@@ -194,7 +177,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
 	unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_request_vote", function_loop);
 	if (WooFInvalid(seq)) {
-		log_error(function_tag, "couldn't queue the next function_loop: review_request_vote");
+		log_error("couldn't queue the next function_loop: review_request_vote");
 		exit(1);
 	}
 	return 1;

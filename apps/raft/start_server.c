@@ -11,8 +11,7 @@
 #define ARGS "f:"
 char *Usage = "start_server -f config_file\n";
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	char config_file[256];
 
 	int c;
