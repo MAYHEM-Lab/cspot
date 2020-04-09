@@ -186,6 +186,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr)
 				log_error(function_tag, log_msg);
 				exit(1);
 			}
+			memset(function_loop->replicate_entries.last_sent_index, 0, sizeof(unsigned long) * server_state.members);
 			memset(function_loop->replicate_entries.match_index, 0, sizeof(unsigned long) * server_state.members);
 			memset(function_loop->replicate_entries.last_timestamp, 0, sizeof(unsigned long) * server_state.members);
 			int i;

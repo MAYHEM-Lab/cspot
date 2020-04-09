@@ -117,7 +117,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 					}
 					// term doesn't match
 					if (request.prev_log_index > 0 && entry.term != request.prev_log_term) {
-						sprintf(log_msg, "previous log entry at prev_log_index %lu doesn't match request.prevLogTerm %lu: %lu", request.prev_log_index, request.prev_log_term, entry.term);
+						sprintf(log_msg, "previous log entry at prev_log_index %lu doesn't match request.prev_log_term %lu: %lu [%lu]", request.prev_log_index, request.prev_log_term, entry.term, i);
 						log_debug(function_tag, log_msg);
 						result.term = request.term;
 						result.success = false;
@@ -148,8 +148,6 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 								log_error(function_tag, log_msg);
 								exit(1);
 							}
-							sprintf(log_msg, "appended one entry at %lu", seq);
-							log_error(function_tag, log_msg);
 						}
 						result.term = request.term;
 						result.success = true;

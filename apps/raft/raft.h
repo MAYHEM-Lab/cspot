@@ -92,6 +92,7 @@ typedef struct raft_review_client_put {
 } RAFT_REVIEW_CLIENT_PUT;
 
 typedef struct raft_replicate_entries {
+	unsigned long last_sent_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long match_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long commit_index[RAFT_MAX_SERVER_NUMBER];

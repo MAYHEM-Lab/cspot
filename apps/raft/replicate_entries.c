@@ -11,16 +11,18 @@
 char function_tag[] = "replicate_entries";
 
 typedef struct append_entries_thread_arg {
-	int id;
+	int member_id;
 	int num_entries_to_send;
 	char member_woof[RAFT_WOOF_NAME_LENGTH];
 	RAFT_APPEND_ENTRIES_ARG arg;
+	RAFT_REPLICATE_ENTRIES *replicate_entries;
 } APPEND_ENTRIES_THREAD_ARG;
 
 void *append_entries(void *arg) {
 	APPEND_ENTRIES_THREAD_ARG *thread_arg = (APPEND_ENTRIES_THREAD_ARG *)arg;
 	unsigned long seq = WooFPut(thread_arg->member_woof, NULL, &(thread_arg->arg));
 	if (WooFInvalid(seq)) {
+		thread_arg->replicate_entries->last_sent_index[thread_arg->member_id] = 0;
 		sprintf(log_msg, "couldn't send append_entries request to %s", thread_arg->member_woof);
 		log_error(function_tag, log_msg);
 	}
@@ -28,8 +30,10 @@ void *append_entries(void *arg) {
 		// sprintf(log_msg, "sent heartbeat (%lu) to %s", seq, thread_arg->member_woof);
 		// log_debug(function_tag, log_msg);
 	} else {
-		// TODO: this function will send a second duplicate request before receiving result of the first request
-		sprintf(log_msg, "sending %d entries to member %d, prev_log_index %lu, [%lu]", thread_arg->num_entries_to_send, thread_arg->id, thread_arg->arg.prev_log_index, seq);
+		thread_arg->replicate_entries->last_sent_index[thread_arg->member_id] = thread_arg->replicate_entries->next_index[thread_arg->member_id];
+		sprintf(log_msg, "updated last_sent_index[%d] to %lu", thread_arg->member_id, thread_arg->replicate_entries->last_sent_index[thread_arg->member_id]);
+		log_debug(function_tag, log_msg);
+		sprintf(log_msg, "sending %d entries to member %d, prev_log_index:%lu, prev_log_term:%lu [%lu]", thread_arg->num_entries_to_send, thread_arg->member_id, thread_arg->arg.prev_log_index, thread_arg->arg.prev_log_term, seq);
 		log_debug(function_tag, log_msg);
 	}
 	free(arg);
@@ -42,7 +46,7 @@ int comp_index(const void *a, const void *b) {
 int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 	RAFT_FUNCTION_LOOP *function_loop = (RAFT_FUNCTION_LOOP *)ptr;
-	RAFT_REPLICATE_ENTRIES *arg = &(function_loop->replicate_entries);
+	RAFT_REPLICATE_ENTRIES *replicate_entries = &(function_loop->replicate_entries);
 
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
@@ -77,42 +81,46 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 		log_error(function_tag, log_msg);
 		exit(1);
 	}
-	pthread_t *thread_id = malloc(sizeof(pthread_t) * server_state.members);
-	memset(thread_id, 0, sizeof(pthread_t) * server_state.members);
-	unsigned long min_seqno_to_send = last_log_index + 1;
 
+	// read through previous append_entries results and update next_index
 	unsigned long seq;
-	for (seq = arg->last_result_seqno + 1; seq <= latest_result_seqno; ++seq) {
+	for (seq = replicate_entries->last_result_seqno + 1; seq <= latest_result_seqno; ++seq) {
 		RAFT_APPEND_ENTRIES_RESULT result;
 		int err = WooFGet(RAFT_APPEND_ENTRIES_RESULT_WOOF, &result, seq);
 		if (err < 0) {
 			sprintf(log_msg, "couldn't get append_entries_result at %lu", seq);
 			log_error(function_tag, log_msg);
-			free(thread_id);
 			exit(1);
 		}
 		if (result.term != server_state.current_term) {
-			arg->last_result_seqno = seq;
+			replicate_entries->last_result_seqno = seq;
 			continue;
 		}
 		int i;
 		for (i = 0; i < server_state.members; ++i) {
 			if (strcmp(result.server_woof, server_state.member_woofs[i]) == 0) {
-				arg->next_index[i] = result.next_index;
-				sprintf(log_msg, "updated next_index[%d] to %lu", i, arg->next_index[i]);
+				replicate_entries->next_index[i] = result.next_index;
+				sprintf(log_msg, "updated next_index[%d] to %lu", i, replicate_entries->next_index[i]);
 				log_debug(function_tag, log_msg);
-				if (arg->next_index[i] < min_seqno_to_send) {
-					min_seqno_to_send = arg->next_index[i];
-				}
 				if (result.success == true) {
-					arg->match_index[i] = result.next_index - 1;
+					replicate_entries->match_index[i] = result.next_index - 1;
 				}
 				break;
 			}
 		}
-		arg->last_result_seqno = seq;
+		replicate_entries->last_result_seqno = seq;
 	}
 
+	unsigned long min_seqno_to_send = last_log_index + 1;
+	int i;
+	for (i = 0; i < server_state.members; ++i) {
+		if (strcmp(server_state.member_woofs[i], server_state.woof_name) == 0) {
+			continue;
+		}
+		if (replicate_entries->next_index[i] < min_seqno_to_send) {
+			min_seqno_to_send = replicate_entries->next_index[i];
+		}
+	}
 	// read all the entries to be sent to members, +1 for the previous entry
 	// int num_entries = min(last_log_index - min_seqno_to_send + 1, RAFT_MAX_ENTRIES_PER_REQUEST);
 	int num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
@@ -120,43 +128,47 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 		num_entries = last_log_index - min_seqno_to_send + 1;
 	}
 	RAFT_LOG_ENTRY *entries = malloc(sizeof(RAFT_LOG_ENTRY) * (num_entries + 1));
-	int i;
 	for (i = 0; i < num_entries + 1; ++i) {
-		err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[i], min_seqno_to_send - 1 + i);
-		if (err < 0) {
-			sprintf(log_msg, "couldn't get the log entries at %lu", min_seqno_to_send - 1 + i);
-			log_error(function_tag, log_msg);
-			free(thread_id);
-			free(entries);
-			exit(1);
+		if (min_seqno_to_send - 1 + i > 0) {
+			err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[i], min_seqno_to_send - 1 + i);
+			if (err < 0) {
+				sprintf(log_msg, "couldn't get the log entries at %lu", min_seqno_to_send - 1 + i);
+				log_error(function_tag, log_msg);
+				free(entries);
+				exit(1);
+			}
 		}
 	}
+
+	pthread_t *thread_id = malloc(sizeof(pthread_t) * server_state.members);
+	memset(thread_id, 0, sizeof(pthread_t) * server_state.members);
 	for (i = 0; i < server_state.members; ++i) {
 		if (strcmp(server_state.member_woofs[i], server_state.woof_name) == 0) {
-			arg->match_index[i] = last_log_index; // if it's leader itself, match_index is set to last_log_index
+			replicate_entries->match_index[i] = last_log_index; // if it's leader itself, match_index is set to last_log_index
 			continue;
 		}
-		unsigned long num_entries_to_send = last_log_index - arg->next_index[i] + 1;
+		unsigned long num_entries_to_send = last_log_index - replicate_entries->next_index[i] + 1;
 		if (num_entries_to_send > RAFT_MAX_ENTRIES_PER_REQUEST) {
 			num_entries_to_send = RAFT_MAX_ENTRIES_PER_REQUEST;
 		}
-		if (num_entries_to_send > 0) {
+		if (num_entries_to_send > 0 && replicate_entries->last_sent_index[i] != replicate_entries->next_index[i]) {
 			APPEND_ENTRIES_THREAD_ARG *thread_arg = malloc(sizeof(APPEND_ENTRIES_THREAD_ARG));
+			thread_arg->replicate_entries = replicate_entries;
 			thread_arg->arg.term = server_state.current_term;
 			memcpy(thread_arg->arg.leader_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
-			thread_arg->arg.prev_log_index = arg->next_index[i] - 1;
-			int first_entry_index = arg->next_index[i] - min_seqno_to_send + 1;
+			thread_arg->arg.prev_log_index = replicate_entries->next_index[i] - 1;
+			int first_entry_index = replicate_entries->next_index[i] - min_seqno_to_send + 1;
 			thread_arg->arg.prev_log_term = entries[first_entry_index - 1].term;
-			memcpy(thread_arg->arg.entries, entries, sizeof(RAFT_LOG_ENTRY) * num_entries_to_send);
+			memcpy(thread_arg->arg.entries, entries + first_entry_index, sizeof(RAFT_LOG_ENTRY) * num_entries_to_send);
 			thread_arg->arg.leader_commit = server_state.commit_index;
 			thread_arg->arg.created_ts = get_milliseconds();
-			thread_arg->id = i;
+			thread_arg->member_id = i;
 			thread_arg->num_entries_to_send = num_entries_to_send;
 			// send append_entries request 
 			sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_APPEND_ENTRIES_ARG_WOOF);
 			pthread_create(&thread_id[i], NULL, append_entries, (void *)thread_arg);
 			// update last timestamp it send request to member
-			arg->last_timestamp[i] = get_milliseconds();
+			replicate_entries->last_timestamp[i] = get_milliseconds();
 		}
 	}
 	free(entries);
@@ -166,31 +178,32 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 			// no need to send heartbeat to itself
 			continue;
 		}
-		if (get_milliseconds() - arg->last_timestamp[i] > RAFT_HEARTBEAT_RATE) {
+		if (get_milliseconds() - replicate_entries->last_timestamp[i] > RAFT_HEARTBEAT_RATE) {
 			// didn't send any entry and timeout occurs, send heartbeat
 			APPEND_ENTRIES_THREAD_ARG *thread_arg = malloc(sizeof(APPEND_ENTRIES_THREAD_ARG));
+			thread_arg->replicate_entries = replicate_entries;
 			thread_arg->arg.term = server_state.current_term;
 			memcpy(thread_arg->arg.leader_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 			memset(thread_arg->arg.entries, 0, sizeof(RAFT_LOG_ENTRY) * RAFT_MAX_ENTRIES_PER_REQUEST);
 			thread_arg->arg.created_ts = get_milliseconds();
-			thread_arg->id = i;
+			thread_arg->member_id = i;
 			thread_arg->num_entries_to_send = 0;
 			// nothing else matters
 			sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_APPEND_ENTRIES_ARG_WOOF);
 			pthread_create(&thread_id[i], NULL, append_entries, (void *)thread_arg);
 			// update last timestamp it send request to member
-			arg->last_timestamp[i] = get_milliseconds();
+			replicate_entries->last_timestamp[i] = get_milliseconds();
 		}
 	}
 
 	// check if there's new commit_index
 // sprintf(log_msg, "match_index: ");
 // for (i = 0; i < server_state.members; ++i) {
-// 	sprintf(log_msg + strlen(log_msg), "%lu ", arg->match_index[i]);
+// 	sprintf(log_msg + strlen(log_msg), "%lu ", replicate_entries->match_index[i]);
 // }
 // log_error(function_tag, log_msg);
 	unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
-	memcpy(sorted_match_index, arg->match_index, sizeof(unsigned long) * server_state.members);
+	memcpy(sorted_match_index, replicate_entries->match_index, sizeof(unsigned long) * server_state.members);
 	qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
 // sprintf(log_msg, "sorted : ");
 // for (i = 0; i < server_state.members; ++i) {
@@ -227,23 +240,22 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 	free(sorted_match_index);
 	
+	for (i = 0; i < server_state.members; ++i) {
+		if (thread_id[i] != 0) {
+			pthread_join(thread_id[i], NULL);
+		}
+	}
+	free(thread_id);
+
 	// queue the next replicate_entries function
 	usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
 	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", function_loop);
 	if (WooFInvalid(seq)) {
 		log_error(function_tag, "couldn't queue the next function_loop: review_append_entries");
-		free(thread_id);
 		exit(1);
 	}
-	for (i = 0; i < server_state.members; ++i) {
-		if (thread_id[i] != 0) {
-// sprintf(log_msg, "join on thread %d", i);
-// log_debug(function_tag, log_msg);
-			pthread_join(thread_id[i], NULL);
-		}
-	}
+	
 // log_debug(function_tag, "joined");
-	free(thread_id);
 	return 1;
 
 }

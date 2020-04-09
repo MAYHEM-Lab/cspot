@@ -97,7 +97,7 @@ int main(int argc, char **argv)
 				exit(1);
 			}
 			if (entry.term == result.term) {
-				printf("commited, %lu, %lu\n", result.seq_no, entry.term);
+				printf("committed, %lu, %lu\n", result.seq_no, entry.term);
 				fflush(stdout);
 			} else {
 				printf("rejected, %lu, %lu\n", result.seq_no, entry.term);
