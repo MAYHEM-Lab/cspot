@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 		fflush(stderr);
 		exit(1);
 	}
-	if (result.success == false) {
+	if (result.appended == false) {
 		printf("not a leader, %lu, %lu\n", result.seq_no, result.term);
 		fflush(stdout);
 	} else {

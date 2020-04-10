@@ -11,8 +11,8 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_FUNCTION_LOOP *function_loop = (RAFT_FUNCTION_LOOP *)ptr;
 
 	log_set_tag("review_request_vote");
-	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	log_set_level(LOG_INFO);
+	// log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
 	unsigned long latest_vote_request = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_ARG_WOOF);
@@ -56,6 +56,7 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 					RAFT_TERM_ENTRY new_term;
 					new_term.term = request.term;
 					new_term.role = RAFT_FOLLOWER;
+					memcpy(new_term.leader, request.candidate_woof, RAFT_WOOF_NAME_LENGTH);
 					unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
 					if (WooFInvalid(seq)) {
 						log_error("couldn't queue the new term request to chair");

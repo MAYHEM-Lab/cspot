@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "woofc.h"
 #include "raft.h"
@@ -63,6 +64,7 @@ int count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		RAFT_TERM_ENTRY new_term;
 		new_term.term = result->term;
 		new_term.role = RAFT_LEADER;
+		memcpy(new_term.leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 		unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
 		if (WooFInvalid(seq)) {
 			log_error("couldn't queue the new term request to chair");

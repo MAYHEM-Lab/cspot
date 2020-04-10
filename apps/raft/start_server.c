@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Couldn't get woof name\n");
 		fflush(stderr);
 	}
+	memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 
 	FILE *fp = fopen(config_file, "r");
 	if (fp == NULL) {
@@ -50,27 +51,8 @@ int main(int argc, char **argv) {
 		fflush(stderr);
 		exit(1);
 	}
-
-	char buffer[256];
-	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-		fprintf(stderr, "Wrong format of config file\n");
-		fflush(stderr);
-		exit(1);
-	}
-	server_state.members = atoi(buffer);
-	int i;
-	for (i = 0; i < server_state.members; ++i) {
-		if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-			fprintf(stderr, "Wrong format of config file\n");
-			fflush(stderr);
-			exit(1);
-		}
-		buffer[strcspn(buffer, "\n")] = 0;
-		if (buffer[strlen(buffer) - 1] == '/') {
-			buffer[strlen(buffer) - 1] = 0;
-		}
-		strncpy(server_state.member_woofs[i], buffer, RAFT_WOOF_NAME_LENGTH);
-	}
+	read_config(fp, &server_state.members, server_state.member_woofs);
+	fclose(fp);
 
 	WooFInit();
 
@@ -84,6 +66,7 @@ int main(int argc, char **argv) {
 	printf("Server started.\n");
 	printf("WooF namespace: %s\n", server_state.woof_name);
 	printf("Cluster has %d members:\n", server_state.members);
+	int i;
 	for (i = 0; i < server_state.members; ++i) {
 		printf("%d: %s\n", i + 1, server_state.member_woofs[i]);
 	}

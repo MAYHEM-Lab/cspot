@@ -11,8 +11,8 @@ int timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_HEARTBEAT *arg = (RAFT_HEARTBEAT *)ptr;
 
 	log_set_tag("timeout_checker");
-	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	log_set_level(LOG_INFO);
+	// log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 	
 	unsigned long timeout = random_timeout(get_milliseconds());
@@ -51,6 +51,7 @@ int timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_TERM_ENTRY new_term;
 	new_term.term = server_state.current_term + 1;
 	new_term.role = RAFT_CANDIDATE;
+	memcpy(new_term.leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 	unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
 	if (WooFInvalid(seq)) {
 		log_error("couldn't queue the new term request to the chair");
