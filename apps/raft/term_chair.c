@@ -69,6 +69,8 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// read the queued entries and find out the highest term
 	unsigned long next_term = server_state.current_term;
 	int next_role = server_state.role;
+	char next_leader[RAFT_WOOF_NAME_LENGTH];
+	memcpy(next_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
 	unsigned long i;
 	RAFT_TERM_ENTRY entry;
 	for (i = function_loop->last_reviewed_term_chair + 1; i <= last_term_entry; ++i) {
@@ -80,6 +82,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (entry.term >= next_term) {
 			next_term = entry.term;
 			next_role = entry.role;
+			memcpy(next_leader, entry.leader, RAFT_WOOF_NAME_LENGTH);
 		}
 		function_loop->last_reviewed_term_chair = i;
 	}
@@ -93,6 +96,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// update the server's current term
 		server_state.current_term = next_term;
 		server_state.role = next_role;
+		memcpy(server_state.current_leader, next_leader, RAFT_WOOF_NAME_LENGTH);
 		unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 		if (WooFInvalid(seq)) {
 			log_error("couldn't increment the current term to %lu", next_term);

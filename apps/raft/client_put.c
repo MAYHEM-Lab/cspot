@@ -1,112 +1,66 @@
-#include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <time.h>
 
-#include "woofc.h"
-#include "woofc-host.h"
 #include "raft.h"
+#include "client.h"
 
-#define ARGS "h:d:s"
-char *Usage = "client_put -h server_woof -d data\n-s for synchronously put\n";
+#define ARGS "f:d:sr"
+char *Usage = "client_put -f config -d data\n-s for synchronously put, -r to redirect if leader is down\n";
 
 int get_result_delay = 20;
 
 int main(int argc, char **argv) {
-	char server_woof[RAFT_WOOF_NAME_LENGTH];
-	RAFT_CLIENT_PUT_ARG arg;
+	char config[256];
+	RAFT_DATA_TYPE data;
 	bool sync = false;
+	bool redirect = false;
 
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
-			case 'h':
-				strncpy(server_woof, optarg, RAFT_WOOF_NAME_LENGTH);
-				if (server_woof[strlen(server_woof) - 1] == '/') {
-					server_woof[strlen(server_woof) - 1] = 0;
-				}
+			case 'f': {
+				strncpy(config, optarg, sizeof(config));
 				break;
-			case 'd':
-				strncpy(arg.data.val, optarg, sizeof(arg.data.val));
+			}
+			case 'd': {
+				strncpy(data.val, optarg, sizeof(data.val));
 				break;
-			case 's':
+			}
+			case 's': {
 				sync = true;
 				break;
-			default:
+			}
+			case 'r': {
+				sync = true;
+				redirect = true;
+				break;
+			}
+			default: {
 				fprintf(stderr, "Unrecognized command %c\n", (char)c);
 				fprintf(stderr, "%s", Usage);
 				exit(1);
+			}
 		}
 	}
-	if(server_woof[0] == 0 || arg.data.val[0] == 0) {
-		fprintf(stderr, "%s", Usage);
+
+	FILE *fp = fopen(config, "r");
+	if (fp == NULL) {
+		fprintf(stderr, "couldn't open config file");
 		fflush(stderr);
 		exit(1);
 	}
+	raft_init_client(fp);
+	fclose(fp);
 
-	char woof_name[RAFT_WOOF_NAME_LENGTH];
-	sprintf(woof_name, "%s/%s", server_woof, RAFT_CLIENT_PUT_ARG_WOOF);
-	unsigned long seq = WooFPut(woof_name, NULL, &arg);
-	if (WooFInvalid(seq)) {
-		fprintf(stderr, "call failed, 0, 0\n");
-		fflush(stderr);
-		exit(1);
+	unsigned long index, term;
+	int err = raft_put(&data, &index, &term, sync);
+	while (err == RAFT_REDIRECTED) {
+		err = raft_put(&data, &index, &term, sync);
 	}
-
-	RAFT_CLIENT_PUT_RESULT result;
-	sprintf(woof_name, "%s/%s", server_woof, RAFT_CLIENT_PUT_RESULT_WOOF);
-	unsigned long latest_result = 0;
-	while (latest_result < seq) {
-		latest_result = WooFGetLatestSeqno(woof_name);
-		usleep(get_result_delay * 1000);
-	}
-	int err = WooFGet(woof_name, &result, seq);
-	if (err < 0) {
-		fprintf(stderr, "error, 0, 0\n");
-		fflush(stderr);
-		exit(1);
-	}
-	if (result.appended == false) {
-		printf("not a leader, %lu, %lu\n", result.seq_no, result.term);
-		fflush(stdout);
-	} else {
-		if (sync) {
-			RAFT_SERVER_STATE server_state;
-			sprintf(woof_name, "%s/%s", server_woof, RAFT_SERVER_STATE_WOOF);
-			unsigned long commit_index = 0;
-			while (commit_index < result.seq_no) {
-				unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
-				err = WooFGet(woof_name, &server_state, latest_server_state);
-				if (err < 0) {
-					fprintf(stderr, "error, 0, 0\n");
-					fflush(stderr);
-					exit(1);
-				}
-				commit_index = server_state.commit_index;
-				usleep(get_result_delay * 1000);
-			}
-
-			RAFT_LOG_ENTRY entry;
-			sprintf(woof_name, "%s/%s", server_woof, RAFT_LOG_ENTRIES_WOOF);
-			err = WooFGet(woof_name, &entry, result.seq_no);
-			if (err < 0) {
-				fprintf(stderr, "error, 0, 0\n");
-				fflush(stderr);
-				exit(1);
-			}
-			if (entry.term == result.term) {
-				printf("committed, %lu, %lu\n", result.seq_no, entry.term);
-				fflush(stdout);
-			} else {
-				printf("rejected, %lu, %lu\n", result.seq_no, entry.term);
-				fflush(stdout);
-			}
-		} else {
-			printf("pending, %lu, %lu\n", result.seq_no, result.term);
-			fflush(stdout);
-		}
-	}
-	return 0;
+	
+	return err;
 }
 

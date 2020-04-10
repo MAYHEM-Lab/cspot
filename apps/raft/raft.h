@@ -120,7 +120,7 @@ typedef struct raft_client_put_arg {
 } RAFT_CLIENT_PUT_ARG;
 
 typedef struct raft_client_put_result {
-	bool appended;
+	bool redirected;
 	unsigned long seq_no;
 	unsigned long term;
 	char current_leader[RAFT_WOOF_NAME_LENGTH];

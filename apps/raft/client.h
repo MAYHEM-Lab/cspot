@@ -3,6 +3,11 @@
 
 #include "raft.h"
 
+#define RAFT_SUCCESS 0
+#define RAFT_ERROR -1
+#define RAFT_TIMEOUT -2
+#define RAFT_REDIRECTED -3
+
 int raft_client_members;
 char raft_client_servers[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
 char raft_client_leader[RAFT_WOOF_NAME_LENGTH];
