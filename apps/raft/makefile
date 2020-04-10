@@ -43,10 +43,10 @@ append_entries_result: append_entries_result.c ${SHEP_SRC} ${WINC} ${LINC} ${LOB
 	${CC} ${CFLAGS} -o append_entries_result append_entries_result.c append_entries_result_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_get: client_get.c client.o raft.o
-	${CC} ${CFLAGS} -o client_get client_get.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	${CC} ${CFLAGS} -o client_get client_get.c client.o raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_put: client_put.c client.o raft.o
-	${CC} ${CFLAGS} -o client_put client_put.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	${CC} ${CFLAGS} -o client_put client_put.c client.o raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_test: client_test.c client.o raft.o
 	${CC} ${CFLAGS} -o client_test client_test.c client.o raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}

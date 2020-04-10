@@ -45,8 +45,9 @@ int review_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 
-			if (server_state.role != RAFT_LEADER) {
-				result.appended = false;
+			if (server_state.role != RAFT_LEADER) 
+			{
+				result.redirected = true;
 				result.seq_no = 0;
 				result.term = server_state.current_term;
 				memcpy(result.current_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
@@ -59,7 +60,7 @@ int review_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 					log_error("couldn't append raft log");
 					exit(1);
 				}
-				result.appended = true;
+				result.redirected = false;
 				result.seq_no = seq;
 				result.term = server_state.current_term;
 			}

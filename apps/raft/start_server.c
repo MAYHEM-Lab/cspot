@@ -17,13 +17,15 @@ int main(int argc, char **argv) {
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
-			case 'f':
+			case 'f': {
 				strncpy(config_file, optarg, sizeof(config_file));
 				break;
-			default:
+			}
+			default: {
 				fprintf(stderr, "Unrecognized command %c\n", (char)c);
 				fprintf(stderr, "%s", Usage);
 				exit(1);
+			}
 		}
 	}
 	if(config_file[0] == 0) {
