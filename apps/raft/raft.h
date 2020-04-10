@@ -34,11 +34,11 @@
 typedef enum {false, true} bool;
 typedef struct data_type {
 	char val[1024];
-} DATA_TYPE;
+} RAFT_DATA_TYPE;
 
 typedef struct raft_log_entry {
 	unsigned long term;
-	DATA_TYPE data;
+	RAFT_DATA_TYPE data;
 } RAFT_LOG_ENTRY;
 
 typedef struct raft_server_state {
@@ -46,6 +46,7 @@ typedef struct raft_server_state {
 	int role;
 	unsigned long current_term;
 	char voted_for[RAFT_WOOF_NAME_LENGTH];
+	char current_leader[RAFT_WOOF_NAME_LENGTH];
 	unsigned long commit_index;
 	int members;
 	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
@@ -54,6 +55,7 @@ typedef struct raft_server_state {
 typedef struct raft_term_entry {
 	unsigned long term;
 	int role;
+	char leader[RAFT_WOOF_NAME_LENGTH];
 } RAFT_TERM_ENTRY;
 
 typedef struct raft_request_vote_arg {
@@ -114,19 +116,20 @@ typedef struct raft_heartbeat {
 } RAFT_HEARTBEAT;
 
 typedef struct raft_client_put_arg {
-	DATA_TYPE data;
+	RAFT_DATA_TYPE data;
 } RAFT_CLIENT_PUT_ARG;
 
 typedef struct raft_client_put_result {
-	bool success;
+	bool appended;
 	unsigned long seq_no;
 	unsigned long term;
+	char current_leader[RAFT_WOOF_NAME_LENGTH];
 } RAFT_CLIENT_PUT_RESULT;
 
 int random_timeout(unsigned long seed);
 unsigned long get_milliseconds();
+void read_config(FILE *fp, int *members, char member_woofs[][RAFT_WOOF_NAME_LENGTH]);
 int node_woof_name(char *node_woof);
-
 char log_tag[1024];
 void log_set_level(int level);
 void log_set_output(FILE *file);

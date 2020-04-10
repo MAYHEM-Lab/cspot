@@ -19,6 +19,29 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
+void read_config(FILE *fp, int *members, char member_woofs[][RAFT_WOOF_NAME_LENGTH]) {
+	char buffer[256];
+	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+		fprintf(stderr, "Wrong format of config file\n");
+		fflush(stderr);
+		exit(1);
+	}
+	*members = atoi(buffer);
+	int i;
+	for (i = 0; i < *members; ++i) {
+		if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+			fprintf(stderr, "Wrong format of config file\n");
+			fflush(stderr);
+			exit(1);
+		}
+		buffer[strcspn(buffer, "\n")] = 0;
+		if (buffer[strlen(buffer) - 1] == '/') {
+			buffer[strlen(buffer) - 1] = 0;
+		}
+		strncpy(member_woofs[i], buffer, RAFT_WOOF_NAME_LENGTH);
+	}
+}
+
 int node_woof_name(char *node_woof) {
 	int err;
 	char local_ip[25];

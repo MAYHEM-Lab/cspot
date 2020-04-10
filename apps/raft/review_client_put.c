@@ -46,19 +46,20 @@ int review_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 
 			if (server_state.role != RAFT_LEADER) {
-				result.success = false;
+				result.appended = false;
 				result.seq_no = 0;
 				result.term = server_state.current_term;
+				memcpy(result.current_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
 			} else {
 				RAFT_LOG_ENTRY entry;
 				entry.term = server_state.current_term;
-				memcpy(&(entry.data), &(arg.data), sizeof(DATA_TYPE));
+				memcpy(&(entry.data), &(arg.data), sizeof(RAFT_DATA_TYPE));
 				unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
 				if (WooFInvalid(seq)) {
 					log_error("couldn't append raft log");
 					exit(1);
 				}
-				result.success = true;
+				result.appended = true;
 				result.seq_no = seq;
 				result.term = server_state.current_term;
 			}

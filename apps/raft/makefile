@@ -18,11 +18,9 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: raft.o append_entries_result client_get client_put count_vote create_woofs replicate_entries review_append_entries review_client_put review_request_vote start_server term_chair timeout_checker 
+all: raft.o client.o append_entries_result client_get client_put client_test count_vote create_woofs replicate_entries review_append_entries review_client_put review_request_vote start_server term_chair timeout_checker 
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp append_entries_result ./cspot;
-	cp client_get ./cspot;
-	cp client_put ./cspot;
 	cp count_vote ./cspot;
 	cp create_woofs ./cspot;
 	cp replicate_entries ./cspot;
@@ -36,16 +34,22 @@ all: raft.o append_entries_result client_get client_put count_vote create_woofs 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
 
+client.o: client.c client.h
+	${CC} ${CFLAGS} -c client.c
+
 append_entries_result: append_entries_result.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/append_entries_result/g' ${SHEP_SRC} > append_entries_result_shepherd.c
 	${CC} ${CFLAGS} -c append_entries_result_shepherd.c -o append_entries_result_shepherd.o
 	${CC} ${CFLAGS} -o append_entries_result append_entries_result.c append_entries_result_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_get: client_get.c raft.h
+client_get: client_get.c client.o raft.o
 	${CC} ${CFLAGS} -o client_get client_get.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	
-client_put: client_put.c raft.h
+
+client_put: client_put.c client.o raft.o
 	${CC} ${CFLAGS} -o client_put client_put.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+client_test: client_test.c client.o raft.o
+	${CC} ${CFLAGS} -o client_test client_test.c client.o raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 count_vote: count_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/count_vote/g' ${SHEP_SRC} > count_vote_shepherd.c
@@ -89,5 +93,5 @@ timeout_checker: timeout_checker.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} $
 	${CC} ${CFLAGS} -o timeout_checker timeout_checker.c timeout_checker_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o count_vote create_woofs review_request_vote start_server term_chair timeout_checker 
+	rm -rf ./cspot raft.o client.o append_entries_result client_get client_put client_test count_vote create_woofs replicate_entries review_append_entries review_client_put review_request_vote start_server term_chair timeout_checker 
 

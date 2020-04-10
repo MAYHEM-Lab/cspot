@@ -32,6 +32,7 @@ int append_entries_result(WOOF *wf, unsigned long seq_no, void *ptr) {
 		RAFT_TERM_ENTRY new_term;
 		new_term.term = result->term;
 		new_term.role = RAFT_FOLLOWER;
+		memcpy(new_term.leader, result->server_woof, RAFT_WOOF_NAME_LENGTH);
 		unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
 		if (WooFInvalid(seq)) {
 			log_error("couldn't ask term chair to fall back to follower at term %lu", new_term.term);
