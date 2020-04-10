@@ -46,6 +46,11 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
+	// zsys_init() is called automatically when a socket is created
+	// not thread safe and can only be called in main thread
+	// call it here to avoid being called concurrently in the threads
+	zsys_init();
+
 	// get the server's current term and cluster members
 	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(last_server_state)) {
@@ -244,7 +249,6 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 	
-// log_debug("joined");
 	return 1;
 
 }
