@@ -18,7 +18,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: raft.o client.o append_entries_result client_get client_put client_test count_vote create_woofs replicate_entries review_append_entries review_client_put review_request_vote start_server term_chair timeout_checker 
+all: objs test append_entries_result client_get client_put count_vote create_woofs replicate_entries review_append_entries review_client_put review_reconfig review_request_vote start_server term_chair timeout_checker 
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp append_entries_result ./cspot;
 	cp count_vote ./cspot;
@@ -26,10 +26,15 @@ all: raft.o client.o append_entries_result client_get client_put client_test cou
 	cp replicate_entries ./cspot;
 	cp review_append_entries ./cspot;
 	cp review_client_put ./cspot;
+	cp review_reconfig ./cspot;
 	cp review_request_vote ./cspot;
 	cp start_server ./cspot;
 	cp term_chair ./cspot;
 	cp timeout_checker ./cspot;
+
+test: objs client_test config_test
+
+objs: raft.o client.o
 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
@@ -50,6 +55,9 @@ client_put: client_put.c client.o raft.o
 
 client_test: client_test.c client.o raft.o
 	${CC} ${CFLAGS} -o client_test client_test.c client.o raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+config_test: config_test.c raft.o 
+	${CC} ${CFLAGS} -o config_test config_test.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 count_vote: count_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/count_vote/g' ${SHEP_SRC} > count_vote_shepherd.c
@@ -74,6 +82,11 @@ review_client_put: review_client_put.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOB
 	${CC} ${CFLAGS} -c review_client_put_shepherd.c -o review_client_put_shepherd.o
 	${CC} ${CFLAGS} -o review_client_put review_client_put.c review_client_put_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+review_reconfig: review_reconfig.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/review_reconfig/g' ${SHEP_SRC} > review_reconfig_shepherd.c
+	${CC} ${CFLAGS} -c review_reconfig_shepherd.c -o review_reconfig_shepherd.o
+	${CC} ${CFLAGS} -o review_reconfig review_reconfig.c review_reconfig_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 review_request_vote: review_request_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/review_request_vote/g' ${SHEP_SRC} > review_request_vote_shepherd.c
 	${CC} ${CFLAGS} -c review_request_vote_shepherd.c -o review_request_vote_shepherd.o
@@ -93,5 +106,4 @@ timeout_checker: timeout_checker.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} $
 	${CC} ${CFLAGS} -o timeout_checker timeout_checker.c timeout_checker_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o client.o append_entries_result client_get client_put client_test count_vote create_woofs replicate_entries review_append_entries review_client_put review_request_vote start_server term_chair timeout_checker 
-
+	rm -rf ./cspot raft.o client.o client_test config_test append_entries_result client_get client_put count_vote create_woofs replicate_entries review_append_entries review_client_put review_reconfig review_request_vote start_server term_chair timeout_checker 

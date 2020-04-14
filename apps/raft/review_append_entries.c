@@ -115,6 +115,10 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					} else {
 						// if the server has more entries that conflict with the leader, delete them	
 						if (latest_entry_seqno > request.prev_log_index) {
+							if (request.prev_log_index < server_state.commit_index) {
+								log_error("can't delete committed entries, prev_log_index: %lu, commit_index: %lu, fatal error", request.prev_log_index, server_state.commit_index);
+								exit(1);
+							}
 							// TODO: check if the entries after prev_log_index match
 							// if so, we don't need to call WooFTruncate()
 							err = WooFTruncate(RAFT_LOG_ENTRIES_WOOF, request.prev_log_index);
