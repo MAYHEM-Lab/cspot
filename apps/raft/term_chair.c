@@ -188,6 +188,9 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 			function_loop->replicate_entries.last_result_seqno = last_append_result;
 			// replicate_entries will be queued as next function_loop
+		} else if (next_role == RAFT_SHUTDOWN) {
+			// stop the function loop
+			return 1;
 		}
 	}
 

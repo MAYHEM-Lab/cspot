@@ -45,20 +45,36 @@ int review_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 
-			if (server_state.role != RAFT_LEADER) 
-			{
+			if (server_state.role != RAFT_LEADER) {
 				result.redirected = true;
 				result.seq_no = 0;
 				result.term = server_state.current_term;
 				memcpy(result.current_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
 			} else {
-				RAFT_LOG_ENTRY entry;
-				entry.term = server_state.current_term;
-				memcpy(&(entry.data), &(arg.data), sizeof(RAFT_DATA_TYPE));
-				unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
-				if (WooFInvalid(seq)) {
-					log_error("couldn't append raft log");
-					exit(1);
+				unsigned long seq;
+				if (arg.is_config) {
+					RAFT_RECONFIG_ARG new_config;
+					err = decode_config(arg.data, &new_config.members, new_config.member_woofs);
+					if (err < 0) {
+						log_error("couldn't decode config from client put request");
+						exit(1);
+					}
+					seq = WooFPut(RAFT_RECONFIG_ARG_WOOF, NULL, &new_config);
+					if (WooFInvalid(seq)) {
+						log_error("couldn't append new config");
+						exit(1);
+					}
+					log_debug("received a new config, initialized reconfig process");
+				} else {
+					RAFT_LOG_ENTRY entry;
+					entry.term = server_state.current_term;
+					memcpy(&(entry.data), &(arg.data), sizeof(RAFT_DATA_TYPE));
+					entry.is_config = false;
+					seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
+					if (WooFInvalid(seq)) {
+						log_error("couldn't append raft log");
+						exit(1);
+					}
 				}
 				result.redirected = false;
 				result.seq_no = seq;
@@ -79,10 +95,10 @@ int review_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 	
 	// queue the next review function
 	usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
-	sprintf(function_loop->next_invoking, "term_chair");
-	unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "term_chair", function_loop);
+	sprintf(function_loop->next_invoking, "review_reconfig");
+	unsigned long seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_reconfig", function_loop);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't queue the next function_loop: term_chair");
+		log_error("couldn't queue the next function_loop: review_reconfig");
 		exit(1);
 	}
 	return 1;

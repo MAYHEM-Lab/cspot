@@ -4,6 +4,7 @@
 #include "raft.h"
 
 #define RAFT_SUCCESS 0
+#define RAFT_NOT_COMMITTED 1;
 #define RAFT_ERROR -1
 #define RAFT_TIMEOUT -2
 #define RAFT_REDIRECTED -3

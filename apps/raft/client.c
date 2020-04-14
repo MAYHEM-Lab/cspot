@@ -29,6 +29,7 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bo
     unsigned long begin = get_milliseconds();
 
     RAFT_CLIENT_PUT_ARG arg;
+    arg.is_config = false;
     memcpy(&arg.data, data, sizeof(RAFT_DATA_TYPE)); 
     char woof_name[RAFT_WOOF_NAME_LENGTH];
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_ARG_WOOF);
@@ -132,14 +133,34 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned term) {
 		log_error("can't get put result at %lu", index);
         return RAFT_ERROR;
 	}
-	if (result.redirected == false) {
-		log_error("client put request got denied");
-		return RAFT_ERROR;
+	if (result.redirected == true) {
+		log_error("client put request got redirected");
+		return RAFT_REDIRECTED;
 	} else {
         if (term > 0 && result.term != term) {
             log_error("this request is processed at term %lu not %lu", result.term, term);
             return RAFT_ERROR;
         }
+
+        // check if it's committed
+        sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_SERVER_STATE_WOOF);
+        unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+        if (WooFInvalid(latest_server_state)) {
+            log_error("can't get the latest server state seqno");
+            return RAFT_ERROR;
+        }
+        RAFT_SERVER_STATE server_state;
+        err = WooFGet(woof_name, &server_state, latest_server_state);
+        if (err < 0) {
+            log_error("can't get the server state");
+            return RAFT_ERROR;
+        }
+        if (server_state.commit_index < result.seq_no) {
+            log_debug("entry not committed yet");
+            return RAFT_NOT_COMMITTED;
+        }
+
+        // check log entry term
         RAFT_LOG_ENTRY entry;
         sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_LOG_ENTRIES_WOOF);
         err = WooFGet(woof_name, &entry, result.seq_no);
@@ -153,6 +174,6 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned term) {
         }
         memcpy(data, &entry.data, sizeof(RAFT_DATA_TYPE));
 		log_debug("request %lu committed an entry at %lu at term %lu: %s", index, result.seq_no, result.term, data->val);
-		return 0;
+		return RAFT_SUCCESS;
 	}
 }
