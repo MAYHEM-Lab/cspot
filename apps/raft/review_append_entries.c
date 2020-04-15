@@ -14,7 +14,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
-
+log_error("triggered");
 	unsigned long latest_append_request = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_ARG_WOOF);
 	if (WooFInvalid(latest_append_request)) {
 		log_error("couldn't get the latest seqno from %s", RAFT_APPEND_ENTRIES_ARG_WOOF);
@@ -82,6 +82,7 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					log_error("couldn't put a new heartbeat from term %lu", request.term);
 					exit(1);
 				}
+				log_debug("received a heartbeat (%lu)", i);
 
 				// if it's a request without entry, it's just a heartbeat
 				if (request.entries[0].term == 0) {

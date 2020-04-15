@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <pthread.h>
 #include <time.h>
 #include "raft.h"
 
@@ -64,6 +65,16 @@ int node_woof_name(char *node_woof) {
 	return 0;
 }
 
+bool is_member(int members, char server[RAFT_WOOF_NAME_LENGTH], char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+	int i;
+	for (i = 0; i < members; ++i) {
+		if (strcmp(server, member_woofs[i]) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 int encode_config(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH], RAFT_DATA_TYPE *data) {
 	sprintf(data->val, "%d;", members);
 	int i;
@@ -119,6 +130,15 @@ int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_SERVER_
 	}
     *joint_members = tail;
     return 0;
+}
+
+void threads_join(int members, pthread_t *pids) {
+	int i;
+	for (i = 0; i < members; ++i) {
+		if (pids[i] != 0) {
+			pthread_join(pids[i], NULL);
+		}
+	}
 }
 
 void log_set_tag(const char *tag) {

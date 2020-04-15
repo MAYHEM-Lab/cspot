@@ -33,7 +33,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// not thread safe and can only be called in main thread
 	// call it here to avoid being called concurrently in the threads
 	zsys_init();
-	
+
 	// get the current term
 	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(latest_server_state)) {
@@ -92,6 +92,8 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 		function_loop->last_reviewed_term_chair = i;
 	}
 
+	pthread_t *thread_id = malloc(sizeof(pthread_t) * server_state.members);
+	memset(thread_id, 0, sizeof(pthread_t) * server_state.members);
 	// if there is a new term or new role
 	if (next_term > server_state.current_term || (next_term == server_state.current_term && next_role != server_state.role)) {
 		// if there's a new term, reset voted_for
@@ -139,13 +141,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 		if (next_role == RAFT_CANDIDATE) {
 			// if not belong to the cluster, step down
-			int i;
-			for (i = 0; i < server_state.members; ++i) {
-				if (strcmp(server_state.woof_name, server_state.member_woofs[i]) == 0) {
-					break;
-				}
-			}
-			if (i == server_state.members) { // not found in config members
+			if (!is_member(server_state.members, server_state.woof_name, server_state.member_woofs)) {
 				log_info("not in the cluster configuration anymore, shutdown");
 				return 1;
 			}
@@ -171,7 +167,6 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 
 			// requesting votes from members
-			pthread_t thread_id[server_state.members];
 			for (i = 0; i < server_state.members; ++i) {
 				REQUEST_VOTE_THREAD_ARG *thread_arg = malloc(sizeof(REQUEST_VOTE_THREAD_ARG));
 				sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_REQUEST_VOTE_ARG_WOOF);
@@ -181,9 +176,6 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 				thread_arg->arg.last_log_index = latest_log_entry;
 				thread_arg->arg.last_log_term = last_log_entry.term;
 				pthread_create(&thread_id[i], NULL, request_vote, (void *)thread_arg); 
-			}
-			for (i = 0; i < server_state.members; ++i) {
-				pthread_join(thread_id[i], NULL);
 			}
 			log_debug("requested vote from %d members", server_state.members);
 		} else if (next_role == RAFT_LEADER) {
@@ -228,5 +220,6 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 			exit(1);
 		}
 	}
+	threads_join(server_state.members, thread_id);
 	return 1;
 }

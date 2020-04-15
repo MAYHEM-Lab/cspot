@@ -46,7 +46,11 @@ int review_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 
 			result.candidate_vote_pool_seqno = request.candidate_vote_pool_seqno;
-			if (request.term < server_state.current_term) { // current term is higher than the request
+			// if not a member, deny the request and tell it to shut down
+			if (!is_member(server_state.members, request.candidate_woof, server_state.member_woofs)) {
+				result.term = 0; // result term 0 means shutdown
+				result.granted = false;
+			} else if (request.term < server_state.current_term) { // current term is higher than the request
 				result.term = server_state.current_term; // server term will always be greater than reviewing term
 				result.granted = false;
 				log_debug("rejected vote from lower term %lu at term %lu", request.term, server_state.current_term);

@@ -32,7 +32,7 @@
 #define RAFT_TIMEOUT_MIN 150
 #define RAFT_TIMEOUT_MAX 300
 #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
-#define RAFT_FUNCTION_LOOP_DELAY 10
+#define RAFT_FUNCTION_LOOP_DELAY 0
 
 #define LOG_DEBUG 0
 #define LOG_INFO 1
@@ -157,11 +157,13 @@ int random_timeout(unsigned long seed);
 unsigned long get_milliseconds();
 void read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
 int node_woof_name(char *node_woof);
+bool is_member(int members, char server[RAFT_WOOF_NAME_LENGTH], char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
 int encode_config(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH], RAFT_DATA_TYPE *data);
 int decode_config(RAFT_DATA_TYPE data, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
 int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH],
 	int new_members, char new_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH],
 	int *joint_members, char joint_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
+void threads_join(int members, pthread_t *pids);
 
 char log_tag[1024];
 void log_set_level(int level);
