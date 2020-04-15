@@ -100,19 +100,12 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bo
             return RAFT_ERROR;
         }
     } else {
-        // log_debug("entry %lu appended and is pending for committing at term %lu, took %lums", result.seq_no, result.term, get_milliseconds() - begin);
-        // if (index != NULL) {
-        //     *index = result.seq_no;
-        // }
-        // if (term != NULL) {
-        //     *term = result.term;
-        // }
         log_debug("entry appended and is pending, took %lums", get_milliseconds() - begin);
         return RAFT_SUCCESS;
     }
 }
 
-int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned term) {
+int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term) {
     log_set_tag("raft_get");
     unsigned long begin = get_milliseconds();
 
@@ -176,4 +169,51 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned term) {
 		log_debug("request %lu committed an entry at %lu at term %lu: %s", index, result.seq_no, result.term, data->val);
 		return RAFT_SUCCESS;
 	}
+}
+
+int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH], unsigned long *index, unsigned long *term) {
+    log_set_tag("raft_reconfig");
+    unsigned long begin = get_milliseconds();
+
+    RAFT_CLIENT_PUT_ARG arg;
+    int err = encode_config(members, member_woofs, &arg.data);
+    if (err < 0) {
+        log_error("couldn't encode new config");
+        return RAFT_ERROR;
+    }
+    arg.is_config = true;
+    char woof_name[RAFT_WOOF_NAME_LENGTH];
+    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_ARG_WOOF);
+    unsigned long seq = WooFPut(woof_name, NULL, &arg);
+    if (WooFInvalid(seq)) {
+        log_error("failed to send put request");
+        return RAFT_ERROR;
+    }
+
+    RAFT_CLIENT_PUT_RESULT result;
+    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
+    unsigned long latest_result = 0;
+    while (latest_result < seq) {
+        if (raft_client_timeout > 0 && get_milliseconds() - begin > raft_client_timeout) {
+            log_error("timeout after %lums", get_milliseconds() - begin);
+            return RAFT_TIMEOUT;
+        }
+        latest_result = WooFGetLatestSeqno(woof_name);
+        usleep(raft_client_result_delay * 1000);
+    }
+    err = WooFGet(woof_name, &result, seq);
+    if (err < 0) {
+        log_error("failed to get put result for put request %lu", seq);
+        return RAFT_ERROR;
+    }
+    if (result.redirected == true) {
+        log_warn("not a leader, redirect to %s", result.current_leader);
+        memcpy(raft_client_leader, result.current_leader, RAFT_WOOF_NAME_LENGTH);
+        return RAFT_REDIRECTED;
+    }
+    
+    log_debug("reconfig requested, seq_no: %lu, term: %lu", result.seq_no, result.term);
+    *index = result.seq_no;
+    *term = result.term;
+    return RAFT_SUCCESS;
 }

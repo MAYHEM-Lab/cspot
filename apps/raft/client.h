@@ -17,6 +17,7 @@ int raft_client_result_delay;
 void raft_init_client(FILE *fp);
 void raft_set_client_timeout(int timeout);
 int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bool sync);
-int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned term);
+int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term);
+int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH], unsigned long *index, unsigned long *term);
 
 #endif

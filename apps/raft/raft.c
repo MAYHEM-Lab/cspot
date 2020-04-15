@@ -186,7 +186,7 @@ void log_error(const char *message, ...) {
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;34m");
+	fprintf(raft_log_output, "\033[0;31m");
 	fprintf(raft_log_output, "ERROR| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
     vfprintf(raft_log_output, message, argptr);
 	fprintf(raft_log_output, "\033[0m\n");

@@ -27,7 +27,7 @@ void *append_entries(void *arg) {
 		// log_debug("sent heartbeat (%lu) to %s", seq, thread_arg->member_woof);
 	} else {
 		thread_arg->replicate_entries->last_sent_index[thread_arg->member_id] = thread_arg->replicate_entries->next_index[thread_arg->member_id];
-		log_debug("updated last_sent_index[%d] to %lu", thread_arg->member_id, thread_arg->replicate_entries->last_sent_index[thread_arg->member_id]);
+		log_debug("updated last_sent_index[%d] to %lu, %s", thread_arg->member_id, thread_arg->replicate_entries->last_sent_index[thread_arg->member_id], thread_arg->member_woof);
 		log_debug("sending %d entries to member %d, prev_log_index:%lu, prev_log_term:%lu [%lu]", thread_arg->num_entries_to_send, thread_arg->member_id, thread_arg->arg.prev_log_index, thread_arg->arg.prev_log_term, seq);
 	}
 	free(arg);
@@ -115,6 +115,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			min_seqno_to_send = replicate_entries->next_index[i];
 		}
 	}
+
 	// read all the entries to be sent to members, +1 for the previous entry
 	// int num_entries = min(last_log_index - min_seqno_to_send + 1, RAFT_MAX_ENTRIES_PER_REQUEST);
 	int num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
@@ -194,19 +195,9 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	char log_msg[256];
 	// check if there's new commit_index
-// sprintf(log_msg, "match_index: ");
-// for (i = 0; i < server_state.members; ++i) {
-// 	sprintf(log_msg + strlen(log_msg), "%lu ", replicate_entries->match_index[i]);
-// }
-// log_error(log_msg);
 	unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
 	memcpy(sorted_match_index, replicate_entries->match_index, sizeof(unsigned long) * server_state.members);
 	qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
-// sprintf(log_msg, "sorted : ");
-// for (i = 0; i < server_state.members; ++i) {
-// 	sprintf(log_msg + strlen(log_msg), "%lu ", sorted_match_index[i]);
-// }
-// log_error(log_msg);
 	for (i = server_state.members / 2; i < server_state.members; ++i) {
 		if (sorted_match_index[i] <= server_state.commit_index) {
 			break;

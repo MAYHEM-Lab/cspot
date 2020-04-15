@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
 	}
 	raft_init_client(fp);
 	fclose(fp);
-
+	
 	unsigned long index, term;
 	int err = raft_put(&data, &index, &term, sync);
 	while (err == RAFT_REDIRECTED) {
