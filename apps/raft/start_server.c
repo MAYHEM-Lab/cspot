@@ -80,6 +80,12 @@ int main(int argc, char **argv) {
 	function_loop.last_reviewed_term_chair = 0;
 	function_loop.last_reviewed_client_put = 0;
 	// function_loop.replicate_entries will be set when promoted to leader
+	function_loop.review_config.last_reviewed_config = 0;
+	function_loop.review_config.current_config = RAFT_CONFIG_STABLE;
+	function_loop.review_config.c_joint_seqno = 0;
+	function_loop.review_config.c_new_seqno = 0;
+	function_loop.review_config.joint_members = 0;
+	function_loop.review_config.new_config_seqno = 0;
 	sprintf(function_loop.next_invoking, "review_append_entries");
 	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", &function_loop);
 	if (WooFInvalid(seq)) {

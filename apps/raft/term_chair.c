@@ -29,6 +29,11 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
+	// zsys_init() is called automatically when a socket is created
+	// not thread safe and can only be called in main thread
+	// call it here to avoid being called concurrently in the threads
+	zsys_init();
+	
 	// get the current term
 	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(latest_server_state)) {
@@ -115,6 +120,10 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 				log_info("incremented the current term to %lu, role: CANDIDATE", next_term);
 				break;
 			}
+			case RAFT_SHUTDOWN: {
+				log_info("Shutting down the server at term %lu", next_term);
+				break;
+			}
 		}
 
 		// new term, new heartbeat
@@ -129,6 +138,17 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 
 		if (next_role == RAFT_CANDIDATE) {
+			// if not belong to the cluster, step down
+			int i;
+			for (i = 0; i < server_state.members; ++i) {
+				if (strcmp(server_state.woof_name, server_state.member_woofs[i]) == 0) {
+					break;
+				}
+			}
+			if (i == server_state.members) { // not found in config members
+				log_info("not in the cluster configuration anymore, shutdown");
+				return 1;
+			}
 			// initialize the vote progress
 			// remember the latest seqno of request_vote_result before requesting votes
 			unsigned long vote_pool_seqno = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_RESULT_WOOF);
@@ -151,7 +171,6 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 
 			// requesting votes from members
-			int i;
 			pthread_t thread_id[server_state.members];
 			for (i = 0; i < server_state.members; ++i) {
 				REQUEST_VOTE_THREAD_ARG *thread_arg = malloc(sizeof(REQUEST_VOTE_THREAD_ARG));
@@ -174,9 +193,9 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 				log_error("couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
 				exit(1);
 			}
-			memset(function_loop->replicate_entries.last_sent_index, 0, sizeof(unsigned long) * server_state.members);
-			memset(function_loop->replicate_entries.match_index, 0, sizeof(unsigned long) * server_state.members);
-			memset(function_loop->replicate_entries.last_timestamp, 0, sizeof(unsigned long) * server_state.members);
+			memset(function_loop->replicate_entries.last_sent_index, 0, sizeof(function_loop->replicate_entries.last_sent_index));
+			memset(function_loop->replicate_entries.match_index, 0, sizeof(function_loop->replicate_entries.last_sent_index));
+			memset(function_loop->replicate_entries.last_timestamp, 0, sizeof(function_loop->replicate_entries.last_sent_index));
 			int i;
 			for (i = 0; i < server_state.members; i++) {
 				function_loop->replicate_entries.next_index[i] = last_log_entry + 1;
@@ -190,6 +209,7 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 			// replicate_entries will be queued as next function_loop
 		} else if (next_role == RAFT_SHUTDOWN) {
 			// stop the function loop
+			log_info("shut down the server");
 			return 1;
 		}
 	}
@@ -209,5 +229,4 @@ int term_chair(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 	return 1;
-
 }

@@ -140,6 +140,23 @@ int review_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 								log_error("couldn't append entries[%d]", j);
 								exit(1);
 							}
+							// if this entry is a config entry, update server config
+							if (request.entries[j].is_config == true) {
+								int new_members;
+								char new_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
+								err = decode_config(request.entries[j].data, &new_members, new_member_woofs);
+								if (err < 0) {
+									log_error("couldn't decode config from entry[%lu]", j);
+								}
+								server_state.members = new_members;
+								memcpy(server_state.member_woofs, new_member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
+								unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+								if (WooFInvalid(seq)) {
+									log_error("couldn't update server config at term %lu", server_state.current_term);
+									exit(1);
+								}
+								log_debug("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
+							}
 						}
 						result.term = request.term;
 						result.success = true;
