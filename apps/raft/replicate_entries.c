@@ -24,10 +24,10 @@ void *append_entries(void *arg) {
 		log_error("couldn't send append_entries request to %s", thread_arg->member_woof);
 	}
 	if (thread_arg->arg.entries[0].term == 0) {
-		// log_debug("sent heartbeat (%lu) to %s", seq, thread_arg->member_woof);
+		log_debug("sent heartbeat (%lu) to %s", seq, thread_arg->member_woof);
 	} else {
 		thread_arg->replicate_entries->last_sent_index[thread_arg->member_id] = thread_arg->replicate_entries->next_index[thread_arg->member_id];
-		log_debug("updated last_sent_index[%d] to %lu, %s", thread_arg->member_id, thread_arg->replicate_entries->last_sent_index[thread_arg->member_id], thread_arg->member_woof);
+		log_debug("updated last_sent_index[%d] to %lu,", thread_arg->member_id, thread_arg->replicate_entries->last_sent_index[thread_arg->member_id]);
 		log_debug("sending %d entries to member %d, prev_log_index:%lu, prev_log_term:%lu [%lu]", thread_arg->num_entries_to_send, thread_arg->member_id, thread_arg->arg.prev_log_index, thread_arg->arg.prev_log_term, seq);
 	}
 	free(arg);
@@ -46,6 +46,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
+log_error("triggered");
 	// zsys_init() is called automatically when a socket is created
 	// not thread safe and can only be called in main thread
 	// call it here to avoid being called concurrently in the threads
@@ -216,6 +217,7 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("couldn't update commit_index at term %lu", server_state.current_term);
+				free(thread_id);
 				free(sorted_match_index);
 				exit(1);
 			}
@@ -224,22 +226,18 @@ int replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 	free(sorted_match_index);
-	
-	for (i = 0; i < server_state.members; ++i) {
-		if (thread_id[i] != 0) {
-			pthread_join(thread_id[i], NULL);
-		}
-	}
-	free(thread_id);
 
 	// queue the next replicate_entries function
 	usleep(RAFT_FUNCTION_LOOP_DELAY * 1000);
 	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", function_loop);
 	if (WooFInvalid(seq)) {
 		log_error("couldn't queue the next function_loop: review_append_entries");
+		free(thread_id);
 		exit(1);
 	}
-	
+
+	threads_join(server_state.members, thread_id);
+	free(thread_id);
 	return 1;
 
 }

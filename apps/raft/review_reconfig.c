@@ -163,16 +163,8 @@ int review_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (server_state.commit_index >= arg->c_new_seqno) {
 			arg->current_config = RAFT_CONFIG_STABLE;
 			log_info("the new config is committed. safe to shutdown servers in the old config");
-			// check if still in the cluster config
-			int i;
-			for (i = 0; i < server_state.members; ++i) {
-				if (strcmp(server_state.woof_name, server_state.member_woofs[i]) == 0) {
-					break;
-				}
-			}
-			log_debug("i: %d, members: %d", i, server_state.members);
 			// if not in new config, step down
-			if (i == server_state.members) {
+			if (!is_member(server_state.members, server_state.woof_name, server_state.member_woofs)) {
 				RAFT_TERM_ENTRY term_entry;
 				term_entry.term = server_state.current_term + 1;
 				term_entry.role = RAFT_SHUTDOWN;
