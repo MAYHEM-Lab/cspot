@@ -267,8 +267,10 @@ void *WooFReaper(void *arg)
 				V(&ForkerThrottle);
 				pthread_mutex_lock(&Tlock);
 				Tcount++;
+#ifdef DEBUG
 				printf("Reaper: count after increment: %d\n", Tcount);
 				fflush(stdout);
+#endif
 				pthread_mutex_unlock(&Tlock);
 			}
 		}
