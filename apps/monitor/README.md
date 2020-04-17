@@ -1,13 +1,14 @@
 # Monitor
 
-This is an implementation of handler monitor using WooFs. There can only be one handler running inside the WooF monitor at the same time.
+This is an implementation of handler monitor using WooFs. There can only be one single handler running inside a monitor at the same time.
 
 ## Usage
 
-To make a monitored WooF, simply 
+To make a monitor and use it to manage handlers, simply 
 
-1. replace `WooFCreate()` and  with `monitor_create()` and `monitor_put()`, and 
-2. add a `monitor_exit(wf, seq_no)` at the end of monitored handler, 
-3. use `monitor_get()` instead of `WooFGet()` to get element from monitored WooFs.
+1. Use `monitor_create(monitor_name)` to create a monitor.
+2. Replace `WooFPut(...)` with `monitor_put(monitor_name, ...)`.
+3. Inside the handler, use `monitor_cast(ptr)` instead of `ptr` to access the element.
+4. Before exiting from handler, call `monitor_exit(ptr)`. 
 
-See [monitor_test_handler.c](monitor_test_handler.c) and [monitor_test.c](monitor_test.c) for example.
+See [test_handler_monitored.c](test_handler_monitored.c) and [test_monitor.c](test_monitor.c) for example.

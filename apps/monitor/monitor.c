@@ -4,111 +4,102 @@
 #include "woofc.h"
 #include "monitor.h"
 
-int monitor_create(char *woof_name, unsigned long element_size, unsigned long history_size) {
-	int err = WooFCreate(woof_name, element_size, history_size);
-	if (err < 0) {
-		fprintf(stderr, "failed to create %s", woof_name);
-		return -1;
-	}
-	char invoker_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(invoker_woof, "%s_%s", woof_name, MONITOR_INVOKER_WOOF);
-	err = WooFCreate(invoker_woof, sizeof(MONITOR_INVOKER_ARG), MONITOR_HISTORY_LENGTH);
-	if (err < 0) {
-		fprintf(stderr, "failed to create %s", invoker_woof);
-		return -1;
-	}
+int monitor_create(char *monitor_name) {
 	char pool_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(pool_woof, "%s_%s", woof_name, MONITOR_POOL_WOOF);
-	err = WooFCreate(pool_woof, sizeof(MONITOR_POOL_ITEM) + element_size, MONITOR_HISTORY_LENGTH);
-	if (err < 0) {
-		fprintf(stderr, "failed to create %s", pool_woof);
+	sprintf(pool_woof, "%s_%s", monitor_name, MONITOR_POOL_WOOF);
+	if (WooFCreate(pool_woof, sizeof(MONITOR_POOL_ITEM), MONITOR_HISTORY_LENGTH) < 0) {
+		fprintf(stderr, "failed to create %s\n", pool_woof);
 		return -1;
 	}
 	char done_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(done_woof, "%s_%s", woof_name, MONITOR_DONE_WOOF);
-	err = WooFCreate(done_woof, sizeof(MONITOR_DONE_ITEM), MONITOR_HISTORY_LENGTH);
-	if (err < 0) {
-		fprintf(stderr, "failed to create %s", done_woof);
+	sprintf(done_woof, "%s_%s", monitor_name, MONITOR_DONE_WOOF);
+	if (WooFCreate(done_woof, sizeof(MONITOR_DONE_ITEM), MONITOR_HISTORY_LENGTH) < 0) {
+		fprintf(stderr, "failed to create %s\n", done_woof);
+		return -1;
+	}
+	char handler_woof[MONITOR_WOOF_NAME_LENGTH];
+	sprintf(handler_woof, "%s_%s", monitor_name, MONITOR_HANDLER_WOOF);
+	if (WooFCreate(handler_woof, sizeof(MONITOR_POOL_ITEM), MONITOR_HISTORY_LENGTH) < 0) {
+		fprintf(stderr, "failed to create %s\n", handler_woof);
+		return -1;
+	}
+	char invoker_woof[MONITOR_WOOF_NAME_LENGTH];
+	sprintf(invoker_woof, "%s_%s", monitor_name, MONITOR_INVOKER_WOOF);
+	if (WooFCreate(invoker_woof, sizeof(MONITOR_INVOKER_ARG), MONITOR_HISTORY_LENGTH) < 0) {
+		fprintf(stderr, "failed to create %s\n", invoker_woof);
 		return -1;
 	}
 
 	MONITOR_INVOKER_ARG invoker_arg;
-	invoker_arg.last_invoked = 0;
-	strcpy(invoker_arg.monitor_name, woof_name);
+	sprintf(invoker_arg.pool_woof, "%s_%s", monitor_name, MONITOR_POOL_WOOF);
+	sprintf(invoker_arg.done_woof, "%s_%s", monitor_name, MONITOR_DONE_WOOF);
+	sprintf(invoker_arg.handler_woof, "%s_%s", monitor_name, MONITOR_HANDLER_WOOF);
 	unsigned long seq = WooFPut(invoker_woof, "monitor_invoker", &invoker_arg);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "failed to start invoker handler\n");
 		return -1;
 	}
 	return 0;
 }
 
-unsigned long monitor_put(char *woof_name, char handler[MONITOR_WOOF_NAME_LENGTH], void *ptr) {
-	// create pool item for later invocation
-	MONITOR_POOL_ITEM pool_item;
-	strcpy(pool_item.woof_name, woof_name);
-	strcpy(pool_item.handler_name, handler);
-
-	// allocate memory for element and pool item
+unsigned long monitor_put(char *monitor_name, char *woof_name, char *handler, void *ptr) {
 	WOOF *wf = WooFOpen(woof_name);
 	if (wf == NULL) {
-		fprintf(stderr, "failed to open woof %s\n", woof_name);
 		return -1;
 	}
-	void *element = malloc(sizeof(MONITOR_POOL_ITEM) + wf->shared->element_size);
-	memcpy(element, &pool_item, sizeof(MONITOR_POOL_ITEM));
-	memcpy(element + sizeof(MONITOR_POOL_ITEM), ptr, wf->shared->element_size);
+	unsigned long woof_seq = WooFAppend(wf, NULL, ptr);
+	if (WooFInvalid(woof_seq)) {
+		WooFFree(wf);
+		return -1;
+	}
+	MONITOR_POOL_ITEM pool_item;
+	strcpy(pool_item.woof_name, woof_name);
+	strcpy(pool_item.handler, handler);
+	pool_item.seq_no = woof_seq;
+	pool_item.element_size = wf->shared->element_size;
+	strcpy(pool_item.monitor_name, monitor_name);
 	WooFFree(wf);
-
+	
 	char pool_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(pool_woof, "%s_%s", woof_name, MONITOR_POOL_WOOF);
-	unsigned long seq = WooFPut(pool_woof, NULL, element);
-	free(element);
-	if (WooFInvalid(seq)) {
-		fprintf(stderr, "failed to queue handler %s to monitor %s\n", pool_item.handler_name, wf->shared->filename);
+	sprintf(pool_woof, "%s_%s", monitor_name, MONITOR_POOL_WOOF);
+	unsigned long monitor_seq = WooFPut(pool_woof, NULL, &pool_item);
+	if (WooFInvalid(monitor_seq)) {
 		return -1;
 	}
-	return seq;
+	return woof_seq;
 }
 
-int monitor_get(char *woof_name, void *element, unsigned long seq) {
-	char done_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(done_woof, "%s_%s", woof_name, MONITOR_DONE_WOOF);
-	unsigned long last_done = WooFGetLatestSeqno(done_woof);
-	if (WooFInvalid(last_done)) {
-		fprintf(stderr, "failed get the latest seqno from %s\n", done_woof);
-		return -1;
-	}
-	if (seq < last_done) {
-		fprintf(stderr, "handler not done yet\n");
-		return -1;
-	}
-	MONITOR_DONE_ITEM done_item;
-	int err = WooFGet(done_woof, &done_item, seq);
+void *monitor_cast(void *ptr) {
+	MONITOR_POOL_ITEM *pool_item = (MONITOR_POOL_ITEM *)ptr;
+	void *element = malloc(pool_item->element_size);
+	int err = WooFGet(pool_item->woof_name, element, pool_item->seq_no);
 	if (err < 0) {
-		fprintf(stderr, "failed to get done handler information\n");
-		return -1;
+		return NULL;
 	}
-	return WooFGet(woof_name, element, done_item.seq_no);
+	return element;
 }
 
-int monitor_exit(WOOF *wf, unsigned long seq_no) {
+int monitor_exit(void *ptr) {
+	MONITOR_POOL_ITEM *pool_item = (MONITOR_POOL_ITEM *)ptr;
+
 	MONITOR_DONE_ITEM done_item;
-	done_item.seq_no = seq_no;
 	char done_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(done_woof, "%s_%s", wf->shared->filename, MONITOR_DONE_WOOF);
+	sprintf(done_woof, "%s_%s", pool_item->monitor_name, MONITOR_DONE_WOOF);
 	unsigned long seq = WooFPut(done_woof, NULL, &done_item);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "failed to notify the monitor %s that the handler is done\n", wf->shared->filename);
 		return -1;
 	}
-	return 0;
-}
 
-unsigned long monitor_last_done(char *woof_name) {
-	char done_woof[MONITOR_WOOF_NAME_LENGTH];
-	sprintf(done_woof, "%s_%s", woof_name, MONITOR_DONE_WOOF);
-	return WooFGetLatestSeqno(done_woof);
+	MONITOR_INVOKER_ARG invoker_arg;
+	sprintf(invoker_arg.pool_woof, "%s_%s", pool_item->monitor_name, MONITOR_POOL_WOOF);
+	sprintf(invoker_arg.done_woof, "%s_%s", pool_item->monitor_name, MONITOR_DONE_WOOF);
+	sprintf(invoker_arg.handler_woof, "%s_%s", pool_item->monitor_name, MONITOR_HANDLER_WOOF);
+	char invoker_woof[MONITOR_WOOF_NAME_LENGTH];
+	sprintf(invoker_woof, "%s_%s", pool_item->monitor_name, MONITOR_INVOKER_WOOF);
+	seq = WooFPut(invoker_woof, "monitor_invoker", &invoker_arg);
+	if (WooFInvalid(seq)) {
+		fprintf(stderr, "failed to spinlock on %s\n", invoker_woof);
+		exit(1);
+	}
 }
 
 void monitor_set_spinlock_delay(int milliseconds) {
