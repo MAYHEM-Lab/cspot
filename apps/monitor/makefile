@@ -28,9 +28,10 @@ objs: monitor.o
 
 handlers: monitor_invoker
 
-test: monitor_test monitor_test_handler objs copy
-	cp monitor_test ./cspot
-	cp monitor_test_handler ./cspot
+test: test_monitor test_handler_concurrent test_handler_monitored objs copy
+	cp test_monitor ./cspot
+	cp test_handler_concurrent ./cspot
+	cp test_handler_monitored ./cspot
 
 monitor.o: monitor.c monitor.h
 	${CC} ${CFLAGS} -c monitor.c
@@ -40,13 +41,18 @@ monitor_invoker: monitor_invoker.c objs ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WO
 	${CC} ${CFLAGS} -c monitor_invoker_shepherd.c -o monitor_invoker_shepherd.o
 	${CC} ${CFLAGS} -o monitor_invoker monitor_invoker.c monitor_invoker_shepherd.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-monitor_test: monitor_test.c monitor_test.h objs
-	${CC} ${CFLAGS} -o monitor_test monitor_test.c monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+test_handler_concurrent: test_handler_concurrent.c objs ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/test_handler_concurrent/g' ${SHEP_SRC} > test_handler_concurrent_shepherd.c
+	${CC} ${CFLAGS} -c test_handler_concurrent_shepherd.c -o test_handler_concurrent_shepherd.o
+	${CC} ${CFLAGS} -o test_handler_concurrent test_handler_concurrent.c test_handler_concurrent_shepherd.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-monitor_test_handler: monitor_test_handler.c objs ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/monitor_test_handler/g' ${SHEP_SRC} > monitor_test_handler_shepherd.c
-	${CC} ${CFLAGS} -c monitor_test_handler_shepherd.c -o monitor_test_handler_shepherd.o
-	${CC} ${CFLAGS} -o monitor_test_handler monitor_test_handler.c monitor_test_handler_shepherd.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+test_handler_monitored: test_handler_monitored.c objs ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/test_handler_monitored/g' ${SHEP_SRC} > test_handler_monitored_shepherd.c
+	${CC} ${CFLAGS} -c test_handler_monitored_shepherd.c -o test_handler_monitored_shepherd.o
+	${CC} ${CFLAGS} -o test_handler_monitored test_handler_monitored.c test_handler_monitored_shepherd.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+test_monitor: test_monitor.c test_monitor.h objs
+	${CC} ${CFLAGS} -o test_monitor test_monitor.c monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot *.o monitor_test_handler monitor_test monitor_invoker
+	rm -rf ./cspot *.o test_handler_concurrent test_handler_monitored test_monitor monitor_invoker
