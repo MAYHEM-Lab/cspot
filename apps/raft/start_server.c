@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
 	server_state.role = RAFT_FOLLOWER;
 	memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 	server_state.commit_index = 0;
+	server_state.current_config = RAFT_CONFIG_STABLE;
 	int err = node_woof_name(server_state.woof_name);
 	if (err < 0) {
 		fprintf(stderr, "Couldn't get woof name\n");
@@ -72,28 +73,6 @@ int main(int argc, char **argv) {
 	for (i = 0; i < server_state.members; ++i) {
 		printf("%d: %s\n", i + 1, server_state.member_woofs[i]);
 	}
-	fflush(stdout);
-
-	RAFT_FUNCTION_LOOP function_loop;
-	function_loop.last_reviewed_append_entries = 0;
-	function_loop.last_reviewed_request_vote = 0;
-	function_loop.last_reviewed_term_chair = 0;
-	function_loop.last_reviewed_client_put = 0;
-	// function_loop.replicate_entries will be set when promoted to leader
-	function_loop.review_config.last_reviewed_config = 0;
-	function_loop.review_config.current_config = RAFT_CONFIG_STABLE;
-	function_loop.review_config.c_joint_seqno = 0;
-	function_loop.review_config.c_new_seqno = 0;
-	function_loop.review_config.joint_members = 0;
-	function_loop.review_config.new_config_seqno = 0;
-	sprintf(function_loop.next_invoking, "review_append_entries");
-	seq = WooFPut(RAFT_FUNCTION_LOOP_WOOF, "review_append_entries", &function_loop);
-	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start function loop\n");
-		fflush(stderr);
-		exit(1);
-	}
-	printf("Started function loop\n");
 	fflush(stdout);
 
 	RAFT_HEARTBEAT heartbeat_arg;

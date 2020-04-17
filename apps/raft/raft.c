@@ -75,21 +75,18 @@ bool is_member(int members, char server[RAFT_WOOF_NAME_LENGTH], char member_woof
 	return false;
 }
 
-int encode_config(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH], RAFT_DATA_TYPE *data) {
-	sprintf(data->val, "%d;", members);
+int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+	sprintf(dst, "%d;", members);
 	int i;
 	for (i = 0; i < members; ++i) {
-		if (strlen(data->val) + strlen(member_woofs[i]) + 1 > RAFT_DATA_TYPE_SIZE) {
-			return -1; // RAFT_DATA_TYPE can't accommodate encoded config
-		}
-		sprintf(data->val + strlen(data->val), "%s;", member_woofs[i]);
+		sprintf(dst + strlen(dst), "%s;", member_woofs[i]);
 	}
 	return 0;
 }
 
-int decode_config(RAFT_DATA_TYPE data, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
     char *token;
-    token = strtok(data.val, ";");
+    token = strtok(src, ";");
     *members = atoi(token);
 	int i;
 	for (i = 0; i < *members; ++i) {

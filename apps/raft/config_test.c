@@ -12,7 +12,7 @@ int test_encode_decode() {
 	sprintf(member_woofs[1], "woof://192.168.0.2/home/centos/cspot2");
 	sprintf(member_woofs[2], "woof://192.168.0.3/home/centos/cspot3");
 
-	int err = encode_config(members, member_woofs, &data);
+	int err = encode_config(data.val, members, member_woofs);
 	if (err < 0) {
 		fprintf(stderr, "can't encode config\n");
 		return -1;
@@ -21,7 +21,7 @@ int test_encode_decode() {
 
 	int decoded_members = 0;
 	char decoded_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
-	err = decode_config(data, &decoded_members, decoded_woofs);
+	err = decode_config(data.val, &decoded_members, decoded_woofs);
 	if (err < 0) {
 		fprintf(stderr, "can't decode config\n");
 		return -1;

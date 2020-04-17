@@ -20,36 +20,44 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
 all: objs test copy clients
 
-copy: append_entries_result count_vote create_woofs replicate_entries review_append_entries review_client_put review_reconfig review_request_vote start_server term_chair timeout_checker 
+copy: h_append_entries_result h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_reconfig h_request_vote start_server term_chair h_timeout_checker 
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
-	cp append_entries_result ./cspot;
-	cp count_vote ./cspot;
+	cp h_append_entries_result ./cspot;
+	cp h_count_vote ./cspot;
 	cp create_woofs ./cspot;
-	cp replicate_entries ./cspot;
-	cp review_append_entries ./cspot;
-	cp review_client_put ./cspot;
-	cp review_reconfig ./cspot;
-	cp review_request_vote ./cspot;
+	cp h_replicate_entries ./cspot;
+	cp h_append_entries ./cspot;
+	cp h_client_put ./cspot;
+	cp h_reconfig ./cspot;
+	cp h_request_vote ./cspot;
 	cp start_server ./cspot;
 	cp term_chair ./cspot;
-	cp timeout_checker ./cspot;
+	cp h_timeout_checker ./cspot;
 
 test: client_test config_test objs
 
 clients: client_get client_put client_reconfig objs
 
-objs: raft.o client.o
+objs: raft.o client.o monitor.o
 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
 
+monitor.o: ../monitor.c ../monitor.h
+	cd ../monitor; make; cd ../raft; cp ../monitor/monitor.o .
+
 client.o: client.c client.h
 	${CC} ${CFLAGS} -c client.c
 
-append_entries_result: append_entries_result.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/append_entries_result/g' ${SHEP_SRC} > append_entries_result_shepherd.c
-	${CC} ${CFLAGS} -c append_entries_result_shepherd.c -o append_entries_result_shepherd.o
-	${CC} ${CFLAGS} -o append_entries_result append_entries_result.c append_entries_result_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_append_entries_result: h_append_entries_result.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_append_entries_result/g' ${SHEP_SRC} > h_append_entries_result_shepherd.c
+	${CC} ${CFLAGS} -c h_append_entries_result_shepherd.c -o h_append_entries_result_shepherd.o
+	${CC} ${CFLAGS} -o h_append_entries_result h_append_entries_result.c h_append_entries_result_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+h_append_entries: h_append_entries.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_append_entries/g' ${SHEP_SRC} > h_append_entries_shepherd.c
+	${CC} ${CFLAGS} -c h_append_entries_shepherd.c -o h_append_entries_shepherd.o
+	${CC} ${CFLAGS} -o h_append_entries h_append_entries.c h_append_entries_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_get: client_get.c objs
 	${CC} ${CFLAGS} -o client_get client_get.c client.o raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -66,38 +74,33 @@ client_test: client_test.c objs
 config_test: config_test.c raft.o 
 	${CC} ${CFLAGS} -o config_test config_test.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-count_vote: count_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/count_vote/g' ${SHEP_SRC} > count_vote_shepherd.c
-	${CC} ${CFLAGS} -c count_vote_shepherd.c -o count_vote_shepherd.o
-	${CC} ${CFLAGS} -o count_vote count_vote.c count_vote_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_count_vote: h_count_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_count_vote/g' ${SHEP_SRC} > h_count_vote_shepherd.c
+	${CC} ${CFLAGS} -c h_count_vote_shepherd.c -o h_count_vote_shepherd.o
+	${CC} ${CFLAGS} -o h_count_vote h_count_vote.c h_count_vote_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 create_woofs: create_woofs.c raft.h
 	${CC} ${CFLAGS} -o create_woofs create_woofs.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-replicate_entries: replicate_entries.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/replicate_entries/g' ${SHEP_SRC} > replicate_entries_shepherd.c
-	${CC} ${CFLAGS} -c replicate_entries_shepherd.c -o replicate_entries_shepherd.o
-	${CC} ${CFLAGS} -o replicate_entries replicate_entries.c replicate_entries_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_replicate_entries: h_replicate_entries.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_replicate_entries/g' ${SHEP_SRC} > h_replicate_entries_shepherd.c
+	${CC} ${CFLAGS} -c h_replicate_entries_shepherd.c -o h_replicate_entries_shepherd.o
+	${CC} ${CFLAGS} -o h_replicate_entries h_replicate_entries.c h_replicate_entries_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-review_append_entries: review_append_entries.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/review_append_entries/g' ${SHEP_SRC} > review_append_entries_shepherd.c
-	${CC} ${CFLAGS} -c review_append_entries_shepherd.c -o review_append_entries_shepherd.o
-	${CC} ${CFLAGS} -o review_append_entries review_append_entries.c review_append_entries_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_request_vote: h_request_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_request_vote/g' ${SHEP_SRC} > h_request_vote_shepherd.c
+	${CC} ${CFLAGS} -c h_request_vote_shepherd.c -o h_request_vote_shepherd.o
+	${CC} ${CFLAGS} -o h_request_vote h_request_vote.c h_request_vote_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-review_client_put: review_client_put.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/review_client_put/g' ${SHEP_SRC} > review_client_put_shepherd.c
-	${CC} ${CFLAGS} -c review_client_put_shepherd.c -o review_client_put_shepherd.o
-	${CC} ${CFLAGS} -o review_client_put review_client_put.c review_client_put_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_client_put: h_client_put.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_client_put/g' ${SHEP_SRC} > h_client_put_shepherd.c
+	${CC} ${CFLAGS} -c h_client_put_shepherd.c -o h_client_put_shepherd.o
+	${CC} ${CFLAGS} -o h_client_put h_client_put.c h_client_put_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-review_reconfig: review_reconfig.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/review_reconfig/g' ${SHEP_SRC} > review_reconfig_shepherd.c
-	${CC} ${CFLAGS} -c review_reconfig_shepherd.c -o review_reconfig_shepherd.o
-	${CC} ${CFLAGS} -o review_reconfig review_reconfig.c review_reconfig_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-review_request_vote: review_request_vote.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/review_request_vote/g' ${SHEP_SRC} > review_request_vote_shepherd.c
-	${CC} ${CFLAGS} -c review_request_vote_shepherd.c -o review_request_vote_shepherd.o
-	${CC} ${CFLAGS} -o review_request_vote review_request_vote.c review_request_vote_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_reconfig: h_reconfig.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_reconfig/g' ${SHEP_SRC} > h_reconfig_shepherd.c
+	${CC} ${CFLAGS} -c h_reconfig_shepherd.c -o h_reconfig_shepherd.o
+	${CC} ${CFLAGS} -o h_reconfig h_reconfig.c h_reconfig_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 start_server: start_server.c raft.h
 	${CC} ${CFLAGS} -o start_server start_server.c raft.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -107,10 +110,10 @@ term_chair: term_chair.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${S
 	${CC} ${CFLAGS} -c term_chair_shepherd.c -o term_chair_shepherd.o
 	${CC} ${CFLAGS} -o term_chair term_chair.c term_chair_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-timeout_checker: timeout_checker.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/timeout_checker/g' ${SHEP_SRC} > timeout_checker_shepherd.c
-	${CC} ${CFLAGS} -c timeout_checker_shepherd.c -o timeout_checker_shepherd.o
-	${CC} ${CFLAGS} -o timeout_checker timeout_checker.c timeout_checker_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_timeout_checker: h_timeout_checker.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_timeout_checker/g' ${SHEP_SRC} > h_timeout_checker_shepherd.c
+	${CC} ${CFLAGS} -c h_timeout_checker_shepherd.c -o h_timeout_checker_shepherd.o
+	${CC} ${CFLAGS} -o h_timeout_checker h_timeout_checker.c h_timeout_checker_shepherd.o raft.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o client.o client_test config_test append_entries_result client_get client_put client_reconfig count_vote create_woofs replicate_entries review_append_entries review_client_put review_reconfig review_request_vote start_server term_chair timeout_checker 
+	rm -rf ./cspot raft.o client.o client_test config_test h_append_entries_result client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_reconfig h_request_vote start_server term_chair h_timeout_checker 
