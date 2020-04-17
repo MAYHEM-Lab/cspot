@@ -5,8 +5,9 @@
 
 #include "woofc.h"
 #include "raft.h"
+#include "monitor.h"
 
-int append_entries_result(WOOF *wf, unsigned long seq_no, void *ptr) {
+int h_append_entries_result(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_APPEND_ENTRIES_RESULT *result = (RAFT_APPEND_ENTRIES_RESULT *)ptr;
 	
 	log_set_tag("append_entries_result");
@@ -29,16 +30,19 @@ int append_entries_result(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	if (result->term > server_state.current_term) {
 		// fall back to follower
-		RAFT_TERM_ENTRY new_term;
-		new_term.term = result->term;
-		new_term.role = RAFT_FOLLOWER;
-		memcpy(new_term.leader, result->server_woof, RAFT_WOOF_NAME_LENGTH);
-		unsigned long seq = WooFPut(RAFT_TERM_ENTRIES_WOOF, NULL, &new_term);
+		log_debug("result term %lu is higher than server's term %lu, fall back to follower", result->term, server_state.current_term);
+		server_state.current_term = result->term;
+		server_state.role = RAFT_FOLLOWER;
+		memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+		unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 		if (WooFInvalid(seq)) {
-			log_error("couldn't ask term chair to fall back to follower at term %lu", new_term.term);
+			log_error("couldn't fall back to follower at term %lu", result->term);
 			exit(1);
 		}
-		log_debug("result term %lu is higher than server's term %lu, fall back to follower", result->term, server_state.current_term);
 	}
+
+	// TODO: update commit_index
+
+	monitor_exit(wf, seq_no);
 	return 1;
 }
