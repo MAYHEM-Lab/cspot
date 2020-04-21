@@ -6,10 +6,9 @@
 #include "test_monitor.h"
 
 #define MONITOR_NAME "monitor_test"
-#define ARGS "c:t:m"
+#define ARGS "c:m"
 char *Usage = "test_monitor\n\
 	\t-c number of runs, default to 10\n\
-	\t-t spinlock delay (ms), default to 0\n\
 	\t-m to monitor handlers\n";
 
 int main(int argc, char **argv) {
@@ -24,10 +23,6 @@ int main(int argc, char **argv) {
 			}
 			case 'm': {
 				monitored = 1;
-				break;
-			}
-			case 't': {
-				monitor_set_spinlock_delay(atoi(optarg));
 				break;
 			}
 			default: {
@@ -79,6 +74,7 @@ int main(int argc, char **argv) {
 				exit(1);
 			}
 		}
+		printf("%d\n", i);
 	}
 
 	return 0;

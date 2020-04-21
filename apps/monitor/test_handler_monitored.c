@@ -8,8 +8,9 @@
 
 int test_handler_monitored(WOOF *wf, unsigned long seq_no, void *ptr) {
 	TEST_MONITOR_ARG *arg = (TEST_MONITOR_ARG *)monitor_cast(ptr);
-	int i;
+	
 	TEST_MONITOR_COUNTER counter;
+	int i;
 	for (i = 0; i < 100; ++i) {
 		unsigned long seq = WooFGetLatestSeqno(TEST_MONITOR_COUNTER_WOOF);
 		if (WooFInvalid(seq)) {
