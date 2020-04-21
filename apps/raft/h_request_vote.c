@@ -46,7 +46,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	} else {
 		if (request->term > server_state.current_term) {
 			// fallback to follower
-			log_debug("request term %lu is higher than the current term %lu, fall back to follower", request->term, server_state.current_term);
+			log_debug("request term %lu is higher, fall back to follower", request->term);
 			server_state.current_term = request->term;
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, request->candidate_woof);
@@ -56,6 +56,15 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				log_error("failed to fall back to follower at term %lu", request->term);
 				free(request);
 				exit(1);
+			}
+			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+			if (WooFInvalid(seq)) {
+				log_error("failed to start the timeout checker");
+				exit(1);
+				free(request);
 			}
 		}
 		

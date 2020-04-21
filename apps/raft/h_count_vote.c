@@ -64,7 +64,7 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 		}
 	}
-	log_info("counted %d granted votes for term %lu", granted_votes, result->term);
+	log_debug("counted %d granted votes for term %lu", granted_votes, result->term);
 
 	// if the majority granted, promoted to leader
 	if (granted_votes > server_state.members / 2) {
@@ -78,7 +78,8 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(result);
 			exit(1);
 		}
-		log_info("promoted to leader for term %lu", result->term);
+		log_debug("promoted to leader for term %lu", result->term);
+		log_info("state changed at term %lu: LEADER", server_state.current_term);
 
 		// start replicate_entries handlers
 		unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);

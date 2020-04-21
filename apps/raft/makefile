@@ -102,4 +102,4 @@ start_server: start_server.c raft.o monitor.o
 	${CC} ${CFLAGS} -o start_server start_server.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o client.o client_test config_test h_append_entries_result client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_reconfig h_request_vote start_server term_chair h_timeout_checker 
+	rm -rf ./cspot raft.o client.o client_test config_test client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_reconfig h_request_vote start_server term_chair h_timeout_checker 

@@ -42,9 +42,14 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		result.success = false;
 		// log_debug("received a previous request [%lu]", seq_no);
 	} else {
-		if (request->term > server_state.current_term) {
+		if (request->term == server_state.current_term && server_state.role == RAFT_LEADER) {
+			log_error("fatal error: receiving append_entries request at term %lu while being a leader", server_state.current_term);
+			free(request);
+			exit(1);
+		}
+		if (request->term > server_state.current_term || (request->term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
 			// fall back to follower
-			log_debug("request term %lu is higher than server's term %lu, fall back to follower", request->term, server_state.current_term);
+			log_debug("request term %lu is higher, fall back to follower", request->term);
 			server_state.current_term = request->term;
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, request->leader_woof);
@@ -52,6 +57,15 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("failed to fall back to follower at term %lu", request->term);
+				free(request);
+				exit(1);
+			}
+			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+			if (WooFInvalid(seq)) {
+				log_error("failed to start the timeout checker");
 				free(request);
 				exit(1);
 			}

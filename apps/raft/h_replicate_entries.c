@@ -90,7 +90,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 		if (result.term > server_state.current_term) {
 			// fall back to follower
-			log_debug("result term %lu is higher than server's term %lu, fall back to follower", result.term, server_state.current_term);
+			log_debug("request term %lu is higher, fall back to follower", result.term);
 			server_state.current_term = result.term;
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, result.server_woof);
@@ -98,6 +98,15 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("failed to fall back to follower at term %lu", result.term);
+				free(arg);
+				exit(1);
+			}
+			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+			if (WooFInvalid(seq)) {
+				log_error("failed to start the timeout checker");
 				free(arg);
 				exit(1);
 			}
@@ -120,40 +129,40 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 		}
 		arg->last_seen_result_seqno = result_seq;
+	}
 
-		// TODO: update commit_index here using qsort
-		unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
-		memcpy(sorted_match_index, arg->match_index, sizeof(unsigned long) * server_state.members);
-		qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
-		int i;
-		for (i = server_state.members / 2; i < server_state.members; ++i) {
-			if (sorted_match_index[i] <= server_state.commit_index) {
-				break;
-			}
-			RAFT_LOG_ENTRY entry;
-			int err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]);
-			if (err < 0) {
-				log_error("failed to get the log_entry at %lu", sorted_match_index[i]);
+	// update commit_index using qsort
+	unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
+	memcpy(sorted_match_index, arg->match_index, sizeof(unsigned long) * server_state.members);
+	qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
+	int i;
+	for (i = server_state.members / 2; i < server_state.members; ++i) {
+		if (sorted_match_index[i] <= server_state.commit_index) {
+			break;
+		}
+		RAFT_LOG_ENTRY entry;
+		int err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]);
+		if (err < 0) {
+			log_error("failed to get the log_entry at %lu", sorted_match_index[i]);
+			free(sorted_match_index);
+			free(arg);
+			exit(1);
+		}
+		if (entry.term == server_state.current_term && sorted_match_index[i] > server_state.commit_index) {
+			// update commit_index
+			server_state.commit_index = sorted_match_index[i];
+			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+			if (WooFInvalid(seq)) {
+				log_error("failed to update commit_index at term %lu", server_state.current_term);
 				free(sorted_match_index);
 				free(arg);
 				exit(1);
 			}
-			if (entry.term == server_state.current_term && sorted_match_index[i] > server_state.commit_index) {
-				// update commit_index
-				server_state.commit_index = sorted_match_index[i];
-				unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
-				if (WooFInvalid(seq)) {
-					log_error("failed to update commit_index at term %lu", server_state.current_term);
-					free(sorted_match_index);
-					free(arg);
-					exit(1);
-				}
-				log_debug("updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
-				break;
-			}
+			log_debug("updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
+			break;
 		}
-		free(sorted_match_index);
 	}
+	free(sorted_match_index);
 
 	// checking what entries need to be replicated
 	unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
@@ -168,6 +177,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	int m;
 	for (m = 0; m < server_state.members; ++m) {
 		if (strcmp(server_state.member_woofs[m], server_state.woof_name) == 0) {
+			arg->match_index[m] = last_log_entry_seqno;
 			continue; // no need to replicate to itself
 		}
 		unsigned long num_entries = last_log_entry_seqno - arg->next_index[m] + 1;
@@ -181,7 +191,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			thread_arg->num_entries = num_entries;
 			strcpy(thread_arg->member_woof, server_state.member_woofs[m]);
 			thread_arg->arg.term = server_state.current_term;
-			memcpy(thread_arg->arg.leader_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+			strcpy(thread_arg->arg.leader_woof, server_state.woof_name);
 			thread_arg->arg.prev_log_index = arg->next_index[m] - 1;
 			if (thread_arg->arg.prev_log_index == 0) {
 				thread_arg->arg.prev_log_term = 0;

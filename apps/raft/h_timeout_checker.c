@@ -92,6 +92,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 			exit(1);
 		}
 		log_debug("started an election for term %lu as a candidate", server_state.current_term);
+		log_info("state changed at term %lu: CANDIDATE", server_state.current_term);
 
 		// put a heartbeat to avoid another timeout
 		RAFT_HEARTBEAT heartbeat;
