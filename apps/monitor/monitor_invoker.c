@@ -8,7 +8,6 @@
 
 int monitor_invoker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	MONITOR_INVOKER_ARG *arg = (MONITOR_INVOKER_ARG *)ptr;
-
 	unsigned long last_done = WooFGetLatestSeqno(arg->done_woof);
 	if (WooFInvalid(last_done)) {
 		fprintf(stderr, "can't get the last done seqno from %s\n", arg->done_woof);
@@ -30,8 +29,14 @@ int monitor_invoker(WOOF *wf, unsigned long seq_no, void *ptr) {
 			fprintf(stderr, "failed to invoke handler %s\n", pool_item.handler);
 			exit(1);
 		}
+#ifdef PROCESS_TIME
+		struct timeval tv;
+		gettimeofday(&tv,NULL);
+		printf("took %lums to invoke %s\n", ((unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000) - pool_item.queued_ts, pool_item.handler);
+#endif
+
 	} else {
-		usleep(monitor_spinlock_delay * 1000);
+		usleep(arg->spinlock_delay * 1000);
 		unsigned long seq = WooFPut(arg->handler_woof, "monitor_invoker", arg);
 		if (WooFInvalid(seq)) {
 			fprintf(stderr, "failed to spinlock on %s\n", arg->handler_woof);
