@@ -8,13 +8,15 @@
 #include "client.h"
 
 #define ARGS "f:d:sr"
-char *Usage = "client_put -f config -d data\n-s for synchronously put, -r to redirect if leader is down\n";
+char *Usage = "client_put -f config -d data\n\
+-s for synchronously put, -r to redirect if leader is down\n";
 
 int get_result_delay = 20;
 
 int main(int argc, char **argv) {
 	char config[256];
 	RAFT_DATA_TYPE data;
+	memset(data.val, 0, sizeof(data.val));
 	bool sync = false;
 	bool redirect = false;
 
@@ -46,10 +48,14 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	if (config[0] == 0 || data.val[0] == 0) {
+		fprintf(stderr, "%s", Usage);
+		exit(1);
+	}
+
 	FILE *fp = fopen(config, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "couldn't open config file");
-		fflush(stderr);
 		exit(1);
 	}
 	raft_init_client(fp);

@@ -20,6 +20,10 @@ void raft_init_client(FILE *fp) {
     raft_client_result_delay = 10;
 }
 
+void raft_set_client_leader(char *leader) {
+    strcpy(raft_client_leader, leader);
+}
+
 void raft_set_client_timeout(int timeout) {
     raft_client_timeout = timeout;
 }
@@ -31,10 +35,12 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bo
     RAFT_CLIENT_PUT_ARG arg;
     arg.is_config = false;
     memcpy(&arg.data, data, sizeof(RAFT_DATA_TYPE)); 
+    char handler_name[RAFT_WOOF_NAME_LENGTH];
     char woof_name[RAFT_WOOF_NAME_LENGTH];
+    sprintf(handler_name, "%s/%s", raft_client_leader, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_ARG_WOOF);
-    unsigned long seq = WooFPut(woof_name, NULL, &arg);
-    if (WooFInvalid(seq)) {
+    unsigned long r_seq = monitor_remote_put(handler_name, woof_name, "h_client_put", &arg);
+    if (WooFInvalid(r_seq)) {
         log_error("failed to send put request");
         return RAFT_ERROR;
     }
@@ -42,17 +48,17 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bo
         RAFT_CLIENT_PUT_RESULT result;
         sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
         unsigned long latest_result = 0;
-        while (latest_result < seq) {
+        while (latest_result < r_seq) {
             if (raft_client_timeout > 0 && get_milliseconds() - begin > raft_client_timeout) {
-                log_error("timeout after %lums", get_milliseconds() - begin);
+                log_error("timeout after %lums", raft_client_timeout);
                 return RAFT_TIMEOUT;
             }
             latest_result = WooFGetLatestSeqno(woof_name);
             usleep(raft_client_result_delay * 1000);
         }
-        int err = WooFGet(woof_name, &result, seq);
-        if (err < 0) {
-            log_error("failed to get put result for put request %lu", seq);
+        log_debug("successfully put, waiting for commit");
+        if (WooFGet(woof_name, &result, r_seq) < 0) {
+            log_error("failed to get put result for put request %lu", r_seq);
             return RAFT_ERROR;
         }
         if (result.redirected == true) {
@@ -66,12 +72,11 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bo
         unsigned long commit_index = 0;
         while (commit_index < result.seq_no) {
             if (raft_client_timeout > 0 && get_milliseconds() - begin > raft_client_timeout) {
-                log_error("timeout after %lums", get_milliseconds() - begin);
+                log_error("timeout after %lums", raft_client_timeout);
                 return RAFT_TIMEOUT;
             }
             unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
-            err = WooFGet(woof_name, &server_state, latest_server_state);
-            if (err < 0) {
+            if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
                 log_error("appended but can't get leader's commit index");
                 return RAFT_ERROR;
             }
@@ -81,8 +86,7 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, bo
 
         RAFT_LOG_ENTRY entry;
         sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_LOG_ENTRIES_WOOF);
-        err = WooFGet(woof_name, &entry, result.seq_no);
-        if (err < 0) {
+        if (WooFGet(woof_name, &entry, result.seq_no) < 0) {
             log_error("appended but can't check committed entry term");
             return RAFT_ERROR;
         }
@@ -121,8 +125,7 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term) {
 		log_debug("client put request still pending");
 		return RAFT_ERROR;
 	}
-	int err = WooFGet(woof_name, &result, index);
-	if (err < 0) {
+	if (WooFGet(woof_name, &result, index) < 0) {
 		log_error("can't get put result at %lu", index);
         return RAFT_ERROR;
 	}
@@ -143,8 +146,7 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term) {
             return RAFT_ERROR;
         }
         RAFT_SERVER_STATE server_state;
-        err = WooFGet(woof_name, &server_state, latest_server_state);
-        if (err < 0) {
+        if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
             log_error("can't get the server state");
             return RAFT_ERROR;
         }
@@ -156,8 +158,7 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term) {
         // check log entry term
         RAFT_LOG_ENTRY entry;
         sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_LOG_ENTRIES_WOOF);
-        err = WooFGet(woof_name, &entry, result.seq_no);
-        if (err < 0) {
+        if (WooFGet(woof_name, &entry, result.seq_no) < 0) {
             log_error("can't get log entry at %lu", result.seq_no);
             return RAFT_ERROR;
         }
@@ -176,8 +177,7 @@ int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WO
     unsigned long begin = get_milliseconds();
 
     RAFT_CLIENT_PUT_ARG arg;
-    int err = encode_config(members, member_woofs, &arg.data);
-    if (err < 0) {
+    if (encode_config(arg.data.val, members, member_woofs) < 0) {
         log_error("couldn't encode new config");
         return RAFT_ERROR;
     }
@@ -201,8 +201,7 @@ int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WO
         latest_result = WooFGetLatestSeqno(woof_name);
         usleep(raft_client_result_delay * 1000);
     }
-    err = WooFGet(woof_name, &result, seq);
-    if (err < 0) {
+    if (WooFGet(woof_name, &result, seq) < 0) {
         log_error("failed to get put result for put request %lu", seq);
         return RAFT_ERROR;
     }
@@ -216,4 +215,23 @@ int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WO
     *index = result.seq_no;
     *term = result.term;
     return RAFT_SUCCESS;
+}
+
+int raft_current_leader(char *member_woof, char *current_leader) {
+    char woof_name[RAFT_WOOF_NAME_LENGTH];
+    sprintf(woof_name, "%s/%s", member_woof, RAFT_SERVER_STATE_WOOF);
+    unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+    if (WooFInvalid(latest_server_state)) {
+        fprintf(stderr, "failed to get the latest seqno from %s\n", woof_name);
+        fflush(stderr);
+        return -1;
+    }
+    RAFT_SERVER_STATE server_state;
+    if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
+        fprintf(stderr, "failed to get the latest server_state %lu from %s\n", latest_server_state, woof_name);
+        fflush(stderr);
+        return -1;
+    }
+    strcpy(current_leader, server_state.current_leader);
+    return 0;
 }

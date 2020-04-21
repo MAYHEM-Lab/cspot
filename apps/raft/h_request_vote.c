@@ -9,7 +9,7 @@
 #include "monitor.h"
 
 int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
-	RAFT_REQUEST_VOTE_ARG *request = (RAFT_REQUEST_VOTE_ARG *)ptr;
+	RAFT_REQUEST_VOTE_ARG *request = (RAFT_REQUEST_VOTE_ARG *)monitor_cast(ptr);
 
 	log_set_tag("request_vote");
 	// log_set_level(LOG_INFO);
@@ -19,13 +19,15 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// get the server's current term
 	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(last_server_state)) {
-		log_error("couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
+		log_error("failed to get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
+		free(request);
 		exit(1);
 	}
 	RAFT_SERVER_STATE server_state;
 	int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
 	if (err < 0) {
-		log_error("couldn't get the server state");
+		log_error("failed to get the server state");
+		free(request);
 		exit(1);
 	}
 
@@ -33,7 +35,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_REQUEST_VOTE_RESULT result;
 	result.candidate_vote_pool_seqno = request->candidate_vote_pool_seqno;
 	// if not a member, deny the request and tell it to shut down
-	if (!is_member(server_state.members, request->candidate_woof, server_state.member_woofs)) {
+	if (member_id(server_state.members, request->candidate_woof, server_state.member_woofs) == -1) {
 		result.term = 0; // result term 0 means shutdown
 		result.granted = false;
 		log_debug("rejected a vote from a candidate not in the config anymore");
@@ -47,10 +49,12 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			log_debug("request term %lu is higher than the current term %lu, fall back to follower", request->term, server_state.current_term);
 			server_state.current_term = request->term;
 			server_state.role = RAFT_FOLLOWER;
+			strcpy(server_state.current_leader, request->candidate_woof);
 			memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
-				log_error("couldn't fall back to follower at term %lu", request->term);
+				log_error("failed to fall back to follower at term %lu", request->term);
+				free(request);
 				exit(1);
 			}
 		}
@@ -60,13 +64,15 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			// check if the log is up-to-date
 			unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);	
 			if (WooFInvalid(latest_log_entry)) {
-				log_error("couldn't get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+				log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+				free(request);
 				exit(1);
 			}
 			RAFT_LOG_ENTRY last_log_entry;
 			if (latest_log_entry > 0) {
 				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry) < 0) {
-					log_error("couldn't get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
+					log_error("failed to get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
+					free(request);
 					exit(1);
 				}
 			}
@@ -83,7 +89,8 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				memcpy(server_state.voted_for, request->candidate_woof, RAFT_WOOF_NAME_LENGTH);
 				unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 				if (WooFInvalid(seq)) {
-					log_error("couldn't update voted_for at term %lu", server_state.current_term);
+					log_error("failed to update voted_for at term %lu", server_state.current_term);
+					free(request);
 					exit(1);
 				}
 				result.granted = true;
@@ -95,23 +102,19 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 	// return the request
+	char candidate_monitor[RAFT_WOOF_NAME_LENGTH];
 	char candidate_result_woof[RAFT_WOOF_NAME_LENGTH];
+	sprintf(candidate_monitor, "%s/%s", request->candidate_woof, RAFT_MONITOR_NAME);
 	sprintf(candidate_result_woof, "%s/%s", request->candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
-	if (result.granted == true) {
-		unsigned long seq = WooFPut(candidate_result_woof, "count_vote", &result);
-		if (WooFInvalid(seq)) {
-			log_error("couldn't return the vote result to %s", candidate_result_woof);
-			exit(1);
-		}
-	} else {
-		unsigned long seq = WooFPut(candidate_result_woof, NULL, &result);
-		if (WooFInvalid(seq)) {
-			log_error("couldn't return the vote result to %s", candidate_result_woof);
-			exit(1);
-		}
+	unsigned long seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result);
+	if (WooFInvalid(seq)) {
+		log_error("failed to return the vote result to %s", candidate_result_woof);
+		free(request);
+		exit(1);
 	}
-	
-	monitor_exit(wf, seq_no);
+
+	free(request);
+	monitor_exit(ptr);
 	return 1;
 
 }

@@ -7,24 +7,30 @@
 
 #include "woofc.h"
 #include "raft.h"
+#include "monitor.h"
 
-typedef struct append_entries_thread_arg {
+typedef struct replicate_thread_arg {
 	int member_id;
-	int num_entries_to_send;
 	char member_woof[RAFT_WOOF_NAME_LENGTH];
+	int num_entries;
 	RAFT_APPEND_ENTRIES_ARG arg;
-} APPEND_ENTRIES_THREAD_ARG;
+} REPLICATE_THREAD_ARG;
 
-void *append_entries(void *arg) {
-	APPEND_ENTRIES_THREAD_ARG *thread_arg = (APPEND_ENTRIES_THREAD_ARG *)arg;
-	unsigned long seq = WooFPut(thread_arg->member_woof, NULL, &thread_arg->arg);
+void *replicate_thread(void *arg) {
+	REPLICATE_THREAD_ARG *replicate_thread_arg = (REPLICATE_THREAD_ARG *)arg;
+	char monitor_name[RAFT_WOOF_NAME_LENGTH];
+	char woof_name[RAFT_WOOF_NAME_LENGTH];
+	sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
+	sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
+	unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't send append_entries request to %s", thread_arg->member_woof);
-	}
-	if (thread_arg->arg.entries[0].term == 0) {
-		log_debug("sent heartbeat (%lu) to %s", seq, thread_arg->member_woof);
+		log_warn("failed to replicate the log entries to member %d", replicate_thread_arg->member_id);
 	} else {
-		log_debug("sending %d entries to member %d, prev_log_index:%lu, prev_log_term:%lu [%lu]", thread_arg->num_entries_to_send, thread_arg->member_id, thread_arg->arg.prev_log_index, thread_arg->arg.prev_log_term, seq);
+		if (replicate_thread_arg->num_entries > 0) {
+			log_debug("sent %d entries to member %d", replicate_thread_arg->num_entries, replicate_thread_arg->member_id);
+		} else {
+			// log_debug("sent a heartbeat to member %d [%lu]", replicate_thread_arg->member_id, seq);
+		}
 	}
 	free(arg);
 }
@@ -34,7 +40,7 @@ int comp_index(const void *a, const void *b) {
 }
 
 int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
-	RAFT_REPLICATE_ENTRIES *arg = (RAFT_REPLICATE_ENTRIES *)ptr;
+	RAFT_REPLICATE_ENTRIES_ARG *arg = (RAFT_REPLICATE_ENTRIES_ARG *)monitor_cast(ptr);
 
 	log_set_tag("replicate_entries");
 	// log_set_level(LOG_INFO);
@@ -45,118 +51,175 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// not thread safe and can only be called in main thread
 	// call it here to avoid being called concurrently in the threads
 	zsys_init();
-
+	
 	// get the server's current term and cluster members
 	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(last_server_state)) {
-		log_error("couldn't get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
+		log_error("failed to get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
+		free(arg);
 		exit(1);
 	}
 	RAFT_SERVER_STATE server_state;
 	if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state) < 0) {
-		log_error("couldn't get the server state");
+		log_error("failed to get the server state");
+		free(arg);
 		exit(1);
 	}
 
-	unsigned long min_seqno_to_send = arg->last_log_entry_seqno + 1;
-	int i;
-	for (i = 0; i < server_state.members; ++i) {
-		if (strcmp(server_state.member_woofs[i], server_state.woof_name) == 0) {
-			continue; // no need to replicate to itself
-		}
-		if (server_state.next_index[i] < min_seqno_to_send) {
-			min_seqno_to_send = server_state.next_index[i];
-		}
+	if (server_state.current_term != arg->term || server_state.role != RAFT_LEADER) {
+		log_debug("not a leader at term %lu anymore, current term: %lu", arg->term, server_state.current_term);
+		free(arg);
+		monitor_exit(ptr);
+		return 1;
 	}
 
-	// read all the entries to be sent to members, +1 for the previous entry
-	// int num_entries = min(arg->last_log_entry_seqno - min_seqno_to_send + 1, RAFT_MAX_ENTRIES_PER_REQUEST);
-	int num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
-	if (arg->last_log_entry_seqno - min_seqno_to_send + 1 < num_entries) {
-		num_entries = arg->last_log_entry_seqno - min_seqno_to_send + 1;
+	// check previous append_entries_result to update commit_index
+	unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
+	if (WooFInvalid(last_append_result_seqno)) {
+		log_error("failed to get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
+		free(arg);
+		exit(1);
 	}
-	RAFT_LOG_ENTRY *entries = malloc(sizeof(RAFT_LOG_ENTRY) * (num_entries + 1));
-	for (i = 0; i < num_entries + 1; ++i) {
-		if (min_seqno_to_send - 1 + i > 0) {
-			if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &entries[i], min_seqno_to_send - 1 + i) < 0) {
-				log_error("couldn't get the log entries at %lu", min_seqno_to_send - 1 + i);
-				free(entries);
+	unsigned long result_seq;
+	for (result_seq = arg->last_seen_result_seqno + 1; result_seq <= last_append_result_seqno; ++result_seq) {
+		RAFT_APPEND_ENTRIES_RESULT result;
+		if (WooFGet(RAFT_APPEND_ENTRIES_RESULT_WOOF, &result, result_seq) < 0) {
+			log_error("failed to get append_entries result at %lu", result_seq);
+			free(arg);
+			exit(1);
+		}
+		if (result.term > server_state.current_term) {
+			// fall back to follower
+			log_debug("result term %lu is higher than server's term %lu, fall back to follower", result.term, server_state.current_term);
+			server_state.current_term = result.term;
+			server_state.role = RAFT_FOLLOWER;
+			strcpy(server_state.current_leader, result.server_woof);
+			memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+			if (WooFInvalid(seq)) {
+				log_error("failed to fall back to follower at term %lu", result.term);
+				free(arg);
 				exit(1);
 			}
+			free(arg);
+			monitor_exit(ptr);
+			return 1;
 		}
+		if (result.term == arg->term) {
+			int m_id = member_id(server_state.members, result.server_woof, server_state.member_woofs);
+			if (m_id < 0) {
+				log_error("received a result not in current config");
+				free(arg);
+				exit(1);
+			}
+			if (result.success == true) {
+				arg->match_index[m_id] = result.last_entry_seq;
+				arg->next_index[m_id] = result.last_entry_seq + 1;
+			} else {
+				arg->next_index[m_id] -= 1;
+			}
+		}
+		arg->last_seen_result_seqno = result_seq;
+
+		// TODO: update commit_index here using qsort
+		unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
+		memcpy(sorted_match_index, arg->match_index, sizeof(unsigned long) * server_state.members);
+		qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
+		int i;
+		for (i = server_state.members / 2; i < server_state.members; ++i) {
+			if (sorted_match_index[i] <= server_state.commit_index) {
+				break;
+			}
+			RAFT_LOG_ENTRY entry;
+			int err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]);
+			if (err < 0) {
+				log_error("failed to get the log_entry at %lu", sorted_match_index[i]);
+				free(sorted_match_index);
+				free(arg);
+				exit(1);
+			}
+			if (entry.term == server_state.current_term && sorted_match_index[i] > server_state.commit_index) {
+				// update commit_index
+				server_state.commit_index = sorted_match_index[i];
+				unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+				if (WooFInvalid(seq)) {
+					log_error("failed to update commit_index at term %lu", server_state.current_term);
+					free(sorted_match_index);
+					free(arg);
+					exit(1);
+				}
+				log_debug("updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
+				break;
+			}
+		}
+		free(sorted_match_index);
+	}
+
+	// checking what entries need to be replicated
+	unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+	if (WooFInvalid(last_log_entry_seqno)) {
+		log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+		free(arg);
+		exit(1);
 	}
 
 	pthread_t *thread_id = malloc(sizeof(pthread_t) * server_state.members);
 	memset(thread_id, 0, sizeof(pthread_t) * server_state.members);
-	for (i = 0; i < server_state.members; ++i) {
-		if (strcmp(server_state.member_woofs[i], server_state.woof_name) == 0) {
-			server_state.match_index[i] = arg->last_log_entry_seqno; // if it's leader itself, match_index is set to arg->last_log_entry_seqno
-			continue;
+	int m;
+	for (m = 0; m < server_state.members; ++m) {
+		if (strcmp(server_state.member_woofs[m], server_state.woof_name) == 0) {
+			continue; // no need to replicate to itself
 		}
-		unsigned long num_entries_to_send = arg->last_log_entry_seqno - server_state.next_index[i] + 1;
-		if (num_entries_to_send > RAFT_MAX_ENTRIES_PER_REQUEST) {
-			num_entries_to_send = RAFT_MAX_ENTRIES_PER_REQUEST;
+		unsigned long num_entries = last_log_entry_seqno - arg->next_index[m] + 1;
+		if (num_entries > RAFT_MAX_ENTRIES_PER_REQUEST) {
+			num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
 		}
-		if (num_entries_to_send > 0) {
-			APPEND_ENTRIES_THREAD_ARG *thread_arg = malloc(sizeof(APPEND_ENTRIES_THREAD_ARG));
+
+		if (num_entries > 0 || (get_milliseconds() - arg->last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
+			REPLICATE_THREAD_ARG *thread_arg = malloc(sizeof(REPLICATE_THREAD_ARG));
+			thread_arg->member_id = m;
+			thread_arg->num_entries = num_entries;
+			strcpy(thread_arg->member_woof, server_state.member_woofs[m]);
 			thread_arg->arg.term = server_state.current_term;
 			memcpy(thread_arg->arg.leader_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
-			thread_arg->arg.prev_log_index = server_state.next_index[i] - 1;
-			int first_entry_index = server_state.next_index[i] - min_seqno_to_send + 1;
-			thread_arg->arg.prev_log_term = entries[first_entry_index - 1].term;
+			thread_arg->arg.prev_log_index = arg->next_index[m] - 1;
 			if (thread_arg->arg.prev_log_index == 0) {
 				thread_arg->arg.prev_log_term = 0;
+			} else {
+				RAFT_LOG_ENTRY prev_entry;
+				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &prev_entry, thread_arg->arg.prev_log_index) < 0) {
+					log_error("failed to get the previous log entry");
+					free(arg);
+					exit(1);
+				}
+				thread_arg->arg.prev_log_term = prev_entry.term;
 			}
-			memcpy(thread_arg->arg.entries, entries + first_entry_index, sizeof(RAFT_LOG_ENTRY) * num_entries_to_send);
+			int i;
+			for (i = 0; i < num_entries; ++i) {
+				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &thread_arg->arg.entries[i], arg->next_index[m] + i) < 0) {
+					log_error("failed to get the log entries at %lu", arg->next_index[m] + i);
+					free(arg);
+					exit(1);
+				}
+			}
 			thread_arg->arg.leader_commit = server_state.commit_index;
 			thread_arg->arg.created_ts = get_milliseconds();
-			thread_arg->member_id = i;
-			thread_arg->num_entries_to_send = num_entries_to_send;
-			// send append_entries request 
-			sprintf(thread_arg->member_woof, "%s/%s", server_state.member_woofs[i], RAFT_APPEND_ENTRIES_ARG_WOOF);
-			pthread_create(&thread_id[i], NULL, append_entries, (void *)thread_arg);
+			pthread_create(&thread_id[m], NULL, replicate_thread, (void *)thread_arg);
+			arg->last_sent_timestamp[m] = get_milliseconds();
 		}
 	}
-	free(entries);
-	
-	// TODO: send heartbeat
 
-	// TODO: update commit_index
-	// char log_msg[256];
-	// // check if there's new commit_index
-	// unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
-	// memcpy(sorted_match_index, replicate_entries->match_index, sizeof(unsigned long) * server_state.members);
-	// qsort(sorted_match_index, server_state.members, sizeof(unsigned long), comp_index);
-	// for (i = server_state.members / 2; i < server_state.members; ++i) {
-	// 	if (sorted_match_index[i] <= server_state.commit_index) {
-	// 		break;
-	// 	}
-	// 	RAFT_LOG_ENTRY entry;
-	// 	err = WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]);
-	// 	if (err < 0) {
-	// 		log_error("couldn't get the log_entry at %lu", sorted_match_index[i]);
-	// 		free(thread_id);
-	// 		free(sorted_match_index);
-	// 		exit(1);
-	// 	}
-	// 	if (entry.term == server_state.current_term && sorted_match_index[i] > server_state.commit_index) {
-	// 		// update commit_index
-	// 		server_state.commit_index = sorted_match_index[i];
-	// 		unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
-	// 		if (WooFInvalid(seq)) {
-	// 			log_error("couldn't update commit_index at term %lu", server_state.current_term);
-	// 			free(thread_id);
-	// 			free(sorted_match_index);
-	// 			exit(1);
-	// 		}
-	// 		log_debug("updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
-	// 		break;
-	// 	}
-	// }
-	// free(sorted_match_index);
-
+	monitor_exit(ptr);
 	threads_join(server_state.members, thread_id);
 	free(thread_id);
-	return 1;
 
+	usleep(RAFT_FUNCTION_DELAY * 1000);
+	unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
+	if (WooFInvalid(seq)) {
+		log_error("failed to queue the next h_replicate_entries handler");
+		free(arg);
+		exit(1);
+	}
+	free(arg);
+	return 1;
 }

@@ -65,14 +65,14 @@ int node_woof_name(char *node_woof) {
 	return 0;
 }
 
-bool is_member(int members, char server[RAFT_WOOF_NAME_LENGTH], char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int member_id(int members, char *woof_name, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
 	int i;
 	for (i = 0; i < members; ++i) {
-		if (strcmp(server, member_woofs[i]) == 0) {
-			return true;
+		if (strcmp(woof_name, member_woofs[i]) == 0) {
+			return i;
 		}
 	}
-	return false;
+	return -1;
 }
 
 int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {

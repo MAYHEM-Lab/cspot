@@ -7,6 +7,7 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "raft.h"
+#include "monitor.h"
 
 #define ARGS "f:"
 char *Usage = "start_server -f config_file\n";
@@ -31,7 +32,6 @@ int main(int argc, char **argv) {
 	if(config_file[0] == 0) {
 		fprintf(stderr, "Must specify config file\n");
 		fprintf(stderr, "%s", Usage);
-		fflush(stderr);
 		exit(1);
 	}
 
@@ -41,17 +41,14 @@ int main(int argc, char **argv) {
 	memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 	server_state.commit_index = 0;
 	server_state.current_config = RAFT_CONFIG_STABLE;
-	int err = node_woof_name(server_state.woof_name);
-	if (err < 0) {
+	if (node_woof_name(server_state.woof_name) < 0) {
 		fprintf(stderr, "Couldn't get woof name\n");
-		fflush(stderr);
 	}
 	memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 
 	FILE *fp = fopen(config_file, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "Can't open config file\n");
-		fflush(stderr);
 		exit(1);
 	}
 	read_config(fp, &server_state.members, server_state.member_woofs);
@@ -62,7 +59,11 @@ int main(int argc, char **argv) {
 	unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 	if (WooFInvalid(seq)) {
 		fprintf(stderr, "Couldn't initialize server state\n");
-		fflush(stderr);
+		exit(1);
+	}
+
+	if (monitor_create(RAFT_MONITOR_NAME) < 0) {
+		fprintf(stderr, "Failed to create and start the handler monitor\n");
 		exit(1);
 	}
 
@@ -73,17 +74,24 @@ int main(int argc, char **argv) {
 	for (i = 0; i < server_state.members; ++i) {
 		printf("%d: %s\n", i + 1, server_state.member_woofs[i]);
 	}
-	fflush(stdout);
 
-	RAFT_HEARTBEAT heartbeat_arg;
-	seq = WooFPut(RAFT_HEARTBEAT_WOOF, "timeout_checker", &heartbeat_arg);
+	RAFT_HEARTBEAT heartbeat;
+	heartbeat.term = 0;
+	heartbeat.timestamp = get_milliseconds();
+	seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't put the initial heartbear\n");
-		fflush(stderr);
+		fprintf(stderr, "Couldn't put the first heartbeat\n");
 		exit(1);
 	}
 	printf("Put a heartbeat\n");
-	fflush(stdout);
+
+	RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+	timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+	if (WooFInvalid(seq)) {
+		fprintf(stderr, "Couldn't start the timeout checker\n");
+		exit(1);
+	}
 	
 	return 0;
 }

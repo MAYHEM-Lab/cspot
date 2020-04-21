@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
 	FILE *fp = fopen(old_config, "r");
 	if (fp == NULL) {
-		fprintf(stderr, "couldn't open old config file %s\n", old_config);
+		fprintf(stderr, "failed to open old config file %s\n", old_config);
 		fflush(stderr);
 		exit(1);
 	}
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
 
 	fp = fopen(new_config, "r");
 	if (fp == NULL) {
-		fprintf(stderr, "couldn't open new config file %s\n", new_config);
+		fprintf(stderr, "failed to open new config file %s\n", new_config);
 		fflush(stderr);
 		exit(1);
 	}

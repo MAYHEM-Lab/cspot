@@ -51,7 +51,6 @@ int main(int argc, char **argv) {
 	FILE *fp = fopen(config, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "couldn't open config file");
-		fflush(stderr);
 		exit(1);
 	}
 	raft_init_client(fp);
@@ -63,7 +62,6 @@ int main(int argc, char **argv) {
 		return err;
 	}
 	printf("%s\n", data.val);
-	fflush(stdout);
 
 	return err;
 }
