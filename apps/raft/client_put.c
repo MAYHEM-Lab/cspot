@@ -17,8 +17,8 @@ int main(int argc, char **argv) {
 	char config[256];
 	RAFT_DATA_TYPE data;
 	memset(data.val, 0, sizeof(data.val));
-	bool sync = false;
-	bool redirect = false;
+	int sync = 0;
+	int redirect = 0;
 
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -32,12 +32,12 @@ int main(int argc, char **argv) {
 				break;
 			}
 			case 's': {
-				sync = true;
+				sync = 1;
 				break;
 			}
 			case 'r': {
-				sync = true;
-				redirect = true;
+				sync = 1;
+				redirect = 1;
 				break;
 			}
 			default: {
@@ -58,13 +58,20 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "couldn't open config file");
 		exit(1);
 	}
-	raft_init_client(fp);
+	if (raft_init_client(fp) < 0) {
+		fprintf(stderr, "can't init client\n");
+		fclose(fp);	
+		exit(1);
+	}
 	fclose(fp);
 	
-	unsigned long index, term;
-	int err = raft_put(&data, &index, &term, sync);
+	unsigned long index, term, seqno;
+	int err = raft_put(&data, &index, &term, &seqno, sync);
 	while (err == RAFT_REDIRECTED) {
-		err = raft_put(&data, &index, &term, sync);
+		err = raft_put(&data, &index, &term, &seqno, sync);
+	}
+	if (err >= 0) {
+		printf("index: %lu, term: %lu, seqno: %lu\n", index, term, seqno);
 	}
 	
 	return err;

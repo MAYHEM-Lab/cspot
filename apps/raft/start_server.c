@@ -51,7 +51,11 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Can't open config file\n");
 		exit(1);
 	}
-	read_config(fp, &server_state.members, server_state.member_woofs);
+	if (read_config(fp, &server_state.members, server_state.member_woofs) < 0) {
+		fprintf(stderr, "Can't read config file\n");
+		fclose(fp);
+		exit(1);
+	}
 	fclose(fp);
 
 	WooFInit();

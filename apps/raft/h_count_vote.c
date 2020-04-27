@@ -16,14 +16,8 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
-	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-	if (WooFInvalid(latest_server_state)) {
-		log_error("failed to get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-		free(result);
-		exit(1);
-	}
 	RAFT_SERVER_STATE server_state;
-	if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, latest_server_state) < 0) {
+	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the server state");
 		free(result);
 		exit(1);
@@ -46,7 +40,7 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	// start counting the votes
 	int granted_votes = 0;
-	if (result->granted == true) {
+	if (result->granted == 1) {
 		++granted_votes;
 	}
 	RAFT_REQUEST_VOTE_RESULT vote;
@@ -57,7 +51,7 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(result);
 			exit(1);
 		}
-		if (vote.granted == true && vote.term == result->term) {
+		if (vote.granted == 1 && vote.term == result->term) {
 			++granted_votes;
 			if (granted_votes > server_state.members / 2) {
 				break;
@@ -68,10 +62,23 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	// if the majority granted, promoted to leader
 	if (granted_votes > server_state.members / 2) {
+		unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+		if (WooFInvalid(last_log_entry_seqno)) {
+			log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+			free(result);
+			exit(1);
+		}
 		server_state.current_term = result->term;
 		server_state.role = RAFT_LEADER;
 		memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 		memcpy(server_state.voted_for, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+		int i;
+		for (i = 0; i < RAFT_MAX_SERVER_NUMBER; ++i) {
+			server_state.next_index[i] = last_log_entry_seqno + 1;
+			server_state.match_index[i] = 0;
+			server_state.last_sent_index[i] = 0;
+			server_state.last_sent_timestamp[i] = 0;
+		}
 		unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 		if (WooFInvalid(seq)) {
 			log_error("failed to promote itself to leader");
@@ -82,12 +89,6 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_info("state changed at term %lu: LEADER", server_state.current_term);
 
 		// start replicate_entries handlers
-		unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-		if (WooFInvalid(last_log_entry_seqno)) {
-			log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
-			free(result);
-			exit(1);
-		}
 		unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
 		if (WooFInvalid(last_append_result_seqno)) {
 			log_error("failed to get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
@@ -97,12 +98,6 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg;
 		replicate_entries_arg.term = server_state.current_term;
 		replicate_entries_arg.last_seen_result_seqno = last_append_result_seqno;
-		int i;
-		for (i = 0; i < server_state.members; ++i) {
-			replicate_entries_arg.next_index[i] = last_log_entry_seqno + 1;
-			replicate_entries_arg.match_index[i] = 0;
-			replicate_entries_arg.last_sent_timestamp[i] = 0;
-		}
 		seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &replicate_entries_arg);
 		if (WooFInvalid(seq)) {
 			log_error("failed to start h_replicate_entries handler");

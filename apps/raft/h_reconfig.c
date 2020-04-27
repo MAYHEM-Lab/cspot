@@ -10,68 +10,111 @@
 
 int h_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_RECONFIG_ARG *arg = (RAFT_RECONFIG_ARG *)monitor_cast(ptr);
+	seq_no = monitor_seqno(ptr);
 
 	log_set_tag("reconfig");
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
 
-	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-	if (WooFInvalid(latest_server_state)) {
-		log_error("failed to get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-		exit(1);
-	}
 	RAFT_SERVER_STATE server_state;
-	if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, latest_server_state) < 0) {
+	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the latest server state");
+		free(arg);
 		exit(1);
 	}
 
-	if (server_state.current_config != RAFT_CONFIG_STABLE){
-		log_debug("server is currently reconfiguring and not stable, rejected reconfiguring request");
-		monitor_exit(ptr);
-		return 1;
-	}
-	log_debug("processing new config with %d members", arg->members);
+	RAFT_RECONFIG_RESULT result;
+	if (server_state.role != RAFT_LEADER) {
+		log_debug("not a leader, reply with the current leader");
+		result.redirected = 1;
+		result.success = 0;
+		strcpy(result.current_leader, server_state.current_leader);
+	} else {
+		if (server_state.current_config != RAFT_CONFIG_STABLE){
+			log_debug("server is currently reconfiguring and not stable, rejected reconfiguring request");
+			result.redirected = 0;
+			result.success = 0;
+			strcpy(result.current_leader, server_state.current_leader);
+		} else {
+			log_debug("processing new config with %d members", arg->members);
 
-	// compute the joint config
-	int joint_members;
-	char joint_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
-	if (compute_joint_config(server_state.members, server_state.member_woofs, arg->members, arg->member_woofs, &joint_members, joint_member_woofs) < 0) {
-		log_error("failed to compute the joint config");
-		exit(1);
-	}
-	log_debug("there are %d members in the joint config", joint_members);
+			// compute the joint config
+			int joint_members;
+			char joint_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
+			if (compute_joint_config(server_state.members, server_state.member_woofs, arg->members, arg->member_woofs, &joint_members, joint_member_woofs) < 0) {
+				log_error("failed to compute the joint config");
+				free(arg);
+				exit(1);
+			}
+			log_debug("there are %d members in the joint config", joint_members);
 
-	// append a config entry to log
-	RAFT_LOG_ENTRY entry;
-	entry.term = server_state.current_term;
-	entry.is_config = true;
-	if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
-		log_error("failed to encode the joint config to a log entry");
-		exit(1);
+			// append a config entry to log
+			RAFT_LOG_ENTRY entry;
+			entry.term = server_state.current_term;
+			entry.is_config = 1;
+			if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
+				log_error("failed to encode the joint config to a log entry");
+				free(arg);
+				exit(1);
+			}
+			if (encode_config(entry.data.val + strlen(entry.data.val), arg->members, arg->member_woofs) < 0) {
+				log_error("failed to encode the new config to a log entry");
+				free(arg);
+				exit(1);
+			}
+			unsigned long entry_seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
+			if (WooFInvalid(entry_seq)) {
+				log_error("failed to put the joint config as log entry");
+				free(arg);
+				exit(1);
+			}
+			log_debug("appended the joint config as a log entry");
+			server_state.members = joint_members;
+			server_state.current_config = RAFT_CONFIG_JOINT;
+			server_state.last_config_seqno = entry_seq;
+			memcpy(server_state.member_woofs, joint_member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
+			int i;
+			for (i = 0; i < RAFT_MAX_SERVER_NUMBER; ++i) {
+				server_state.next_index[i] = entry_seq + 1;
+				server_state.match_index[i] = 0;
+				server_state.last_sent_timestamp[i] = 0;
+			}
+			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+			if (WooFInvalid(seq)) {
+				log_error("failed to update server config at term %lu", server_state.current_term);
+				free(arg);
+				exit(1);
+			}
+			log_debug("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
+			result.redirected = 0;
+			result.success = 1;
+			strcpy(result.current_leader, server_state.current_leader);
+		}
 	}
-	if (encode_config(entry.data.val + strlen(entry.data.val), arg->members, arg->member_woofs) < 0) {
-		log_error("failed to encode the new config to a log entry");
-		exit(1);
-	}
-	unsigned long entry_seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
-	if (WooFInvalid(entry_seq)) {
-		log_error("failed to put the joint config as log entry");
-		exit(1);
-	}
-	log_debug("appended the joint config as a log entry");
-	server_state.members = joint_members;
-	server_state.current_config = RAFT_CONFIG_JOINT;
-	server_state.last_config_seqno = entry_seq;
-	memcpy(server_state.member_woofs, joint_member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
-	unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
-	if (WooFInvalid(seq)) {
-		log_error("failed to update server config at term %lu", server_state.current_term);
-		exit(1);
-	}
-	log_debug("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
 
+	// for very slight chance that h_client_put is not queued in the same order of the element appended in RAFT_CLIENT_PUT_ARG_WOOF
+	unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_RECONFIG_RESULT_WOOF);
+	while (latest_result_seqno != seq_no - 1) {
+		log_warn("reconfig result seqno not matching, waiting %lu", seq_no);
+		usleep(RAFT_FUNCTION_DELAY * 1000);
+		latest_result_seqno = WooFGetLatestSeqno(RAFT_RECONFIG_RESULT_WOOF);
+	}
+
+	unsigned long result_seq = WooFPut(RAFT_RECONFIG_RESULT_WOOF, NULL, &result);
+	while (WooFInvalid(result_seq)) {
+		log_warn("failed to write reconfig result, try again");
+		usleep(RAFT_FUNCTION_DELAY * 1000);
+		result_seq = WooFPut(RAFT_RECONFIG_RESULT_WOOF, NULL, &result);
+	}
+
+	if (result_seq != seq_no) {
+		log_error("reconfig seqno %lu doesn't match result seno %lu", seq_no, result_seq);
+		free(arg);
+		exit(1);
+	}
+
+	free(arg);
 	monitor_exit(ptr);
 	return 1;
 }

@@ -17,15 +17,8 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_output(stdout);
 
 	// get the server's current term
-	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-	if (WooFInvalid(last_server_state)) {
-		log_error("failed to get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-		free(request);
-		exit(1);
-	}
 	RAFT_SERVER_STATE server_state;
-	int err = WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, last_server_state);
-	if (err < 0) {
+	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the server state");
 		free(request);
 		exit(1);
@@ -37,11 +30,11 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// if not a member, deny the request and tell it to shut down
 	if (member_id(server_state.members, request->candidate_woof, server_state.member_woofs) == -1) {
 		result.term = 0; // result term 0 means shutdown
-		result.granted = false;
-		log_debug("rejected a vote from a candidate not in the config anymore");
+		result.granted = 0;
+		log_debug("rejected a vote from a candidate not in the config");
 	} else if (request->term < server_state.current_term) { // current term is higher than the request
 		result.term = server_state.current_term; // server term will always be greater than reviewing term
-		result.granted = false;
+		result.granted = 0;
 		log_debug("rejected a vote from lower term %lu at term %lu", request->term, server_state.current_term);
 	} else {
 		if (request->term > server_state.current_term) {
@@ -58,13 +51,22 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+			RAFT_HEARTBEAT heartbeat;
+			heartbeat.term = server_state.current_term;
+			heartbeat.timestamp = get_milliseconds();
+			seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
+			if (WooFInvalid(seq)) {
+				log_error("failed to put a heartbeat when falling back to follower");
+				free(request);
+				exit(1);
+			}
 			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
 			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
 			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
 			if (WooFInvalid(seq)) {
 				log_error("failed to start the timeout checker");
-				exit(1);
 				free(request);
+				exit(1);
 			}
 		}
 		
@@ -87,11 +89,11 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 			if (latest_log_entry > 0 && last_log_entry.term > request->last_log_term) {
 				// the server has more up-to-dated entries than the candidate
-				result.granted = false;
+				result.granted = 0;
 				log_debug("rejected vote from server with outdated log (last entry at term %lu)", request->last_log_term);
 			} else if (latest_log_entry > 0 && last_log_entry.term == request->last_log_term && latest_log_entry > request->last_log_index) {
 				// both have same term but the server has more entries
-				result.granted = false;
+				result.granted = 0;
 				log_debug("rejected vote from server with outdated log (last entry at index %lu)", request->last_log_index);
 			} else {
 				// the candidate has more up-to-dated log entries
@@ -102,11 +104,11 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 					free(request);
 					exit(1);
 				}
-				result.granted = true;
+				result.granted = 1;
 				log_debug("granted vote at term %lu", server_state.current_term);
 			}
 		} else {
-			result.granted = false;
+			result.granted = 0;
 			log_debug("rejected vote from since already voted at term %lu", server_state.current_term);
 		}
 	}
@@ -117,13 +119,10 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	sprintf(candidate_result_woof, "%s/%s", request->candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
 	unsigned long seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result);
 	if (WooFInvalid(seq)) {
-		log_error("failed to return the vote result to %s", candidate_result_woof);
-		free(request);
-		exit(1);
+		log_warn("failed to return the vote result to %s", candidate_result_woof);
 	}
 
 	free(request);
 	monitor_exit(ptr);
 	return 1;
-
 }

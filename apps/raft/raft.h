@@ -18,11 +18,10 @@
 #define RAFT_TIMEOUT_CHECKER_WOOF "raft_timeout_checker.woof"
 #define RAFT_APPEND_ENTRIES_ARG_WOOF "raft_append_entries_arg.woof"
 #define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result.woof"
-#define RAFT_APPEND_ENTRIES_REORDER_WOOF "raft_append_entries_reorder.woof"
 #define RAFT_CLIENT_PUT_ARG_WOOF "raft_client_put_arg.woof"
 #define RAFT_CLIENT_PUT_RESULT_WOOF "client_put_result.woof"
-#define RAFT_CLIENT_PUT_REORDER_WOOF "client_put_reorder.woof"
 #define RAFT_RECONFIG_ARG_WOOF "raft_reconfig_arg.woof"
+#define RAFT_RECONFIG_RESULT_WOOF "raft_reconfig_result.woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
@@ -43,7 +42,6 @@
 #define LOG_WARN 2
 #define LOG_ERROR 3
 
-typedef enum {false, true} bool;
 typedef struct data_type {
 	char val[RAFT_DATA_TYPE_SIZE];
 } RAFT_DATA_TYPE;
@@ -51,7 +49,7 @@ typedef struct data_type {
 typedef struct raft_log_entry {
 	unsigned long term;
 	RAFT_DATA_TYPE data;
-	bool is_config;
+	int is_config;
 } RAFT_LOG_ENTRY;
 
 typedef struct raft_server_state {
@@ -69,7 +67,8 @@ typedef struct raft_server_state {
 	unsigned long commit_index;
 	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
 	unsigned long match_index[RAFT_MAX_SERVER_NUMBER];
-	unsigned long peer_commit_index[RAFT_MAX_SERVER_NUMBER];
+	unsigned long last_sent_index[RAFT_MAX_SERVER_NUMBER];
+	unsigned long last_sent_timestamp[RAFT_MAX_SERVER_NUMBER];
 } RAFT_SERVER_STATE;
 
 typedef struct raft_heartbeat {
@@ -94,40 +93,35 @@ typedef struct raft_append_entries_arg {
 typedef struct raft_append_entries_result {
 	char server_woof[RAFT_WOOF_NAME_LENGTH];
 	unsigned long term;
-	bool success;
+	int success;
 	unsigned long last_entry_seq;
+	unsigned long seqno;
 } RAFT_APPEND_ENTRIES_RESULT;
-
-typedef struct raft_append_entries_reorder {
-	
-} RAFT_APPEND_ENTRIES_REORDER;
 
 typedef struct raft_client_put_arg {
 	RAFT_DATA_TYPE data;
-	bool is_config;
 } RAFT_CLIENT_PUT_ARG;
 
 typedef struct raft_client_put_result {
-	bool redirected;
-	unsigned long seq_no;
+	int redirected;
+	unsigned long index;
 	unsigned long term;
 	char current_leader[RAFT_WOOF_NAME_LENGTH];
 } RAFT_CLIENT_PUT_RESULT;
-
-typedef struct raft_client_put_reorder {
-	
-} RAFT_CLIENT_PUT_REORDER;
 
 typedef struct raft_reconfig_arg {
 	int members;
 	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
 } RAFT_RECONFIG_ARG;
 
+typedef struct raft_reconfig_result {
+	int redirected;
+	int success;
+	char current_leader[RAFT_WOOF_NAME_LENGTH];
+} RAFT_RECONFIG_RESULT;
+
 typedef struct raft_replicate_entries {
 	unsigned long term;
-	unsigned long next_index[RAFT_MAX_SERVER_NUMBER];
-	unsigned long match_index[RAFT_MAX_SERVER_NUMBER];
-	unsigned long last_sent_timestamp[RAFT_MAX_SERVER_NUMBER];
 	unsigned long last_seen_result_seqno;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
@@ -141,13 +135,14 @@ typedef struct raft_request_vote_arg {
 
 typedef struct raft_request_vote_result {
 	unsigned long term;
-	bool granted;
+	int granted;
 	unsigned long candidate_vote_pool_seqno;
 } RAFT_REQUEST_VOTE_RESULT;
 
+int get_server_state(RAFT_SERVER_STATE *server_state);
 int random_timeout(unsigned long seed);
 unsigned long get_milliseconds();
-void read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
+int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
 int node_woof_name(char *node_woof);
 int member_id(int members, char *woof_name, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
 int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
@@ -155,7 +150,8 @@ int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_SERVER_NUM
 int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH],
 	int new_members, char new_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH],
 	int *joint_members, char joint_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]);
-void threads_join(int members, pthread_t *pids);
+int threads_join(int members, pthread_t *pids);
+int threads_cancel(int members, pthread_t *pids);
 
 char log_tag[1024];
 void log_set_level(int level);

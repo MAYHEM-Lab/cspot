@@ -9,6 +9,17 @@
 FILE *raft_log_output;
 int raft_log_level;
 
+int get_server_state(RAFT_SERVER_STATE *server_state) {
+	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
+	if (WooFInvalid(last_server_state)) {
+		return -1;
+	}
+	if (WooFGet(RAFT_SERVER_STATE_WOOF, server_state, last_server_state) < 0) {
+		return -1;
+	}
+	return 0;
+}
+
 int random_timeout(unsigned long seed) {
 	srand(seed);
 	return RAFT_TIMEOUT_MIN + (rand() % (RAFT_TIMEOUT_MAX - RAFT_TIMEOUT_MIN));
@@ -20,20 +31,22 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
-void read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
 	char buffer[256];
 	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-		fprintf(stderr, "Wrong format of config file\n");
-		fflush(stderr);
-		exit(1);
+		fprintf(stderr, "wrong format of config file\n");
+		return -1;
 	}
-	*members = atoi(buffer);
+	*members = (int)strtol(buffer, (char **)NULL, 10);
+	if (*members == 0) {
+		fprintf(stderr, "wrong format of config file\n");
+		return -1;
+	}
 	int i;
 	for (i = 0; i < *members; ++i) {
 		if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-			fprintf(stderr, "Wrong format of config file\n");
-			fflush(stderr);
-			exit(1);
+			fprintf(stderr, "wrong format of config file\n");
+			return -1;
 		}
 		buffer[strcspn(buffer, "\n")] = 0;
 		if (buffer[strlen(buffer) - 1] == '/') {
@@ -41,6 +54,7 @@ void read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBE
 		}
 		strncpy(member_woofs[i], buffer, RAFT_WOOF_NAME_LENGTH);
 	}
+	return 0;
 }
 
 int node_woof_name(char *node_woof) {
@@ -81,19 +95,25 @@ int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_SERVER_NUMB
 	for (i = 0; i < members; ++i) {
 		sprintf(dst + strlen(dst), "%s;", member_woofs[i]);
 	}
-	return 0;
+	return strlen(dst);
 }
 
 int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+	int len = 0;
     char *token;
     token = strtok(src, ";");
-    *members = atoi(token);
+	len += strlen(token) + 1;
+    *members = (int)strtol(token, (char **)NULL, 10);
+	if (*members == 0) {
+		return -1;
+	}
 	int i;
 	for (i = 0; i < *members; ++i) {
         token = strtok(NULL, ";");
         strcpy(member_woofs[i], token);
+		len += strlen(token) + 1;
 	}
-	return 0;
+	return len;
 }
 
 int qsort_strcmp(const void *a, const void *b) {
@@ -129,13 +149,34 @@ int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_SERVER_
     return 0;
 }
 
-void threads_join(int members, pthread_t *pids) {
+int threads_join(int members, pthread_t *pids) {
+	int cnt = 0;
 	int i;
 	for (i = 0; i < members; ++i) {
 		if (pids[i] != 0) {
-			pthread_join(pids[i], NULL);
+			int err = pthread_join(pids[i], NULL);
+			if (err < 0) {
+				return err;
+			}
+			++cnt;
 		}
 	}
+	return cnt;
+}
+
+int threads_cancel(int members, pthread_t *pids) {
+	int cnt = 0;
+	int i;
+	for (i = 0; i < members; ++i) {
+		if (pids[i] != 0) {
+			int err = pthread_cancel(pids[i]);
+			if (err < 0) {
+				return err;
+			}
+			++cnt;
+		}
+	}
+	return cnt;
 }
 
 void log_set_tag(const char *tag) {

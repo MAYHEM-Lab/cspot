@@ -12,7 +12,7 @@ char *Usage = "client_get -f config -i index -t term\n-s for synchronously get\n
 
 int main(int argc, char **argv) {
 	char config[256];
-	bool sync = false;
+	int sync = 0;
 	unsigned long index = 0;
 	unsigned long term = 0;
 
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 				break;
 			}
 			case 's': {
-				sync = true;
+				sync = 1;
 				break;
 			}
 			default: {
@@ -53,7 +53,11 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "couldn't open config file");
 		exit(1);
 	}
-	raft_init_client(fp);
+	if (raft_init_client(fp) < 0) {
+		fprintf(stderr, "can't init client\n");
+		fclose(fp);	
+		exit(1);
+	}
 	fclose(fp);
 
 	RAFT_DATA_TYPE data;

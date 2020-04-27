@@ -15,7 +15,6 @@ int get_result_delay = 20;
 int main(int argc, char **argv) {
 	char old_config[256];
 	char new_config[256];
-	RAFT_DATA_TYPE data;
 	
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -44,21 +43,27 @@ int main(int argc, char **argv) {
 	FILE *fp = fopen(old_config, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "failed to open old config file %s\n", old_config);
-		fflush(stderr);
 		exit(1);
 	}
-	raft_init_client(fp);
+	if (raft_init_client(fp) < 0) {
+		fprintf(stderr, "can't init client\n");
+		fclose(fp);	
+		exit(1);
+	}
 	fclose(fp);
 
 	fp = fopen(new_config, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "failed to open new config file %s\n", new_config);
-		fflush(stderr);
 		exit(1);
 	}
 	int members;
 	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
-	read_config(fp, &members, member_woofs);
+	if (read_config(fp, &members, member_woofs) < 0) {
+		fprintf(stderr, "failed to read new config file %s\n", new_config);
+		fclose(fp);
+		exit(1);
+	}
 	fclose(fp);
 
 	unsigned long index, term;

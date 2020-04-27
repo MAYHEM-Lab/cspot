@@ -8,6 +8,8 @@
 #include "raft.h"
 #include "monitor.h"
 
+pthread_t thread_id[RAFT_MAX_SERVER_NUMBER];
+
 typedef struct request_vote_thread_arg {
 	char member_woof[RAFT_WOOF_NAME_LENGTH];
 	RAFT_REQUEST_VOTE_ARG arg;
@@ -40,14 +42,8 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	zsys_init();
 	
 	// check if it's leader, if so no need to timeout
-	unsigned long latest_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-	if (WooFInvalid(latest_server_state)) {
-		log_error("failed to get the latest seqno from %s", RAFT_SERVER_STATE_WOOF);
-		free(arg);
-		exit(1);
-	}
 	RAFT_SERVER_STATE server_state;
-	if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, latest_server_state) < 0) {
+	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the latest sever state");
 		free(arg);
 		exit(1);
@@ -73,8 +69,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	
 	// if timeout, start an election
-	pthread_t *thread_id = malloc(sizeof(pthread_t) * server_state.members);
-	memset(thread_id, 0, sizeof(pthread_t) * server_state.members);
+	memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_SERVER_NUMBER);
 	if (get_milliseconds() - heartbeat.timestamp > arg->timeout_value) {
 		arg->timeout_value = random_timeout(get_milliseconds());
 		log_warn("timeout after %lums at term %lu", get_milliseconds() - heartbeat.timestamp, server_state.current_term);
@@ -88,7 +83,6 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (WooFInvalid(seq)) {
 			log_error("failed to increment the server's term to %lu and initialize an election");
 			free(arg);
-			free(thread_id);
 			exit(1);
 		}
 		log_debug("started an election for term %lu as a candidate", server_state.current_term);
@@ -102,7 +96,6 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (WooFInvalid(seq)) {
 			log_error("failed to put a heartbeat for the election");
 			free(arg);
-			free(thread_id);
 			exit(1);
 		}
 
@@ -112,7 +105,6 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (WooFInvalid(vote_pool_seqno)) {
 			log_error("failed to get the latest seqno from %s", RAFT_REQUEST_VOTE_RESULT_WOOF);
 			free(arg);
-			free(thread_id);
 			exit(1);
 		}
 		
@@ -121,14 +113,12 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (WooFInvalid(latest_log_entry)) {
 			log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
 			free(arg);
-			free(thread_id);
 			exit(1);
 		}
 		RAFT_LOG_ENTRY last_log_entry;
 		if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry) < 0) {
 			log_error("failed to get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
 			free(arg);
-			free(thread_id);
 			exit(1);
 		}
 
@@ -146,10 +136,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 		log_debug("requested vote from %d members", server_state.members);
 	}
-
 	monitor_exit(ptr);
-	threads_join(server_state.members, thread_id);
-	free(thread_id);
 
 	usleep(RAFT_FUNCTION_DELAY * 1000);
 	unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", arg);
@@ -158,6 +145,8 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		free(arg);
 		exit(1);
 	}
+
+	threads_join(server_state.members, thread_id);
 	free(arg);
 	return 1;
 }
