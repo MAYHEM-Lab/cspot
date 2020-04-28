@@ -23,6 +23,20 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
+	// if result term is 0, it means the candidate is not in the leader config, shut it down
+	if (result->term == 0) {
+		server_state.role = RAFT_SHUTDOWN;
+		unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+		if (WooFInvalid(seq)) {
+			log_error("failed to shutdown");
+			free(result);
+			exit(1);
+		}
+		log_info("server not in the leader config anymore: SHUTDOWN");
+		free(result);
+		monitor_exit(ptr);
+		return 1;
+	}
 	// server's term is higher than the vote's term, ignore it
 	if (result->term < server_state.current_term) {
 		log_debug("current term %lu is higher than vote's term %lu, ignore the election", server_state.current_term, result->term);

@@ -16,7 +16,6 @@ typedef struct replicate_thread_arg {
 	char member_woof[RAFT_WOOF_NAME_LENGTH];
 	int num_entries;
 	RAFT_APPEND_ENTRIES_ARG arg;
-	unsigned long s;
 } REPLICATE_THREAD_ARG;
 
 void *replicate_thread(void *arg) {
@@ -30,9 +29,13 @@ void *replicate_thread(void *arg) {
 		log_warn("failed to replicate the log entries to member %d", replicate_thread_arg->member_id);
 	} else {
 		if (replicate_thread_arg->num_entries > 0) {
-			log_debug("sent %d entries to member %d [%lu], prev_index: %lu, %s", replicate_thread_arg->s, replicate_thread_arg->num_entries, replicate_thread_arg->member_id, seq, replicate_thread_arg->arg.prev_log_index, woof_name);
+			if (replicate_thread_arg->member_id < RAFT_MAX_MEMBERS) {
+				log_debug("sent %d entries to member %d [%lu], prev_index: %lu, %s", replicate_thread_arg->num_entries, replicate_thread_arg->member_id, seq, replicate_thread_arg->arg.prev_log_index, woof_name);
+			} else {
+				log_debug("sent %d entries to observer %d [%lu], prev_index: %lu, %s", replicate_thread_arg->num_entries, replicate_thread_arg->member_id, seq, replicate_thread_arg->arg.prev_log_index, woof_name);
+			}
 		} else {
-			log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
+			// log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
 		}
 	}
 	free(arg);
@@ -86,7 +89,9 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(arg);
 			exit(1);
 		}
-// log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
+		if (get_milliseconds() - result.request_created_ts > RAFT_TIMEOUT_MIN) {
+			log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
+		}
 		int result_member_id = member_id(result.server_woof, server_state.member_woofs);
 		if (result_member_id == -1) {
 			log_warn("received a result not in current config");
@@ -169,7 +174,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 			// check if joint config is commited
 			if (server_state.current_config == RAFT_CONFIG_JOINT && server_state.commit_index >= server_state.last_config_seqno) {
-				log_debug("joint config is committed, appending new config");
+				log_info("joint config is committed, appending new config");
 				// append the new config
 				RAFT_LOG_ENTRY config_entry;
 				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &config_entry, server_state.last_config_seqno) < 0) {
@@ -187,7 +192,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				// append a config entry to log
 				RAFT_LOG_ENTRY new_config_entry;
 				new_config_entry.term = server_state.current_term;
-				new_config_entry.is_config = 1;
+				new_config_entry.is_config = RAFT_CONFIG_NEW;
 				if (encode_config(new_config_entry.data.val, new_members, new_member_woofs) < 0) {
 					log_error("failed to encode the new config to a log entry");
 					free(sorted_match_index);
@@ -211,6 +216,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					server_state.next_index[i] = entry_seq + 1;
 					server_state.match_index[i] = 0;
 					server_state.last_sent_timestamp[i] = 0;
+					server_state.last_sent_index[i] = 0;
 				}
 				unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 				if (WooFInvalid(seq)) {
@@ -219,7 +225,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					free(arg);
 					exit(1);
 				}
-				log_debug("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
+				log_info("start using new config with %d members", server_state.members);
 			} else if (server_state.current_config == RAFT_CONFIG_NEW && server_state.commit_index >= server_state.last_config_seqno) {
 				server_state.current_config = RAFT_CONFIG_STABLE;
 				server_state.last_config_seqno = 0;
@@ -230,7 +236,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					free(arg);
 					exit(1);
 				}
-				log_debug("updated server config back to stable at term %lu", server_state.current_term);
+				log_info("updated server config back to stable");
 			}
 			break;
 		}
@@ -258,10 +264,11 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (num_entries > RAFT_MAX_ENTRIES_PER_REQUEST) {
 			num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
 		}
+// log_error("server_state.last_sent_index[%d]: %lu, server_state.next_index[%d]: %lu, server_state.last_sent_timestamp[%d]: %lu", 
+// 			m, server_state.last_sent_index[m], m, server_state.next_index[m], m, server_state.last_sent_timestamp[m]);
 		if ((num_entries > 0 && server_state.last_sent_index[m] != server_state.next_index[m])
-			|| (get_milliseconds() - server_state.last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
+			|| (m < server_state.members && get_milliseconds() - server_state.last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
 			REPLICATE_THREAD_ARG *thread_arg = malloc(sizeof(REPLICATE_THREAD_ARG));
-			thread_arg->s = seq_no;
 			thread_arg->member_id = m;
 			thread_arg->num_entries = num_entries;
 			strcpy(thread_arg->member_woof, server_state.member_woofs[m]);

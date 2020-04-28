@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
 	}
 	memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 	server_state.observers = 0;
+	memset(server_state.member_woofs, 0, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
 
 	FILE *fp = fopen(config_file, "r");
 	if (fp == NULL) {

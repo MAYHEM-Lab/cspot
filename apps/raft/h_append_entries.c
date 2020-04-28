@@ -8,6 +8,10 @@
 #include "raft.h"
 #include "monitor.h"
 
+void put_heartbeat() {
+
+}
+
 int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_APPEND_ENTRIES_ARG *request = (RAFT_APPEND_ENTRIES_ARG *)monitor_cast(ptr);
 	seq_no = monitor_seqno(ptr);
@@ -153,7 +157,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 						exit(1);
 					}
 					// if this entry is a config entry, update server config
-					if (request->entries[i].is_config == 1) {
+					if (request->entries[i].is_config > 0) {
 						int new_members;
 						char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
 						if (decode_config(request->entries[i].data.val, &new_members, new_member_woofs) < 0) {
@@ -162,14 +166,42 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 							exit(1);
 						}
 						server_state.members = new_members;
+						server_state.current_config = request->entries[i].is_config;
+						server_state.last_config_seqno = seq;
 						memcpy(server_state.member_woofs, new_member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
+						// if the observer is in the new config, start as follower
+						if (server_state.role == RAFT_OBSERVER && member_id(server_state.woof_name, server_state.member_woofs) < server_state.members) {
+							server_state.role = RAFT_FOLLOWER;
+							RAFT_HEARTBEAT heartbeat;
+							heartbeat.term = server_state.current_term;
+							heartbeat.timestamp = get_milliseconds();
+							seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
+							if (WooFInvalid(seq)) {
+								log_error("failed to put a heartbeat when falling back to follower");
+								free(request);
+								exit(1);
+							}
+							RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+							timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+							seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+							if (WooFInvalid(seq)) {
+								log_error("failed to start the timeout checker");
+								free(request);
+								exit(1);
+							}
+							log_info("the server was observing but now is in the new config, promoted to FOLLOWER");
+						}
 						unsigned long server_state_seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 						if (WooFInvalid(server_state_seq)) {
 							log_error("failed to update server config at term %lu", server_state.current_term);
 							free(request);
 							exit(1);
 						}
-						log_debug("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
+						if (server_state.current_config == RAFT_CONFIG_JOINT) {
+							log_info("start using joint config with %d members at term %lu", server_state.members, server_state.current_term);
+						} else if (server_state.current_config == RAFT_CONFIG_NEW) {
+							log_info("start using new config with %d members at term %lu", server_state.members, server_state.current_term);
+						}
 					}
 				}
 				unsigned long last_entry_seq = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
@@ -204,8 +236,6 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 
-	// a = get_milliseconds() - a;
-	// log_error("process: %lu", a);
 	if (get_milliseconds() - request->created_ts > RAFT_TIMEOUT_MIN) {
 		log_warn("request %lu took %lums to process", seq_no, get_milliseconds() - request->created_ts);
 	}

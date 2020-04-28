@@ -72,7 +72,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 			// append a config entry to log
 			RAFT_LOG_ENTRY entry;
 			entry.term = server_state.current_term;
-			entry.is_config = 1;
+			entry.is_config = RAFT_CONFIG_JOINT;
 			if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
 				log_error("failed to encode the joint config to a log entry");
 				free(arg);
@@ -90,15 +90,34 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 			log_debug("appended the joint config as a log entry");
+
+			// remove observers that are in the joint config
+			int i;
+			for (i = 0; i < server_state.observers; ++i) {
+				int observer_id = member_id(server_state.member_woofs[RAFT_MAX_MEMBERS + i], joint_member_woofs);
+				if (observer_id != -1 && observer_id < RAFT_MAX_MEMBERS) {
+					log_debug("removed %s from observer list", server_state.member_woofs[RAFT_MAX_MEMBERS + i]);
+					memset(server_state.member_woofs[RAFT_MAX_MEMBERS + i], 0, RAFT_WOOF_NAME_LENGTH);
+				}
+			}
+			server_state.observers = 0;
+			for (i = 0; i < RAFT_MAX_OBSERVERS; ++i) {
+				if (server_state.member_woofs[RAFT_MAX_MEMBERS + i][0] != 0) {
+					strcpy(server_state.member_woofs[RAFT_MAX_MEMBERS + server_state.observers], server_state.member_woofs[RAFT_MAX_MEMBERS + i]);
+					server_state.observers += 1;
+				}
+			}
+
+			// use the joint config
 			server_state.members = joint_members;
 			server_state.current_config = RAFT_CONFIG_JOINT;
 			server_state.last_config_seqno = entry_seq;
-			memcpy(server_state.member_woofs, joint_member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
-			int i;
+			memcpy(server_state.member_woofs, joint_member_woofs, RAFT_MAX_MEMBERS * RAFT_WOOF_NAME_LENGTH);
 			for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 				server_state.next_index[i] = entry_seq + 1;
 				server_state.match_index[i] = 0;
 				server_state.last_sent_timestamp[i] = 0;
+				server_state.last_sent_index[i] = 0;
 			}
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
@@ -106,7 +125,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(arg);
 				exit(1);
 			}
-			log_debug("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
+			log_info("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
 			result.redirected = 0;
 			result.success = 1;
 			strcpy(result.current_leader, server_state.current_leader);

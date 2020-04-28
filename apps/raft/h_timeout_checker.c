@@ -48,7 +48,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		free(arg);
 		exit(1);
 	}
-	if (server_state.role == RAFT_LEADER || server_state.role == RAFT_OBSERVER) {
+	if (server_state.role == RAFT_LEADER || server_state.role == RAFT_OBSERVER || server_state.role == RAFT_SHUTDOWN) {
 		monitor_exit(ptr);
 		free(arg);
 		return 1;

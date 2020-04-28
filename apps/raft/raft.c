@@ -52,7 +52,7 @@ int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAF
 		if (buffer[strlen(buffer) - 1] == '/') {
 			buffer[strlen(buffer) - 1] = 0;
 		}
-		strncpy(member_woofs[i], buffer, RAFT_WOOF_NAME_LENGTH);
+		strcpy(member_woofs[i], buffer);
 	}
 	return 0;
 }
