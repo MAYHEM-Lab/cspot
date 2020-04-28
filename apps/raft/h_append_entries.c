@@ -26,12 +26,14 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 
 	RAFT_APPEND_ENTRIES_RESULT result;
+	result.request_created_ts = request->created_ts;
 	result.seqno = seq_no;
 	memcpy(result.server_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
 	if (get_milliseconds() - request->created_ts > RAFT_HEARTBEAT_RATE) {
 		log_warn("request %lu took %lums to receive", seq_no, get_milliseconds() - request->created_ts);
 	}
-	if (member_id(server_state.members, request->leader_woof, server_state.member_woofs) == -1) {
+	int m_id = member_id(request->leader_woof, server_state.member_woofs);
+	if (m_id == -1 || m_id >= server_state.members) {
 		log_debug("disregard a request from a server not in the config");
 		free(request);
 		monitor_exit(ptr);
@@ -47,7 +49,19 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(request);
 			exit(1);
 		}
-		if (request->term > server_state.current_term || (request->term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
+		if (server_state.role == RAFT_OBSERVER) {
+			if (request->term > server_state.current_term) {
+				log_debug("observer enters term %lu", request->term);
+				server_state.current_term = request->term;
+				strcpy(server_state.current_leader, request->leader_woof);
+				unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+				if (WooFInvalid(seq)) {
+					log_error("failed to enter term %lu", request->term);
+					free(request);
+					exit(1);
+				}	
+			}
+		} else if (request->term > server_state.current_term || (request->term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
 			// fall back to follower
 			log_debug("request term %lu is higher, fall back to follower", request->term);
 			server_state.current_term = request->term;
@@ -117,11 +131,6 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			} else {
 				// if the server has more entries that conflict with the leader, delete them
 				if (last_entry_seqno > request->prev_log_index) {
-					if (request->prev_log_index < server_state.commit_index) {
-						log_error("fatal error: can't delete committed entries, prev_log_index: %lu, commit_index: %lu", request->prev_log_index, server_state.commit_index);
-						free(request);
-						exit(1);
-					}
 					// TODO: check if the entries after prev_log_index match
 					// if so, we don't need to call WooFTruncate()
 					if (WooFTruncate(RAFT_LOG_ENTRIES_WOOF, request->prev_log_index) < 0) {
@@ -146,14 +155,14 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					// if this entry is a config entry, update server config
 					if (request->entries[i].is_config == 1) {
 						int new_members;
-						char new_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
+						char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
 						if (decode_config(request->entries[i].data.val, &new_members, new_member_woofs) < 0) {
 							log_error("failed to decode config from entry[%lu]", i);
 							free(request);
 							exit(1);
 						}
 						server_state.members = new_members;
-						memcpy(server_state.member_woofs, new_member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
+						memcpy(server_state.member_woofs, new_member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
 						unsigned long server_state_seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 						if (WooFInvalid(server_state_seq)) {
 							log_error("failed to update server config at term %lu", server_state.current_term);
@@ -195,6 +204,8 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 
+	// a = get_milliseconds() - a;
+	// log_error("process: %lu", a);
 	if (get_milliseconds() - request->created_ts > RAFT_TIMEOUT_MIN) {
 		log_warn("request %lu took %lums to process", seq_no, get_milliseconds() - request->created_ts);
 	}

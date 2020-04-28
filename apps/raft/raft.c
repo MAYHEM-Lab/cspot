@@ -31,7 +31,7 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
-int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
 	char buffer[256];
 	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
 		fprintf(stderr, "wrong format of config file\n");
@@ -79,9 +79,9 @@ int node_woof_name(char *node_woof) {
 	return 0;
 }
 
-int member_id(int members, char *woof_name, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
 	int i;
-	for (i = 0; i < members; ++i) {
+	for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 		if (strcmp(woof_name, member_woofs[i]) == 0) {
 			return i;
 		}
@@ -89,7 +89,7 @@ int member_id(int members, char *woof_name, char member_woofs[RAFT_MAX_SERVER_NU
 	return -1;
 }
 
-int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
 	sprintf(dst, "%d;", members);
 	int i;
 	for (i = 0; i < members; ++i) {
@@ -98,7 +98,7 @@ int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_SERVER_NUMB
 	return strlen(dst);
 }
 
-int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
 	int len = 0;
     char *token;
     token = strtok(src, ";");
@@ -120,11 +120,11 @@ int qsort_strcmp(const void *a, const void *b) {
     return strcmp((const char*)a, (const char*)b);
 }
 
-int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH],
-	int new_members, char new_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH],
-	int *joint_members, char joint_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH]) {
+int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH],
+	int new_members, char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH],
+	int *joint_members, char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
 	
-	if (old_members + new_members > RAFT_MAX_SERVER_NUMBER) {
+	if (old_members + new_members > RAFT_MAX_MEMBERS) {
 		return -1;
 	}
 	int i;

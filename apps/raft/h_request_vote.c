@@ -27,8 +27,9 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	unsigned long i;
 	RAFT_REQUEST_VOTE_RESULT result;
 	result.candidate_vote_pool_seqno = request->candidate_vote_pool_seqno;
-	// if not a member, deny the request and tell it to shut down
-	if (member_id(server_state.members, request->candidate_woof, server_state.member_woofs) == -1) {
+	// deny the request if not a member
+	int m_id = member_id(request->candidate_woof, server_state.member_woofs);
+	if (m_id == -1 || m_id >= server_state.members) {
 		result.term = 0; // result term 0 means shutdown
 		result.granted = 0;
 		log_debug("rejected a vote from a candidate not in the config");

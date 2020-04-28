@@ -31,13 +31,11 @@ void raft_set_client_timeout(int timeout) {
 int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, unsigned long *request_seqno, int sync) {
     unsigned long begin = get_milliseconds();
 
-    RAFT_CLIENT_PUT_ARG arg;
-    memcpy(&arg.data, data, sizeof(RAFT_DATA_TYPE)); 
-    char monitor_name[RAFT_WOOF_NAME_LENGTH];
+    RAFT_CLIENT_PUT_REQUEST request;
+    memcpy(&request.data, data, sizeof(RAFT_DATA_TYPE)); 
     char woof_name[RAFT_WOOF_NAME_LENGTH];
-    sprintf(monitor_name, "%s/%s", raft_client_leader, RAFT_MONITOR_NAME);
-    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_ARG_WOOF);
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_client_put", &arg);
+    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
+    unsigned long seq = WooFPut(woof_name, NULL, &request);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to send put request\n");
         return RAFT_ERROR;
@@ -175,6 +173,7 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term) {
 int raft_index_from_put(unsigned long *index, unsigned long *term, unsigned long seq_no) {
     char woof_name[RAFT_WOOF_NAME_LENGTH];
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
+    while (WooFGetLatestSeqno(woof_name) < seq_no);
     RAFT_CLIENT_PUT_RESULT result;
     if (WooFGet(woof_name, &result, seq_no) < 0) {
         return -1;
@@ -184,24 +183,25 @@ int raft_index_from_put(unsigned long *index, unsigned long *term, unsigned long
     return 0;
 }
 
-int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH], unsigned long *index, unsigned long *term) {
+int raft_config_change(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH], unsigned long *index, unsigned long *term) {
     unsigned long begin = get_milliseconds();
 
-    RAFT_RECONFIG_ARG arg;
+    RAFT_CONFIG_CHANGE_ARG arg;
+    arg.observe = 0;
     arg.members = members;
-    memcpy(arg.member_woofs, member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
+    memcpy(arg.member_woofs, member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
     
     char monitor_name[RAFT_WOOF_NAME_LENGTH];
     char woof_name[RAFT_WOOF_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", raft_client_leader, RAFT_MONITOR_NAME);
-    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_RECONFIG_ARG_WOOF);
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_reconfig", &arg);
+    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CONFIG_CHANGE_ARG_WOOF);
+    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to send reconfig request\n");
         return RAFT_ERROR;
     }
 
-    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_RECONFIG_RESULT_WOOF);
+    sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CONFIG_CHANGE_RESULT_WOOF);
     unsigned long latest_reconfig_result = 0;
     while (latest_reconfig_result < seq) {
         if (raft_client_timeout > 0 && get_milliseconds() - begin > raft_client_timeout) {
@@ -211,7 +211,7 @@ int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WO
         usleep(raft_client_result_delay * 1000);
         latest_reconfig_result = WooFGetLatestSeqno(woof_name);
     }
-    RAFT_RECONFIG_RESULT result;
+    RAFT_CONFIG_CHANGE_RESULT result;
     if (WooFGet(woof_name, &result, seq) < 0) {
         fprintf(stderr, "failed to get put result for put request %lu\n", seq);
         return RAFT_ERROR;
@@ -226,6 +226,52 @@ int raft_reconfig(int members, char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WO
         return RAFT_ERROR;
     }
     printf("reconfig requested\n");
+    return RAFT_SUCCESS;
+}
+
+int raft_observe() {
+    unsigned long begin = get_milliseconds();
+
+    RAFT_CONFIG_CHANGE_ARG arg;
+    arg.observe = 1;
+    if (node_woof_name(arg.observer_woof) < 0) {
+        fprintf(stderr, "failed to get observer's woof\n");
+        return -1;
+    }
+    
+    int i;
+    for (i = 0; i < raft_client_members; ++i) {
+        char monitor_name[RAFT_WOOF_NAME_LENGTH];
+        char woof_name[RAFT_WOOF_NAME_LENGTH];
+        sprintf(monitor_name, "%s/%s", raft_client_servers[i], RAFT_MONITOR_NAME);
+        sprintf(woof_name, "%s/%s", raft_client_servers[i], RAFT_CONFIG_CHANGE_ARG_WOOF);
+        unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg);
+        if (WooFInvalid(seq)) {
+            fprintf(stderr, "failed to send observe request\n");
+            return RAFT_ERROR;
+        }
+
+        sprintf(woof_name, "%s/%s", raft_client_servers[i], RAFT_CONFIG_CHANGE_RESULT_WOOF);
+        unsigned long latest_reconfig_result = 0;
+        while (latest_reconfig_result < seq) {
+            if (raft_client_timeout > 0 && get_milliseconds() - begin > raft_client_timeout) {
+                fprintf(stderr, "timeout after %lums\n", get_milliseconds() - begin);
+                return RAFT_TIMEOUT;
+            }
+            usleep(raft_client_result_delay * 1000);
+            latest_reconfig_result = WooFGetLatestSeqno(woof_name);
+        }
+        RAFT_CONFIG_CHANGE_RESULT result;
+        if (WooFGet(woof_name, &result, seq) < 0) {
+            fprintf(stderr, "failed to get put result for observe request %lu\n", seq);
+            return RAFT_ERROR;
+        }
+        if (result.success == 0) {
+            printf("observe request denied\n");
+            return RAFT_ERROR;
+        }
+    }
+    printf("observe requested\n");
     return RAFT_SUCCESS;
 }
 

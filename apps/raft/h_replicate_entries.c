@@ -9,13 +9,14 @@
 #include "raft.h"
 #include "monitor.h"
 
-pthread_t thread_id[RAFT_MAX_SERVER_NUMBER];
+pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 
 typedef struct replicate_thread_arg {
 	int member_id;
 	char member_woof[RAFT_WOOF_NAME_LENGTH];
 	int num_entries;
 	RAFT_APPEND_ENTRIES_ARG arg;
+	unsigned long s;
 } REPLICATE_THREAD_ARG;
 
 void *replicate_thread(void *arg) {
@@ -28,11 +29,11 @@ void *replicate_thread(void *arg) {
 	if (WooFInvalid(seq)) {
 		log_warn("failed to replicate the log entries to member %d", replicate_thread_arg->member_id);
 	} else {
-		// if (replicate_thread_arg->num_entries > 0) {
-		// 	log_debug("sent %d entries to member %d: %s", replicate_thread_arg->num_entries, replicate_thread_arg->member_id, woof_name);
-		// } else {
-		// 	log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
-		// }
+		if (replicate_thread_arg->num_entries > 0) {
+			log_debug("sent %d entries to member %d [%lu], prev_index: %lu, %s", replicate_thread_arg->s, replicate_thread_arg->num_entries, replicate_thread_arg->member_id, seq, replicate_thread_arg->arg.prev_log_index, woof_name);
+		} else {
+			log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
+		}
 	}
 	free(arg);
 }
@@ -43,6 +44,7 @@ int comp_index(const void *a, const void *b) {
 
 int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_REPLICATE_ENTRIES_ARG *arg = (RAFT_REPLICATE_ENTRIES_ARG *)monitor_cast(ptr);
+	seq_no = monitor_seqno(ptr);
 
 	log_set_tag("replicate_entries");
 	// log_set_level(LOG_INFO);
@@ -69,7 +71,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		return 1;
 	}
 
-	// check previous append_entries_result to update commit_index
+	// check previous append_entries_result
 	unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
 	if (WooFInvalid(last_append_result_seqno)) {
 		log_error("failed to get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
@@ -84,7 +86,14 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(arg);
 			exit(1);
 		}
-		if (result.term > server_state.current_term) {
+// log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
+		int result_member_id = member_id(result.server_woof, server_state.member_woofs);
+		if (result_member_id == -1) {
+			log_warn("received a result not in current config");
+			arg->last_seen_result_seqno = result_seq;
+			continue;
+		}
+		if (result_member_id < server_state.members && result.term > server_state.current_term) {
 			// fall back to follower
 			log_debug("request term %lu is higher, fall back to follower", result.term);
 			server_state.current_term = result.term;
@@ -120,22 +129,16 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			return 1;
 		}
 		if (result.term == arg->term) {
-			int m_id = member_id(server_state.members, result.server_woof, server_state.member_woofs);
-			if (m_id < 0) {
-				log_warn("received a result not in current config");
+			server_state.next_index[result_member_id] = result.last_entry_seq + 1;
+			if (result.success) {
+				server_state.match_index[result_member_id] = result.last_entry_seq;
+				// log_error("[%lu] success[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno, result_member_id, server_state.next_index[result_member_id]);
 			} else {
-				server_state.next_index[m_id] = result.last_entry_seq + 1;
-				if (result.success) {
-					server_state.match_index[m_id] = result.last_entry_seq;
-					// log_error("success[%lu], server_state.next_index[%d]: %lu", result.seqno, m_id, server_state.next_index[m_id]);
-				} else {
-					// log_error("failed[%lu], server_state.next_index[%d]: %lu", result.seqno, m_id, server_state.next_index[m_id]);
-				}
+				// log_error("[%lu] failed[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno, result_member_id, server_state.next_index[result_member_id]);
 			}
 		}
 		arg->last_seen_result_seqno = result_seq;
 	}
-
 	// update commit_index using qsort
 	unsigned long *sorted_match_index = malloc(sizeof(unsigned long) * server_state.members);
 	memcpy(sorted_match_index, server_state.match_index, sizeof(unsigned long) * server_state.members);
@@ -176,7 +179,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					exit(1);
 				}
 				int new_members;
-				char new_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
+				char new_member_woofs[RAFT_MAX_MEMBERS][RAFT_WOOF_NAME_LENGTH];
 				int joint_config_len = decode_config(config_entry.data.val, &new_members, new_member_woofs);
 				decode_config(config_entry.data.val + joint_config_len, &new_members, new_member_woofs);
 				log_debug("there are %d members in the new config", new_members);
@@ -202,9 +205,9 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				server_state.members = new_members;
 				server_state.current_config = RAFT_CONFIG_NEW;
 				server_state.last_config_seqno = entry_seq;
-				memcpy(server_state.member_woofs, new_member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
+				memcpy(server_state.member_woofs, new_member_woofs, RAFT_MAX_MEMBERS * RAFT_WOOF_NAME_LENGTH);
 				int i;
-				for (i = 0; i < RAFT_MAX_SERVER_NUMBER; ++i) {
+				for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 					server_state.next_index[i] = entry_seq + 1;
 					server_state.match_index[i] = 0;
 					server_state.last_sent_timestamp[i] = 0;
@@ -233,7 +236,6 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 	free(sorted_match_index);
-
 	// checking what entries need to be replicated
 	unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
 	if (WooFInvalid(last_log_entry_seqno)) {
@@ -241,10 +243,13 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		free(arg);
 		exit(1);
 	}
-
-	memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_SERVER_NUMBER);
+	// send entries to members and observers
+	memset(thread_id, 0, sizeof(pthread_t) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
 	int m;
-	for (m = 0; m < server_state.members; ++m) {
+	for (m = 0; m < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++m) {
+		if ((m >= server_state.members && m < RAFT_MAX_MEMBERS) || (m >= RAFT_MAX_MEMBERS + server_state.observers)) {
+			continue;
+		}
 		if (strcmp(server_state.member_woofs[m], server_state.woof_name) == 0) {
 			server_state.match_index[m] = last_log_entry_seqno;
 			continue; // no need to replicate to itself
@@ -256,6 +261,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if ((num_entries > 0 && server_state.last_sent_index[m] != server_state.next_index[m])
 			|| (get_milliseconds() - server_state.last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
 			REPLICATE_THREAD_ARG *thread_arg = malloc(sizeof(REPLICATE_THREAD_ARG));
+			thread_arg->s = seq_no;
 			thread_arg->member_id = m;
 			thread_arg->num_entries = num_entries;
 			strcpy(thread_arg->member_woof, server_state.member_woofs[m]);
@@ -304,7 +310,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	threads_join(server_state.members, thread_id);
+	threads_join(RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS, thread_id);
 	free(arg);
 	return 1;
 }

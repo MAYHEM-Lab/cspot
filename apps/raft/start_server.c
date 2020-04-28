@@ -9,17 +9,23 @@
 #include "raft.h"
 #include "monitor.h"
 
-#define ARGS "f:"
-char *Usage = "start_server -f config_file\n";
+#define ARGS "f:o"
+char *Usage = "start_server -f config_file\n\
+-o as observer\n";
 
 int main(int argc, char **argv) {
 	char config_file[256];
+	int observer = 0;
 
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
 			case 'f': {
 				strncpy(config_file, optarg, sizeof(config_file));
+				break;
+			}
+			case 'o': {
+				observer = 1;
 				break;
 			}
 			default: {
@@ -38,6 +44,9 @@ int main(int argc, char **argv) {
 	RAFT_SERVER_STATE server_state;
 	server_state.current_term = 0;
 	server_state.role = RAFT_FOLLOWER;
+	if (observer) {
+		server_state.role = RAFT_OBSERVER;
+	}
 	memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
 	server_state.commit_index = 0;
 	server_state.current_config = RAFT_CONFIG_STABLE;
@@ -45,6 +54,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Couldn't get woof name\n");
 	}
 	memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+	server_state.observers = 0;
 
 	FILE *fp = fopen(config_file, "r");
 	if (fp == NULL) {
@@ -89,13 +99,23 @@ int main(int argc, char **argv) {
 	}
 	printf("Put a heartbeat\n");
 
-	RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
-	timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
-	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+	RAFT_CLIENT_PUT_ARG client_put_arg;
+	client_put_arg.last_seqno = 0;
+	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "Couldn't start the timeout checker\n");
+		fprintf(stderr, "Couldn't start h_client_put\n");
 		exit(1);
 	}
+	if (!observer) {
+		RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+		timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+		seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+		if (WooFInvalid(seq)) {
+			fprintf(stderr, "Couldn't start h_timeout_checker\n");
+			exit(1);
+		}
+	}
+	printf("Started h_timeout_checker and h_client_put\n");
 	
 	return 0;
 }

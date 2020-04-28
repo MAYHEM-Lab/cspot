@@ -8,11 +8,11 @@
 #include "raft.h"
 #include "monitor.h"
 
-int h_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
-	RAFT_RECONFIG_ARG *arg = (RAFT_RECONFIG_ARG *)monitor_cast(ptr);
+int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
+	RAFT_CONFIG_CHANGE_ARG *arg = (RAFT_CONFIG_CHANGE_ARG *)monitor_cast(ptr);
 	seq_no = monitor_seqno(ptr);
 
-	log_set_tag("reconfig");
+	log_set_tag("config_change");
 	// log_set_level(LOG_INFO);
 	log_set_level(LOG_DEBUG);
 	log_set_output(stdout);
@@ -24,8 +24,28 @@ int h_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	RAFT_RECONFIG_RESULT result;
-	if (server_state.role != RAFT_LEADER) {
+	RAFT_CONFIG_CHANGE_RESULT result;
+	if (arg->observe) {
+		if (member_id(arg->observer_woof, server_state.member_woofs) != -1) {
+			log_debug("%s is already observing", arg->observer_woof);
+			result.redirected = 0;
+			result.success = 1;
+			strcpy(result.current_leader, server_state.current_leader);
+		} else {
+			strcpy(server_state.member_woofs[RAFT_MAX_MEMBERS + server_state.observers], arg->observer_woof);
+			server_state.observers += 1;
+			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+			if (WooFInvalid(seq)) {
+				log_error("failed to add observer to server at term %lu", server_state.current_term);
+				free(arg);
+				exit(1);
+			}
+			log_debug("%s starts observing", arg->observer_woof);
+			result.redirected = 0;
+			result.success = 1;
+			strcpy(result.current_leader, server_state.current_leader);
+		}
+	} else if (server_state.role != RAFT_LEADER) {
 		log_debug("not a leader, reply with the current leader");
 		result.redirected = 1;
 		result.success = 0;
@@ -41,7 +61,7 @@ int h_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 			// compute the joint config
 			int joint_members;
-			char joint_member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
+			char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
 			if (compute_joint_config(server_state.members, server_state.member_woofs, arg->members, arg->member_woofs, &joint_members, joint_member_woofs) < 0) {
 				log_error("failed to compute the joint config");
 				free(arg);
@@ -73,9 +93,9 @@ int h_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
 			server_state.members = joint_members;
 			server_state.current_config = RAFT_CONFIG_JOINT;
 			server_state.last_config_seqno = entry_seq;
-			memcpy(server_state.member_woofs, joint_member_woofs, RAFT_MAX_SERVER_NUMBER * RAFT_WOOF_NAME_LENGTH);
+			memcpy(server_state.member_woofs, joint_member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
 			int i;
-			for (i = 0; i < RAFT_MAX_SERVER_NUMBER; ++i) {
+			for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 				server_state.next_index[i] = entry_seq + 1;
 				server_state.match_index[i] = 0;
 				server_state.last_sent_timestamp[i] = 0;
@@ -94,18 +114,18 @@ int h_reconfig(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 
 	// for very slight chance that h_client_put is not queued in the same order of the element appended in RAFT_CLIENT_PUT_ARG_WOOF
-	unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_RECONFIG_RESULT_WOOF);
+	unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CONFIG_CHANGE_RESULT_WOOF);
 	while (latest_result_seqno != seq_no - 1) {
 		log_warn("reconfig result seqno not matching, waiting %lu", seq_no);
 		usleep(RAFT_FUNCTION_DELAY * 1000);
-		latest_result_seqno = WooFGetLatestSeqno(RAFT_RECONFIG_RESULT_WOOF);
+		latest_result_seqno = WooFGetLatestSeqno(RAFT_CONFIG_CHANGE_RESULT_WOOF);
 	}
 
-	unsigned long result_seq = WooFPut(RAFT_RECONFIG_RESULT_WOOF, NULL, &result);
+	unsigned long result_seq = WooFPut(RAFT_CONFIG_CHANGE_RESULT_WOOF, NULL, &result);
 	while (WooFInvalid(result_seq)) {
 		log_warn("failed to write reconfig result, try again");
 		usleep(RAFT_FUNCTION_DELAY * 1000);
-		result_seq = WooFPut(RAFT_RECONFIG_RESULT_WOOF, NULL, &result);
+		result_seq = WooFPut(RAFT_CONFIG_CHANGE_RESULT_WOOF, NULL, &result);
 	}
 
 	if (result_seq != seq_no) {

@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 	int members;
-	char member_woofs[RAFT_MAX_SERVER_NUMBER][RAFT_WOOF_NAME_LENGTH];
+	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
 	if (read_config(fp, &members, member_woofs) < 0) {
 		fprintf(stderr, "failed to read new config file %s\n", new_config);
 		fclose(fp);
@@ -67,9 +67,9 @@ int main(int argc, char **argv) {
 	fclose(fp);
 
 	unsigned long index, term;
-	int err = raft_reconfig(members, member_woofs, &index, &term);
+	int err = raft_config_change(members, member_woofs, &index, &term);
 	while (err == RAFT_REDIRECTED) {
-		err = raft_reconfig(members, member_woofs, &index, &term);
+		err = raft_config_change(members, member_woofs, &index, &term);
 	}
 	
 	return err;

@@ -25,51 +25,82 @@ int h_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	RAFT_CLIENT_PUT_RESULT result;
-	if (server_state.role != RAFT_LEADER) {
-		result.redirected = 1;
-		result.index = 0;
-		result.term = server_state.current_term;
-		memcpy(result.current_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
-	} else {
-		unsigned long entry_seqno;
-		RAFT_LOG_ENTRY entry;
-		entry.term = server_state.current_term;
-		memcpy(&entry.data, &arg->data, sizeof(RAFT_DATA_TYPE));
-		entry.is_config = 0;
-		entry_seqno = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
-		if (WooFInvalid(entry_seqno)) {
-			log_error("failed to append raft log");
-			free(arg);
-			exit(1);
-		}
-		result.redirected = 0;
-		result.index = entry_seqno;
-		result.term = server_state.current_term;
-	}
-	monitor_exit(ptr);
-
-	// for very slight chance that h_client_put is not queued in the same order of the element appended in RAFT_CLIENT_PUT_ARG_WOOF
-	unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
-	while (latest_result_seqno != seq_no - 1) {
-		log_warn("client_put_arg seqno not matching, waiting %lu", seq_no);
-		usleep(RAFT_FUNCTION_DELAY * 1000);
-		latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
-	}
-
-	unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
-	while (WooFInvalid(result_seq)) {
-		log_warn("failed to write client_put result, try again");
-		usleep(RAFT_FUNCTION_DELAY * 1000);
-		result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
-	}
-
-	if (result_seq != seq_no) {
-		log_error("client_put_arg seqno %lu doesn't match result seno %lu", seq_no, result_seq);
+	unsigned long last_request = WooFGetLatestSeqno(RAFT_CLIENT_PUT_REQUEST_WOOF);
+	if (WooFInvalid(last_request)) {
+		log_error("failed to get the latest seqno from %s", RAFT_CLIENT_PUT_RESULT_WOOF);
 		free(arg);
 		exit(1);
 	}
 
+	unsigned long i;
+	for (i = arg->last_seqno + 1; i <= last_request; ++i) {
+		RAFT_CLIENT_PUT_REQUEST request;
+		if (WooFGet(RAFT_CLIENT_PUT_REQUEST_WOOF, &request, i) < 0) {
+			log_error("failed to get client_put request at %lu", i);
+			free(arg);
+			exit(1);
+		}
+		RAFT_CLIENT_PUT_RESULT result;
+		if (server_state.role != RAFT_LEADER) {
+			result.redirected = 1;
+			result.index = 0;
+			result.term = server_state.current_term;
+			memcpy(result.current_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
+		} else {
+			unsigned long entry_seqno;
+			RAFT_LOG_ENTRY entry;
+			entry.term = server_state.current_term;
+			memcpy(&entry.data, &request.data, sizeof(RAFT_DATA_TYPE));
+			entry.is_config = 0;
+			entry_seqno = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
+			if (WooFInvalid(entry_seqno)) {
+				log_error("failed to append raft log");
+				free(arg);
+				exit(1);
+			}
+			result.redirected = 0;
+			result.index = entry_seqno;
+			result.term = server_state.current_term;
+		}
+		// make sure the result's seq_no matches with request's seq_no
+		unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
+		if (latest_result_seqno < i - 1) {
+			log_warn("client_put_result at %lu, client_put_request at %lu, padding %lu results", latest_result_seqno, i, i - latest_result_seqno - 1);
+			unsigned long j;
+			for (j = latest_result_seqno + 1; j <= i - 1; ++j) {	
+				RAFT_CLIENT_PUT_RESULT result;
+				unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
+				if (WooFInvalid(result_seq)) {
+					log_error("failed to put padded result");
+					free(arg);
+					exit(1);
+				}
+			}
+		}
+
+		unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
+		while (WooFInvalid(result_seq)) {
+			log_error("failed to write client_put_result");
+			free(arg);
+			exit(1);
+		}
+		if (result_seq != i) {
+			log_error("client_put_request seq_no %lu doesn't match result seq_no %lu", i, result_seq);
+			free(arg);
+			exit(1);
+		}
+
+		arg->last_seqno = i;
+	}
+	monitor_exit(ptr);
+
+	usleep(RAFT_FUNCTION_DELAY * 1000);
+	unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg);
+	if (WooFInvalid(seq)) {
+		log_error("failed to queue the next h_client_put handler");
+		free(arg);
+		exit(1);
+	}
 	free(arg);
 	return 1;
 }

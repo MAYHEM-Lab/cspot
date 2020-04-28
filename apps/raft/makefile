@@ -34,10 +34,10 @@ copy: handlers
 
 test: client_test config_test raft.o client.o
 
-clients: client_get client_put client_reconfig raft.o client.o
+clients: client_get client_observe client_put client_reconfig raft.o client.o
 
 handlers: create_woofs start_server\
-h_append_entries h_client_put h_count_vote h_reconfig h_replicate_entries h_request_vote h_timeout_checker\
+h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker\
 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
@@ -47,6 +47,9 @@ client.o: client.c client.h
 
 client_get: client_get.c client.o raft.o monitor.o
 	${CC} ${CFLAGS} -o client_get client_get.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+client_observe: client_observe.c client.o raft.o monitor.o
+	${CC} ${CFLAGS} -o client_observe client_observe.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_put: client_put.c client.o raft.o monitor.o
 	${CC} ${CFLAGS} -o client_put client_put.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -70,15 +73,15 @@ h_client_put: h_client_put.c raft.o monitor.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ
 	${CC} ${CFLAGS} -c h_client_put_shepherd.c -o h_client_put_shepherd.o
 	${CC} ${CFLAGS} -o h_client_put h_client_put.c h_client_put_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+h_config_change: h_config_change.c raft.o monitor.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_config_change/g' ${SHEP_SRC} > h_config_change_shepherd.c
+	${CC} ${CFLAGS} -c h_config_change_shepherd.c -o h_config_change_shepherd.o
+	${CC} ${CFLAGS} -o h_config_change h_config_change.c h_config_change_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 h_count_vote: h_count_vote.c raft.o monitor.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_count_vote/g' ${SHEP_SRC} > h_count_vote_shepherd.c
 	${CC} ${CFLAGS} -c h_count_vote_shepherd.c -o h_count_vote_shepherd.o
 	${CC} ${CFLAGS} -o h_count_vote h_count_vote.c h_count_vote_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-h_reconfig: h_reconfig.c raft.o monitor.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/h_reconfig/g' ${SHEP_SRC} > h_reconfig_shepherd.c
-	${CC} ${CFLAGS} -c h_reconfig_shepherd.c -o h_reconfig_shepherd.o
-	${CC} ${CFLAGS} -o h_reconfig h_reconfig.c h_reconfig_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_replicate_entries: h_replicate_entries.c raft.o monitor.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_replicate_entries/g' ${SHEP_SRC} > h_replicate_entries_shepherd.c
@@ -102,4 +105,4 @@ start_server: start_server.c raft.o monitor.o
 	${CC} ${CFLAGS} -o start_server start_server.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o client.o client_test config_test client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_reconfig h_request_vote start_server term_chair h_timeout_checker 
+	rm -rf ./cspot raft.o client.o client_test config_test client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote start_server term_chair h_timeout_checker 

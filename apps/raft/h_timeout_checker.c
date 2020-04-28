@@ -8,7 +8,7 @@
 #include "raft.h"
 #include "monitor.h"
 
-pthread_t thread_id[RAFT_MAX_SERVER_NUMBER];
+pthread_t thread_id[RAFT_MAX_MEMBERS];
 
 typedef struct request_vote_thread_arg {
 	char member_woof[RAFT_WOOF_NAME_LENGTH];
@@ -48,7 +48,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		free(arg);
 		exit(1);
 	}
-	if (server_state.role == RAFT_LEADER) {
+	if (server_state.role == RAFT_LEADER || server_state.role == RAFT_OBSERVER) {
 		monitor_exit(ptr);
 		free(arg);
 		return 1;
@@ -69,7 +69,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	
 	// if timeout, start an election
-	memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_SERVER_NUMBER);
+	memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_MEMBERS);
 	if (get_milliseconds() - heartbeat.timestamp > arg->timeout_value) {
 		arg->timeout_value = random_timeout(get_milliseconds());
 		log_warn("timeout after %lums at term %lu", get_milliseconds() - heartbeat.timestamp, server_state.current_term);
