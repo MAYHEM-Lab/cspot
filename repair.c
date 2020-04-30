@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include "lsema.h"
 #include "repair.h"
+#include "woofc.h"
 
 #ifdef REPAIR
 
@@ -230,7 +231,7 @@ void GLogFindAffectedWooF(GLOG *glog, RB *root, int *count_root, RB *casualty, i
     EVENT *ev_array;
     LOG *log;
     unsigned long curr;
-    char *key;
+    char key[WOOFNAMESIZE];
     RB *rbc;
     RB *rb;
 
@@ -247,7 +248,7 @@ void GLogFindAffectedWooF(GLOG *glog, RB *root, int *count_root, RB *casualty, i
     {
         if (ev_array[curr].type & ROOT)
         {
-            key = KeyFromWooF(ev_array[curr].host, ev_array[curr].woofc_name);
+            KeyFromWooF(key, ev_array[curr].host, ev_array[curr].woofc_name);
             if (RBFindS(root, key) == NULL)
             {
                 RBInsertS(root, key, (Hval)0);
@@ -258,7 +259,7 @@ void GLogFindAffectedWooF(GLOG *glog, RB *root, int *count_root, RB *casualty, i
             if (ev_array[curr].type == (MARKED | TRIGGER) ||
                 ev_array[curr].type == (MARKED | APPEND))
             {
-                key = KeyFromWooF(ev_array[curr].host, ev_array[curr].woofc_name);
+                KeyFromWooF(key, ev_array[curr].host, ev_array[curr].woofc_name);
                 if (RBFindS(casualty, key) == NULL)
                 {
                     RBInsertS(casualty, key, (Hval)0);
@@ -266,7 +267,7 @@ void GLogFindAffectedWooF(GLOG *glog, RB *root, int *count_root, RB *casualty, i
             }
             else if (ev_array[curr].type == (MARKED | LATEST_SEQNO))
             {
-                key = KeyFromWooF(ev_array[curr].host, ev_array[curr].woofc_name);
+                KeyFromWooF(key, ev_array[curr].host, ev_array[curr].woofc_name);
                 if (RBFindS(progress, key) == NULL)
                 {
                     RBInsertS(progress, key, (Hval)0);
@@ -319,7 +320,7 @@ int GLogFindLatestSeqnoAsker(GLOG *glog, unsigned long host, char *woof_ro, RB *
     EVENT *ev_array;
     LOG *log;
     unsigned long curr;
-    char *key;
+    char key[WOOFNAMESIZE];
     Hval hval;
     RB *rb;
     RB *rbc;
@@ -340,7 +341,7 @@ int GLogFindLatestSeqnoAsker(GLOG *glog, unsigned long host, char *woof_ro, RB *
             ev_array[curr].type == (MARKED | LATEST_SEQNO) &&
             strcmp(ev_array[curr].woofc_name, woof_ro) == 0)
         {
-            key = KeyFromWooF(ev_array[curr].cause_host, ev_array[curr].woofc_handler);
+            KeyFromWooF(key, ev_array[curr].cause_host, ev_array[curr].woofc_handler);
             rb = RBFindS(asker, key);
             // use woofc_handler as woof_name of who calls WooFGetLatestSeqno
             if (rb == NULL)
@@ -376,7 +377,7 @@ int GLogFindLatestSeqnoAsker(GLOG *glog, unsigned long host, char *woof_ro, RB *
     {
         if (ev_array[curr].type == (MARKED | LATEST_SEQNO) && strcmp(ev_array[curr].woofc_name, woof_ro) == 0)
         {
-            key = KeyFromWooF(ev_array[curr].cause_host, ev_array[curr].woofc_handler);
+            KeyFromWooF(key, ev_array[curr].cause_host, ev_array[curr].woofc_handler);
             // printf("woofc_handler: %s     woofc_ndx: %lu\n", key, ev_array[curr].woofc_ndx);
             rb = RBFindS(asker, key);
             if (rb == NULL)
@@ -423,12 +424,10 @@ int GLogFindLatestSeqnoAsker(GLOG *glog, unsigned long host, char *woof_ro, RB *
     return (0);
 }
 
-char *KeyFromWooF(unsigned long host, char *woof)
+void KeyFromWooF(char *key, unsigned long host, char *woof)
 {
-    char *str;
-    str = malloc(4096 * sizeof(char));
-    sprintf(str, "%lu_%s", host, woof);
-    return str;
+    sprintf(key, "%lu_%s", host, woof);
+    return;
 }
 
 int WooFFromHval(char *key, unsigned long *host, char *woof)

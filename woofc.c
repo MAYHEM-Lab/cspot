@@ -2138,7 +2138,7 @@ unsigned long WooFLatestSeqnoWithCause(WOOF *wf, unsigned long cause_host, unsig
 	unsigned long my_log_seq_no;
 	char log_name[4096];
 	MIO *mio;
-	char *key;
+	char key[WOOFNAMESIZE];
 	char fname[4096];
 	char local_name[4096];
 	int mapping_count;
@@ -2150,7 +2150,7 @@ unsigned long WooFLatestSeqnoWithCause(WOOF *wf, unsigned long cause_host, unsig
 	latest_seq_no = wf->shared->seq_no - 1;
 
 #ifdef REPAIR
-	key = KeyFromWooF(cause_host, cause_woof_name);
+	KeyFromWooF(key, cause_host, cause_woof_name);
 	sprintf(fname, "%s.%s", wfs->filename, key);
 	memset(local_name, 0, sizeof(local_name));
 	strncpy(local_name, WooF_dir, sizeof(local_name));
@@ -2472,7 +2472,7 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 	char wf_namespace[4096];
 	char ns_ip[25];
 	char my_ip[25];
-	char *key;
+	char key[WOOFNAMESIZE];
 	Hval hval;
 	RB *rb;
 	unsigned long *seqno_mapping;
@@ -2483,13 +2483,12 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 	fflush(stdout);
 #endif
 
-	key = KeyFromWooF(cause_host, cause_woof);
+	KeyFromWooF(key, cause_host, cause_woof);
 	seqno_mapping = malloc(2 * mapping_count * sizeof(unsigned long));
 	if (seqno_mapping == NULL)
 	{
 		printf("WooFRepairProgress: couldn't allocate memory for seqno_mapping\n");
 		fflush(stdout);
-		free(key);
 		return (-1);
 	}
 	memcpy(seqno_mapping, mapping, 2 * mapping_count * sizeof(unsigned long));
@@ -2505,7 +2504,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 		if (err < 0)
 		{
 			fprintf(stderr, "WooFRepairProgress: no local IP\n");
-			free(key);
 			exit(1);
 		}
 	}
@@ -2515,7 +2513,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 	if (err < 0)
 	{
 		fprintf(stderr, "WooFRepairProgress: no local IP\n");
-		free(key);
 		exit(1);
 	}
 
@@ -2537,7 +2534,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 		if (el_size != (unsigned long)-1)
 		{
 			err = WooFMsgRepairProgress(wf_name, cause_host, cause_woof, mapping_count, mapping);
-			free(key);
 			return (err);
 		}
 		else
@@ -2553,7 +2549,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 	{
 		fprintf(stderr, "WooFRepairProgress: local namespace put must init system\n");
 		fflush(stderr);
-		free(key);
 		return (-1);
 	}
 
@@ -2562,7 +2557,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 	{
 		fprintf(stderr, "WooFRepairProgress: couldn't open woof %s\n", wf_name);
 		fflush(stderr);
-		free(key);
 		return (-1);
 	}
 	wfs = wf->shared;
@@ -2574,7 +2568,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 		fflush(stderr);
 		V(&wfs->mutex);
 		WooFFree(wf);
-		free(key);
 		return (-1);
 	}
 
@@ -2586,7 +2579,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 		fflush(stderr);
 		V(&wfs->mutex);
 		WooFFree(wf);
-		free(key);
 		return (-1);
 	}
 #ifdef DEBUG
@@ -2596,7 +2588,6 @@ int WooFRepairProgress(char *wf_name, unsigned long cause_host, char *cause_woof
 
 	V(&wfs->mutex);
 	WooFFree(wf);
-	free(key);
 	return (0);
 }
 
@@ -3167,7 +3158,7 @@ int WooFShadowMappingCreate(char *name, unsigned long cause_host, char *cause_wo
 	char ip_str[25];
 	int err;
 	int is_local;
-	char *key;
+	char key[WOOFNAMESIZE];
 	unsigned long *mapping;
 
 	if (name == NULL || cause_woof == NULL || seqno_mapping == NULL)
@@ -3261,7 +3252,7 @@ int WooFShadowMappingCreate(char *name, unsigned long cause_host, char *cause_wo
 		return (-1);
 	}
 
-	key = KeyFromWooF(cause_host, cause_woof);
+	KeyFromWooF(key, cause_host, cause_woof);
 	strncat(local_name, ".", sizeof(char));
 	strncat(local_name, key, strlen(key));
 	mio = MIOOpen(local_name, "w+", space);
