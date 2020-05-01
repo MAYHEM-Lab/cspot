@@ -85,8 +85,8 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(arg);
 			exit(1);
 		}
-		log_debug("started an election for term %lu as a candidate", server_state.current_term);
 		log_info("state changed at term %lu: CANDIDATE", server_state.current_term);
+		log_info("started an election for term %lu", server_state.current_term);
 
 		// put a heartbeat to avoid another timeout
 		RAFT_HEARTBEAT heartbeat;
@@ -132,13 +132,18 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 			thread_arg->arg.candidate_vote_pool_seqno = vote_pool_seqno;
 			thread_arg->arg.last_log_index = latest_log_entry;
 			thread_arg->arg.last_log_term = last_log_entry.term;
-			pthread_create(&thread_id[i], NULL, request_vote, (void *)thread_arg);
+			thread_arg->arg.created_ts = get_milliseconds();
+			if (pthread_create(&thread_id[i], NULL, request_vote, (void *)thread_arg) < 0) {
+				log_error("failed to create thread to send entries");
+				free(arg);
+				exit(1);
+			}
 		}
 		log_debug("requested vote from %d members", server_state.members);
 	}
 	monitor_exit(ptr);
 
-	usleep(RAFT_FUNCTION_DELAY * 1000);
+	usleep(RAFT_TIMEOUT_CHECKER_DELAY * 1000);
 	unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", arg);
 	if (WooFInvalid(seq)) {
 		log_error("failed to queue the next h_timeout_checker handler");

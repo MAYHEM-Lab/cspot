@@ -61,6 +61,9 @@ int h_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 			result.redirected = 0;
 			result.index = entry_seqno;
 			result.term = server_state.current_term;
+			if (entry_seqno % RAFT_SAMPLING_RATE == 0) {
+				log_debug("entry %lu was created at %lu", entry_seqno, request.created_ts);
+			}
 		}
 		// make sure the result's seq_no matches with request's seq_no
 		unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
@@ -94,7 +97,7 @@ int h_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	monitor_exit(ptr);
 
-	usleep(RAFT_FUNCTION_DELAY * 1000);
+	usleep(RAFT_CLIENT_PUT_DELAY * 1000);
 	unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg);
 	if (WooFInvalid(seq)) {
 		log_error("failed to queue the next h_client_put handler");

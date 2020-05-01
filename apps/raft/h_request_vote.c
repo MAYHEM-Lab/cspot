@@ -24,21 +24,22 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 	
-	unsigned long latest_heartbeat_seqno = WooFGetLatestSeqno(RAFT_HEARTBEAT_WOOF);
-	if (WooFInvalid(latest_heartbeat_seqno)) {
-		log_error("failed to get the latest seqno from %s", RAFT_HEARTBEAT_WOOF);
-		free(request);
-		exit(1);
-	}
-	RAFT_HEARTBEAT latest_heartbeat;
-	if (WooFGet(RAFT_HEARTBEAT_WOOF, &latest_heartbeat, latest_heartbeat_seqno) < 0) {
-		log_error("failed to get the latest heartbeat");
-		free(request);
-		exit(1);
-	}
+	// unsigned long latest_heartbeat_seqno = WooFGetLatestSeqno(RAFT_HEARTBEAT_WOOF);
+	// if (WooFInvalid(latest_heartbeat_seqno)) {
+	// 	log_error("failed to get the latest seqno from %s", RAFT_HEARTBEAT_WOOF);
+	// 	free(request);
+	// 	exit(1);
+	// }
+	// RAFT_HEARTBEAT latest_heartbeat;
+	// if (WooFGet(RAFT_HEARTBEAT_WOOF, &latest_heartbeat, latest_heartbeat_seqno) < 0) {
+	// 	log_error("failed to get the latest heartbeat");
+	// 	free(request);
+	// 	exit(1);
+	// }
 
 	unsigned long i;
 	RAFT_REQUEST_VOTE_RESULT result;
+	result.request_created_ts = request->created_ts;
 	result.candidate_vote_pool_seqno = request->candidate_vote_pool_seqno;
 	// deny the request if not a member
 	int m_id = member_id(request->candidate_woof, server_state.member_woofs);
@@ -46,10 +47,11 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		result.term = 0; // result term 0 means shutdown
 		result.granted = 0;
 		log_debug("rejected a vote request from a candidate not in the config");
-	} else if (server_state.current_term == latest_heartbeat.term && get_milliseconds() - latest_heartbeat.timestamp < RAFT_TIMEOUT_MIN) {
-		result.term = server_state.current_term; // server term will always be greater than reviewing term
-		result.granted = 0;
-		log_debug("rejected a vote request within minimum election timeout %lums", RAFT_TIMEOUT_MIN);
+	// } else if (server_state.current_term == latest_heartbeat.term && strcmp(server_state.woof_name, request->candidate_woof) != 0
+	// 	&& get_milliseconds() - latest_heartbeat.timestamp < RAFT_TIMEOUT_MIN) {
+	// 	result.term = server_state.current_term; // server term will always be greater than reviewing term
+	// 	result.granted = 0;
+	// 	log_debug("rejected a vote request within minimum election timeout %lums", RAFT_TIMEOUT_MIN);
 	} else if (request->term < server_state.current_term) { // current term is higher than the request
 		result.term = server_state.current_term; // server term will always be greater than reviewing term
 		result.granted = 0;
@@ -140,7 +142,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_warn("failed to return the vote result to %s", candidate_result_woof);
 	}
 
-	free(request);
 	monitor_exit(ptr);
+	free(request);
 	return 1;
 }

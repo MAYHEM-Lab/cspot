@@ -33,13 +33,16 @@
 #define RAFT_WOOF_NAME_LENGTH 256
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
-#define RAFT_MAX_ENTRIES_PER_REQUEST 32
+#define RAFT_MAX_ENTRIES_PER_REQUEST 16
 #define RAFT_DATA_TYPE_SIZE 1024
-#define RAFT_TIMEOUT_MIN 150
-#define RAFT_TIMEOUT_MAX 300
-#define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
-#define RAFT_FUNCTION_DELAY 20
+#define RAFT_TIMEOUT_MIN 500
+#define RAFT_TIMEOUT_MAX 1000
+#define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 5)
+#define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
+#define RAFT_REPLICATE_ENTRIES_DELAY 20
+#define RAFT_CLIENT_PUT_DELAY 50
 
+#define RAFT_SAMPLING_RATE 10 // number of entries per sample
 #define LOG_DEBUG 0
 #define LOG_INFO 1
 #define LOG_WARN 2
@@ -105,6 +108,7 @@ typedef struct raft_append_entries_result {
 
 typedef struct raft_client_put_request {
 	RAFT_DATA_TYPE data;
+	unsigned long created_ts;
 } RAFT_CLIENT_PUT_REQUEST;
 
 typedef struct raft_client_put_arg {
@@ -143,12 +147,14 @@ typedef struct raft_request_vote_arg {
 	unsigned long candidate_vote_pool_seqno;
 	unsigned long last_log_index;
 	unsigned long last_log_term;
+	unsigned long created_ts;
 } RAFT_REQUEST_VOTE_ARG;
 
 typedef struct raft_request_vote_result {
 	unsigned long term;
 	int granted;
 	unsigned long candidate_vote_pool_seqno;
+	unsigned long request_created_ts;
 } RAFT_REQUEST_VOTE_RESULT;
 
 int get_server_state(RAFT_SERVER_STATE *server_state);

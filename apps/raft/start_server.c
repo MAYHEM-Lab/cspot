@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
 			exit(1);
 		}
 	}
-	printf("Started h_timeout_checker and h_client_put\n");
+	printf("Started daemon functions\n");
 	
 	return 0;
 }

@@ -84,27 +84,31 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!sync) {
-		for (i = 0; i < count; ++i) {
-			if (raft_index_from_put(&index[i], &term[i], seq_no[i]) < 0) {
-				printf("failed to get index and term from request[%d]\n", i);
-			}
-		}
-	}
+	// if (!sync) {
+	// 	for (i = 0; i < count; ++i) {
+	// 		if (raft_index_from_put(&index[i], &term[i], seq_no[i]) < 0) {
+	// 			printf("failed to get index and term from request[%d]\n", i);
+	// 		} else {
+	// 			printf("got index and term for data[%d]\n", i);
+	// 		}
+	// 	}
+	// }
 
-	for (i = 0; i < count; ++i) {
-		RAFT_DATA_TYPE data;
-		printf("getting data[%d], index: %lu, term: %lu\n", i, index[i], term[i]);
-		int err = raft_get(&data, index[i], term[i]);
-		while (err == RAFT_PENDING) {
-			err = raft_get(&data, index[i], term[i]);
-		}
-		if (err < 0) {
-			printf("failed to get data[%d]\n", i);
-		} else {
-			printf("get data[%d]: %s, index: %lu, term: %lu\n", i, data.val, index[i], term[i]);
-		}
-	}
+	// for (i = 0; i < count; ++i) {
+	// 	RAFT_DATA_TYPE data;
+	// 	if (index[i] != 0 && term[i] != 0) {
+	// 		printf("getting data[%d], index: %lu, term: %lu\n", i, index[i], term[i]);
+	// 		int err = raft_get(&data, index[i], term[i]);
+	// 		while (err == RAFT_PENDING) {
+	// 			err = raft_get(&data, index[i], term[i]);
+	// 		}
+	// 		if (err < 0) {
+	// 			printf("failed to get data[%d]\n", i);
+	// 		} else {
+	// 			printf("get data[%d]: %s, index: %lu, term: %lu\n", i, data.val, index[i], term[i]);
+	// 		}
+	// 	}
+	// }
 
 	return 0;
 }

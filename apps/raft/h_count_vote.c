@@ -33,22 +33,22 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			exit(1);
 		}
 		log_info("server not in the leader config anymore: SHUTDOWN");
-		free(result);
 		monitor_exit(ptr);
+		free(result);
 		return 1;
 	}
 	// server's term is higher than the vote's term, ignore it
 	if (result->term < server_state.current_term) {
 		log_debug("current term %lu is higher than vote's term %lu, ignore the election", server_state.current_term, result->term);
-		free(result);
 		monitor_exit(ptr);
+		free(result);
 		return 1;
 	}
 	// the server is already a leader at vote's term, ifnore the vote
 	if (result->term == server_state.current_term && server_state.role == RAFT_LEADER) {
 		log_debug("already a leader at term %lu, ignore the election", server_state.current_term);
-		free(result);
 		monitor_exit(ptr);
+		free(result);
 		return 1;
 	}
 
@@ -120,7 +120,9 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 
-	free(result);
+	log_debug("request %lu took %lums to receive response", seq_no, get_milliseconds() - result->request_created_ts);
+	
 	monitor_exit(ptr);
+	free(result);
 	return 1;
 }

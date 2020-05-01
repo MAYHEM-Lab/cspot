@@ -89,8 +89,11 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(arg);
 			exit(1);
 		}
-		if (get_milliseconds() - result.request_created_ts > RAFT_TIMEOUT_MIN) {
-			log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
+		// if (get_milliseconds() - result.request_created_ts > RAFT_TIMEOUT_MIN) {
+		// 	log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
+		// }
+		if (result_seq % 10 == 0) {
+			log_debug("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
 		}
 		int result_member_id = member_id(result.server_woof, server_state.member_woofs);
 		if (result_member_id == -1) {
@@ -129,8 +132,8 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(arg);
 				exit(1);
 			}
-			free(arg);
 			monitor_exit(ptr);
+			free(arg);
 			return 1;
 		}
 		if (result.term == arg->term) {
@@ -170,7 +173,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(arg);
 				exit(1);
 			}
-			log_debug("updated commit_index to %lu at term %lu", server_state.commit_index, server_state.current_term);
+			log_debug("updated commit_index to %lu at %lu", server_state.commit_index, get_milliseconds());
 
 			// check if joint config is commited
 			if (server_state.current_config == RAFT_CONFIG_JOINT && server_state.commit_index >= server_state.last_config_seqno) {
@@ -264,10 +267,8 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (num_entries > RAFT_MAX_ENTRIES_PER_REQUEST) {
 			num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
 		}
-// log_error("server_state.last_sent_index[%d]: %lu, server_state.next_index[%d]: %lu, server_state.last_sent_timestamp[%d]: %lu", 
-// 			m, server_state.last_sent_index[m], m, server_state.next_index[m], m, server_state.last_sent_timestamp[m]);
 		if ((num_entries > 0 && server_state.last_sent_index[m] != server_state.next_index[m])
-			|| (m < server_state.members && get_milliseconds() - server_state.last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
+			|| (get_milliseconds() - server_state.last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
 			REPLICATE_THREAD_ARG *thread_arg = malloc(sizeof(REPLICATE_THREAD_ARG));
 			thread_arg->member_id = m;
 			thread_arg->num_entries = num_entries;
@@ -296,7 +297,11 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 			thread_arg->arg.leader_commit = server_state.commit_index;
 			thread_arg->arg.created_ts = get_milliseconds();
-			pthread_create(&thread_id[m], NULL, replicate_thread, (void *)thread_arg);
+			if (pthread_create(&thread_id[m], NULL, replicate_thread, (void *)thread_arg) < 0) {
+				log_error("failed to create thread to send entries");
+				free(arg);
+				exit(1);
+			}
 			server_state.last_sent_timestamp[m] = get_milliseconds();
 			server_state.last_sent_index[m] = server_state.next_index[m];
 		}
@@ -309,7 +314,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	monitor_exit(ptr);
 
-	usleep(RAFT_FUNCTION_DELAY * 1000);
+	usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
 	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
 	if (WooFInvalid(seq)) {
 		log_error("failed to queue the next h_replicate_entries handler");

@@ -8,12 +8,6 @@ int raft_init_client(FILE *fp) {
 		fprintf(stderr, "can't read config file\n");
 		return -1;
 	}
-    // printf("%d servers:", raft_client_members);
-    // int i;
-    // for (i = 0; i < raft_client_members; ++i) {
-    //     printf(" [%d]%s", i, raft_client_servers[i]);
-    // }
-    // printf("\n");
     strcpy(raft_client_leader, raft_client_servers[0]);
     raft_client_timeout = 300;
     raft_client_result_delay = 50;
@@ -32,6 +26,7 @@ int raft_put(RAFT_DATA_TYPE *data, unsigned long *index, unsigned long *term, un
     unsigned long begin = get_milliseconds();
 
     RAFT_CLIENT_PUT_REQUEST request;
+    request.created_ts = get_milliseconds();
     memcpy(&request.data, data, sizeof(RAFT_DATA_TYPE)); 
     char woof_name[RAFT_WOOF_NAME_LENGTH];
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
@@ -173,8 +168,8 @@ int raft_get(RAFT_DATA_TYPE *data, unsigned long index, unsigned long term) {
 int raft_index_from_put(unsigned long *index, unsigned long *term, unsigned long seq_no) {
     char woof_name[RAFT_WOOF_NAME_LENGTH];
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
-    while (WooFGetLatestSeqno(woof_name) < seq_no) {
-        usleep(raft_client_result_delay * 1000);
+    if (WooFGetLatestSeqno(woof_name) < seq_no) {
+        return -1;
     }
     RAFT_CLIENT_PUT_RESULT result;
     if (WooFGet(woof_name, &result, seq_no) < 0) {

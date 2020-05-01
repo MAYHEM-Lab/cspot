@@ -40,7 +40,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(arg);
 				exit(1);
 			}
-			log_debug("%s starts observing", arg->observer_woof);
+			log_info("%s starts observing", arg->observer_woof);
 			result.redirected = 0;
 			result.success = 1;
 			strcpy(result.current_leader, server_state.current_leader);
@@ -125,35 +125,36 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(arg);
 				exit(1);
 			}
-			log_info("updated server config to %d members at term %lu", server_state.members, server_state.current_term);
+			log_info("start using joint config with %d members at term %lu", server_state.members, server_state.current_term);
 			result.redirected = 0;
 			result.success = 1;
 			strcpy(result.current_leader, server_state.current_leader);
 		}
 	}
 
+	monitor_exit(ptr);
+
 	// for very slight chance that h_client_put is not queued in the same order of the element appended in RAFT_CLIENT_PUT_ARG_WOOF
 	unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CONFIG_CHANGE_RESULT_WOOF);
 	while (latest_result_seqno != seq_no - 1) {
-		log_warn("reconfig result seqno not matching, waiting %lu", seq_no);
-		usleep(RAFT_FUNCTION_DELAY * 1000);
+		log_warn("config_change result seqno not matching, waiting %lu", seq_no);
+		usleep(RAFT_CLIENT_PUT_DELAY * 1000);
 		latest_result_seqno = WooFGetLatestSeqno(RAFT_CONFIG_CHANGE_RESULT_WOOF);
 	}
 
 	unsigned long result_seq = WooFPut(RAFT_CONFIG_CHANGE_RESULT_WOOF, NULL, &result);
 	while (WooFInvalid(result_seq)) {
 		log_warn("failed to write reconfig result, try again");
-		usleep(RAFT_FUNCTION_DELAY * 1000);
+		usleep(RAFT_CLIENT_PUT_DELAY * 1000);
 		result_seq = WooFPut(RAFT_CONFIG_CHANGE_RESULT_WOOF, NULL, &result);
 	}
 
 	if (result_seq != seq_no) {
-		log_error("reconfig seqno %lu doesn't match result seno %lu", seq_no, result_seq);
+		log_error("config_change seqno %lu doesn't match result seno %lu", seq_no, result_seq);
 		free(arg);
 		exit(1);
 	}
 
 	free(arg);
-	monitor_exit(ptr);
 	return 1;
 }
