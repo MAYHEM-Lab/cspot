@@ -47,7 +47,7 @@ def read_info(i):
                 ind = int(line.split(' ')[1][:-1]) - 1
                 woof = line.split(' ')[2]
                 fingers[i][ind] = get_node_id(woof)
-    time.sleep(0.5)
+        time.sleep(1)
 
 for i in range(8):
     info_thread[i] = threading.Thread(target=read_info, args=(i,))

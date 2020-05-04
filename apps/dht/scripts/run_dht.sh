@@ -10,7 +10,14 @@ ssh dht6 'cd ~/cspot6/apps/dht/cspot/; ./woofc-namespace-platform' &> dht_log/dh
 ssh dht7 'cd ~/cspot7/apps/dht/cspot/; ./woofc-namespace-platform' &> dht_log/dht7_log &
 ssh dht8 'cd ~/cspot8/apps/dht/cspot/; ./woofc-namespace-platform' &> dht_log/dht8_log &
 
-sleep 2
+(tail -f dht_log/dht1_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht2_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht3_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht4_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht5_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht6_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht7_log & ) | grep -q "woofc-container: started message server"
+(tail -f dht_log/dht8_log & ) | grep -q "woofc-container: started message server"
 
 echo 'Starting DHT cluster'
 ssh dht1 'cd ~/cspot1/apps/dht/cspot/; ./create' > dht_log/dht1_create

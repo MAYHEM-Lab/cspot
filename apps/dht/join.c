@@ -22,94 +22,75 @@ unsigned long woof_element_size[] = {sizeof(DHT_TABLE_EL), sizeof(FIND_SUCESSOR_
 	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG), sizeof(NOTIFY_RESULT), 
 	sizeof(INIT_TOPIC_ARG), sizeof(SUBSCRIPTION_ARG), sizeof(TRIGGER_ARG)};
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+	log_set_tag("join");
 	// log_set_level(LOG_DEBUG);
 	log_set_level(LOG_INFO);
 	// FILE *f = fopen("log_join","w");
 	// log_set_output(f);
 	log_set_output(stdout);
 
-	int i;
 	int c;
-	int err;
-	DHT_TABLE_EL el;
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	char woof_name[2048];
-	unsigned long seq_no;
-	FIND_SUCESSOR_ARG arg;
-	char msg[256];
-
-	while ((c = getopt(argc, argv, ARGS)) != EOF)
-	{
-		switch (c)
-		{
-		case 'w':
-			strncpy(node_woof, optarg, sizeof(node_woof));
-			break;
-		default:
-			fprintf(stderr,
-					"unrecognized command %c\n", (char)c);
-			fprintf(stderr, "%s", Usage);
-			exit(1);
+	while ((c = getopt(argc, argv, ARGS)) != EOF) {
+		switch (c) {
+			case 'w': {
+				strncpy(node_woof, optarg, sizeof(node_woof));
+				break;
+			}
+			default: {
+				fprintf(stderr, "unrecognized command %c\n", (char)c);
+				fprintf(stderr, "%s", Usage);
+				exit(1);
+			}
 		}
 	}
 
-	err = node_woof_name(woof_name);
-	if (err < 0)
-	{
-		log_error("join", "couldn't get local node's woof name");
+	char woof_name[DHT_NAME_LENGTH];
+	if (node_woof_name(woof_name) < 0) {
+		log_error("couldn't get local node's woof name");
 		exit(1);
 	}
 
-	if (node_woof[0] == 0)
-	{
+	if (node_woof[0] == 0) {
 		fprintf(stderr, "must specify a node woof to join\n");
 		fprintf(stderr, "%s", Usage);
-		fflush(stderr);
 		exit(1);
 	}
 	
 	WooFInit();
 
-	for (i = 0; i < 10; i++)
-	{
-		err = WooFCreate(woof_to_create[i], woof_element_size[i], 10);
-		if (err < 0)
-		{
-			sprintf(msg, "couldn't create woof %s", woof_to_create[i]);
-			log_error("join", msg);
+	int i;
+	for (i = 0; i < 10; ++i) {
+		if (WooFCreate(woof_to_create[i], woof_element_size[i], 10) < 0) {
+			log_error("couldn't create woof %s", woof_to_create[i]);
 			exit(1);
 		}
-		sprintf(msg, "created woof %s", woof_to_create[i]);
-		log_debug("join", msg);
+		log_debug("created woof %s", woof_to_create[i]);
 	}
 
 	// compute the node hash with SHA1
+	FIND_SUCESSOR_ARG arg;
 	SHA1(woof_name, strlen(woof_name), arg.id_hash);
-	sprintf(msg, "woof_name: %s", woof_name);
-	log_info("join", msg);
+	log_info("woof_name: %s", woof_name);
+	char msg[256];
 	sprintf(msg, "hash: ");
-	print_node_hash(msg + 6, arg.id_hash);
-	log_info("join", msg);
+	print_node_hash(msg + strlen(msg), arg.id_hash);
+	log_info(msg);
 
 	sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_FIND_SUCCESSOR_RESULT_WOOF);
-	sprintf(arg.callback_handler, "join_callback", sizeof(arg.callback_handler));
+	sprintf(arg.callback_handler, "h_join_callback", sizeof(arg.callback_handler));
 	if (node_woof[strlen(node_woof) - 1] == '/') {
 		sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCCESSOR_ARG_WOOF);
 	} else {
 		sprintf(node_woof, "%s/%s", node_woof, DHT_FIND_SUCCESSOR_ARG_WOOF);
 	}
 
-	seq_no = WooFPut(node_woof, "find_successor", &arg);
-	if (WooFInvalid(seq_no))
-	{
-		sprintf(msg, "couldn't call find_successor on woof %s", node_woof);
-		log_error("join", msg);
+	unsigned long seq_no = WooFPut(node_woof, "h_find_successor", &arg);
+	if (WooFInvalid(seq_no)) {
+		log_error("couldn't call find_successor on woof %s", node_woof);
 		exit(1);
 	}
-	sprintf(msg, "called find_successor on %s", node_woof);
-	log_info("join", msg);
+	log_info("called find_successor on %s", node_woof);
 
-	return (0);
+	return 0;
 }

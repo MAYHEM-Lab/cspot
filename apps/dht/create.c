@@ -15,15 +15,8 @@ unsigned long woof_element_size[] = {sizeof(DHT_TABLE_EL), sizeof(FIND_SUCESSOR_
 	sizeof(GET_PREDECESSOR_ARG), sizeof(GET_PREDECESSOR_RESULT), sizeof(NOTIFY_ARG), sizeof(NOTIFY_RESULT),
 	sizeof(INIT_TOPIC_ARG), sizeof(SUBSCRIPTION_ARG), sizeof(TRIGGER_ARG)};
 
-int main(int argc, char **argv)
-{
-	int err;
-	int i;
+int main(int argc, char **argv) {
 	DHT_TABLE_EL el;
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	char woof_name[2048];
-	unsigned long seq_no;
-	char msg[128];
 
 	// log_set_level(LOG_DEBUG);
 	log_set_level(LOG_INFO);
@@ -32,48 +25,38 @@ int main(int argc, char **argv)
 	log_set_output(stdout);
 	WooFInit();
 
-	for (i = 0; i < 10; i++)
-	{
-		err = WooFCreate(woof_to_create[i], woof_element_size[i], 10);
-		if (err < 0)
-		{
-			sprintf(msg, "couldn't create woof %s", woof_to_create[i]);
-			log_error("create", msg);
+	int i;
+	for (i = 0; i < (sizeof(woof_to_create) / sizeof(char *)); ++i) {
+		if (WooFCreate(woof_to_create[i], woof_element_size[i], DHT_HISTORY_LENGTH) < 0) {
+			log_error("couldn't create woof %s", woof_to_create[i]);
 			exit(1);
 		}
-		sprintf(msg, "created woof %s", woof_to_create[i]);
-		log_debug("create", msg);
+		log_debug("created woof %s", woof_to_create[i]);
 	}
 
 	// compute the node hash with SHA1
-	err = node_woof_name(woof_name);
-	if (err < 0)
-	{
-		log_error("create", "couldn't get local node's woof name");
+	char woof_name[DHT_NAME_LENGTH];
+	if (node_woof_name(woof_name) < 0) {
+		log_error("couldn't get local node's woof name");
 		exit(1);
 	}
+	log_info("woof_name: %s", woof_name);
+	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	SHA1(woof_name, strlen(woof_name), node_hash);
-	
-	sprintf(msg, "woof_name: %s", woof_name);
-	log_info("create", msg);
+	char msg[256];
 	sprintf(msg, "node_hash: ");
 	print_node_hash(msg + strlen(msg), node_hash);
-	log_info("create", msg);
+	log_info(msg);
 
 	dht_init(node_hash, woof_name, &el);
-	seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &el);
-	if (WooFInvalid(seq_no))
-	{
-		sprintf(msg, "couldn't initialize DHT to woof %s", DHT_TABLE_WOOF);
-		log_error("create", msg);
+	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &el);
+	if (WooFInvalid(seq_no)) {
+		log_error("couldn't initialize DHT to woof %s", DHT_TABLE_WOOF);
 		exit(1);
 	}
-	sprintf(msg, "updated woof %s", DHT_TABLE_WOOF);
-	log_debug("create", msg);
+	log_debug("updated woof %s", DHT_TABLE_WOOF);
 
-	sprintf(msg, "predecessor: %s", el.predecessor_addr);
-	log_info("create", msg);
-	sprintf(msg, "successor: %s", el.successor_addr[0]);
-	log_info("create", msg);
-	return (0);
+	log_info("predecessor: %s", el.predecessor_addr);
+	log_info("successor: %s", el.successor_addr[0]);
+	return 0;
 }
