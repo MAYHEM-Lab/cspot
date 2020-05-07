@@ -10,40 +10,43 @@
 #include "dht.h"
 
 int h_subscribe(WOOF *wf, unsigned long seq_no, void *ptr) {
-	SUBSCRIPTION_ARG *arg = (SUBSCRIPTION_ARG *)ptr;
+	DHT_SUBSCRIBE_ARG *arg = (DHT_SUBSCRIBE_ARG *)ptr;
 
 	log_set_tag("subscribe");
-	log_set_level(LOG_DEBUG);
+	log_set_level(DHT_LOG_DEBUG);
 	// log_set_level(LOG_INFO);
 	log_set_output(stdout);
 
 	char subscription_woof[DHT_NAME_LENGTH];
-	sprintf(subscription_woof, "%s_%s", DHT_SUBSCRIPTION_LIST_WOOF, arg->topic);
+	sprintf(subscription_woof, "%s_%s", arg->topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 	unsigned long seq = WooFGetLatestSeqno(subscription_woof);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't get latest seq_no of subscription list of %s", arg->topic);
+		log_error("couldn't get the latest seq_no of %s", subscription_woof);
 		exit(1);
 	}
-	SUBSCRIPTION_LIST list;
+	DHT_SUBSCRIPTION_LIST list;
 	if (WooFGet(subscription_woof, &list, seq) < 0) {
-		log_error("couldn't get latest subscription list of %s with seq_no %lu", arg->topic, seq);
+		log_error("couldn't get latest subscription list of %s", subscription_woof);
 		exit(1);
+	}
+
+	if (list.size == DHT_MAX_SUBSCRIPTIONS) {
+		log_error("maximum number of subscriptions %d has been reached", list.size);
+		return 1;
 	}
 
 	memcpy(list.handlers[list.size], arg->handler, sizeof(list.handlers[list.size]));
+	memcpy(list.namespace[list.size], arg->handler_namespace, sizeof(list.namespace[list.size]));
 	list.size += 1;
 	log_debug("number of subscription: %d", list.size);
-	char msg[2048];
-	sprintf(msg, "handlers:");
 	int i;
 	for (i = 0; i < list.size; ++i) {
-		sprintf(msg + strlen(msg), " %s", list.handlers[i]);
+		log_debug("[%d] %s/%s", i, list.namespace[i], list.handlers[i]);
 	}
-	log_debug(msg);
 
 	seq = WooFPut(subscription_woof, NULL, &list);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't update subscription list %s", arg->topic);
+		log_error("failed to update subscription list %s", arg->topic_name);
 		exit(1);
 	}
 

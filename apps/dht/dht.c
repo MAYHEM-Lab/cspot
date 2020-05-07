@@ -8,29 +8,27 @@
 #include "woofc.h"
 #include "dht.h"
 
-FILE *raft_log_output;
+FILE *dht_log_output;
 int dht_log_level;
 
-void dht_init(unsigned char *node_hash, char *node_addr, DHT_TABLE_EL *el) {
-	memcpy(el->node_hash, node_hash, sizeof(el->node_hash));
-	memcpy(el->node_addr, node_addr, sizeof(el->node_addr));
-	memset(el->finger_addr, 0, sizeof(el->finger_addr));
-	memset(el->finger_hash, 0, sizeof(el->finger_hash));
-	memset(el->successor_addr, 0, sizeof(el->successor_addr));
-	memset(el->successor_hash, 0, sizeof(el->successor_hash));
-	memcpy(el->successor_hash[0], node_hash, sizeof(el->successor_hash[0]));
-	memcpy(el->successor_addr[0], node_addr, sizeof(el->successor_addr[0]));
-	memset(el->predecessor_addr, 0, sizeof(el->predecessor_addr));
-	memset(el->predecessor_hash, 0, sizeof(el->predecessor_hash));
+void dht_init(unsigned char *node_hash, char *node_addr, DHT_TABLE *dht_table) {
+	memcpy(dht_table->node_hash, node_hash, sizeof(dht_table->node_hash));
+	memcpy(dht_table->node_addr, node_addr, sizeof(dht_table->node_addr));
+	memset(dht_table->finger_addr, 0, sizeof(dht_table->finger_addr));
+	memset(dht_table->finger_hash, 0, sizeof(dht_table->finger_hash));
+	memset(dht_table->successor_addr, 0, sizeof(dht_table->successor_addr));
+	memset(dht_table->successor_hash, 0, sizeof(dht_table->successor_hash));
+	memcpy(dht_table->successor_hash[0], node_hash, sizeof(dht_table->successor_hash[0]));
+	memcpy(dht_table->successor_addr[0], node_addr, sizeof(dht_table->successor_addr[0]));
+	memset(dht_table->predecessor_addr, 0, sizeof(dht_table->predecessor_addr));
+	memset(dht_table->predecessor_hash, 0, sizeof(dht_table->predecessor_hash));
 }
 
-void find_init(char *node_addr, char *callback, char *topic, FIND_SUCESSOR_ARG *arg) {
-	arg->request_seq_no = 0;
-	arg->finger_index = 0;
+void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG *arg, char *key, char *hashed_key, char *callback_namespace) {
 	arg->hops = 0;
-	SHA1(topic, strlen(topic), arg->id_hash);
-	sprintf(arg->callback_woof, "%s/%s", node_addr, DHT_FIND_SUCCESSOR_RESULT_WOOF);
-	strcpy(arg->callback_handler, callback);
+	memcpy(arg->key, key, sizeof(arg->key));
+	memcpy(arg->hashed_key, hashed_key, sizeof(arg->hashed_key));
+	strcpy(arg->callback_namespace, callback_namespace);
 }
 
 unsigned long get_milliseconds() {
@@ -39,7 +37,7 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
-int node_woof_name(char *node_woof) {
+int node_woof_name(char *woof_name) {
 	char *str = getenv("WOOFC_NAMESPACE");
 	char namespace[DHT_NAME_LENGTH];
 	if (str == NULL) {
@@ -52,7 +50,7 @@ int node_woof_name(char *node_woof) {
 		fprintf(stderr, "no local IP\n");
 		return -1;
 	}
-	sprintf(node_woof, "woof://%s%s", local_ip, namespace);
+	sprintf(woof_name, "woof://%s%s", local_ip, namespace);
 	return 0;
 }
 
@@ -65,6 +63,7 @@ void print_node_hash(char *dst, const unsigned char *id_hash) {
 	}
 }
 
+// if n in (lower, upper)
 int in_range(unsigned char *n, unsigned char *lower, unsigned char *upper) {
 	if (memcmp(lower, upper, SHA_DIGEST_LENGTH) < 0) {
 		if (memcmp(lower, n, SHA_DIGEST_LENGTH) < 0 && memcmp(n, upper, SHA_DIGEST_LENGTH) < 0) {
@@ -97,65 +96,65 @@ void log_set_level(int level) {
 }
 
 void log_set_output(FILE *file) {
-	raft_log_output = file;
+	dht_log_output = file;
 }
 
 void log_debug(const char *message, ...) {
-	if (dht_log_level > LOG_DEBUG) {
+	if (dht_log_level > DHT_LOG_DEBUG) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;34m");
-	fprintf(raft_log_output, "DEBUG| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(dht_log_output, "\033[0;34m");
+	fprintf(dht_log_output, "DEBUG| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(dht_log_output, message, argptr);
+	fprintf(dht_log_output, "\033[0m\n");
     va_end(argptr);
 }
 
 void log_info(const char *message, ...) {
-	if (dht_log_level > LOG_INFO) {
+	if (dht_log_level > DHT_LOG_INFO) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;32m");
-	fprintf(raft_log_output, "INFO | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(dht_log_output, "\033[0;32m");
+	fprintf(dht_log_output, "INFO | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(dht_log_output, message, argptr);
+	fprintf(dht_log_output, "\033[0m\n");
     va_end(argptr);
 }
 
 void log_warn(const char *message, ...) {
-	if (dht_log_level > LOG_WARN) {
+	if (dht_log_level > DHT_LOG_WARN) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;33m");
-	fprintf(raft_log_output, "WARN | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(dht_log_output, "\033[0;33m");
+	fprintf(dht_log_output, "WARN | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(dht_log_output, message, argptr);
+	fprintf(dht_log_output, "\033[0m\n");
     va_end(argptr);
 }
 
 void log_error(const char *message, ...) {
-	if (dht_log_level > LOG_ERROR) {
+	if (dht_log_level > DHT_LOG_ERROR) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;31m");
-	fprintf(raft_log_output, "ERROR| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(dht_log_output, "\033[0;31m");
+	fprintf(dht_log_output, "ERROR| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(dht_log_output, message, argptr);
+	fprintf(dht_log_output, "\033[0m\n");
     va_end(argptr);
 }

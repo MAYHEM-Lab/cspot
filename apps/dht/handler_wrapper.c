@@ -9,12 +9,12 @@
 #include "woofc.h"
 #include "dht.h"
 
-int HANDLER_WRAPPER(WOOF *wf, unsigned long seq_no, void *ptr) {
-	TRIGGER_ARG *arg = (TRIGGER_ARG *)ptr;
+int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
+	DHT_INVOCATION_ARG *arg = (DHT_INVOCATION_ARG *)ptr;
 
-	log_set_tag("HANDLER_WRAPPER");
+	log_set_tag("PUT_HANDLER_NAME");
 	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
 	char *woof_name = arg->woof_name;
@@ -27,13 +27,17 @@ int HANDLER_WRAPPER(WOOF *wf, unsigned long seq_no, void *ptr) {
 	void *element = malloc(woof->shared->element_size);
 	if (element == NULL) {
 		log_error("couldn't malloc element with size %lu", woof->shared->element_size);
+		WooFDrop(woof);
 		exit(1);
 	}
 	if (WooFRead(woof, element, seqno) < 0) {
 		log_error("couldn't read element from WooF %s at %lu", woof_name, seqno);
+		free(element);
+		WooFDrop(woof);
 		exit(1);
 	}
-	int err = handler_function(woof, seqno, element);
+	int err = PUT_HANDLER_NAME(woof, seqno, element + DHT_NAME_LENGTH);
 	free(element);
+	WooFDrop(woof);
 	return err;
 }

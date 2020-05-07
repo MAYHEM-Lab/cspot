@@ -10,11 +10,11 @@
 #include "dht.h"
 
 int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
-	GET_PREDECESSOR_RESULT *result = (GET_PREDECESSOR_RESULT *)ptr;
+	DHT_STABLIZE_CALLBACK *result = (DHT_STABLIZE_CALLBACK *)ptr;
 
 	log_set_tag("stablize_callback");
 	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 	
 	char woof_name[DHT_NAME_LENGTH];
@@ -28,7 +28,7 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("couldn't get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE_EL dht_tbl;
+	DHT_TABLE dht_tbl;
 	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
 		log_error("couldn't get latest dht_table with seq_no %lu", seq);
 		exit(1);
@@ -58,11 +58,11 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	// successor.notify(n);
 	char notify_woof_name[DHT_NAME_LENGTH];
-	sprintf(notify_woof_name, "%s/%s", dht_tbl.successor_addr[0], DHT_NOTIFY_ARG_WOOF);
+	sprintf(notify_woof_name, "%s/%s", dht_tbl.successor_addr[0], DHT_NOTIFY_WOOF);
 	NOTIFY_ARG notify_arg;
 	memcpy(notify_arg.node_hash, id_hash, sizeof(notify_arg.node_hash));
 	strncpy(notify_arg.node_addr, woof_name, sizeof(notify_arg.node_addr));
-	sprintf(notify_arg.callback_woof, "%s/%s", woof_name, DHT_NOTIFY_RESULT_WOOF);
+	sprintf(notify_arg.callback_woof, "%s/%s", woof_name, DHT_NOTIFY_CALLBACK_WOOF);
 	sprintf(notify_arg.callback_handler, "h_notify_callback");
 	seq = WooFPut(notify_woof_name, "h_notify", &notify_arg);
 	if (WooFInvalid(seq)) {

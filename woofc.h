@@ -71,6 +71,7 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF *wf);
 int WooFTruncate(char *name, unsigned long seq_no);
+int WooFExist(char *name);
 
 #ifdef REPAIR
 WOOF *WooFOpenOriginal(char *name);

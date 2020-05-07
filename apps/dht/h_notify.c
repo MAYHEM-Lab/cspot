@@ -14,7 +14,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	log_set_tag("notify");
 	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 	
 	log_debug("potential predecessor_addr: %s", arg->node_addr);
@@ -24,7 +24,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("couldn't get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE_EL dht_tbl;
+	DHT_TABLE dht_tbl;
 	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
 		log_error("couldn't get latest dht_table with seq_no %lu", seq);
 		exit(1);
@@ -45,10 +45,9 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 			log_error("couldn't update predecessor");
 			exit(1);
 		}
-		char msg[256];
-		sprintf(msg, "updated predecessor_hash: ");
-		print_node_hash(msg + strlen(msg), dht_tbl.predecessor_hash);
-		log_info(msg);
+		char hash_str[2 * SHA_DIGEST_LENGTH + 1];
+		print_node_hash(hash_str, dht_tbl.predecessor_hash);
+		log_info("updated predecessor_hash: %s", hash_str);
 		log_info("updated predecessor_addr: %s", dht_tbl.predecessor_addr);
 	}
 

@@ -9,11 +9,11 @@
 #include "woofc.h"
 #include "dht.h"
 
-int h_join_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
-	FIND_SUCESSOR_RESULT *result = (FIND_SUCESSOR_RESULT *)ptr;
+int h_join(WOOF *wf, unsigned long seq_no, void *ptr) {
+	DHT_JOIN_ARG *arg = (DHT_JOIN_ARG *)ptr;
 
-	log_set_tag("join_callback");
-	log_set_level(LOG_DEBUG);
+	log_set_tag("join");
+	log_set_level(DHT_LOG_DEBUG);
 	// log_set_level(LOG_INFO);
 	log_set_output(stdout);
 	
@@ -28,19 +28,17 @@ int h_join_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	SHA1(woof_name, strlen(woof_name), id_hash);
 	
 	log_debug("woof_name: %s", woof_name);
-	char msg[256];
-	sprintf(msg, "node_hash: ");
-	print_node_hash(msg + strlen(msg), id_hash);
-	log_debug(msg);
-	sprintf(msg, "find_successor result hash: ");
-	print_node_hash(msg + strlen(msg), result->node_hash);
-	log_debug(msg);
-	log_debug("find_successor result addr: %s", result->node_addr);
+	char hash_str[2 * SHA_DIGEST_LENGTH + 1];
+	print_node_hash(hash_str, id_hash);
+	log_debug("node_hash: %s", hash_str);
+	print_node_hash(hash_str, arg->node_hash);
+	log_debug("find_successor result hash: %s", hash_str);
+	log_debug("find_successor result addr: %s", arg->node_addr);
 
-	DHT_TABLE_EL dht_tbl;
+	DHT_TABLE dht_tbl;
 	dht_init(id_hash, woof_name, &dht_tbl);
-	memcpy(dht_tbl.successor_hash[0], result->node_hash, sizeof(dht_tbl.successor_hash[0]));
-	memcpy(dht_tbl.successor_addr[0], result->node_addr, sizeof(dht_tbl.successor_addr[0]));
+	memcpy(dht_tbl.successor_hash[0], arg->node_hash, sizeof(dht_tbl.successor_hash[0]));
+	memcpy(dht_tbl.successor_addr[0], arg->node_addr, sizeof(dht_tbl.successor_addr[0]));
 	unsigned long seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
 	if (WooFInvalid(seq)) {
 		log_error("couldn't update DHT table to woof %s", DHT_TABLE_WOOF);

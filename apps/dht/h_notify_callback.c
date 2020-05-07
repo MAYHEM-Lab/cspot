@@ -14,7 +14,7 @@ int h_notify_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	log_set_tag("notify_callback");
 	// log_set_level(LOG_DEBUG);
-	log_set_level(LOG_INFO);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
 	char woof_name[DHT_NAME_LENGTH];
@@ -29,16 +29,16 @@ int h_notify_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("couldn't get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE_EL dht_tbl;
-	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
+	DHT_TABLE dht_table;
+	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
 		log_error("couldn't get latest dht_table with seq_no %lu", seq);
 		exit(1);
 	}
 
 	// set successor list
-	memcpy(dht_tbl.successor_addr, result->successor_addr, sizeof(dht_tbl.successor_addr));
-	memcpy(dht_tbl.successor_hash, result->successor_hash, sizeof(dht_tbl.successor_hash));
-	seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
+	memcpy(dht_table.successor_addr, result->successor_addr, sizeof(dht_table.successor_addr));
+	memcpy(dht_table.successor_hash, result->successor_hash, sizeof(dht_table.successor_hash));
+	seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 	if (WooFInvalid(seq)) {
 		log_error("couldn't update successor list");
 		exit(1);

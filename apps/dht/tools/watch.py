@@ -27,15 +27,12 @@ info_thread = [None for i in range(8)]
 
 def read_info(i):
     while True:
-        online[i] = True
-        lines = subprocess.check_output(['ssh', 'dht9', '~/cspot9/apps/dht/node_info -w {}'.format(woof_uri[i])], stderr=subprocess.STDOUT)
+        lines = subprocess.check_output(['ssh', 'dht9', '~/cspot9/apps/dht/client_node_info -w {}'.format(woof_uri[i])], stderr=subprocess.STDOUT)
         lines = lines.split('\n')
+        online[i] = True
         for line in lines:
             if 'unavailable' in line:
                 online[i] = False
-                predecessors[i] = None
-                successors[i] = [None for i in range(3)]
-                fingers[i] = [None for i in range(160)]
             elif 'predecessor_addr' in line:
                 woof = line.split(' ')[1]
                 predecessors[i] = get_node_id(woof)
@@ -47,7 +44,7 @@ def read_info(i):
                 ind = int(line.split(' ')[1][:-1]) - 1
                 woof = line.split(' ')[2]
                 fingers[i][ind] = get_node_id(woof)
-        time.sleep(1)
+        time.sleep(0.1)
 
 for i in range(8):
     info_thread[i] = threading.Thread(target=read_info, args=(i,))

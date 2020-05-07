@@ -493,6 +493,48 @@ int WooFTruncate(char *name, unsigned long seq_no) {
 	return 1;
 }
 
+int WooFExist(char *name) {
+	WOOF *wf;
+	WOOF_SHARED *wfs;
+	MIO *mio;
+	
+	char fname[4096];
+	int err;
+	struct stat sbuf;
+	WOOF_OPEN_CACHE_EL *wel;
+	WOOF_OPEN_CACHE_EL *pel;
+
+	if (name == NULL) {
+		return 0;
+	}
+
+	if (WooF_dir[0] == 0) {
+		fprintf(stderr, "WooFExist: must init system\n");
+		exit(1);
+	}
+
+	char local_name[4096];
+	memset(local_name, 0, sizeof(local_name));
+	strncpy(local_name, WooF_dir, sizeof(local_name));
+	if (local_name[strlen(local_name) - 1] != '/') {
+		strncat(local_name, "/", 1);
+	}
+	if (WooFValidURI(name)) {
+		if (WooFNameFromURI(name, fname, sizeof(fname)) < 0) {
+			fprintf(stderr, "WooFExist: bad name in URI %s\n", name);
+			return 0;
+		}
+		strncat(local_name, fname, sizeof(fname));
+	} else {
+		strncat(local_name, name, sizeof(local_name));
+	}
+
+	if (stat(local_name, &sbuf) < 0) {
+		return 0;
+	}
+	return 1;
+}
+
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
 	MIO *mio;
