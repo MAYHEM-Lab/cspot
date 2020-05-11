@@ -9,14 +9,12 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#include "client.h"
+#include "dht_client.h"
 
 #define ARGS "t:s:n:"
-char *Usage = "client_subscribe -t topic -s element_size -n history_size\n\
--w to specify a remote server, default to local\n";
+char *Usage = "client_subscribe -t topic -s element_size -n history_size\n";
 
 int main(int argc, char **argv) {
-	char server[DHT_NAME_LENGTH];
 	char topic[DHT_NAME_LENGTH];
 	unsigned long element_size;
 	unsigned long history_size;
@@ -24,9 +22,6 @@ int main(int argc, char **argv) {
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
-			case 'w': {
-				strncpy(server, optarg, sizeof(server));
-			}
 			case 't': {
 				strncpy(topic, optarg, sizeof(topic));
 				break;
@@ -65,16 +60,9 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	if (server[0] == 0) {
-		if (dht_register_topic(NULL, topic) < 0) {
-			fprintf(stderr, "failed to register topic on DHT\n");
-			exit(1);
-		}
-	} else {
-		if (dht_register_topic(server, topic) < 0) {
-			fprintf(stderr, "failed to register topic on DHT\n");
-			exit(1);
-		}
+	if (dht_register_topic(topic) < 0) {
+		fprintf(stderr, "failed to register topic on DHT\n");
+		exit(1);
 	}
 	
 	return 0;

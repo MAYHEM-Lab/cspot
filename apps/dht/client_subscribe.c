@@ -9,22 +9,17 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#include "client.h"
+#include "dht_client.h"
 
-#define ARGS "w:t:h:"
-char *Usage = "client_subscribe -t topic -h handler\n\
--w to specify a remote server, default to local\n";
+#define ARGS "t:h:"
+char *Usage = "client_subscribe -t topic -h handler\n";
 
 int main(int argc, char **argv) {
-	char server[DHT_NAME_LENGTH];
 	char topic[DHT_NAME_LENGTH];
 	char handler[DHT_NAME_LENGTH];
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
-			case 'w': {
-				strncpy(server, optarg, sizeof(server));
-			}
 			case 't': {
 				strncpy(topic, optarg, sizeof(topic));
 				break;
@@ -54,16 +49,9 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 	
-	if (server[0] == 0) {
-		if (dht_subscribe(NULL, topic, handler) < 0) {
-			fprintf(stderr, "failed to subscribe to topic\n");
-			exit(1);
-		}
-	} else {
-		if (dht_subscribe(server, topic, handler) < 0) {
-			fprintf(stderr, "failed to subscribe to topic\n");
-			exit(1);
-		}
+	if (dht_subscribe(topic, handler) < 0) {
+		fprintf(stderr, "failed to subscribe to topic\n");
+		exit(1);
 	}
 	
 	return 0;

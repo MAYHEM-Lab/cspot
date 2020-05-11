@@ -9,22 +9,17 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#include "client.h"
+#include "dht_client.h"
 
-#define ARGS "w:t:d:"
-char *Usage = "client_publish -t topic -d data\n\
--w to specify a remote server, default to local\n";
+#define ARGS "t:d:"
+char *Usage = "client_publish -t topic -d data\n";
 
 int main(int argc, char **argv) {
-	char server[DHT_NAME_LENGTH];
 	char topic[DHT_NAME_LENGTH];
 	char data[4096];
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
-			case 'w': {
-				strncpy(server, optarg, sizeof(server));
-			}
 			case 't': {
 				strncpy(topic, optarg, sizeof(topic));
 				break;
@@ -54,12 +49,7 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 	
-	unsigned long seq;
-	if (server[0] == 0) {
-		seq = dht_publish(NULL, topic, data);
-	} else {
-		seq = dht_publish(server, topic, data);
-	}
+	unsigned long seq = dht_publish(topic, data);
 	if (WooFInvalid(seq)) {
 		fprintf(stderr, "failed to publish data\n");
 		exit(1);

@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 	int i;
 	for (i = 0; i < (sizeof(woof_to_create) / sizeof(char *)); ++i) {
 		if (WooFCreate(woof_to_create[i], woof_element_size[i], DHT_HISTORY_LENGTH_LONG) < 0) {
-			log_error("couldn't create woof %s", woof_to_create[i]);
+			log_error("failed to create woof %s", woof_to_create[i]);
 			exit(1);
 		}
 		log_debug("created woof %s", woof_to_create[i]);
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
 
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
-		log_error("couldn't get local node's woof name");
+		log_error("failed to get local node's woof name");
 		exit(1);
 	}
 	log_info("woof_name: %s", woof_name);

@@ -19,7 +19,7 @@ int h_join(WOOF *wf, unsigned long seq_no, void *ptr) {
 	
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
-		log_error("couldn't get local node's woof name");
+		log_error("failed to get local node's woof name");
 		exit(1);
 	}
 
@@ -41,7 +41,7 @@ int h_join(WOOF *wf, unsigned long seq_no, void *ptr) {
 	memcpy(dht_tbl.successor_addr[0], arg->node_addr, sizeof(dht_tbl.successor_addr[0]));
 	unsigned long seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't update DHT table to woof %s", DHT_TABLE_WOOF);
+		log_error("failed to update DHT table to woof %s", DHT_TABLE_WOOF);
 		exit(1);
 	}
 	log_info("updated predecessor: %s", dht_tbl.predecessor_addr);

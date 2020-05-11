@@ -5,11 +5,11 @@
 #include <time.h>
 
 #include "raft.h"
-#include "client.h"
+#include "raft_client.h"
 
-#define ARGS "f:d:sr"
+#define ARGS "f:d:srt:"
 char *Usage = "client_put -f config -d data\n\
--s for synchronously put, -r to redirect if leader is down\n";
+-s for synchronously put, -t timeout, -r to redirect if leader is down\n";
 
 int get_result_delay = 20;
 
@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
 	memset(data.val, 0, sizeof(data.val));
 	int sync = 0;
 	int redirect = 0;
+	int timeout = 0;
 
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -38,6 +39,10 @@ int main(int argc, char **argv) {
 			case 'r': {
 				sync = 1;
 				redirect = 1;
+				break;
+			}
+			case 't': {
+				timeout = (int)strtoul(optarg, NULL, 0);
 				break;
 			}
 			default: {
@@ -65,15 +70,27 @@ int main(int argc, char **argv) {
 	}
 	fclose(fp);
 	
-	unsigned long index, term, seqno;
-	int err = raft_put(&data, &index, &term, &seqno, sync);
-	while (err == RAFT_REDIRECTED) {
-		err = raft_put(&data, &index, &term, &seqno, sync);
-	}
-	if (err >= 0) {
-		printf("index: %lu, term: %lu, seqno: %lu\n", index, term, seqno);
+	if (sync) {
+		unsigned long index = raft_sync_put(&data, timeout);
+		while (index == RAFT_REDIRECTED) {
+			index = raft_sync_put(&data, timeout);
+		}
+		if (raft_is_error(index)) {
+			fprintf(stderr, "failed to put %s: %s\n", data.val, raft_client_error_msg);
+			exit(1);
+		} else {
+			printf("put %s, index: %lu\n", data.val, index);
+		}
+	} else {
+		unsigned long seq = raft_async_put(&data);
+		if (raft_is_error(seq)) {
+			fprintf(stderr, "failed to put %s: %s\n", data.val, raft_client_error_msg);
+			exit(1);
+		} else {
+			printf("put %s, client_request_seqno: %lu\n", data.val, seq);
+		}
 	}
 	
-	return err;
+	return 0;
 }
 

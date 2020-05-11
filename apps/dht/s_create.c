@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 	int i;
 	for (i = 0; i < (sizeof(woof_to_create) / sizeof(char *)); ++i) {
 		if (WooFCreate(woof_to_create[i], woof_element_size[i], DHT_HISTORY_LENGTH_LONG) < 0) {
-			log_error("couldn't create woof %s", woof_to_create[i]);
+			log_error("failed to create woof %s", woof_to_create[i]);
 			exit(1);
 		}
 		log_debug("created woof %s", woof_to_create[i]);
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 	// compute the node hash with SHA1
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
-		log_error("couldn't get local node's woof name");
+		log_error("failed to get local node's woof name");
 		exit(1);
 	}
 	log_info("woof_name: %s", woof_name);
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 	dht_init(node_hash, woof_name, &el);
 	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &el);
 	if (WooFInvalid(seq_no)) {
-		log_error("couldn't initialize DHT to woof %s", DHT_TABLE_WOOF);
+		log_error("failed to initialize DHT to woof %s", DHT_TABLE_WOOF);
 		exit(1);
 	}
 	log_debug("updated woof %s", DHT_TABLE_WOOF);

@@ -5,17 +5,18 @@
 #include <time.h>
 
 #include "raft.h"
-#include "client.h"
+#include "raft_client.h"
 
-#define ARGS "o:f:"
-char *Usage = "client_reconfig -o old_config -f new_config\n";
+#define ARGS "o:f:t:"
+char *Usage = "client_reconfig -o old_config -f new_config -t timeout\n";
 
 int get_result_delay = 20;
 
 int main(int argc, char **argv) {
 	char old_config[256];
 	char new_config[256];
-	
+	int timeout = 0;
+
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
@@ -25,6 +26,10 @@ int main(int argc, char **argv) {
 			}
 			case 'f': {
 				strncpy(new_config, optarg, sizeof(new_config));
+				break;
+			}
+			case 't': {
+				timeout = (int)strtoul(optarg, NULL, 0);
 				break;
 			}
 			default: {
@@ -66,10 +71,9 @@ int main(int argc, char **argv) {
 	}
 	fclose(fp);
 
-	unsigned long index, term;
-	int err = raft_config_change(members, member_woofs, &index, &term);
+	int err = raft_config_change(members, member_woofs, timeout);
 	while (err == RAFT_REDIRECTED) {
-		err = raft_config_change(members, member_woofs, &index, &term);
+		err = raft_config_change(members, member_woofs, timeout);
 	}
 	
 	return err;

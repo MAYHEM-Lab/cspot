@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 void *stablize(void *ptr) {
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
-		log_error("stablize: couldn't get local node's woof name");
+		log_error("stablize: failed to get local node's woof name");
 		return;
 	}
 
@@ -69,12 +69,12 @@ void *stablize(void *ptr) {
 
 		unsigned long seq_no = WooFGetLatestSeqno(DHT_TABLE_WOOF);
 		if (WooFInvalid(seq_no)) {
-			log_error("stablize: couldn't get latest dht_table seq_no");
+			log_error("stablize: failed to get latest dht_table seq_no");
 			continue;
 		}
 		DHT_TABLE dht_table;
 		if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq_no) < 0) {
-			log_error("stablize: couldn't get latest dht_table with seq_no %lu", seq_no);
+			log_error("stablize: failed to get latest dht_table with seq_no %lu", seq_no);
 			continue;
 		}
 
@@ -88,7 +88,7 @@ void *stablize(void *ptr) {
 				memcpy(dht_table.successor_addr[0], dht_table.predecessor_addr, sizeof(dht_table.successor_addr[0]));
 				seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 				if (WooFInvalid(seq_no)) {
-					log_error("stablize: couldn't update successor");
+					log_error("stablize: failed to update successor");
 					continue;
 				}
 				log_info("stablize: updated successor to %s", dht_table.successor_addr[0]);
@@ -101,7 +101,7 @@ void *stablize(void *ptr) {
 
 			seq_no = WooFPut(DHT_NOTIFY_WOOF, "h_notify", &notify_arg);
 			if (WooFInvalid(seq_no)) {
-				log_error("stablize: couldn't call notify on self %s", dht_table.node_addr);
+				log_error("stablize: failed to call notify on self %s", dht_table.node_addr);
 				continue;
 			}
 			log_debug("stablize: calling notify on self %s", dht_table.successor_addr[0]);
@@ -111,7 +111,7 @@ void *stablize(void *ptr) {
 			memcpy(dht_table.successor_hash[0], dht_table.node_hash, sizeof(dht_table.successor_hash[0]));
 			seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 			if (WooFInvalid(seq_no)) {
-				log_error("stablize: couldn't set successor back to self");
+				log_error("stablize: failed to set successor back to self");
 				continue;
 			}
 			log_info("stablize: successor set to self: %s", dht_table.successor_addr[0]);
@@ -126,13 +126,13 @@ void *stablize(void *ptr) {
 			sprintf(successor_woof_name, "%s/%s", dht_table.successor_addr[0], DHT_GET_PREDECESSOR_WOOF);
 			seq_no = WooFPut(successor_woof_name, "h_get_predecessor", &arg);
 			if (WooFInvalid(seq_no)) {
-				log_warn("stablize: couldn't put to woof %s to get_predecessor", successor_woof_name);
+				log_warn("stablize: failed to put to woof %s to get_predecessor", successor_woof_name);
 
-				// couldn't contact successor, use the next one
+				// failed to contact successor, use the next one
 				shift_successor_list(dht_table.successor_addr, dht_table.successor_hash);
 				seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 				if (WooFInvalid(seq_no)) {
-					log_error("stablize: couldn't shift successor");
+					log_error("stablize: failed to shift successor");
 					continue;
 				}
 				log_debug("stablize: successor shifted. new: %s", dht_table.successor_addr[0]);
@@ -150,18 +150,18 @@ void *check_predecessor(void *ptr) {
 		
 		char woof_name[DHT_NAME_LENGTH];
 		if (node_woof_name(woof_name) < 0) {
-			log_error("check_predecessor: couldn't get local node's woof name");
+			log_error("check_predecessor: failed to get local node's woof name");
 			continue;
 		}
 
 		unsigned long seq_no = WooFGetLatestSeqno(DHT_TABLE_WOOF);
 		if (WooFInvalid(seq_no)) {
-			log_error("check_predecessor: couldn't get latest dht_table seq_no");
+			log_error("check_predecessor: failed to get latest dht_table seq_no");
 			continue;
 		}
 		DHT_TABLE dht_table;
 		if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq_no) < 0) {
-			log_error("check_predecessor: couldn't get latest dht_table with seq_no %lu", seq_no);
+			log_error("check_predecessor: failed to get latest dht_table with seq_no %lu", seq_no);
 			continue;
 		}
 
@@ -179,14 +179,14 @@ void *check_predecessor(void *ptr) {
 		sprintf(predecessor_woof_name, "%s/%s", dht_table.predecessor_addr, DHT_GET_PREDECESSOR_WOOF);
 		seq_no = WooFPut(predecessor_woof_name, NULL, &arg);
 		if (WooFInvalid(seq_no)) {
-			log_warn("check_predecessor: couldn't access predecessor %s", dht_table.predecessor_addr);
+			log_warn("check_predecessor: failed to access predecessor %s", dht_table.predecessor_addr);
 
 			// predecessor = nil;
 			memset(dht_table.predecessor_addr, 0, sizeof(dht_table.predecessor_addr));
 			memset(dht_table.predecessor_hash, 0, sizeof(dht_table.predecessor_hash));
 			seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 			if (WooFInvalid(seq_no)) {
-				log_error("check_predecessor: couldn't set predecessor to nil");
+				log_error("check_predecessor: failed to set predecessor to nil");
 				continue;
 			}
 			log_warn("check_predecessor: set predecessor to nil");
@@ -199,7 +199,7 @@ void *check_predecessor(void *ptr) {
 void *fix_fingers(void *ptr) {
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
-		log_error("fix_fingers: couldn't get local node's woof name");
+		log_error("fix_fingers: failed to get local node's woof name");
 		exit(1);
 	}
 

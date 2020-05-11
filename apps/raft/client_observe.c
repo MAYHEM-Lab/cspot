@@ -5,21 +5,26 @@
 #include <time.h>
 
 #include "raft.h"
-#include "client.h"
+#include "raft_client.h"
 
-#define ARGS "f:"
-char *Usage = "client_observe -f config\n";
+#define ARGS "f:t:"
+char *Usage = "client_observe -f config -t timeout\n";
 
 int get_result_delay = 20;
 
 int main(int argc, char **argv) {
 	char config[256];
-	
+	int timeout = 0;
+
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
 			case 'f': {
 				strncpy(config, optarg, sizeof(config));
+				break;
+			}
+			case 't': {
+				timeout = (int)strtoul(optarg, NULL, 0);
 				break;
 			}
 			default: {
@@ -54,9 +59,9 @@ int main(int argc, char **argv) {
 	}
 	fclose(fp);
 
-	int err = raft_observe();
+	int err = raft_observe(timeout);
 	while (err == RAFT_REDIRECTED) {
-		err = raft_observe();
+		err = raft_observe(timeout);
 	}
 	
 	return err;

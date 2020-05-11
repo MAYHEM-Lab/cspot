@@ -32,9 +32,9 @@ copy: handlers
 	cp start_server ./cspot
 	cp ../monitor/monitor_invoker ./cspot
 
-test: client_test config_test raft.o client.o
+test: client_test config_test raft.o raft_client.o
 
-clients: client_get client_observe client_put client_reconfig raft.o client.o
+clients: client_get client_observe client_put client_reconfig
 
 handlers: create_woofs start_server\
 h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker\
@@ -42,23 +42,23 @@ h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
 
-client.o: client.c client.h
-	${CC} ${CFLAGS} -c client.c
+raft_client.o: raft_client.c raft_client.h
+	${CC} ${CFLAGS} -c raft_client.c
 
-client_get: client_get.c client.o raft.o monitor.o
-	${CC} ${CFLAGS} -o client_get client_get.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_get: client_get.c raft_client.o raft.o monitor.o
+	${CC} ${CFLAGS} -o client_get client_get.c raft_client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_observe: client_observe.c client.o raft.o monitor.o
-	${CC} ${CFLAGS} -o client_observe client_observe.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_observe: client_observe.c raft_client.o raft.o monitor.o
+	${CC} ${CFLAGS} -o client_observe client_observe.c raft_client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_put: client_put.c client.o raft.o monitor.o
-	${CC} ${CFLAGS} -o client_put client_put.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_put: client_put.c raft_client.o raft.o monitor.o
+	${CC} ${CFLAGS} -o client_put client_put.c raft_client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_reconfig: client_reconfig.c client.o raft.o monitor.o
-	${CC} ${CFLAGS} -o client_reconfig client_reconfig.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_reconfig: client_reconfig.c raft_client.o raft.o monitor.o
+	${CC} ${CFLAGS} -o client_reconfig client_reconfig.c raft_client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_test: client_test.c client.o raft.o monitor.o
-	${CC} ${CFLAGS} -o client_test client_test.c client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_test: client_test.c raft_client.o raft.o monitor.o
+	${CC} ${CFLAGS} -o client_test client_test.c raft_client.o raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 config_test: config_test.c raft.o monitor.o
 	${CC} ${CFLAGS} -o config_test config_test.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -105,4 +105,4 @@ start_server: start_server.c raft.o monitor.o
 	${CC} ${CFLAGS} -o start_server start_server.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o client.o client_test config_test client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote start_server term_chair h_timeout_checker 
+	rm -rf ./cspot raft.o raft_client.o client_test config_test client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote start_server term_chair h_timeout_checker 

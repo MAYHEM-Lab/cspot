@@ -54,7 +54,7 @@ int h_trigger(WOOF *wf, unsigned long seq_no, void *ptr) {
 		sprintf(invocation_woof, "%s/%s", list.namespace[i], DHT_INVOCATION_WOOF);
 		seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
 		if (WooFInvalid(seq)) {
-			log_error("couldn't trigger handler %s in %s", list.handlers[i], list.namespace[i]);
+			log_error("failed to trigger handler %s in %s", list.handlers[i], list.namespace[i]);
 		} else {
 			log_debug("triggered handler %s in %s", list.handlers[i], list.namespace[i]);
 		}

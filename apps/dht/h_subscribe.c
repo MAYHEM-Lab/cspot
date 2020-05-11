@@ -21,12 +21,12 @@ int h_subscribe(WOOF *wf, unsigned long seq_no, void *ptr) {
 	sprintf(subscription_woof, "%s_%s", arg->topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 	unsigned long seq = WooFGetLatestSeqno(subscription_woof);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't get the latest seq_no of %s", subscription_woof);
+		log_error("failed to get the latest seq_no of %s", subscription_woof);
 		exit(1);
 	}
 	DHT_SUBSCRIPTION_LIST list;
 	if (WooFGet(subscription_woof, &list, seq) < 0) {
-		log_error("couldn't get latest subscription list of %s", subscription_woof);
+		log_error("failed to get latest subscription list of %s", subscription_woof);
 		exit(1);
 	}
 

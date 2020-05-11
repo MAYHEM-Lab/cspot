@@ -151,9 +151,6 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 				DHT_TRIGGER_ARG action_arg;
 				sprintf(action_arg.woof_name, "%s/%s", arg->action_namespace, arg->key);
 				action_arg.seqno = arg->action_seqno;
-				
-				log_error("trigger_arg woof_name: %s, seq: %lu", action_arg.woof_name, action_arg.seqno);
-
 
 				char callback_woof[DHT_NAME_LENGTH];
 				sprintf(callback_woof, "%s/%s", dht_table.successor_addr[0], DHT_TRIGGER_WOOF);
@@ -184,7 +181,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 			sprintf(req_forward_woof, "%s/%s", dht_table.finger_addr[i], DHT_FIND_SUCCESSOR_WOOF);
 			seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 			if (WooFInvalid(seq)) {
-				log_error("couldn't forward find_successor request to %s", req_forward_woof);
+				log_error("failed to forward find_successor request to %s", req_forward_woof);
 				exit(1);
 			}
 			log_debug("forwarded find_succesor request to finger[%d]: %s", i, dht_table.finger_addr[i]);
@@ -198,7 +195,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	sprintf(req_forward_woof, "%s/%s", dht_table.node_addr, DHT_FIND_SUCCESSOR_WOOF);
 	seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't put woof to %s", req_forward_woof);
+		log_error("failed to put woof to %s", req_forward_woof);
 		exit(1);
 	}
 	log_debug("forwarded find_succesor request to self: %s", dht_table.node_addr);

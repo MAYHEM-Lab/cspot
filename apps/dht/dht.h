@@ -6,8 +6,8 @@
 #include "woofc.h"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
-#define DHT_HISTORY_LENGTH_LONG 65536
-#define DHT_HISTORY_LENGTH_SHORT 8
+#define DHT_HISTORY_LENGTH_LONG 256
+#define DHT_HISTORY_LENGTH_SHORT 4
 #define DHT_TABLE_WOOF "dht_table"
 #define DHT_FIND_ADDRESS_RESULT_WOOF "dht_find_address_result.woof"
 #define DHT_FIND_NODE_RESULT_WOOF "dht_find_node_result.woof"

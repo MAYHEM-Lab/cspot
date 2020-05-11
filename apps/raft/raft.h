@@ -13,20 +13,20 @@
 #define RAFT_CONFIG_STABLE 0
 #define RAFT_CONFIG_JOINT 1
 #define RAFT_CONFIG_NEW 2
-#define RAFT_LOG_ENTRIES_WOOF "raft_log_entries.woof"
-#define RAFT_SERVER_STATE_WOOF "raft_server_state.woof"
-#define RAFT_HEARTBEAT_WOOF "raft_heartbeat.woof"
-#define RAFT_TIMEOUT_CHECKER_WOOF "raft_timeout_checker.woof"
-#define RAFT_APPEND_ENTRIES_ARG_WOOF "raft_append_entries_arg.woof"
-#define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result.woof"
-#define RAFT_CLIENT_PUT_REQUEST_WOOF "raft_client_put_request.woof"
-#define RAFT_CLIENT_PUT_ARG_WOOF "raft_client_put_arg.woof"
+#define RAFT_LOG_ENTRIES_WOOF "log_entries.woof"
+#define RAFT_SERVER_STATE_WOOF "server_state.woof"
+#define RAFT_HEARTBEAT_WOOF "heartbeat.woof"
+#define RAFT_TIMEOUT_CHECKER_WOOF "timeout_checker.woof"
+#define RAFT_APPEND_ENTRIES_ARG_WOOF "append_entries_arg.woof"
+#define RAFT_APPEND_ENTRIES_RESULT_WOOF "append_entries_result.woof"
+#define RAFT_CLIENT_PUT_REQUEST_WOOF "client_put_request.woof"
+#define RAFT_CLIENT_PUT_ARG_WOOF "client_put_arg.woof"
 #define RAFT_CLIENT_PUT_RESULT_WOOF "client_put_result.woof"
-#define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
-#define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
-#define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
-#define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
-#define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
+#define RAFT_CONFIG_CHANGE_ARG_WOOF "config_change_arg.woof"
+#define RAFT_CONFIG_CHANGE_RESULT_WOOF "config_change_result.woof"
+#define RAFT_REPLICATE_ENTRIES_WOOF "replicate_entries.woof"
+#define RAFT_REQUEST_VOTE_ARG_WOOF "request_vote_arg.woof"
+#define RAFT_REQUEST_VOTE_RESULT_WOOF "request_vote_result.woof"
 #define RAFT_MONITOR_NAME "raft"
 
 #define RAFT_WOOF_HISTORY_SIZE 65536
@@ -172,9 +172,9 @@ int threads_join(int members, pthread_t *pids);
 int threads_cancel(int members, pthread_t *pids);
 
 char log_tag[1024];
+void log_set_tag(const char *tag);
 void log_set_level(int level);
 void log_set_output(FILE *file);
-void log_set_tag(const char *tag);
 void log_debug(const char *message, ...);
 void log_info(const char *message, ...);
 void log_warn(const char *message, ...);

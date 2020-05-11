@@ -92,7 +92,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// if (get_milliseconds() - result.request_created_ts > RAFT_TIMEOUT_MIN) {
 		// 	log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
 		// }
-		if (result_seq % 10 == 0) {
+		if (result_seq % RAFT_SAMPLING_RATE == 0) {
 			log_debug("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
 		}
 		int result_member_id = member_id(result.server_woof, server_state.member_woofs);

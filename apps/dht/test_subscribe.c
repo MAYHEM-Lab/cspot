@@ -10,7 +10,7 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#include "client.h"
+#include "dht_client.h"
 
 #define TEST_TOPIC "test"
 #define TEST_HANDLER "test_handler"
@@ -37,14 +37,14 @@ int main(int argc, char **argv) {
 	printf("topic created\n");
 	usleep(500 * 1000);
 
-	if (dht_register_topic(NULL, TEST_TOPIC) < 0) {
+	if (dht_register_topic(TEST_TOPIC) < 0) {
 		fprintf(stderr, "failed to register topic\n");
 		exit(1);
 	}
 	printf("topic registered\n");
 	usleep(500 * 1000);
 
-	if (dht_subscribe(NULL, TEST_TOPIC, TEST_HANDLER) < 0) {
+	if (dht_subscribe(TEST_TOPIC, TEST_HANDLER) < 0) {
 		fprintf(stderr, "failed to subscribe to topic\n");
 		exit(1);
 	}
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 	for (i = 0; i < TEST_COUNT; ++i) {
 		TEST_EL el;
 		sprintf(el.msg, "%s: %d", TEST_MESSAGE, i);
-		unsigned long seq = dht_publish(NULL, TEST_TOPIC, &el);
+		unsigned long seq = dht_publish(TEST_TOPIC, &el);
 		if (WooFInvalid(seq)) {
 			fprintf(stderr, "failed to publish to topic\n");
 			exit(1);

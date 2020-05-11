@@ -21,17 +21,17 @@ int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 	unsigned long seqno = arg->seqno;
 	WOOF *woof = WooFOpen(woof_name);
 	if (woof == NULL) {
-		log_error("couldn't open WooF %s", woof_name);
+		log_error("failed to open WooF %s", woof_name);
 		exit(1);
 	}
 	void *element = malloc(woof->shared->element_size);
 	if (element == NULL) {
-		log_error("couldn't malloc element with size %lu", woof->shared->element_size);
+		log_error("failed to malloc element with size %lu", woof->shared->element_size);
 		WooFDrop(woof);
 		exit(1);
 	}
 	if (WooFRead(woof, element, seqno) < 0) {
-		log_error("couldn't read element from WooF %s at %lu", woof_name, seqno);
+		log_error("failed to read element from WooF %s at %lu", woof_name, seqno);
 		free(element);
 		WooFDrop(woof);
 		exit(1);

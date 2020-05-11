@@ -10,7 +10,7 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#include "client.h"
+#include "dht_client.h"
 
 #define TEST_TOPIC "test"
 #define TEST_HANDLER "test_handler"
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 
 	TEST_EL el;
 	strcpy(el.msg, argv[1]);
-	unsigned long seq = dht_publish(NULL, TEST_TOPIC, &el);
+	unsigned long seq = dht_publish(TEST_TOPIC, &el);
 	if (WooFInvalid(seq)) {
 		fprintf(stderr, "failed to publish to topic\n");
 		exit(1);

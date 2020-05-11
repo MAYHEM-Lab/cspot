@@ -52,23 +52,23 @@ clients: s_create s_daemon s_join client_find_node client_init_topic client_node
 
 test: test_handler test_publish test_subscribe
 
-client_find_node: client_find_node.c dht.o client.o
-	${CC} ${CFLAGS} -o client_find_node client_find_node.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_find_node: client_find_node.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o client_find_node client_find_node.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_init_topic: client_init_topic.c dht.o client.o
-	${CC} ${CFLAGS} -o client_init_topic client_init_topic.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_init_topic: client_init_topic.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o client_init_topic client_init_topic.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_node_info: client_node_info.c dht.o client.o
-	${CC} ${CFLAGS} -o client_node_info client_node_info.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_node_info: client_node_info.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o client_node_info client_node_info.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_publish: client_publish.c dht.o client.o
-	${CC} ${CFLAGS} -o client_publish client_publish.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_publish: client_publish.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o client_publish client_publish.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_subscribe: client_subscribe.c dht.o client.o
-	${CC} ${CFLAGS} -o client_subscribe client_subscribe.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+client_subscribe: client_subscribe.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o client_subscribe client_subscribe.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client.o: client.c client.h
-	$(CC) $(CFLAGS) -c client.c
+dht_client.o: dht_client.c dht_client.h
+	$(CC) $(CFLAGS) -c dht_client.c
 	
 dht.o: dht.c dht.h
 	${CC} ${CFLAGS} -c dht.c
@@ -149,11 +149,11 @@ test_handler: test_handler.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} $
 	${CC} ${CFLAGS} -c test_handler.c -o test_handler.o
 	${CC} ${CFLAGS} -o test_handler test_handler_wrapped.c test_handler.o test_handler_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-test_publish: test_publish.c dht.o client.o
-	${CC} ${CFLAGS} -o test_publish test_publish.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+test_publish: test_publish.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o test_publish test_publish.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-test_subscribe: test_subscribe.c dht.o client.o
-	${CC} ${CFLAGS} -o test_subscribe test_subscribe.c dht.o client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+test_subscribe: test_subscribe.c dht.o dht_client.o
+	${CC} ${CFLAGS} -o test_subscribe test_subscribe.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
 	rm -rf ./cspot *.o s_create s_daemon find client_node_info join h_find_result h_find_successor h_fix_finger h_forward h_get_predecessor h_join h_notify_callback h_notify h_register_topic h_stablize_callback h_subscribe h_trigger test_handler test_publish test_subscribe

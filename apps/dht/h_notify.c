@@ -21,12 +21,12 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_debug("callback: %s/%s", arg->callback_woof, arg->callback_handler);
 	unsigned long seq = WooFGetLatestSeqno(DHT_TABLE_WOOF);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't get latest dht_table seq_no");
+		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
 	DHT_TABLE dht_tbl;
 	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
-		log_error("couldn't get latest dht_table with seq_no %lu", seq);
+		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
 	}
 
@@ -42,7 +42,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 		memcpy(dht_tbl.predecessor_addr, arg->node_addr, sizeof(dht_tbl.predecessor_addr));
 		seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
 		if (WooFInvalid(seq)) {
-			log_error("couldn't update predecessor");
+			log_error("failed to update predecessor");
 			exit(1);
 		}
 		char hash_str[2 * SHA_DIGEST_LENGTH + 1];
@@ -67,7 +67,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	seq = WooFPut(arg->callback_woof, arg->callback_handler, &result);
 	if (WooFInvalid(seq)) {
-		log_error("couldn't put notify result to woof %s", arg->callback_woof);
+		log_error("failed to put notify result to woof %s", arg->callback_woof);
 		exit(1);
 	}
 	log_debug("returned successor list");

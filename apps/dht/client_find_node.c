@@ -7,21 +7,17 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#include "client.h"
+#include "dht_client.h"
 
-#define ARGS "w:t:"
+#define ARGS "t:"
 char *Usage = "client_find -t topic\n";
 
 int main(int argc, char **argv) {
-	char server[DHT_NAME_LENGTH];
 	char topic[DHT_NAME_LENGTH];
 	
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
-			case 'w': {
-				strncpy(server, optarg, sizeof(server));
-			}
 			case 't': {
 				strncpy(topic, optarg, sizeof(topic));
 				break;
@@ -49,16 +45,9 @@ int main(int argc, char **argv) {
 	}
 	
 	char result_node[DHT_NAME_LENGTH];
-	if (server[0] != 0) {
-		if (dht_find_node(server, topic, result_node) < 0) {
-			fprintf(stderr, "failed to find the topic\n");
-			exit(1);
-		}
-	} else {
-		if (dht_find_node(NULL, topic, result_node) < 0) {
-			fprintf(stderr, "failed to find the topic\n");
-			exit(1);
-		}
+	if (dht_find_node(topic, result_node) < 0) {
+		fprintf(stderr, "failed to find the topic\n");
+		exit(1);
 	}
 	printf("node: %s\n", result_node);
 

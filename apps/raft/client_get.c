@@ -5,16 +5,18 @@
 #include <time.h>
 
 #include "raft.h"
-#include "client.h"
+#include "raft_client.h"
 
-#define ARGS "f:i:t:s"
-char *Usage = "client_get -f config -i index -t term\n-s for synchronously get\n";
+#define ARGS "f:i:s:"
+char *Usage = "client_get -f config\n\
+choose one of the following:\n\
+-i index\n\
+-s client_put_seqno\n";
 
 int main(int argc, char **argv) {
 	char config[256];
-	int sync = 0;
 	unsigned long index = 0;
-	unsigned long term = 0;
+	unsigned long client_put_seqno = 0;
 
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -27,12 +29,8 @@ int main(int argc, char **argv) {
 				index = strtoul(optarg, NULL, 0);
 				break;
 			}
-			case 't': {
-				term = strtoul(optarg, NULL, 0);
-				break;
-			}
 			case 's': {
-				sync = 1;
+				client_put_seqno = strtoul(optarg, NULL, 0);
 				break;
 			}
 			default: {
@@ -43,7 +41,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (config[0] == 0 || index == 0) {
+	if (config[0] == 0 || (index == 0 && client_put_seqno == 0) || (index != 0 && client_put_seqno != 0)) {
 		fprintf(stderr, "%s", Usage);
 		exit(1);
 	}
@@ -61,12 +59,18 @@ int main(int argc, char **argv) {
 	fclose(fp);
 
 	RAFT_DATA_TYPE data;
-	int err = raft_get(&data, index, term);
-	if (err < 0) {
-		return err;
+	unsigned long term;
+	if (index > 0) {
+		term = raft_sync_get(&data, index);
+	} else {
+		term = raft_async_get(&data, client_put_seqno);
+	}
+	if (raft_is_error(term)) {
+		fprintf(stderr, "failed to get data: %s\n", raft_client_error_msg);
+		exit(1);
 	}
 	printf("%s\n", data.val);
 
-	return err;
+	return 0;
 }
 
