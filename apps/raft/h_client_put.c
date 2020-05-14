@@ -45,7 +45,7 @@ int h_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 			result.redirected = 1;
 			result.index = 0;
 			result.term = server_state.current_term;
-			memcpy(result.current_leader, server_state.current_leader, RAFT_WOOF_NAME_LENGTH);
+			memcpy(result.current_leader, server_state.current_leader, RAFT_NAME_LENGTH);
 		} else {
 			unsigned long entry_seqno;
 			RAFT_LOG_ENTRY entry;

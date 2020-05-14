@@ -8,34 +8,38 @@
 #define DHT_NAME_LENGTH WOOFNAMESIZE
 #define DHT_HISTORY_LENGTH_LONG 256
 #define DHT_HISTORY_LENGTH_SHORT 4
-#define DHT_TABLE_WOOF "dht_table"
-#define DHT_FIND_ADDRESS_RESULT_WOOF "dht_find_address_result.woof"
+#define DHT_CHECK_PREDECESSOR_WOOF "dht_check_predecessor.woof"
+#define DHT_DAEMON_WOOF "dht_daemon.woof"
 #define DHT_FIND_NODE_RESULT_WOOF "dht_find_node_result.woof"
 #define DHT_FIND_SUCCESSOR_WOOF "dht_find_successor.woof"
 #define DHT_FIX_FINGER_WOOF "dht_fix_finger.woof"
+#define DHT_FIX_FINGER_CALLBACK_WOOF "dht_fix_finger_callback.woof"
 #define DHT_GET_PREDECESSOR_WOOF "dht_get_predecessor.woof"
 #define DHT_INVOCATION_WOOF "dht_invocation.woof"
 #define DHT_JOIN_WOOF "dht_join.woof"
 #define DHT_NOTIFY_CALLBACK_WOOF "dht_notify_callback.woof"
 #define DHT_NOTIFY_WOOF "dht_notify.woof"
 #define DHT_REGISTER_TOPIC_WOOF "dht_register_topic.woof"
+#define DHT_STABLIZE_WOOF "dht_stablize.woof"
 #define DHT_STABLIZE_CALLBACK_WOOF "dht_stablize_callback.woof"
 #define DHT_SUBSCRIBE_WOOF "dht_subscribe.woof"
-#define DHT_TRIGGER_WOOF "dht_trigger.woof"
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
+#define DHT_TABLE_WOOF "dht_table"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
+#define DHT_TRIGGER_WOOF "dht_trigger.woof"
 
 #define DHT_SUCCESSOR_LIST_R 3
-#define DHT_MAX_SUBSCRIPTIONS 32
+#define DHT_MAX_SUBSCRIPTIONS 8
+#define DHT_STABLIZE_FREQUENCY 1000
+#define DHT_CHECK_PREDECESSOR_FRQUENCY 1000
+#define DHT_FIX_FINGER_FRQUENCY 100
 
 #define DHT_ACTION_NONE 0
-#define DHT_ACTION_FIND_ADDRESS 1
-#define DHT_ACTION_FIND_NODE 2
-#define DHT_ACTION_JOIN 3
-#define DHT_ACTION_FIX_FINGER 4
-#define DHT_ACTION_REGISTER_TOPIC 5
-#define DHT_ACTION_SUBSCRIBE 6
-#define DHT_ACTION_TRIGGER 7
+#define DHT_ACTION_FIND_NODE 1
+#define DHT_ACTION_JOIN 2
+#define DHT_ACTION_FIX_FINGER 3
+#define DHT_ACTION_REGISTER_TOPIC 4
+#define DHT_ACTION_SUBSCRIBE 5
 
 #define DHT_LOG_DEBUG 0
 #define DHT_LOG_INFO 1
@@ -63,56 +67,54 @@ typedef struct dht_find_successor_arg {
 	char callback_namespace[DHT_NAME_LENGTH];
 } DHT_FIND_SUCCESSOR_ARG;
 
-typedef struct dht_find_address_result {
-	char topic[DHT_NAME_LENGTH];
-	int hops;
-	unsigned char topic_addr[DHT_NAME_LENGTH];
-} DHT_FIND_ADDRESS_RESULT;
-
 typedef struct dht_find_node_result {
 	char topic[DHT_NAME_LENGTH];
 	int hops;
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	unsigned char node_addr[DHT_NAME_LENGTH];
+	char node_addr[DHT_NAME_LENGTH];
 } DHT_FIND_NODE_RESULT;
 
 typedef struct dht_invocation_arg {
 	char woof_name[DHT_NAME_LENGTH];
-	unsigned long seqno;
+	unsigned long seq_no;
 } DHT_INVOCATION_ARG;
 
 typedef struct dht_join_arg {
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	unsigned char node_addr[DHT_NAME_LENGTH];
+	char node_addr[DHT_NAME_LENGTH];
 } DHT_JOIN_ARG;
 
 typedef struct dht_fix_finger_arg {
 	int finger_index;
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	unsigned char node_addr[DHT_NAME_LENGTH];
 } DHT_FIX_FINGER_ARG;
+
+typedef struct dht_fix_finger_callback_arg {
+	int finger_index;
+	unsigned char node_hash[SHA_DIGEST_LENGTH];
+	char node_addr[DHT_NAME_LENGTH];
+} DHT_FIX_FINGER_CALLBACK_ARG;
 
 typedef struct dht_get_predecessor_arg {
 	char callback_woof[DHT_NAME_LENGTH];
 	char callback_handler[DHT_NAME_LENGTH];
-} GET_PREDECESSOR_ARG;
+} DHT_GET_PREDECESSOR_ARG;
 
-typedef struct DHT_STABLIZE_CALLBACK {
+typedef struct dht_stablize_callback_arg {
 	unsigned char predecessor_hash[SHA_DIGEST_LENGTH];
-	unsigned char predecessor_addr[DHT_NAME_LENGTH];
-} DHT_STABLIZE_CALLBACK;
+	char predecessor_addr[DHT_NAME_LENGTH];
+} DHT_STABLIZE_CALLBACK_ARG;
 
 typedef struct dht_notify_arg {
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	unsigned char node_addr[DHT_NAME_LENGTH];
+	char node_addr[DHT_NAME_LENGTH];
 	char callback_woof[DHT_NAME_LENGTH];
 	char callback_handler[DHT_NAME_LENGTH];
-} NOTIFY_ARG;
+} DHT_NOTIFY_ARG;
 
-typedef struct dht_notify_result {
+typedef struct dht_notify_callback_arg {
 	char successor_addr[DHT_SUCCESSOR_LIST_R][DHT_NAME_LENGTH];
 	unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
-} NOTIFY_RESULT;
+} DHT_NOTIFY_CALLBACK_ARG;
 
 typedef struct dht_register_topic_arg {
 	char topic_name[DHT_NAME_LENGTH];
@@ -132,14 +134,31 @@ typedef struct dht_subscribe_arg {
 } DHT_SUBSCRIBE_ARG;
 
 typedef struct dht_trigger_arg {
-	char woof_name[DHT_NAME_LENGTH];
-	unsigned long seqno;
+	char topic_name[DHT_NAME_LENGTH];
+	char element_woof[DHT_NAME_LENGTH];
+	unsigned long element_seqno;
+	char subscription_woof[DHT_NAME_LENGTH];
 } DHT_TRIGGER_ARG;
 
 typedef struct dht_topic_entry {
 	char topic_name[DHT_NAME_LENGTH];
 	char topic_namespace[DHT_NAME_LENGTH];
 } DHT_TOPIC_ENTRY;
+
+typedef struct dht_daemon_arg {
+	unsigned long last_stablize;
+	unsigned long last_check_predecessor;
+	unsigned long last_fix_finger;
+	int last_fixed_finger_index;
+} DHT_DAEMON_ARG;
+
+typedef struct dht_stablize_arg {
+
+} DHT_STABLIZE_ARG;
+
+typedef struct dht_check_predecessor_arg {
+
+} DHT_CHECK_PREDECESSOR_ARG;
 
 void dht_init(unsigned char *node_hash, char *node_addr, DHT_TABLE *dht_table);
 void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG *arg, char *key, char *hashed_key, char *callback_namespace);
@@ -157,5 +176,10 @@ void log_debug(const char *message, ...);
 void log_info(const char *message, ...);
 void log_warn(const char *message, ...);
 void log_error(const char *message, ...);
+
+int create_woofs();
+int start_daemon();
+int create_cluster();
+int join_cluster(char *node_woof);
 
 #endif

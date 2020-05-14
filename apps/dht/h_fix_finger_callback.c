@@ -9,10 +9,10 @@
 #include "woofc.h"
 #include "dht.h"
 
-int h_fix_finger(WOOF *wf, unsigned long seq_no, void *ptr) {
-	DHT_FIX_FINGER_ARG *arg = (DHT_FIX_FINGER_ARG *)ptr;
+int h_fix_finger_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
+	DHT_FIX_FINGER_CALLBACK_ARG *arg = (DHT_FIX_FINGER_CALLBACK_ARG *)ptr;
 
-	log_set_tag("h_fix_finger");
+	log_set_tag("fix_finger_callback");
 	// log_set_level(LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);

@@ -22,12 +22,15 @@ all: handlers copy clients test
 
 copy: handlers clients test
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	cp d_check_predecessor ./cspot;
+	cp d_daemon ./cspot;
+	cp d_fix_finger ./cspot;
+	cp d_stablize ./cspot;
 	cp h_find_result ./cspot;
 	cp h_find_successor ./cspot;
-	cp h_fix_finger ./cspot;
-	cp h_forward ./cspot;
+	cp h_fix_finger_callback ./cspot;
 	cp h_get_predecessor ./cspot;
-	cp h_join ./cspot;
+	cp h_join_callback ./cspot;
 	cp h_notify_callback ./cspot;
 	cp h_notify ./cspot;
 	cp h_register_topic ./cspot;
@@ -35,7 +38,6 @@ copy: handlers clients test
 	cp h_subscribe ./cspot;
 	cp h_trigger ./cspot;
 	cp s_create ./cspot;
-	cp s_daemon ./cspot;
 	cp s_join ./cspot;
 	cp client_find_node ./cspot;
 	cp client_init_topic ./cspot;
@@ -46,9 +48,9 @@ copy: handlers clients test
 	cp test_publish ./cspot;
 	cp test_subscribe ./cspot;
 
-handlers: h_find_result h_find_successor h_fix_finger h_forward h_get_predecessor h_join h_notify_callback h_notify h_register_topic h_stablize_callback h_subscribe h_trigger
+handlers: d_check_predecessor d_daemon d_fix_finger d_stablize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stablize_callback h_subscribe h_trigger
 
-clients: s_create s_daemon s_join client_find_node client_init_topic client_node_info client_publish client_subscribe
+clients: s_create s_join client_find_node client_init_topic client_node_info client_publish client_subscribe
 
 test: test_handler test_publish test_subscribe
 
@@ -73,6 +75,26 @@ dht_client.o: dht_client.c dht_client.h
 dht.o: dht.c dht.h
 	${CC} ${CFLAGS} -c dht.c
 
+d_check_predecessor: d_check_predecessor.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/d_check_predecessor/g' ${SHEP_SRC} > d_check_predecessor_shepherd.c
+	${CC} ${CFLAGS} -c d_check_predecessor_shepherd.c -o d_check_predecessor_shepherd.o
+	${CC} ${CFLAGS} -o d_check_predecessor d_check_predecessor.c d_check_predecessor_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+d_daemon: d_daemon.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/d_daemon/g' ${SHEP_SRC} > d_daemon_shepherd.c
+	${CC} ${CFLAGS} -c d_daemon_shepherd.c -o d_daemon_shepherd.o
+	${CC} ${CFLAGS} -o d_daemon d_daemon.c d_daemon_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+d_fix_finger: d_fix_finger.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/d_fix_finger/g' ${SHEP_SRC} > d_fix_finger_shepherd.c
+	${CC} ${CFLAGS} -c d_fix_finger_shepherd.c -o d_fix_finger_shepherd.o
+	${CC} ${CFLAGS} -o d_fix_finger d_fix_finger.c d_fix_finger_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+d_stablize: d_stablize.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/d_stablize/g' ${SHEP_SRC} > d_stablize_shepherd.c
+	${CC} ${CFLAGS} -c d_stablize_shepherd.c -o d_stablize_shepherd.o
+	${CC} ${CFLAGS} -o d_stablize d_stablize.c d_stablize_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 h_find_result: h_find_result.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_find_result/g' ${SHEP_SRC} > h_find_result_shepherd.c
 	${CC} ${CFLAGS} -c h_find_result_shepherd.c -o h_find_result_shepherd.o
@@ -83,25 +105,20 @@ h_find_successor: h_find_successor.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} $
 	${CC} ${CFLAGS} -c h_find_successor_shepherd.c -o h_find_successor_shepherd.o
 	${CC} ${CFLAGS} -o h_find_successor h_find_successor.c h_find_successor_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-h_fix_finger: h_fix_finger.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/h_fix_finger/g' ${SHEP_SRC} > h_fix_finger_shepherd.c
-	${CC} ${CFLAGS} -c h_fix_finger_shepherd.c -o h_fix_finger_shepherd.o
-	${CC} ${CFLAGS} -o h_fix_finger h_fix_finger.c h_fix_finger_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-h_forward: h_forward.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/h_forward/g' ${SHEP_SRC} > h_forward_shepherd.c
-	${CC} ${CFLAGS} -c h_forward_shepherd.c -o h_forward_shepherd.o
-	${CC} ${CFLAGS} -o h_forward h_forward.c h_forward_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_fix_finger_callback: h_fix_finger_callback.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_fix_finger_callback/g' ${SHEP_SRC} > h_fix_finger_callback_shepherd.c
+	${CC} ${CFLAGS} -c h_fix_finger_callback_shepherd.c -o h_fix_finger_callback_shepherd.o
+	${CC} ${CFLAGS} -o h_fix_finger_callback h_fix_finger_callback.c h_fix_finger_callback_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_get_predecessor: h_get_predecessor.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_get_predecessor/g' ${SHEP_SRC} > h_get_predecessor_shepherd.c
 	${CC} ${CFLAGS} -c h_get_predecessor_shepherd.c -o h_get_predecessor_shepherd.o
 	${CC} ${CFLAGS} -o h_get_predecessor h_get_predecessor.c h_get_predecessor_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-h_join: h_join.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/h_join/g' ${SHEP_SRC} > h_join_shepherd.c
-	${CC} ${CFLAGS} -c h_join_shepherd.c -o h_join_shepherd.o
-	${CC} ${CFLAGS} -o h_join h_join.c h_join_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+h_join_callback: h_join_callback.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_join_callback/g' ${SHEP_SRC} > h_join_callback_shepherd.c
+	${CC} ${CFLAGS} -c h_join_callback_shepherd.c -o h_join_callback_shepherd.o
+	${CC} ${CFLAGS} -o h_join_callback h_join_callback.c h_join_callback_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_notify_callback: h_notify_callback.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_notify_callback/g' ${SHEP_SRC} > h_notify_callback_shepherd.c
@@ -132,17 +149,15 @@ h_trigger: h_trigger.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB}
 	sed 's/WOOF_HANDLER_NAME/h_trigger/g' ${SHEP_SRC} > h_trigger_shepherd.c
 	${CC} ${CFLAGS} -c h_trigger_shepherd.c -o h_trigger_shepherd.o
 	${CC} ${CFLAGS} -o h_trigger h_trigger.c h_trigger_shepherd.o dht.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	
 
 s_create: s_create.c dht.o
 	${CC} ${CFLAGS} -o s_create s_create.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-s_daemon: s_daemon.c dht.o
-	${CC} ${CFLAGS} -o s_daemon s_daemon.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
 s_join: s_join.c dht.o
 	${CC} ${CFLAGS} -o s_join s_join.c dht.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-test_handler: test_handler.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+test_handler: test_handler.c handler_wrapper.c dht.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/PUT_HANDLER_NAME/test_handler/g' handler_wrapper.c > test_handler_wrapped.c
 	sed 's/WOOF_HANDLER_NAME/handler_wrapper/g' ${SHEP_SRC} > test_handler_shepherd.c
 	${CC} ${CFLAGS} -c test_handler_shepherd.c -o test_handler_shepherd.o
@@ -156,5 +171,5 @@ test_subscribe: test_subscribe.c dht.o dht_client.o
 	${CC} ${CFLAGS} -o test_subscribe test_subscribe.c dht.o dht_client.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot *.o s_create s_daemon find client_node_info join h_find_result h_find_successor h_fix_finger h_forward h_get_predecessor h_join h_notify_callback h_notify h_register_topic h_stablize_callback h_subscribe h_trigger test_handler test_publish test_subscribe
+	rm -rf ./cspot *.o *_shepherd.c s_create s_join client_find_node client_node_info d_check_predecessor d_daemon d_fix_finger d_stablize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stablize_callback h_subscribe h_trigger test_handler test_publish test_subscribe
 

@@ -13,8 +13,8 @@ int h_trigger(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_TRIGGER_ARG *arg = (DHT_TRIGGER_ARG *)ptr;
 
 	log_set_tag("trigger");
-	log_set_level(DHT_LOG_DEBUG);
-	// log_set_level(LOG_INFO);
+	// log_set_level(DHT_LOG_DEBUG);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
 	char local_namespace[DHT_NAME_LENGTH];
@@ -23,36 +23,29 @@ int h_trigger(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	char topic_name[DHT_NAME_LENGTH];
-	if (WooFNameFromURI(arg->woof_name, topic_name, DHT_NAME_LENGTH) < 0) {
-		log_error("failed to get topic name");
-		exit(1);
-	}
-	char subscription_woof[DHT_NAME_LENGTH];
-	sprintf(subscription_woof, "%s_%s", topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
-	unsigned long seq = WooFGetLatestSeqno(subscription_woof);
-	if (WooFInvalid(seq)) {
-		log_error("failed to get the latest seq_no from %s", subscription_woof);
+	unsigned long latest_subscription = WooFGetLatestSeqno(arg->subscription_woof);
+	if (WooFInvalid(latest_subscription) || latest_subscription == 0) {
+		log_error("failed to get subscription list");
 		exit(1);
 	}
 	DHT_SUBSCRIPTION_LIST list;
-	if (WooFGet(subscription_woof, &list, seq) < 0) {
-		log_error("failed to get the latest subscription list of %s", topic_name);
+	if (WooFGet(arg->subscription_woof, &list, latest_subscription) < 0) {
+		log_error("failed to get the latest subscription list of %s", arg->topic_name);
 		exit(1);
 	}
 
 	log_debug("number of subscription: %d", list.size);
 	int i;
 	for (i = 0; i < list.size; ++i) {
-		log_debug("namespace: %s, handler: %s", list.namespace[i], list.handlers[i]);
+		log_debug("%s/%s", list.namespace[i], list.handlers[i]);
 
 		DHT_INVOCATION_ARG invocation_arg;
-		invocation_arg.seqno = arg->seqno;
-		strcpy(invocation_arg.woof_name, arg->woof_name);
+		invocation_arg.seq_no = arg->element_seqno;
+		strcpy(invocation_arg.woof_name, arg->element_woof);
 		
 		char invocation_woof[DHT_NAME_LENGTH];
 		sprintf(invocation_woof, "%s/%s", list.namespace[i], DHT_INVOCATION_WOOF);
-		seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
+		unsigned long seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
 		if (WooFInvalid(seq)) {
 			log_error("failed to trigger handler %s in %s", list.handlers[i], list.namespace[i]);
 		} else {

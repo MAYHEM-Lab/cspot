@@ -9,14 +9,13 @@
 #include "woofc.h"
 #include "dht.h"
 
-int h_join(WOOF *wf, unsigned long seq_no, void *ptr) {
+int h_join_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_JOIN_ARG *arg = (DHT_JOIN_ARG *)ptr;
 
-	log_set_tag("join");
+	log_set_tag("join_callback");
 	log_set_level(DHT_LOG_DEBUG);
-	// log_set_level(LOG_INFO);
 	log_set_output(stdout);
-	
+
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
 		log_error("failed to get local node's woof name");

@@ -31,7 +31,7 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
-int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
+int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
 	char buffer[256];
 	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
 		fprintf(stderr, "wrong format of config file\n");
@@ -79,7 +79,7 @@ int node_woof_name(char *node_woof) {
 	return 0;
 }
 
-int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
+int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
 	int i;
 	for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 		if (strcmp(woof_name, member_woofs[i]) == 0) {
@@ -89,7 +89,7 @@ int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBS
 	return -1;
 }
 
-int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
+int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
 	sprintf(dst, "%d;", members);
 	int i;
 	for (i = 0; i < members; ++i) {
@@ -98,7 +98,7 @@ int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + R
 	return strlen(dst);
 }
 
-int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
+int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
 	int len = 0;
     char *token;
     token = strtok(src, ";");
@@ -120,9 +120,9 @@ int qsort_strcmp(const void *a, const void *b) {
     return strcmp((const char*)a, (const char*)b);
 }
 
-int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH],
-	int new_members, char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH],
-	int *joint_members, char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]) {
+int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
+	int new_members, char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
+	int *joint_members, char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
 	
 	if (old_members + new_members > RAFT_MAX_MEMBERS) {
 		return -1;
@@ -134,7 +134,7 @@ int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS
     for (i = 0; i < new_members; ++i) {
 		strcpy(joint_member_woofs[old_members + i], new_member_woofs[i]);
 	}
-	qsort(joint_member_woofs, old_members + new_members, RAFT_WOOF_NAME_LENGTH, qsort_strcmp);
+	qsort(joint_member_woofs, old_members + new_members, RAFT_NAME_LENGTH, qsort_strcmp);
     int tail = 0;
 	for (i = 0; i < old_members + new_members; ++i) {
 		if (tail > 0 && strcmp(joint_member_woofs[i], joint_member_woofs[tail - 1]) == 0) {
@@ -249,4 +249,83 @@ void log_error(const char *message, ...) {
     vfprintf(raft_log_output, message, argptr);
 	fprintf(raft_log_output, "\033[0m\n");
     va_end(argptr);
+}
+
+int create_woofs() {
+	int num_woofs = sizeof(RAFT_WOOF_TO_CREATE) / RAFT_NAME_LENGTH;
+	int i;
+	for (i = 0; i < num_woofs; i++) {
+		if (WooFCreate(RAFT_WOOF_TO_CREATE[i], RAFT_WOOF_ELEMENT_SIZE[i], RAFT_WOOF_HISTORY_SIZE) < 0) {
+			fprintf(stderr, "failed to create woof %s\n", RAFT_WOOF_ELEMENT_SIZE[i]);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer) {
+	RAFT_SERVER_STATE server_state;
+	server_state.members = members;
+	memcpy(server_state.member_woofs, member_woofs, sizeof(server_state.member_woofs));
+	server_state.current_term = 0;
+	server_state.role = RAFT_FOLLOWER;
+	if (observer) {
+		server_state.role = RAFT_OBSERVER;
+	}
+	memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
+	server_state.commit_index = 0;
+	server_state.current_config = RAFT_CONFIG_STABLE;
+	if (node_woof_name(server_state.woof_name) < 0) {
+		fprintf(stderr, "Couldn't get woof name\n");
+	}
+	memcpy(server_state.current_leader, server_state.woof_name, RAFT_NAME_LENGTH);
+	server_state.observers = 0;
+
+	unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+	if (WooFInvalid(seq)) {
+		fprintf(stderr, "Couldn't initialize server state\n");
+		return -1;
+	}
+
+	if (monitor_create(RAFT_MONITOR_NAME) < 0) {
+		fprintf(stderr, "Failed to create and start the handler monitor\n");
+		return -1;
+	}
+
+	printf("Server started.\n");
+	printf("WooF namespace: %s\n", server_state.woof_name);
+	printf("Cluster has %d members:\n", server_state.members);
+	int i;
+	for (i = 0; i < server_state.members; ++i) {
+		printf("%d: %s\n", i + 1, server_state.member_woofs[i]);
+	}
+
+	RAFT_HEARTBEAT heartbeat;
+	heartbeat.term = 0;
+	heartbeat.timestamp = get_milliseconds();
+	seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
+	if (WooFInvalid(seq)) {
+		fprintf(stderr, "Couldn't put the first heartbeat\n");
+		return -1;
+	}
+	printf("Put a heartbeat\n");
+
+	RAFT_CLIENT_PUT_ARG client_put_arg;
+	client_put_arg.last_seqno = 0;
+	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg);
+	if (WooFInvalid(seq)) {
+		fprintf(stderr, "Couldn't start h_client_put\n");
+		return -1;
+	}
+	if (!observer) {
+		RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+		timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+		seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+		if (WooFInvalid(seq)) {
+			fprintf(stderr, "Couldn't start h_timeout_checker\n");
+			return -1;
+		}
+	}
+	printf("Started daemon functions\n");
+	return 0;
 }

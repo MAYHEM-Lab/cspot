@@ -16,7 +16,7 @@ int h_register_topic(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(DHT_LOG_DEBUG);
 	// log_set_level(LOG_INFO);
 	log_set_output(stdout);
-	
+
 	char woof_name[DHT_NAME_LENGTH];
 	sprintf(woof_name, "%s_%s", arg->topic_name, DHT_TOPIC_REGISTRATION_WOOF);
 	if (!WooFExist(woof_name)) {

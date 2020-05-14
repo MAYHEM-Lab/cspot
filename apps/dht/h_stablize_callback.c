@@ -10,13 +10,13 @@
 #include "dht.h"
 
 int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
-	DHT_STABLIZE_CALLBACK *result = (DHT_STABLIZE_CALLBACK *)ptr;
+	DHT_STABLIZE_CALLBACK_ARG *result = (DHT_STABLIZE_CALLBACK_ARG *)ptr;
 
 	log_set_tag("stablize_callback");
 	// log_set_level(LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
-	
+
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
 		log_error("failed to get local node's woof name");
@@ -59,7 +59,7 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// successor.notify(n);
 	char notify_woof_name[DHT_NAME_LENGTH];
 	sprintf(notify_woof_name, "%s/%s", dht_tbl.successor_addr[0], DHT_NOTIFY_WOOF);
-	NOTIFY_ARG notify_arg;
+	DHT_NOTIFY_ARG notify_arg;
 	memcpy(notify_arg.node_hash, id_hash, sizeof(notify_arg.node_hash));
 	strncpy(notify_arg.node_addr, woof_name, sizeof(notify_arg.node_addr));
 	sprintf(notify_arg.callback_woof, "%s/%s", woof_name, DHT_NOTIFY_CALLBACK_WOOF);

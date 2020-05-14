@@ -61,7 +61,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 			// compute the joint config
 			int joint_members;
-			char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+			char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 			if (compute_joint_config(server_state.members, server_state.member_woofs, arg->members, arg->member_woofs, &joint_members, joint_member_woofs) < 0) {
 				log_error("failed to compute the joint config");
 				free(arg);
@@ -97,7 +97,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 				int observer_id = member_id(server_state.member_woofs[RAFT_MAX_MEMBERS + i], joint_member_woofs);
 				if (observer_id != -1 && observer_id < RAFT_MAX_MEMBERS) {
 					log_debug("removed %s from observer list", server_state.member_woofs[RAFT_MAX_MEMBERS + i]);
-					memset(server_state.member_woofs[RAFT_MAX_MEMBERS + i], 0, RAFT_WOOF_NAME_LENGTH);
+					memset(server_state.member_woofs[RAFT_MAX_MEMBERS + i], 0, RAFT_NAME_LENGTH);
 				}
 			}
 			server_state.observers = 0;
@@ -112,7 +112,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 			server_state.members = joint_members;
 			server_state.current_config = RAFT_CONFIG_JOINT;
 			server_state.last_config_seqno = entry_seq;
-			memcpy(server_state.member_woofs, joint_member_woofs, RAFT_MAX_MEMBERS * RAFT_WOOF_NAME_LENGTH);
+			memcpy(server_state.member_woofs, joint_member_woofs, RAFT_MAX_MEMBERS * RAFT_NAME_LENGTH);
 			for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 				server_state.next_index[i] = entry_seq + 1;
 				server_state.match_index[i] = 0;

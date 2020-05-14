@@ -63,7 +63,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 			server_state.current_term = request->term;
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, request->candidate_woof);
-			memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+			memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("failed to fall back to follower at term %lu", request->term);
@@ -117,7 +117,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				log_debug("rejected vote from server with outdated log (last entry at index %lu)", request->last_log_index);
 			} else {
 				// the candidate has more up-to-dated log entries
-				memcpy(server_state.voted_for, request->candidate_woof, RAFT_WOOF_NAME_LENGTH);
+				memcpy(server_state.voted_for, request->candidate_woof, RAFT_NAME_LENGTH);
 				unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 				if (WooFInvalid(seq)) {
 					log_error("failed to update voted_for at term %lu", server_state.current_term);
@@ -133,8 +133,8 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 	// return the request
-	char candidate_monitor[RAFT_WOOF_NAME_LENGTH];
-	char candidate_result_woof[RAFT_WOOF_NAME_LENGTH];
+	char candidate_monitor[RAFT_NAME_LENGTH];
+	char candidate_result_woof[RAFT_NAME_LENGTH];
 	sprintf(candidate_monitor, "%s/%s", request->candidate_woof, RAFT_MONITOR_NAME);
 	sprintf(candidate_result_woof, "%s/%s", request->candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
 	unsigned long seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result);

@@ -84,8 +84,8 @@ int h_count_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 		server_state.current_term = result->term;
 		server_state.role = RAFT_LEADER;
-		memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
-		memcpy(server_state.voted_for, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+		memcpy(server_state.current_leader, server_state.woof_name, RAFT_NAME_LENGTH);
+		memcpy(server_state.voted_for, server_state.woof_name, RAFT_NAME_LENGTH);
 		int i;
 		for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 			server_state.next_index[i] = last_log_entry_seqno + 1;

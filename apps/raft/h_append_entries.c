@@ -32,7 +32,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_APPEND_ENTRIES_RESULT result;
 	result.request_created_ts = request->created_ts;
 	result.seqno = seq_no;
-	memcpy(result.server_woof, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
+	memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
 	if (get_milliseconds() - request->created_ts > RAFT_HEARTBEAT_RATE) {
 		log_warn("request %lu took %lums to receive", seq_no, get_milliseconds() - request->created_ts);
 	}
@@ -71,7 +71,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			server_state.current_term = request->term;
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, request->leader_woof);
-			memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+			memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("failed to fall back to follower at term %lu", request->term);
@@ -159,7 +159,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					// if this entry is a config entry, update server config
 					if (request->entries[i].is_config > 0) {
 						int new_members;
-						char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+						char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 						if (decode_config(request->entries[i].data.val, &new_members, new_member_woofs) < 0) {
 							log_error("failed to decode config from entry[%lu]", i);
 							free(request);
@@ -168,7 +168,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 						server_state.members = new_members;
 						server_state.current_config = request->entries[i].is_config;
 						server_state.last_config_seqno = seq;
-						memcpy(server_state.member_woofs, new_member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_WOOF_NAME_LENGTH);
+						memcpy(server_state.member_woofs, new_member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_NAME_LENGTH);
 						// if the observer is in the new config, start as follower
 						if (server_state.role == RAFT_OBSERVER && member_id(server_state.woof_name, server_state.member_woofs) < server_state.members) {
 							server_state.role = RAFT_FOLLOWER;
@@ -242,7 +242,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	monitor_exit(ptr);
 	// return the request
-	char leader_result_woof[RAFT_WOOF_NAME_LENGTH];
+	char leader_result_woof[RAFT_NAME_LENGTH];
 	sprintf(leader_result_woof, "%s/%s", request->leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
 	unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
 	if (WooFInvalid(seq)) {

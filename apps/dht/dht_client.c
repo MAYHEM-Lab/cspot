@@ -6,52 +6,6 @@
 #include "dht.h"
 #include "dht_client.h"
 
-int dht_find_addr(char *topic_name, char *result_addr) {
-	char local_namespace[DHT_NAME_LENGTH];
-	if (node_woof_name(local_namespace) < 0) {
-		fprintf(stderr, "failed to get local woof namespace\n");
-		return -1;
-	}
-
-	char hashed_key[SHA_DIGEST_LENGTH];
-	SHA1(topic_name, strlen(topic_name), hashed_key);
-	DHT_FIND_SUCCESSOR_ARG arg;
-	dht_init_find_arg(&arg, topic_name, hashed_key, local_namespace);
-	arg.action = DHT_ACTION_FIND_ADDRESS;
-
-	char target_woof[DHT_NAME_LENGTH];
-	char result_woof[DHT_NAME_LENGTH];
-	sprintf(target_woof, "%s/%s", local_namespace, DHT_FIND_SUCCESSOR_WOOF);
-	sprintf(result_woof, "%s/%s", local_namespace, DHT_FIND_ADDRESS_RESULT_WOOF);
-	unsigned long last_checked_result = WooFGetLatestSeqno(result_woof);
-
-	unsigned long seq_no = WooFPut(target_woof, "h_find_successor", &arg);
-	if (WooFInvalid(seq_no)) {
-		fprintf(stderr, "failed to invoke h_find_successor on %s\n", target_woof);
-		exit(1);
-	}
-
-	while (1) {
-		unsigned long latest_result = WooFGetLatestSeqno(result_woof);
-		unsigned long i;
-		for (i = last_checked_result + 1; i <= latest_result; ++i) {
-			DHT_FIND_ADDRESS_RESULT result;
-			if (WooFGet(result_woof, &result, i) < 0) {
-				fprintf(stderr, "failed to get result at %lu from %s\n", i, result_woof);
-			}
-			if (memcmp(result.topic, topic_name, SHA_DIGEST_LENGTH) == 0) {
-				if (result.topic_addr[0] == 0) {
-					return -1;
-				}
-				strcpy(result_addr, result.topic_addr);
-				return 0;
-			}
-		}
-		last_checked_result = latest_result;
-		usleep(10 * 1000);
-	}
-}
-
 int dht_find_node(char *topic_name, char *result_node) {
 	char local_namespace[DHT_NAME_LENGTH];
 	if (node_woof_name(local_namespace) < 0) {
@@ -97,11 +51,7 @@ int dht_find_node(char *topic_name, char *result_node) {
 
 // call this on the node hosting the topic
 int dht_create_topic(char *topic_name, unsigned long element_size, unsigned long history_size) {
-	if (WooFCreate(topic_name, DHT_NAME_LENGTH + element_size, history_size) < 0) {
-		fprintf(stderr, "failed to create woof %s", topic_name);
-		return -1;
-	}
-	return 0;
+	return WooFCreate(topic_name, element_size, history_size);
 }
 
 int dht_register_topic(char *topic_name) {
@@ -175,26 +125,32 @@ int dht_subscribe(char *topic_name, char *handler) {
 }
 
 unsigned long dht_publish(char *topic_name, void *element) {
-	char topic_namespace[DHT_NAME_LENGTH];
-	if (dht_find_addr(topic_name, topic_namespace) < 0) {
-		fprintf(stderr, "failed to find topic address\n");
+	char node_addr[DHT_NAME_LENGTH];
+	if (dht_find_node(topic_name, node_addr) < 0) {
+		fprintf(stderr, "failed to find node hosting the topic\n");
 		return -1;
 	}
-	return dht_remote_publish(topic_namespace, topic_name, element);
-}
 
-unsigned long dht_remote_publish(char *topic_namespace, char *topic_name, void *element) {
-	char woof_name[DHT_NAME_LENGTH];
-	sprintf(woof_name, "%s/%s", topic_namespace, topic_name);
-	unsigned long element_size = WooFMsgGetElSize(woof_name);
-	if (WooFInvalid(element_size)) {
-		fprintf(stderr, "failed to get element size of %s", woof_name);
+	// get the topic namespace
+	char registration_woof[DHT_NAME_LENGTH];
+	sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+	unsigned long latest_topic_entry = WooFGetLatestSeqno(registration_woof);
+	DHT_TOPIC_ENTRY topic_entry;
+	if (WooFGet(registration_woof, &topic_entry, latest_topic_entry) < 0) {
+		fprintf(stderr, "failed to get topic registration info\n");
 		return -1;
 	}
-	void *ptr = malloc(element_size);
-	memcpy(ptr, topic_namespace, DHT_NAME_LENGTH);
-	memcpy(ptr + DHT_NAME_LENGTH, element, element_size - DHT_NAME_LENGTH);
-	unsigned long seq = WooFPut(woof_name, "h_forward", ptr);
-	free(ptr);
-	return seq;
+	
+	DHT_TRIGGER_ARG trigger_arg;
+	strcpy(trigger_arg.topic_name, topic_name);
+	sprintf(trigger_arg.element_woof, "%s/%s", topic_entry.topic_namespace, topic_name);
+	sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
+	trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
+	if (WooFInvalid(trigger_arg.element_seqno)) {
+		fprintf(stderr, "failed to put element to woof\n");
+		return -1;
+	}
+	char trigger_woof[DHT_NAME_LENGTH];
+	sprintf(trigger_woof, "%s/%s", topic_entry.topic_namespace, DHT_TRIGGER_WOOF);
+	return WooFPut(trigger_woof, "h_trigger", &trigger_arg);
 }

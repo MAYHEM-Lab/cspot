@@ -10,7 +10,7 @@
 #include "dht.h"
 
 int h_notify_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
-	NOTIFY_RESULT *result = (NOTIFY_RESULT *)ptr;
+	DHT_NOTIFY_CALLBACK_ARG *result = (DHT_NOTIFY_CALLBACK_ARG *)ptr;
 
 	log_set_tag("notify_callback");
 	// log_set_level(LOG_DEBUG);

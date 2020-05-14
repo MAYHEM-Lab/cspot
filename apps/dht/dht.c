@@ -8,6 +8,50 @@
 #include "woofc.h"
 #include "dht.h"
 
+char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {
+	DHT_CHECK_PREDECESSOR_WOOF,
+	DHT_DAEMON_WOOF,
+	DHT_FIND_NODE_RESULT_WOOF,
+	DHT_FIND_SUCCESSOR_WOOF,
+	DHT_FIX_FINGER_WOOF,
+	DHT_FIX_FINGER_CALLBACK_WOOF,
+	DHT_GET_PREDECESSOR_WOOF,
+	DHT_INVOCATION_WOOF,
+	DHT_JOIN_WOOF,
+	DHT_NOTIFY_CALLBACK_WOOF,
+	DHT_NOTIFY_WOOF,
+	DHT_REGISTER_TOPIC_WOOF,
+	DHT_STABLIZE_WOOF,
+	DHT_STABLIZE_CALLBACK_WOOF,
+	DHT_SUBSCRIBE_WOOF,
+	DHT_SUBSCRIPTION_LIST_WOOF,
+	DHT_TABLE_WOOF,
+	DHT_TOPIC_REGISTRATION_WOOF,
+	DHT_TRIGGER_WOOF
+};
+
+unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
+	sizeof(DHT_CHECK_PREDECESSOR_ARG),
+	sizeof(DHT_DAEMON_ARG),
+	sizeof(DHT_FIND_NODE_RESULT),
+	sizeof(DHT_FIND_SUCCESSOR_ARG),
+	sizeof(DHT_FIX_FINGER_ARG),
+	sizeof(DHT_FIX_FINGER_CALLBACK_ARG),
+	sizeof(DHT_GET_PREDECESSOR_ARG),
+	sizeof(DHT_INVOCATION_ARG),
+	sizeof(DHT_JOIN_ARG),
+	sizeof(DHT_NOTIFY_CALLBACK_ARG),
+	sizeof(DHT_NOTIFY_ARG),
+	sizeof(DHT_REGISTER_TOPIC_ARG),
+	sizeof(DHT_STABLIZE_ARG),
+	sizeof(DHT_STABLIZE_CALLBACK_ARG),
+	sizeof(DHT_SUBSCRIBE_ARG),
+	sizeof(DHT_SUBSCRIPTION_LIST),
+	sizeof(DHT_TABLE),
+	sizeof(DHT_TOPIC_ENTRY),
+	sizeof(DHT_TRIGGER_ARG)
+};
+
 FILE *dht_log_output;
 int dht_log_level;
 
@@ -157,4 +201,93 @@ void log_error(const char *message, ...) {
     vfprintf(dht_log_output, message, argptr);
 	fprintf(dht_log_output, "\033[0m\n");
     va_end(argptr);
+}
+
+int create_woofs() {
+	int num_woofs = sizeof(DHT_WOOF_TO_CREATE) / DHT_NAME_LENGTH;
+	int i;
+	for (i = 0; i < num_woofs; ++i) {
+		if (WooFCreate(DHT_WOOF_TO_CREATE[i], DHT_WOOF_ELEMENT_SIZE[i], DHT_HISTORY_LENGTH_LONG) < 0) {
+			return -1;
+		}
+		printf("created %s (%lu)\n", DHT_WOOF_TO_CREATE[i], DHT_WOOF_ELEMENT_SIZE[i]);
+	}
+	return 0;
+}
+
+int start_daemon() {
+	DHT_DAEMON_ARG arg;
+	arg.last_stablize = 0;
+	arg.last_check_predecessor = 0;
+	arg.last_fix_finger = 0;
+	arg.last_fixed_finger_index = 0;
+	unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", &arg);
+	if (WooFInvalid(seq)) {
+		return -1;
+	}
+	return 0;
+}
+
+int create_cluster() {
+	if (create_woofs() < 0) {
+		fprintf(stderr, "can't create woofs");
+		return -1;
+	}
+
+	char woof_name[DHT_NAME_LENGTH];
+	if (node_woof_name(woof_name) < 0) {
+		fprintf(stderr, "failed to get local node's woof name");
+		return -1;
+	}
+	unsigned char node_hash[SHA_DIGEST_LENGTH];
+	SHA1(woof_name, strlen(woof_name), node_hash);
+	
+	DHT_TABLE el;
+	dht_init(node_hash, woof_name, &el);
+	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &el);
+	if (WooFInvalid(seq_no)) {
+		fprintf(stderr, "failed to initialize DHT to woof %s", DHT_TABLE_WOOF);
+		return -1;
+	}
+
+	if (start_daemon() < 0) {
+		fprintf(stderr, "failed to start daemon");
+		return -1;
+	}
+	return 0;
+}
+
+int join_cluster(char *node_woof) {
+	if (create_woofs() < 0) {
+		fprintf(stderr, "can't create woofs");
+		return -1;
+	}
+
+	char woof_name[DHT_NAME_LENGTH];
+	if (node_woof_name(woof_name) < 0) {
+		fprintf(stderr, "failed to get local node's woof name");
+		return -1;
+	}
+	char hashed_key[SHA_DIGEST_LENGTH];
+	SHA1(woof_name, strlen(woof_name), hashed_key);
+
+	DHT_FIND_SUCCESSOR_ARG arg;
+	dht_init_find_arg(&arg, woof_name, hashed_key, woof_name);
+	arg.action = DHT_ACTION_JOIN;
+	if (node_woof[strlen(node_woof) - 1] == '/') {
+		sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCCESSOR_WOOF);
+	} else {
+		sprintf(node_woof, "%s/%s", node_woof, DHT_FIND_SUCCESSOR_WOOF);
+	}
+	unsigned long seq_no = WooFPut(node_woof, "h_find_successor", &arg);
+	if (WooFInvalid(seq_no)) {
+		fprintf(stderr, "failed to invoke find_successor on %s", node_woof);
+		return -1;
+	}
+
+	if (start_daemon() < 0) {
+		fprintf(stderr, "failed to start daemon");
+		return -1;
+	}
+	return 0;
 }

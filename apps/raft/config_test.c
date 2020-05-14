@@ -7,7 +7,7 @@
 int test_encode_decode() {
 	RAFT_DATA_TYPE data;
 	int members = 3;
-	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 	sprintf(member_woofs[0], "woof://192.168.0.1/home/centos/cspot1");
 	sprintf(member_woofs[1], "woof://192.168.0.2/home/centos/cspot2");
 	sprintf(member_woofs[2], "woof://192.168.0.3/home/centos/cspot3");
@@ -20,7 +20,7 @@ int test_encode_decode() {
 	printf("encoded string: %s\n", data.val);
 
 	int decoded_members = 0;
-	char decoded_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+	char decoded_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 	err = decode_config(data.val, &decoded_members, decoded_woofs);
 	if (err < 0) {
 		fprintf(stderr, "can't decode config\n");
@@ -43,20 +43,20 @@ int test_encode_decode() {
 
 int test_compute_joint() {
 	int old_members = 3;
-	char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+	char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 	sprintf(old_member_woofs[0], "woof://192.168.0.1/home/centos/cspot1");
 	sprintf(old_member_woofs[1], "woof://192.168.0.2/home/centos/cspot2");
 	sprintf(old_member_woofs[2], "woof://192.168.0.3/home/centos/cspot3");
 
 	int new_members = 4;
-	char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+	char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 	sprintf(new_member_woofs[0], "woof://192.168.0.1/home/centos/cspot1");
 	sprintf(new_member_woofs[1], "woof://192.168.0.3/home/centos/cspot3");
 	sprintf(new_member_woofs[2], "woof://192.168.0.4/home/centos/cspot4");
 	sprintf(new_member_woofs[3], "woof://192.168.0.5/home/centos/cspot5");
 
     int joint_members;
-    char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+    char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
     int err = compute_joint_config(old_members, old_member_woofs, new_members, new_member_woofs, &joint_members, joint_member_woofs);
     if (err < 0) {
         fprintf(stderr, "compute_joint_config failed\n");
@@ -68,7 +68,7 @@ int test_compute_joint() {
     }
     int i;
     for (i = 0; i < joint_members; ++i) {
-        char woof[RAFT_WOOF_NAME_LENGTH];
+        char woof[RAFT_NAME_LENGTH];
         sprintf(woof, "woof://192.168.0.%d/home/centos/cspot%d", i + 1, i + 1);
         if (strcmp(joint_member_woofs[i], woof) != 0) {
             fprintf(stderr, "joint_member_woofs[%i] should be %s, have %s\n", i, woof, joint_member_woofs[i]);

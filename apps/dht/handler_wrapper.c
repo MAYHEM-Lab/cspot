@@ -5,39 +5,33 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
+#include "woofc-access.h"
 #include "dht.h"
 
 int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_INVOCATION_ARG *arg = (DHT_INVOCATION_ARG *)ptr;
 
 	log_set_tag("PUT_HANDLER_NAME");
-	// log_set_level(LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
-	char *woof_name = arg->woof_name;
-	unsigned long seqno = arg->seqno;
-	WOOF *woof = WooFOpen(woof_name);
-	if (woof == NULL) {
-		log_error("failed to open WooF %s", woof_name);
+	unsigned long element_size = WooFMsgGetElSize(arg->woof_name);
+	if (WooFInvalid(element_size)) {
+		log_error("failed to get element size of the topic");
 		exit(1);
 	}
-	void *element = malloc(woof->shared->element_size);
+	void *element = malloc(element_size);
 	if (element == NULL) {
-		log_error("failed to malloc element with size %lu", woof->shared->element_size);
-		WooFDrop(woof);
+		log_error("failed to malloc element with size %lu", element_size);
 		exit(1);
 	}
-	if (WooFRead(woof, element, seqno) < 0) {
-		log_error("failed to read element from WooF %s at %lu", woof_name, seqno);
+	if (WooFGet(arg->woof_name, element, arg->seq_no) < 0) {
+		log_error("failed to read element from WooF %s at %lu", arg->woof_name, arg->seq_no);
 		free(element);
-		WooFDrop(woof);
 		exit(1);
 	}
-	int err = PUT_HANDLER_NAME(woof, seqno, element + DHT_NAME_LENGTH);
+	int err = PUT_HANDLER_NAME(arg->woof_name, arg->seq_no, element);
 	free(element);
-	WooFDrop(woof);
 	return err;
 }

@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <stdio.h>
+#include "woofc.h"
 
 #define RAFT_LEADER 0
 #define RAFT_FOLLOWER 1
@@ -30,7 +31,7 @@
 #define RAFT_MONITOR_NAME "raft"
 
 #define RAFT_WOOF_HISTORY_SIZE 65536
-#define RAFT_WOOF_NAME_LENGTH 256
+#define RAFT_NAME_LENGTH WOOFNAMESIZE
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST 16
@@ -48,6 +49,18 @@
 #define LOG_WARN 2
 #define LOG_ERROR 3
 
+char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_LOG_ENTRIES_WOOF, RAFT_SERVER_STATE_WOOF, RAFT_HEARTBEAT_WOOF, RAFT_TIMEOUT_CHECKER_WOOF,
+	RAFT_APPEND_ENTRIES_ARG_WOOF, RAFT_APPEND_ENTRIES_RESULT_WOOF,
+	RAFT_CLIENT_PUT_REQUEST_WOOF, RAFT_CLIENT_PUT_ARG_WOOF, RAFT_CLIENT_PUT_RESULT_WOOF,
+	RAFT_CONFIG_CHANGE_ARG_WOOF, RAFT_CONFIG_CHANGE_RESULT_WOOF, RAFT_REPLICATE_ENTRIES_WOOF,
+	RAFT_REQUEST_VOTE_ARG_WOOF, RAFT_REQUEST_VOTE_RESULT_WOOF};
+
+unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_LOG_ENTRY), sizeof(RAFT_SERVER_STATE), sizeof(RAFT_HEARTBEAT), sizeof(RAFT_TIMEOUT_CHECKER_ARG),
+	sizeof(RAFT_APPEND_ENTRIES_ARG), sizeof(RAFT_APPEND_ENTRIES_RESULT),
+	sizeof(RAFT_CLIENT_PUT_REQUEST), sizeof(RAFT_CLIENT_PUT_ARG), sizeof(RAFT_CLIENT_PUT_RESULT),
+	sizeof(RAFT_CONFIG_CHANGE_ARG), sizeof(RAFT_CONFIG_CHANGE_RESULT), sizeof(RAFT_REPLICATE_ENTRIES_ARG),
+	sizeof(RAFT_REQUEST_VOTE_ARG), sizeof(RAFT_REQUEST_VOTE_RESULT)};
+
 typedef struct data_type {
 	char val[RAFT_DATA_TYPE_SIZE];
 } RAFT_DATA_TYPE;
@@ -59,15 +72,15 @@ typedef struct raft_log_entry {
 } RAFT_LOG_ENTRY;
 
 typedef struct raft_server_state {
-	char woof_name[RAFT_WOOF_NAME_LENGTH];
+	char woof_name[RAFT_NAME_LENGTH];
 	int role;
 	unsigned long current_term;
-	char voted_for[RAFT_WOOF_NAME_LENGTH];
-	char current_leader[RAFT_WOOF_NAME_LENGTH];
+	char voted_for[RAFT_NAME_LENGTH];
+	char current_leader[RAFT_NAME_LENGTH];
 	
 	int members;
 	int observers;
-	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 	int current_config;
 	unsigned long last_config_seqno;
 
@@ -89,7 +102,7 @@ typedef struct raft_timeout_checker_arg {
 
 typedef struct raft_append_entries_arg {
 	unsigned long term;
-	char leader_woof[RAFT_WOOF_NAME_LENGTH];
+	char leader_woof[RAFT_NAME_LENGTH];
 	unsigned long prev_log_index;
 	unsigned long prev_log_term;
 	RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
@@ -98,7 +111,7 @@ typedef struct raft_append_entries_arg {
 } RAFT_APPEND_ENTRIES_ARG;
 
 typedef struct raft_append_entries_result {
-	char server_woof[RAFT_WOOF_NAME_LENGTH];
+	char server_woof[RAFT_NAME_LENGTH];
 	unsigned long term;
 	int success;
 	unsigned long last_entry_seq;
@@ -119,21 +132,21 @@ typedef struct raft_client_put_result {
 	int redirected;
 	unsigned long index;
 	unsigned long term;
-	char current_leader[RAFT_WOOF_NAME_LENGTH];
+	char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CLIENT_PUT_RESULT;
 
 typedef struct raft_config_change_arg {
 	int members;
-	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH];
+	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 
 	int observe;
-	char observer_woof[RAFT_WOOF_NAME_LENGTH];
+	char observer_woof[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_ARG;
 
 typedef struct raft_config_change_result {
 	int redirected;
 	int success;
-	char current_leader[RAFT_WOOF_NAME_LENGTH];
+	char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_RESULT;
 
 typedef struct raft_replicate_entries {
@@ -143,7 +156,7 @@ typedef struct raft_replicate_entries {
 
 typedef struct raft_request_vote_arg {
 	unsigned long term;
-	char candidate_woof[RAFT_WOOF_NAME_LENGTH];
+	char candidate_woof[RAFT_NAME_LENGTH];
 	unsigned long candidate_vote_pool_seqno;
 	unsigned long last_log_index;
 	unsigned long last_log_term;
@@ -160,14 +173,14 @@ typedef struct raft_request_vote_result {
 int get_server_state(RAFT_SERVER_STATE *server_state);
 int random_timeout(unsigned long seed);
 unsigned long get_milliseconds();
-int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]);
+int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int node_woof_name(char *node_woof);
-int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]);
-int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]);
-int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]);
-int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH],
-	int new_members, char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH],
-	int *joint_members, char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_WOOF_NAME_LENGTH]);
+int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
+int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
+int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
+int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
+	int new_members, char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
+	int *joint_members, char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int threads_join(int members, pthread_t *pids);
 int threads_cancel(int members, pthread_t *pids);
 
@@ -179,6 +192,9 @@ void log_debug(const char *message, ...);
 void log_info(const char *message, ...);
 void log_warn(const char *message, ...);
 void log_error(const char *message, ...);
+	
+int create_woofs();
+int start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer);
 
 #endif
 

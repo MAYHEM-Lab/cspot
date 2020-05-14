@@ -10,13 +10,13 @@
 #include "dht.h"
 
 int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
-	NOTIFY_ARG *arg = (NOTIFY_ARG *)ptr;
+	DHT_NOTIFY_ARG *arg = (DHT_NOTIFY_ARG *)ptr;
 
 	log_set_tag("notify");
 	// log_set_level(LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
-	
+
 	log_debug("potential predecessor_addr: %s", arg->node_addr);
 	log_debug("callback: %s/%s", arg->callback_woof, arg->callback_handler);
 	unsigned long seq = WooFGetLatestSeqno(DHT_TABLE_WOOF);
@@ -56,7 +56,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 
 	// call notify_callback, where it updates successor list
-	NOTIFY_RESULT result;
+	DHT_NOTIFY_CALLBACK_ARG result;
 	memcpy(result.successor_addr[0], dht_tbl.node_addr, sizeof(result.successor_addr[0]));
 	memcpy(result.successor_hash[0], dht_tbl.node_hash, sizeof(result.successor_hash[0]));
 	int i;

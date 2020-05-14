@@ -13,15 +13,15 @@ pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 
 typedef struct replicate_thread_arg {
 	int member_id;
-	char member_woof[RAFT_WOOF_NAME_LENGTH];
+	char member_woof[RAFT_NAME_LENGTH];
 	int num_entries;
 	RAFT_APPEND_ENTRIES_ARG arg;
 } REPLICATE_THREAD_ARG;
 
 void *replicate_thread(void *arg) {
 	REPLICATE_THREAD_ARG *replicate_thread_arg = (REPLICATE_THREAD_ARG *)arg;
-	char monitor_name[RAFT_WOOF_NAME_LENGTH];
-	char woof_name[RAFT_WOOF_NAME_LENGTH];
+	char monitor_name[RAFT_NAME_LENGTH];
+	char woof_name[RAFT_NAME_LENGTH];
 	sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
 	sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
 	unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg);
@@ -107,7 +107,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			server_state.current_term = result.term;
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, result.server_woof);
-			memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+			memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("failed to fall back to follower at term %lu", result.term);
@@ -187,7 +187,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 					exit(1);
 				}
 				int new_members;
-				char new_member_woofs[RAFT_MAX_MEMBERS][RAFT_WOOF_NAME_LENGTH];
+				char new_member_woofs[RAFT_MAX_MEMBERS][RAFT_NAME_LENGTH];
 				int joint_config_len = decode_config(config_entry.data.val, &new_members, new_member_woofs);
 				decode_config(config_entry.data.val + joint_config_len, &new_members, new_member_woofs);
 				log_debug("there are %d members in the new config", new_members);
@@ -213,7 +213,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				server_state.members = new_members;
 				server_state.current_config = RAFT_CONFIG_NEW;
 				server_state.last_config_seqno = entry_seq;
-				memcpy(server_state.member_woofs, new_member_woofs, RAFT_MAX_MEMBERS * RAFT_WOOF_NAME_LENGTH);
+				memcpy(server_state.member_woofs, new_member_woofs, RAFT_MAX_MEMBERS * RAFT_NAME_LENGTH);
 				int i;
 				for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
 					server_state.next_index[i] = entry_seq + 1;

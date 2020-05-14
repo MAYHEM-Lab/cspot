@@ -11,14 +11,14 @@
 pthread_t thread_id[RAFT_MAX_MEMBERS];
 
 typedef struct request_vote_thread_arg {
-	char member_woof[RAFT_WOOF_NAME_LENGTH];
+	char member_woof[RAFT_NAME_LENGTH];
 	RAFT_REQUEST_VOTE_ARG arg;
 } REQUEST_VOTE_THREAD_ARG;
 
 void *request_vote(void *arg) {
 	REQUEST_VOTE_THREAD_ARG *thread_arg = (REQUEST_VOTE_THREAD_ARG *)arg;
-	char monitor_name[RAFT_WOOF_NAME_LENGTH];
-	char woof_name[RAFT_WOOF_NAME_LENGTH];
+	char monitor_name[RAFT_NAME_LENGTH];
+	char woof_name[RAFT_NAME_LENGTH];
 	sprintf(monitor_name, "%s/%s", thread_arg->member_woof, RAFT_MONITOR_NAME);
 	sprintf(woof_name, "%s/%s", thread_arg->member_woof, RAFT_REQUEST_VOTE_ARG_WOOF);
 	unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_request_vote", &thread_arg->arg);
@@ -77,8 +77,8 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// increment the term and become candidate
 		server_state.current_term += 1;
 		server_state.role = RAFT_CANDIDATE;
-		memcpy(server_state.current_leader, server_state.woof_name, RAFT_WOOF_NAME_LENGTH);
-		memset(server_state.voted_for, 0, RAFT_WOOF_NAME_LENGTH);
+		memcpy(server_state.current_leader, server_state.woof_name, RAFT_NAME_LENGTH);
+		memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
 		unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 		if (WooFInvalid(seq)) {
 			log_error("failed to increment the server's term to %lu and initialize an election");

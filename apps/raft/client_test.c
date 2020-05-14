@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 	}
 	fclose(fp);
 
-	char current_leader[RAFT_WOOF_NAME_LENGTH];
+	char current_leader[RAFT_NAME_LENGTH];
 	if (raft_current_leader(raft_client_leader, current_leader) < 0) {
 		fprintf(stderr, "couldn't get the current leader\n");
 		exit(1);

@@ -10,7 +10,7 @@
 #include "dht.h"
 
 int h_get_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
-	GET_PREDECESSOR_ARG *arg = (GET_PREDECESSOR_ARG *)ptr;
+	DHT_GET_PREDECESSOR_ARG *arg = (DHT_GET_PREDECESSOR_ARG *)ptr;
 
 	log_set_tag("get_predecessor");
 	// log_set_level(LOG_DEBUG);
@@ -30,7 +30,7 @@ int h_get_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_debug("callback_woof: %s", arg->callback_woof);
 	log_debug("callback_handler: %s", arg->callback_handler);
 
-	DHT_STABLIZE_CALLBACK result;
+	DHT_STABLIZE_CALLBACK_ARG result;
 	memcpy(result.predecessor_hash, dht_tbl.predecessor_hash, sizeof(result.predecessor_hash));
 	memcpy(result.predecessor_addr, dht_tbl.predecessor_addr, sizeof(result.predecessor_addr));
 	seq = WooFPut(arg->callback_woof, arg->callback_handler, &result);

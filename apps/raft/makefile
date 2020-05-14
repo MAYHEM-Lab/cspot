@@ -27,16 +27,16 @@ monitor_app: ../monitor/monitor.c ../monitor/monitor.h ../monitor/monitor_invoke
 
 copy: handlers
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
-	cp create_woofs ./cspot
+	cp s_create_woofs ./cspot
 	cp h_* ./cspot
-	cp start_server ./cspot
+	cp s_start_server ./cspot
 	cp ../monitor/monitor_invoker ./cspot
 
 test: client_test config_test raft.o raft_client.o
 
 clients: client_get client_observe client_put client_reconfig
 
-handlers: create_woofs start_server\
+handlers: s_create_woofs s_start_server\
 h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker\
 
 raft.o: raft.c raft.h
@@ -98,11 +98,11 @@ h_timeout_checker: h_timeout_checker.c raft.o monitor.o ${SHEP_SRC} ${WINC} ${LI
 	${CC} ${CFLAGS} -c h_timeout_checker_shepherd.c -o h_timeout_checker_shepherd.o
 	${CC} ${CFLAGS} -o h_timeout_checker h_timeout_checker.c h_timeout_checker_shepherd.o raft.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-create_woofs: create_woofs.c raft.o monitor.o
-	${CC} ${CFLAGS} -o create_woofs create_woofs.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+s_create_woofs: s_create_woofs.c raft.o monitor.o
+	${CC} ${CFLAGS} -o s_create_woofs s_create_woofs.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-start_server: start_server.c raft.o monitor.o
-	${CC} ${CFLAGS} -o start_server start_server.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+s_start_server: s_start_server.c raft.o monitor.o
+	${CC} ${CFLAGS} -o s_start_server s_start_server.c raft.o monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o raft_client.o client_test config_test client_get client_put client_reconfig h_count_vote create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote start_server term_chair h_timeout_checker 
+	rm -rf ./cspot raft.o raft_client.o client_test config_test client_get client_put client_reconfig h_count_vote s_create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote s_start_server term_chair h_timeout_checker 
