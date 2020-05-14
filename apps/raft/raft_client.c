@@ -3,11 +3,9 @@
 #include "raft_client.h"
 #include "raft.h"
 
-int raft_init_client(FILE *config) {
-    if (read_config(config, &raft_client_members, raft_client_servers) < 0) {
-		sprintf(raft_client_error_msg, "can't read config file\n");
-		return -1;
-	}
+int raft_init_client(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
+    raft_client_members = members;
+    memcpy(raft_client_servers, member_woofs, sizeof(raft_client_servers));
     strcpy(raft_client_leader, raft_client_servers[0]);
     raft_client_result_delay = 50;
     return 0;

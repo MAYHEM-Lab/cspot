@@ -51,7 +51,14 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "can't read config file\n");
 		exit(1);
 	}
-	if (raft_init_client(fp) < 0) {
+	int members;
+	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
+	if (read_config(fp, &members, member_woofs) < 0) {
+		fprintf(stderr, "failed to read the config file\n");
+		fclose(fp);	
+		exit(1);
+	}
+	if (raft_init_client(members, member_woofs) < 0) {
 		fprintf(stderr, "can't init client\n");
 		fclose(fp);	
 		exit(1);
