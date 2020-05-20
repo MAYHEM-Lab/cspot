@@ -3,6 +3,7 @@
 #include <time.h>
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_DAEMON_ARG *arg = (DHT_DAEMON_ARG *)ptr;
@@ -31,13 +32,17 @@ int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 
 	if (now - arg->last_fix_finger > DHT_FIX_FINGER_FRQUENCY) {
-		DHT_FIX_FINGER_ARG fix_finger_arg;
-		fix_finger_arg.finger_index = (arg->last_fixed_finger_index + 1) % (SHA_DIGEST_LENGTH * 8);
+		DHT_FIX_FINGER_ARG fix_finger_arg = {0};
+		fix_finger_arg.finger_index = arg->last_fixed_finger_index;
 		unsigned long seq = WooFPut(DHT_FIX_FINGER_WOOF, "d_fix_finger", &fix_finger_arg);
 		if (WooFInvalid(seq)) {
 			log_error("failed to invoke d_check_predecessor");
 		}
 		arg->last_fix_finger = now;
+		++arg->last_fixed_finger_index;
+		if (arg->last_fixed_finger_index > SHA_DIGEST_LENGTH * 8) {
+			arg->last_fixed_finger_index = 1;
+		}
 	}
 
 	usleep(50 * 1000);

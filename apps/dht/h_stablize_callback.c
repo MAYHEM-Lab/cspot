@@ -1,13 +1,11 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_STABLIZE_CALLBACK_ARG *result = (DHT_STABLIZE_CALLBACK_ARG *)ptr;
@@ -28,7 +26,7 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_tbl;
+	DHT_TABLE dht_tbl = {0};
 	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
@@ -59,7 +57,7 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// successor.notify(n);
 	char notify_woof_name[DHT_NAME_LENGTH];
 	sprintf(notify_woof_name, "%s/%s", dht_tbl.successor_addr[0], DHT_NOTIFY_WOOF);
-	DHT_NOTIFY_ARG notify_arg;
+	DHT_NOTIFY_ARG notify_arg = {0};
 	memcpy(notify_arg.node_hash, id_hash, sizeof(notify_arg.node_hash));
 	strncpy(notify_arg.node_addr, woof_name, sizeof(notify_arg.node_addr));
 	sprintf(notify_arg.callback_woof, "%s/%s", woof_name, DHT_NOTIFY_CALLBACK_WOOF);

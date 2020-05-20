@@ -1,13 +1,11 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_NOTIFY_ARG *arg = (DHT_NOTIFY_ARG *)ptr;
@@ -24,7 +22,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_tbl;
+	DHT_TABLE dht_tbl = {0};
 	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
@@ -56,7 +54,7 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 
 	// call notify_callback, where it updates successor list
-	DHT_NOTIFY_CALLBACK_ARG result;
+	DHT_NOTIFY_CALLBACK_ARG result = {0};
 	memcpy(result.successor_addr[0], dht_tbl.node_addr, sizeof(result.successor_addr[0]));
 	memcpy(result.successor_hash[0], dht_tbl.node_hash, sizeof(result.successor_hash[0]));
 	int i;

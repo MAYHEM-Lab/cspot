@@ -1,13 +1,11 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_get_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_GET_PREDECESSOR_ARG *arg = (DHT_GET_PREDECESSOR_ARG *)ptr;
@@ -22,7 +20,7 @@ int h_get_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_tbl;
+	DHT_TABLE dht_tbl = {0};
 	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
@@ -30,7 +28,7 @@ int h_get_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_debug("callback_woof: %s", arg->callback_woof);
 	log_debug("callback_handler: %s", arg->callback_handler);
 
-	DHT_STABLIZE_CALLBACK_ARG result;
+	DHT_STABLIZE_CALLBACK_ARG result = {0};
 	memcpy(result.predecessor_hash, dht_tbl.predecessor_hash, sizeof(result.predecessor_hash));
 	memcpy(result.predecessor_addr, dht_tbl.predecessor_addr, sizeof(result.predecessor_addr));
 	seq = WooFPut(arg->callback_woof, arg->callback_handler, &result);

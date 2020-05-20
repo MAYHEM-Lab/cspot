@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_find_result(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_FIND_NODE_RESULT *result = (DHT_FIND_NODE_RESULT *)ptr;

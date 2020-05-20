@@ -1,5 +1,3 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,6 +6,7 @@
 #include "woofc.h"
 #include "woofc-access.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_INVOCATION_ARG *arg = (DHT_INVOCATION_ARG *)ptr;
@@ -31,7 +30,14 @@ int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 		free(element);
 		exit(1);
 	}
+	char topic_name[DHT_NAME_LENGTH];
+	if (WooFNameFromURI(arg->woof_name, topic_name, DHT_NAME_LENGTH) < 0) {
+		log_error("failed to get topic name from uri");
+		free(element);
+		exit(1);
+	}
 	int err = PUT_HANDLER_NAME(arg->woof_name, arg->seq_no, element);
 	free(element);
+
 	return err;
 }

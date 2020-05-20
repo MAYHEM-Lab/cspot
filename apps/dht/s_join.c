@@ -1,11 +1,8 @@
-// #define DEBUG
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
@@ -16,10 +13,6 @@ char *Usage = "s_join -w node_woof\n";
 char node_woof[DHT_NAME_LENGTH];
 
 int main(int argc, char **argv) {
-	log_set_tag("join");
-	log_set_level(DHT_LOG_DEBUG);
-	log_set_output(stdout);
-
 	int c;
 	while ((c = getopt(argc, argv, ARGS)) != EOF) {
 		switch (c) {
@@ -42,9 +35,14 @@ int main(int argc, char **argv) {
 	}
 	
 	WooFInit();
+	char woof_name[DHT_NAME_LENGTH];
+	if (node_woof_name(woof_name) < 0) {
+		fprintf(stderr, "failed to get local node's woof name");
+		return -1;
+	}
 
-	if (join_cluster(node_woof) < 0) {
-		log_error("failed to join cluster");
+	if (dht_join_cluster(node_woof, woof_name) < 0) {
+		fprintf(stderr, "failed to join cluster");
 		exit(1);
 	}
 

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 void get_finger_id(unsigned char *dst, const unsigned char *n, int i) {
 	unsigned char carry = 0;
@@ -31,6 +31,8 @@ int d_fix_finger(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
+	log_debug("index: %lu", arg->finger_index);
+
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
 		log_error("failed to get local node's woof name");
@@ -45,7 +47,7 @@ int d_fix_finger(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// finger_hash = n + 2^(i-1)
 	char hashed_finger_id[SHA_DIGEST_LENGTH];
 	get_finger_id(hashed_finger_id, node_hash, arg->finger_index);
-	DHT_FIND_SUCCESSOR_ARG find_sucessor_arg;
+	DHT_FIND_SUCCESSOR_ARG find_sucessor_arg = {0};
 	dht_init_find_arg(&find_sucessor_arg, "", hashed_finger_id, woof_name);
 	find_sucessor_arg.action = DHT_ACTION_FIX_FINGER;
 	find_sucessor_arg.action_seqno = (unsigned long)arg->finger_index;

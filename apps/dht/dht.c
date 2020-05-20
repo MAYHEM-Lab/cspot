@@ -4,9 +4,9 @@
 #include <string.h>
 #include <time.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {
 	DHT_CHECK_PREDECESSOR_WOOF,
@@ -24,9 +24,7 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {
 	DHT_STABLIZE_WOOF,
 	DHT_STABLIZE_CALLBACK_WOOF,
 	DHT_SUBSCRIBE_WOOF,
-	DHT_SUBSCRIPTION_LIST_WOOF,
 	DHT_TABLE_WOOF,
-	DHT_TOPIC_REGISTRATION_WOOF,
 	DHT_TRIGGER_WOOF
 };
 
@@ -46,14 +44,9 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
 	sizeof(DHT_STABLIZE_ARG),
 	sizeof(DHT_STABLIZE_CALLBACK_ARG),
 	sizeof(DHT_SUBSCRIBE_ARG),
-	sizeof(DHT_SUBSCRIPTION_LIST),
 	sizeof(DHT_TABLE),
-	sizeof(DHT_TOPIC_ENTRY),
 	sizeof(DHT_TRIGGER_ARG)
 };
-
-FILE *dht_log_output;
-int dht_log_level;
 
 void dht_init(unsigned char *node_hash, char *node_addr, DHT_TABLE *dht_table) {
 	memcpy(dht_table->node_hash, node_hash, sizeof(dht_table->node_hash));
@@ -73,29 +66,6 @@ void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG *arg, char *key, char *hashed_key,
 	memcpy(arg->key, key, sizeof(arg->key));
 	memcpy(arg->hashed_key, hashed_key, sizeof(arg->hashed_key));
 	strcpy(arg->callback_namespace, callback_namespace);
-}
-
-unsigned long get_milliseconds() {
-    struct timeval tv;
-    gettimeofday(&tv,NULL);
-    return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
-}
-
-int node_woof_name(char *woof_name) {
-	char *str = getenv("WOOFC_NAMESPACE");
-	char namespace[DHT_NAME_LENGTH];
-	if (str == NULL) {
-		getcwd(namespace, sizeof(namespace));
-	} else {
-		strncpy(namespace, str, sizeof(namespace));
-	}
-	char local_ip[25];
-	if (WooFLocalIP(local_ip, sizeof(local_ip)) < 0) {
-		fprintf(stderr, "no local IP\n");
-		return -1;
-	}
-	sprintf(woof_name, "woof://%s%s", local_ip, namespace);
-	return 0;
 }
 
 void print_node_hash(char *dst, const unsigned char *id_hash) {
@@ -131,96 +101,23 @@ void shift_successor_list(char successor_addr[DHT_SUCCESSOR_LIST_R][DHT_NAME_LEN
 	memset(successor_hash[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor_hash[DHT_SUCCESSOR_LIST_R - 1]));
 }
 
-void log_set_tag(const char *tag) {
-	strcpy(log_tag, tag);
-}
-
-void log_set_level(int level) {
-	dht_log_level = level;
-}
-
-void log_set_output(FILE *file) {
-	dht_log_output = file;
-}
-
-void log_debug(const char *message, ...) {
-	if (dht_log_level > DHT_LOG_DEBUG) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(dht_log_output, "\033[0;34m");
-	fprintf(dht_log_output, "DEBUG| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(dht_log_output, message, argptr);
-	fprintf(dht_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-void log_info(const char *message, ...) {
-	if (dht_log_level > DHT_LOG_INFO) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(dht_log_output, "\033[0;32m");
-	fprintf(dht_log_output, "INFO | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(dht_log_output, message, argptr);
-	fprintf(dht_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-void log_warn(const char *message, ...) {
-	if (dht_log_level > DHT_LOG_WARN) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(dht_log_output, "\033[0;33m");
-	fprintf(dht_log_output, "WARN | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(dht_log_output, message, argptr);
-	fprintf(dht_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-void log_error(const char *message, ...) {
-	if (dht_log_level > DHT_LOG_ERROR) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(dht_log_output, "\033[0;31m");
-	fprintf(dht_log_output, "ERROR| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(dht_log_output, message, argptr);
-	fprintf(dht_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-int create_woofs() {
+int dht_create_woofs() {
 	int num_woofs = sizeof(DHT_WOOF_TO_CREATE) / DHT_NAME_LENGTH;
 	int i;
 	for (i = 0; i < num_woofs; ++i) {
 		if (WooFCreate(DHT_WOOF_TO_CREATE[i], DHT_WOOF_ELEMENT_SIZE[i], DHT_HISTORY_LENGTH_LONG) < 0) {
 			return -1;
 		}
-		printf("created %s (%lu)\n", DHT_WOOF_TO_CREATE[i], DHT_WOOF_ELEMENT_SIZE[i]);
 	}
 	return 0;
 }
 
-int start_daemon() {
+int dht_start_daemon() {
 	DHT_DAEMON_ARG arg;
 	arg.last_stablize = 0;
 	arg.last_check_predecessor = 0;
 	arg.last_fix_finger = 0;
-	arg.last_fixed_finger_index = 0;
+	arg.last_fixed_finger_index = 1;
 	unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", &arg);
 	if (WooFInvalid(seq)) {
 		return -1;
@@ -228,17 +125,12 @@ int start_daemon() {
 	return 0;
 }
 
-int create_cluster() {
-	if (create_woofs() < 0) {
+int dht_create_cluster(char *woof_name) {
+	if (dht_create_woofs() < 0) {
 		fprintf(stderr, "can't create woofs");
 		return -1;
 	}
 
-	char woof_name[DHT_NAME_LENGTH];
-	if (node_woof_name(woof_name) < 0) {
-		fprintf(stderr, "failed to get local node's woof name");
-		return -1;
-	}
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	SHA1(woof_name, strlen(woof_name), node_hash);
 	
@@ -250,24 +142,19 @@ int create_cluster() {
 		return -1;
 	}
 
-	if (start_daemon() < 0) {
+	if (dht_start_daemon() < 0) {
 		fprintf(stderr, "failed to start daemon");
 		return -1;
 	}
 	return 0;
 }
 
-int join_cluster(char *node_woof) {
-	if (create_woofs() < 0) {
+int dht_join_cluster(char *node_woof, char *woof_name) {
+	if (dht_create_woofs() < 0) {
 		fprintf(stderr, "can't create woofs");
 		return -1;
 	}
 
-	char woof_name[DHT_NAME_LENGTH];
-	if (node_woof_name(woof_name) < 0) {
-		fprintf(stderr, "failed to get local node's woof name");
-		return -1;
-	}
 	char hashed_key[SHA_DIGEST_LENGTH];
 	SHA1(woof_name, strlen(woof_name), hashed_key);
 
@@ -285,7 +172,7 @@ int join_cluster(char *node_woof) {
 		return -1;
 	}
 
-	if (start_daemon() < 0) {
+	if (dht_start_daemon() < 0) {
 		fprintf(stderr, "failed to start daemon");
 		return -1;
 	}

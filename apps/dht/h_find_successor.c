@@ -1,13 +1,11 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_FIND_SUCCESSOR_ARG *arg = (DHT_FIND_SUCCESSOR_ARG *)ptr;
@@ -38,10 +36,10 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// return successor
 		switch (arg->action) {
 			case DHT_ACTION_FIND_NODE: {
-				DHT_FIND_NODE_RESULT action_result;
+				DHT_FIND_NODE_RESULT action_result = {0};
 				memcpy(action_result.topic, arg->key, sizeof(action_result.topic));
-				memcpy(action_result.node_addr, dht_table.successor_addr[0], sizeof(action_result.node_addr));
 				memcpy(action_result.node_hash, dht_table.successor_hash[0], sizeof(action_result.node_hash));
+				memcpy(action_result.node_addr, dht_table.successor_addr[0], sizeof(action_result.node_addr));
 				action_result.hops = arg->hops;
 
 				char callback_woof[DHT_NAME_LENGTH];
@@ -55,9 +53,9 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 				break;
 			}
 			case DHT_ACTION_JOIN: {
-				DHT_JOIN_ARG action_arg;
-				memcpy(action_arg.node_addr, dht_table.successor_addr[0], sizeof(action_arg.node_addr));
+				DHT_JOIN_ARG action_arg = {0};
 				memcpy(action_arg.node_hash, dht_table.successor_hash[0], sizeof(action_arg.node_hash));
+				memcpy(action_arg.node_addr, dht_table.successor_addr[0], sizeof(action_arg.node_addr));
 
 				char callback_woof[DHT_NAME_LENGTH];
 				sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_JOIN_WOOF);
@@ -70,7 +68,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 				break;
 			}
 			case DHT_ACTION_FIX_FINGER: {
-				DHT_FIX_FINGER_CALLBACK_ARG action_arg;
+				DHT_FIX_FINGER_CALLBACK_ARG action_arg = {0};
 				memcpy(action_arg.node_addr, dht_table.successor_addr[0], sizeof(action_arg.node_addr));
 				memcpy(action_arg.node_hash, dht_table.successor_hash[0], sizeof(action_arg.node_hash));
 				action_arg.finger_index = (int)arg->action_seqno;
@@ -88,7 +86,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 			case DHT_ACTION_REGISTER_TOPIC: {
 				char action_arg_woof[DHT_NAME_LENGTH];
 				sprintf(action_arg_woof, "%s/%s", arg->action_namespace, DHT_REGISTER_TOPIC_WOOF);
-				DHT_REGISTER_TOPIC_ARG action_arg;
+				DHT_REGISTER_TOPIC_ARG action_arg = {0};
 				if (WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
 					log_error("failed to get register_topic_arg from %s", action_arg_woof);
 					exit(1);
@@ -107,7 +105,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 			case DHT_ACTION_SUBSCRIBE: {
 				char action_arg_woof[DHT_NAME_LENGTH];
 				sprintf(action_arg_woof, "%s/%s", arg->action_namespace, DHT_SUBSCRIBE_WOOF);
-				DHT_SUBSCRIBE_ARG action_arg;
+				DHT_SUBSCRIBE_ARG action_arg = {0};
 				if (WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
 					log_error("failed to get subscribe_arg from %s", action_arg_woof);
 					exit(1);

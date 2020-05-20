@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	TEST_EL el;
+	TEST_EL el = {0};
 	strcpy(el.msg, argv[1]);
 	unsigned long seq = dht_publish(TEST_TOPIC, &el);
 	if (WooFInvalid(seq)) {

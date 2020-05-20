@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int d_check_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_tag("check_predecessor");
@@ -21,7 +21,7 @@ int d_check_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_table;
+	DHT_TABLE dht_table = {0};
 	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
@@ -36,7 +36,7 @@ int d_check_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_debug("checking predecessor: %s", dht_table.predecessor_addr);
 
 	// check if predecessor woof is working, do nothing
-	DHT_GET_PREDECESSOR_ARG arg;
+	DHT_GET_PREDECESSOR_ARG arg = {0};
 	char predecessor_woof_name[DHT_NAME_LENGTH];
 	sprintf(predecessor_woof_name, "%s/%s", dht_table.predecessor_addr, DHT_GET_PREDECESSOR_WOOF);
 	seq = WooFPut(predecessor_woof_name, NULL, &arg);

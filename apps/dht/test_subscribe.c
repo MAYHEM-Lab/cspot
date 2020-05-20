@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
 	int i;
 	for (i = 0; i < TEST_COUNT; ++i) {
-		TEST_EL el;
+		TEST_EL el = {0};
 		sprintf(el.msg, "%s: %d", TEST_MESSAGE, i);
 		unsigned long seq = dht_publish(TEST_TOPIC, &el);
 		if (WooFInvalid(seq)) {

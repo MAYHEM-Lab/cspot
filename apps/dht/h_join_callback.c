@@ -1,13 +1,11 @@
-// #define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_join_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_JOIN_ARG *arg = (DHT_JOIN_ARG *)ptr;
@@ -34,7 +32,7 @@ int h_join_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_debug("find_successor result hash: %s", hash_str);
 	log_debug("find_successor result addr: %s", arg->node_addr);
 
-	DHT_TABLE dht_tbl;
+	DHT_TABLE dht_tbl = {0};
 	dht_init(id_hash, woof_name, &dht_tbl);
 	memcpy(dht_tbl.successor_hash[0], arg->node_hash, sizeof(dht_tbl.successor_hash[0]));
 	memcpy(dht_tbl.successor_addr[0], arg->node_addr, sizeof(dht_tbl.successor_addr[0]));

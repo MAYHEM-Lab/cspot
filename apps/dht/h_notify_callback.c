@@ -1,27 +1,19 @@
-#define DEBUG
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <openssl/sha.h>
-
 #include "woofc.h"
 #include "dht.h"
+#include "dht_utils.h"
 
 int h_notify_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_NOTIFY_CALLBACK_ARG *result = (DHT_NOTIFY_CALLBACK_ARG *)ptr;
 
 	log_set_tag("notify_callback");
-	// log_set_level(LOG_DEBUG);
+	// log_set_level(HT_LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
-
-	char woof_name[DHT_NAME_LENGTH];
-	if (node_woof_name(woof_name) < 0) {
-		log_error("failed to get local node's woof name");
-		exit(1);
-	}
 
 	unsigned long seq = WooFGetLatestSeqno(DHT_TABLE_WOOF);
 	if (WooFInvalid(seq))
@@ -29,7 +21,7 @@ int h_notify_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_table;
+	DHT_TABLE dht_table = {0};
 	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);

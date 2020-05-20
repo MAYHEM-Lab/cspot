@@ -1,8 +1,5 @@
 #include <stdio.h>
 
-#include "woofc.h"
-#include "dht.h"
-
 typedef struct test_stc {
 	char msg[256];
 } TEST_EL;
