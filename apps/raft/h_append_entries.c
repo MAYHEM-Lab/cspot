@@ -3,22 +3,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-
 #include "woofc.h"
 #include "raft.h"
+#include "raft_utils.h"
 #include "monitor.h"
 
-void put_heartbeat() {
-
-}
 
 int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_APPEND_ENTRIES_ARG *request = (RAFT_APPEND_ENTRIES_ARG *)monitor_cast(ptr);
 	seq_no = monitor_seqno(ptr);
 
 	log_set_tag("append_entries");
-	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	// log_set_level(RAFT_LOG_INFO);
+	log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
 	// get the server's current term

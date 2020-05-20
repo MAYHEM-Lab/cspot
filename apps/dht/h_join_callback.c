@@ -11,7 +11,8 @@ int h_join_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_JOIN_ARG *arg = (DHT_JOIN_ARG *)ptr;
 
 	log_set_tag("join_callback");
-	log_set_level(DHT_LOG_DEBUG);
+	// log_set_level(DHT_LOG_DEBUG);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
 	char woof_name[DHT_NAME_LENGTH];

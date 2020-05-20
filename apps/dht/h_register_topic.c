@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -30,7 +29,7 @@ int h_register_topic(WOOF *wf, unsigned long seq_no, void *ptr) {
 		char woof_file[DHT_NAME_LENGTH];
 		sprintf(woof_file, "%s/%s", WooF_dir, registration_woof);
 		if (chmod(woof_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
-			log_error("failed to change file %s's mode to 0777, errno: %d", woof_file, errno);
+			log_error("failed to change file %s's mode to 0666", woof_file);
 		}
 	}
 
@@ -54,7 +53,7 @@ int h_register_topic(WOOF *wf, unsigned long seq_no, void *ptr) {
 	char woof_file[DHT_NAME_LENGTH];
 	sprintf(woof_file, "%s/%s", WooF_dir, subscription_woof);
 	if (chmod(woof_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
-		log_error("failed to change file %s's mode to 0777, errno: %d", woof_file, errno);
+		log_error("failed to change file %s's mode to 0666", woof_file);
 	}
 	DHT_SUBSCRIPTION_LIST list = {0};
 	seq = WooFPut(subscription_woof, NULL, &list);

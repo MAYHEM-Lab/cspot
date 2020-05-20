@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 	fclose(fp);
 	
 	WooFInit();
-	if (start_server(members, member_woofs, observer) < 0) {
+	if (raft_start_server(members, member_woofs, observer) < 0) {
 		fprintf(stderr, "Can't start server\n");
 		exit(1);
 	}

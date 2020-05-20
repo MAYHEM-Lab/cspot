@@ -19,7 +19,7 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 RAFTDIR=${WOOFC}/apps/raft
 RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o ${WOOFC}/apps/monitor/monitor.o
 
-# CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR}
+# CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -DUSE_RAFT
 
 all: handlers copy clients test

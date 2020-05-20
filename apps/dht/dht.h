@@ -20,10 +20,11 @@
 #define DHT_STABLIZE_WOOF "dht_stablize.woof"
 #define DHT_STABLIZE_CALLBACK_WOOF "dht_stablize_callback.woof"
 #define DHT_SUBSCRIBE_WOOF "dht_subscribe.woof"
-#define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TABLE_WOOF "dht_table.woof"
-#define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
 #define DHT_TRIGGER_WOOF "dht_trigger.woof"
+
+#define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
+#define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
 #define DHT_HISTORY_LENGTH_LONG 256
@@ -40,6 +41,8 @@
 #define DHT_ACTION_FIX_FINGER 3
 #define DHT_ACTION_REGISTER_TOPIC 4
 #define DHT_ACTION_SUBSCRIBE 5
+
+char dht_error_msg[256];
 
 typedef struct dht_table {
 	unsigned char node_hash[SHA_DIGEST_LENGTH];

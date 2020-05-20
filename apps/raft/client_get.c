@@ -68,12 +68,12 @@ int main(int argc, char **argv) {
 	RAFT_DATA_TYPE data;
 	unsigned long term;
 	if (index > 0) {
-		term = raft_sync_get(&data, index);
+		term = raft_sync_get(&data, index, 1);
 	} else {
 		term = raft_async_get(&data, client_put_seqno);
 	}
 	if (raft_is_error(term)) {
-		fprintf(stderr, "failed to get data: %s\n", raft_client_error_msg);
+		fprintf(stderr, "failed to get data: %s\n", raft_error_msg);
 		exit(1);
 	}
 	printf("%s\n", data.val);

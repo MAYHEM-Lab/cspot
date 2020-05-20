@@ -1,13 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 #include <pthread.h>
 #include <time.h>
 #include "raft.h"
-
-FILE *raft_log_output;
-int raft_log_level;
+#include "monitor.h"
 
 char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_LOG_ENTRIES_WOOF, RAFT_SERVER_STATE_WOOF, RAFT_HEARTBEAT_WOOF, RAFT_TIMEOUT_CHECKER_WOOF,
 	RAFT_APPEND_ENTRIES_ARG_WOOF, RAFT_APPEND_ENTRIES_RESULT_WOOF,
@@ -37,12 +34,6 @@ int random_timeout(unsigned long seed) {
 	return RAFT_TIMEOUT_MIN + (rand() % (RAFT_TIMEOUT_MAX - RAFT_TIMEOUT_MIN));
 }
 
-unsigned long get_milliseconds() {
-    struct timeval tv;
-    gettimeofday(&tv,NULL);
-    return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
-}
-
 int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
 	char buffer[256];
 	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
@@ -66,28 +57,6 @@ int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAF
 		}
 		strcpy(member_woofs[i], buffer);
 	}
-	return 0;
-}
-
-int node_woof_name(char *node_woof) {
-	int err;
-	char local_ip[25];
-	char namespace[256];
-	char *str;
-
-	str = getenv("WOOFC_NAMESPACE");
-	if (str == NULL) {
-		getcwd(namespace, sizeof(namespace));
-	} else {
-		strncpy(namespace, str, sizeof(namespace));
-	}
-	err = WooFLocalIP(local_ip, sizeof(local_ip));
-	if (err < 0) {
-		fprintf(stderr, "no local IP\n");
-		fflush(stderr);
-		return -1;
-	}
-	sprintf(node_woof, "woof://%s%s", local_ip, namespace);
 	return 0;
 }
 
@@ -191,79 +160,7 @@ int threads_cancel(int members, pthread_t *pids) {
 	return cnt;
 }
 
-void log_set_tag(const char *tag) {
-	strcpy(log_tag, tag);
-}
-
-void log_set_level(int level) {
-	raft_log_level = level;
-}
-
-void log_set_output(FILE *file) {
-	raft_log_output = file;
-}
-
-void log_debug(const char *message, ...) {
-	if (raft_log_level > LOG_DEBUG) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;34m");
-	fprintf(raft_log_output, "DEBUG| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-void log_info(const char *message, ...) {
-	if (raft_log_level > LOG_INFO) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;32m");
-	fprintf(raft_log_output, "INFO | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-void log_warn(const char *message, ...) {
-	if (raft_log_level > LOG_WARN) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;33m");
-	fprintf(raft_log_output, "WARN | %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-void log_error(const char *message, ...) {
-	if (raft_log_level > LOG_ERROR) {
-		return;
-	}
-	time_t now;
-	time(&now);
-	va_list argptr;
-    va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;31m");
-	fprintf(raft_log_output, "ERROR| %.19s:%.3d [%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
-    va_end(argptr);
-}
-
-int create_woofs() {
+int raft_create_woofs() {
 	int num_woofs = sizeof(RAFT_WOOF_TO_CREATE) / RAFT_NAME_LENGTH;
 	int i;
 	for (i = 0; i < num_woofs; i++) {
@@ -275,7 +172,7 @@ int create_woofs() {
 	return 0;
 }
 
-int start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer) {
+int raft_start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer) {
 	RAFT_SERVER_STATE server_state;
 	server_state.members = members;
 	memcpy(server_state.member_woofs, member_woofs, sizeof(server_state.member_woofs));

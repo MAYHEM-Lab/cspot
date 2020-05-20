@@ -6,6 +6,7 @@
 
 #include "woofc.h"
 #include "raft.h"
+#include "raft_utils.h"
 #include "monitor.h"
 
 int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
@@ -14,7 +15,7 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	log_set_tag("config_change");
 	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
 	RAFT_SERVER_STATE server_state;

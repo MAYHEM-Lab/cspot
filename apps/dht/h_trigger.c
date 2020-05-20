@@ -15,7 +15,11 @@ int h_trigger(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
+#ifdef USE_RAFT
+	log_debug("topic: %s, raft: %s, index: %lu", arg->topic_name, arg->element_woof, arg->element_seqno);
+#else
 	log_debug("topic: %s, woof: %s, seqno: %lu", arg->topic_name, arg->element_woof, arg->element_seqno);
+#endif
 
 	char local_namespace[DHT_NAME_LENGTH];
 	if (node_woof_name(local_namespace) < 0) {

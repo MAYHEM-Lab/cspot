@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
 				index = raft_sync_put(&data, timeout);
 			}
 			if (raft_is_error(index)) {
-				fprintf(stderr, "failed to put %s: %s\n", data.val, raft_client_error_msg);
+				fprintf(stderr, "failed to put %s: %s\n", data.val, raft_error_msg);
 			} else {
 				printf("put data[%d]: %s, index: %lu\n", i, data.val, index);
 			}
@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
 			sprintf(data.val, "async_%d", i);
 			seq[i] = raft_async_put(&data);
 			if (raft_is_error(seq[i])) {
-				fprintf(stderr, "failed to put %s: %s\n", data.val, raft_client_error_msg);
+				fprintf(stderr, "failed to put %s: %s\n", data.val, raft_error_msg);
 			} else {
 				printf("put data[%d]: %s, client_request_seqno: %lu\n", i, data.val, seq[i]);
 			}

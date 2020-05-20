@@ -24,7 +24,7 @@ int node_woof_name(char *woof_name) {
 	}
 	char local_ip[25];
 	if (WooFLocalIP(local_ip, sizeof(local_ip)) < 0) {
-		fprintf(stderr, "no local IP\n");
+		sprintf(dht_error_msg, "no local IP");
 		return -1;
 	}
 	sprintf(woof_name, "woof://%s%s", local_ip, namespace);

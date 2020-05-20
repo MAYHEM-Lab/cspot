@@ -127,7 +127,7 @@ int dht_start_daemon() {
 
 int dht_create_cluster(char *woof_name) {
 	if (dht_create_woofs() < 0) {
-		fprintf(stderr, "can't create woofs");
+		sprintf(dht_error_msg, "can't create woofs");
 		return -1;
 	}
 
@@ -138,12 +138,12 @@ int dht_create_cluster(char *woof_name) {
 	dht_init(node_hash, woof_name, &el);
 	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &el);
 	if (WooFInvalid(seq_no)) {
-		fprintf(stderr, "failed to initialize DHT to woof %s", DHT_TABLE_WOOF);
+		sprintf(dht_error_msg, "failed to initialize DHT to woof %s", DHT_TABLE_WOOF);
 		return -1;
 	}
 
 	if (dht_start_daemon() < 0) {
-		fprintf(stderr, "failed to start daemon");
+		sprintf(dht_error_msg, "failed to start daemon");
 		return -1;
 	}
 	return 0;
@@ -151,7 +151,7 @@ int dht_create_cluster(char *woof_name) {
 
 int dht_join_cluster(char *node_woof, char *woof_name) {
 	if (dht_create_woofs() < 0) {
-		fprintf(stderr, "can't create woofs");
+		sprintf(dht_error_msg, "can't create woofs");
 		return -1;
 	}
 
@@ -168,12 +168,12 @@ int dht_join_cluster(char *node_woof, char *woof_name) {
 	}
 	unsigned long seq_no = WooFPut(node_woof, "h_find_successor", &arg);
 	if (WooFInvalid(seq_no)) {
-		fprintf(stderr, "failed to invoke find_successor on %s", node_woof);
+		sprintf(dht_error_msg, "failed to invoke find_successor on %s", node_woof);
 		return -1;
 	}
 
 	if (dht_start_daemon() < 0) {
-		fprintf(stderr, "failed to start daemon");
+		sprintf(dht_error_msg, "failed to start daemon");
 		return -1;
 	}
 	return 0;

@@ -1,7 +1,6 @@
 #ifndef RAFT_H
 #define RAFT_H
 
-#include <sys/time.h>
 #include <pthread.h>
 #include <stdio.h>
 #include "woofc.h"
@@ -14,20 +13,20 @@
 #define RAFT_CONFIG_STABLE 0
 #define RAFT_CONFIG_JOINT 1
 #define RAFT_CONFIG_NEW 2
-#define RAFT_LOG_ENTRIES_WOOF "log_entries.woof"
-#define RAFT_SERVER_STATE_WOOF "server_state.woof"
-#define RAFT_HEARTBEAT_WOOF "heartbeat.woof"
-#define RAFT_TIMEOUT_CHECKER_WOOF "timeout_checker.woof"
-#define RAFT_APPEND_ENTRIES_ARG_WOOF "append_entries_arg.woof"
-#define RAFT_APPEND_ENTRIES_RESULT_WOOF "append_entries_result.woof"
-#define RAFT_CLIENT_PUT_REQUEST_WOOF "client_put_request.woof"
-#define RAFT_CLIENT_PUT_ARG_WOOF "client_put_arg.woof"
-#define RAFT_CLIENT_PUT_RESULT_WOOF "client_put_result.woof"
-#define RAFT_CONFIG_CHANGE_ARG_WOOF "config_change_arg.woof"
-#define RAFT_CONFIG_CHANGE_RESULT_WOOF "config_change_result.woof"
-#define RAFT_REPLICATE_ENTRIES_WOOF "replicate_entries.woof"
-#define RAFT_REQUEST_VOTE_ARG_WOOF "request_vote_arg.woof"
-#define RAFT_REQUEST_VOTE_RESULT_WOOF "request_vote_result.woof"
+#define RAFT_LOG_ENTRIES_WOOF "raft_log_entries.woof"
+#define RAFT_SERVER_STATE_WOOF "raft_server_state.woof"
+#define RAFT_HEARTBEAT_WOOF "raft_heartbeat.woof"
+#define RAFT_TIMEOUT_CHECKER_WOOF "raft_timeout_checker.woof"
+#define RAFT_APPEND_ENTRIES_ARG_WOOF "raft_append_entries_arg.woof"
+#define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result.woof"
+#define RAFT_CLIENT_PUT_REQUEST_WOOF "raft_client_put_request.woof"
+#define RAFT_CLIENT_PUT_ARG_WOOF "raft_client_put_arg.woof"
+#define RAFT_CLIENT_PUT_RESULT_WOOF "raft_client_put_result.woof"
+#define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
+#define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
+#define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
+#define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
+#define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
 #define RAFT_MONITOR_NAME "raft"
 
 #define RAFT_WOOF_HISTORY_SIZE 65536
@@ -36,18 +35,17 @@
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST 16
 #define RAFT_DATA_TYPE_SIZE 1024
-#define RAFT_TIMEOUT_MIN 500
-#define RAFT_TIMEOUT_MAX 1000
+// #define RAFT_TIMEOUT_MIN 500
+// #define RAFT_TIMEOUT_MAX 1000
+#define RAFT_TIMEOUT_MIN 1000
+#define RAFT_TIMEOUT_MAX 2000
 #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 5)
 #define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
-#define RAFT_REPLICATE_ENTRIES_DELAY 20
+// #define RAFT_REPLICATE_ENTRIES_DELAY 20
+#define RAFT_REPLICATE_ENTRIES_DELAY 100
 #define RAFT_CLIENT_PUT_DELAY 50
 
 #define RAFT_SAMPLING_RATE 10 // number of entries per sample
-#define LOG_DEBUG 0
-#define LOG_INFO 1
-#define LOG_WARN 2
-#define LOG_ERROR 3
 
 typedef struct data_type {
 	char val[RAFT_DATA_TYPE_SIZE];
@@ -160,9 +158,7 @@ typedef struct raft_request_vote_result {
 
 int get_server_state(RAFT_SERVER_STATE *server_state);
 int random_timeout(unsigned long seed);
-unsigned long get_milliseconds();
 int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
-int node_woof_name(char *node_woof);
 int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
@@ -171,17 +167,8 @@ int compute_joint_config(int old_members, char old_member_woofs[RAFT_MAX_MEMBERS
 	int *joint_members, char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int threads_join(int members, pthread_t *pids);
 int threads_cancel(int members, pthread_t *pids);
-
-char log_tag[1024];
-void log_set_tag(const char *tag);
-void log_set_level(int level);
-void log_set_output(FILE *file);
-void log_debug(const char *message, ...);
-void log_info(const char *message, ...);
-void log_warn(const char *message, ...);
-void log_error(const char *message, ...);
 	
-int create_woofs();
-int start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer);
+int raft_create_woofs();
+int raft_start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer);
 
 #endif

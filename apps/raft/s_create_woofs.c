@@ -10,7 +10,7 @@
 
 int main(int argc, char **argv) {
 	WooFInit();
-	if (create_woofs() < 0) {
+	if (raft_create_woofs() < 0) {
 		fprintf(stderr, "Can't create WooFs\n");
 		exit(1);
 	}

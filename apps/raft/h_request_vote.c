@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-
 #include "woofc.h"
 #include "raft.h"
+#include "raft_utils.h"
 #include "monitor.h"
 
 int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
@@ -13,7 +13,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	log_set_tag("request_vote");
 	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
 	// get the server's current term

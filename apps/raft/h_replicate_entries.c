@@ -4,9 +4,9 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
-
 #include "woofc.h"
 #include "raft.h"
+#include "raft_utils.h"
 #include "monitor.h"
 
 pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
@@ -50,8 +50,8 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	seq_no = monitor_seqno(ptr);
 
 	log_set_tag("replicate_entries");
-	// log_set_level(LOG_INFO);
-	log_set_level(LOG_DEBUG);
+	log_set_level(RAFT_LOG_INFO);
+	// log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
 	// zsys_init() is called automatically when a socket is created

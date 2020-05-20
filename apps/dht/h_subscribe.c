@@ -17,6 +17,10 @@ int h_subscribe(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	char subscription_woof[DHT_NAME_LENGTH];
 	sprintf(subscription_woof, "%s_%s", arg->topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
+	if (!WooFExist(subscription_woof)) {
+		log_error("topic %s doesn't exist", arg->topic_name);
+		exit(1);
+	}
 	unsigned long seq = WooFGetLatestSeqno(subscription_woof);
 	if (WooFInvalid(seq)) {
 		log_error("failed to get the latest seq_no of %s", subscription_woof);
