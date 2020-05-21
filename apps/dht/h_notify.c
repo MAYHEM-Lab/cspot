@@ -22,31 +22,31 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_tbl = {0};
-	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
+	DHT_TABLE dht_table = {0};
+	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
 	}
 
 	// if (predecessor is nil or n' ∈ (predecessor, n))
-	if (dht_tbl.predecessor_addr[0] == 0
-		|| memcmp(dht_tbl.predecessor_hash, dht_tbl.node_hash, SHA_DIGEST_LENGTH) == 0
-		|| in_range(arg->node_hash, dht_tbl.predecessor_hash, dht_tbl.node_hash)) {
-		if (memcmp(dht_tbl.predecessor_hash, arg->node_hash, SHA_DIGEST_LENGTH) == 0) {
+	if (dht_table.predecessor_addr[0] == 0
+		|| memcmp(dht_table.predecessor_hash, dht_table.node_hash, SHA_DIGEST_LENGTH) == 0
+		|| in_range(arg->node_hash, dht_table.predecessor_hash, dht_table.node_hash)) {
+		if (memcmp(dht_table.predecessor_hash, arg->node_hash, SHA_DIGEST_LENGTH) == 0) {
 			log_debug("predecessor is the same, no need to update to %s", arg->node_addr);
 			return 1;
 		}
-		memcpy(dht_tbl.predecessor_hash, arg->node_hash, sizeof(dht_tbl.predecessor_hash));
-		memcpy(dht_tbl.predecessor_addr, arg->node_addr, sizeof(dht_tbl.predecessor_addr));
-		seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
+		memcpy(dht_table.predecessor_hash, arg->node_hash, sizeof(dht_table.predecessor_hash));
+		memcpy(dht_table.predecessor_addr, arg->node_addr, sizeof(dht_table.predecessor_addr));
+		seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 		if (WooFInvalid(seq)) {
 			log_error("failed to update predecessor");
 			exit(1);
 		}
 		char hash_str[2 * SHA_DIGEST_LENGTH + 1];
-		print_node_hash(hash_str, dht_tbl.predecessor_hash);
+		print_node_hash(hash_str, dht_table.predecessor_hash);
 		log_info("updated predecessor_hash: %s", hash_str);
-		log_info("updated predecessor_addr: %s", dht_tbl.predecessor_addr);
+		log_info("updated predecessor_addr: %s", dht_table.predecessor_addr);
 	}
 
 	if (arg->callback_woof[0] == 0) {
@@ -55,12 +55,12 @@ int h_notify(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	// call notify_callback, where it updates successor list
 	DHT_NOTIFY_CALLBACK_ARG result = {0};
-	memcpy(result.successor_addr[0], dht_tbl.node_addr, sizeof(result.successor_addr[0]));
-	memcpy(result.successor_hash[0], dht_tbl.node_hash, sizeof(result.successor_hash[0]));
+	memcpy(result.successor_addr[0], dht_table.node_addr, sizeof(result.successor_addr[0]));
+	memcpy(result.successor_hash[0], dht_table.node_hash, sizeof(result.successor_hash[0]));
 	int i;
 	for (i = 0; i < DHT_SUCCESSOR_LIST_R - 1; ++i) {
-		memcpy(result.successor_addr[i + 1], dht_tbl.successor_addr[i], sizeof(result.successor_addr[i + 1]));
-		memcpy(result.successor_hash[i + 1], dht_tbl.successor_hash[i], sizeof(result.successor_hash[i + 1]));
+		memcpy(result.successor_addr[i + 1], dht_table.successor_addr[i], sizeof(result.successor_addr[i + 1]));
+		memcpy(result.successor_hash[i + 1], dht_table.successor_hash[i], sizeof(result.successor_hash[i + 1]));
 	}
 
 	seq = WooFPut(arg->callback_woof, arg->callback_handler, &result);

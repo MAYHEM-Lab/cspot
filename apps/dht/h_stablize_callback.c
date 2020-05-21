@@ -26,8 +26,8 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to get latest dht_table seq_no");
 		exit(1);
 	}
-	DHT_TABLE dht_tbl = {0};
-	if (WooFGet(DHT_TABLE_WOOF, &dht_tbl, seq) < 0) {
+	DHT_TABLE dht_table = {0};
+	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
 		log_error("failed to get latest dht_table with seq_no %lu", seq);
 		exit(1);
 	}
@@ -40,23 +40,23 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// x = successor.predecessor
 	// if (x ∈ (n, successor))
 	if (result->predecessor_addr[0] != 0 && 
-		in_range(result->predecessor_hash, dht_tbl.node_hash, dht_tbl.successor_hash[0])) {
+		in_range(result->predecessor_hash, dht_table.node_hash, dht_table.successor_hash[0])) {
 		// successor = x;
-		if (memcmp(dht_tbl.successor_hash[0], result->predecessor_hash, SHA_DIGEST_LENGTH) != 0) {
-			memcpy(dht_tbl.successor_hash[0], result->predecessor_hash, sizeof(dht_tbl.successor_hash[0]));
-			memcpy(dht_tbl.successor_addr[0], result->predecessor_addr, sizeof(dht_tbl.successor_addr[0]));
-			seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_tbl);
+		if (memcmp(dht_table.successor_hash[0], result->predecessor_hash, SHA_DIGEST_LENGTH) != 0) {
+			memcpy(dht_table.successor_hash[0], result->predecessor_hash, sizeof(dht_table.successor_hash[0]));
+			memcpy(dht_table.successor_addr[0], result->predecessor_addr, sizeof(dht_table.successor_addr[0]));
+			seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 			if (WooFInvalid(seq)) {
 				log_error("failed to update DHT table to %s", DHT_TABLE_WOOF);
 				exit(1);
 			}
-			log_info("updated successor to %s", dht_tbl.successor_addr[0]);
+			log_info("updated successor to %s", dht_table.successor_addr[0]);
 		}
 	}
 
 	// successor.notify(n);
 	char notify_woof_name[DHT_NAME_LENGTH];
-	sprintf(notify_woof_name, "%s/%s", dht_tbl.successor_addr[0], DHT_NOTIFY_WOOF);
+	sprintf(notify_woof_name, "%s/%s", dht_table.successor_addr[0], DHT_NOTIFY_WOOF);
 	DHT_NOTIFY_ARG notify_arg = {0};
 	memcpy(notify_arg.node_hash, id_hash, sizeof(notify_arg.node_hash));
 	strncpy(notify_arg.node_addr, woof_name, sizeof(notify_arg.node_addr));
@@ -67,7 +67,7 @@ int h_stablize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to call notify on successor %s", notify_woof_name);
 		exit(1);
 	}
-	log_debug("called notify on successor %s", dht_tbl.successor_addr[0]);
+	log_debug("called notify on successor %s", dht_table.successor_addr[0]);
 
 	return 1;
 }

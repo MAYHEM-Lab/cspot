@@ -122,6 +122,7 @@ int dht_start_daemon() {
 	if (WooFInvalid(seq)) {
 		return -1;
 	}
+	sizeof(DHT_TABLE);
 	return 0;
 }
 
@@ -134,9 +135,9 @@ int dht_create_cluster(char *woof_name) {
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
 	SHA1(woof_name, strlen(woof_name), node_hash);
 	
-	DHT_TABLE el;
-	dht_init(node_hash, woof_name, &el);
-	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &el);
+	DHT_TABLE dht_table;
+	dht_init(node_hash, woof_name, &dht_table);
+	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 	if (WooFInvalid(seq_no)) {
 		sprintf(dht_error_msg, "failed to initialize DHT to woof %s", DHT_TABLE_WOOF);
 		return -1;
