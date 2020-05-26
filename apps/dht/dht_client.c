@@ -11,7 +11,7 @@
 #include "raft_client.h"
 #endif
 
-int dht_find_node(char *topic_name, char *result_node) {
+int dht_find_node(char *topic_name, char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH], int *result_node_leader) {
 	char local_namespace[DHT_NAME_LENGTH];
 	if (node_woof_name(local_namespace) < 0) {
 		sprintf(dht_error_msg, "failed to get local woof namespace");
@@ -45,7 +45,8 @@ int dht_find_node(char *topic_name, char *result_node) {
 				sprintf(dht_error_msg, "failed to get result at %lu from %s", i, result_woof);
 			}
 			if (memcmp(result.topic, topic_name, SHA_DIGEST_LENGTH) == 0) {
-				strcpy(result_node, result.node_addr);
+				memcpy(result_node_replicas, result.node_replicas, sizeof(result.node_replicas));
+				*result_node_leader = result.node_leader;
 				return 0;
 			}
 		}
@@ -141,23 +142,22 @@ int dht_subscribe(char *topic_name, char *handler) {
 }
 
 unsigned long dht_publish(char *topic_name, void *element) {
-	char node_addr[DHT_NAME_LENGTH];
-	if (dht_find_node(topic_name, node_addr) < 0) {
+	char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+	int node_leader;
+	if (dht_find_node(topic_name, node_replicas, &node_leader) < 0) {
 		sprintf(dht_error_msg, "failed to find node hosting the topic");
 		return -1;
 	}
+	char *node_addr = node_replicas[node_leader];
 	
+	// TODO: if failed use the next replica
 	// get the topic namespace
 	char registration_woof[DHT_NAME_LENGTH];
 	sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
-	unsigned long latest_topic_entry = WooFGetLatestSeqno(registration_woof);
-	if (WooFInvalid(latest_topic_entry)) {
-		sprintf(dht_error_msg, "failed to get the latest seqno from %s", registration_woof);
-		return -1;
-	}
+
 	DHT_TOPIC_REGISTRY topic_entry = {0};
-	if (WooFGet(registration_woof, &topic_entry, latest_topic_entry) < 0) {
-		sprintf(dht_error_msg, "failed to get topic registration info from %s", registration_woof);
+	if (get_latest_element(registration_woof, &topic_entry) < 0) {
+		sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
 		return -1;
 	}
 	
@@ -165,6 +165,7 @@ unsigned long dht_publish(char *topic_name, void *element) {
 	strcpy(trigger_arg.topic_name, topic_name);
 	sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 #ifdef USE_RAFT
+	printf("using raft, leader: %s\n", topic_entry.topic_namespace);
 	raft_set_client_leader(topic_entry.topic_namespace);
 	RAFT_DATA_TYPE raft_data = {0};
 	memcpy(raft_data.val, element, sizeof(raft_data.val));
@@ -181,6 +182,7 @@ unsigned long dht_publish(char *topic_name, void *element) {
 	trigger_arg.element_seqno = index;
 #else
 	sprintf(trigger_arg.element_woof, "%s/%s", topic_entry.topic_namespace, topic_name);
+	printf("using woof: %s\n", trigger_arg.element_woof);
 	trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
 	if (WooFInvalid(trigger_arg.element_seqno)) {
 		sprintf(dht_error_msg, "failed to put element to woof");

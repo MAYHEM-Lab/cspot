@@ -44,12 +44,21 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 	
-	char result_node[DHT_NAME_LENGTH];
-	if (dht_find_node(topic, result_node) < 0) {
+	char result_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+	int result_leader;
+	if (dht_find_node(topic, result_replicas, &result_leader) < 0) {
 		fprintf(stderr, "failed to find the topic\n");
 		exit(1);
 	}
-	printf("node: %s\n", result_node);
+	printf("replicas:\n");
+	int i;
+	for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+		if (result_replicas[i][0] == 0) {
+			break;
+		}
+		printf("%s\n", result_replicas[i]);
+	}
+	printf("leader: %s(%d)\n", result_replicas[result_leader], result_leader);
 
 	return 0;
 }

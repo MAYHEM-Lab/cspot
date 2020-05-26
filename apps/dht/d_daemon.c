@@ -9,10 +9,15 @@ int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_DAEMON_ARG *arg = (DHT_DAEMON_ARG *)ptr;
 
 	log_set_tag("daemon");
-	log_set_level(DHT_LOG_DEBUG);
+	// log_set_level(DHT_LOG_DEBUG);
+	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
 	unsigned long now = get_milliseconds();
+	log_debug("since last stablize: %lums", now - arg->last_stablize);
+	log_debug("since last check_predecessor: %lums", now - arg->last_check_predecessor);
+	log_debug("since last fix_finger: %lums", now - arg->last_fix_finger);
+
 	if (now - arg->last_stablize > DHT_STABLIZE_FREQUENCY) {
 		DHT_STABLIZE_ARG stablize_arg;
 		unsigned long seq = WooFPut(DHT_STABLIZE_WOOF, "d_stablize", &stablize_arg);

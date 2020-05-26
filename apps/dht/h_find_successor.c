@@ -15,14 +15,9 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
-	unsigned long seq = WooFGetLatestSeqno(DHT_TABLE_WOOF);
-	if (WooFInvalid(seq)) {
-		log_error("failed to get latest seq_no from %s", DHT_TABLE_WOOF);
-		exit(1);
-	}
-	DHT_TABLE dht_table;
-	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
-		log_error("failed to get the latest dht_table");
+	DHT_TABLE dht_table = {0};
+	if (get_latest_element(DHT_TABLE_WOOF, &dht_table) < 0) {
+		fprintf(stderr, "couldn't get latest dht_table: %s", dht_error_msg);
 		exit(1);
 	}
 	arg->hops++;
@@ -34,53 +29,62 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	if (in_range(arg->hashed_key, dht_table.node_hash, dht_table.successor_hash[0])
 		|| memcmp(arg->hashed_key, dht_table.successor_hash[0], SHA_DIGEST_LENGTH) == 0) {
 		// return successor
+		DHT_HASHMAP_ENTRY successor = {0};
+		if (hmap_get(dht_table.successor_hash[0], &successor) < 0) {
+			log_error("failed to get successor's replicas: %s", dht_error_msg);
+			exit(1);
+		}
+		char *replicas_leader = successor.replicas[successor.leader];
 		switch (arg->action) {
 			case DHT_ACTION_FIND_NODE: {
 				DHT_FIND_NODE_RESULT action_result = {0};
 				memcpy(action_result.topic, arg->key, sizeof(action_result.topic));
 				memcpy(action_result.node_hash, dht_table.successor_hash[0], sizeof(action_result.node_hash));
-				memcpy(action_result.node_addr, dht_table.successor_addr[0], sizeof(action_result.node_addr));
+				memcpy(action_result.node_replicas, successor.replicas, sizeof(action_result.node_replicas));
+				action_result.node_leader = successor.leader;
 				action_result.hops = arg->hops;
 
 				char callback_woof[DHT_NAME_LENGTH];
 				sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIND_NODE_RESULT_WOOF);
-				seq = WooFPut(callback_woof, NULL, &action_result);
+				unsigned long seq = WooFPut(callback_woof, NULL, &action_result);
 				if (WooFInvalid(seq)) {
 					log_error("failed to put find_node result on %s", callback_woof);
 					exit(1);
 				}
-				log_debug("found node_addr %s for action %s", action_result.node_addr, "FIND_NODE");
+				log_debug("found node_addr %s for action %s", replicas_leader, "FIND_NODE");
 				break;
 			}
 			case DHT_ACTION_JOIN: {
 				DHT_JOIN_ARG action_arg = {0};
 				memcpy(action_arg.node_hash, dht_table.successor_hash[0], sizeof(action_arg.node_hash));
-				memcpy(action_arg.node_addr, dht_table.successor_addr[0], sizeof(action_arg.node_addr));
+				memcpy(action_arg.node_replicas, successor.replicas, sizeof(action_arg.node_replicas));
+				action_arg.node_leader = successor.leader;
 
 				char callback_woof[DHT_NAME_LENGTH];
 				sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_JOIN_WOOF);
-				seq = WooFPut(callback_woof, "h_join_callback", &action_arg);
+				unsigned long seq = WooFPut(callback_woof, "h_join_callback", &action_arg);
 				if (WooFInvalid(seq)) {
 					log_error("failed to invoke h_join_callback on %s", callback_woof);
 					exit(1);
 				}
-				log_debug("found successor_addr %s for action %s", action_arg.node_addr, "JOIN");
+				log_debug("found successor_addr %s for action %s", replicas_leader, "JOIN");
 				break;
 			}
 			case DHT_ACTION_FIX_FINGER: {
 				DHT_FIX_FINGER_CALLBACK_ARG action_arg = {0};
-				memcpy(action_arg.node_addr, dht_table.successor_addr[0], sizeof(action_arg.node_addr));
 				memcpy(action_arg.node_hash, dht_table.successor_hash[0], sizeof(action_arg.node_hash));
+				memcpy(action_arg.node_replicas, successor.replicas, sizeof(action_arg.node_replicas));
+				action_arg.node_leader = successor.leader;
 				action_arg.finger_index = (int)arg->action_seqno;
 				
 				char callback_woof[DHT_NAME_LENGTH];
 				sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIX_FINGER_CALLBACK_WOOF);
-				seq = WooFPut(callback_woof, "h_fix_finger_callback", &action_arg);
+				unsigned long seq = WooFPut(callback_woof, "h_fix_finger_callback", &action_arg);
 				if (WooFInvalid(seq)) {
 					log_error("failed to invoke h_fix_finger_callback on %s", callback_woof);
 					exit(1);
 				}
-				log_debug("found successor_addr %s for action %s", action_arg.node_addr, "FIX_FINGER");
+				log_debug("found successor_addr %s for action %s", replicas_leader, "FIX_FINGER");
 				break;
 			}
 			case DHT_ACTION_REGISTER_TOPIC: {
@@ -93,13 +97,13 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 				}
 				
 				char callback_woof[DHT_NAME_LENGTH];
-				sprintf(callback_woof, "%s/%s", dht_table.successor_addr[0], DHT_REGISTER_TOPIC_WOOF);
-				seq = WooFPut(callback_woof, "h_register_topic", &action_arg);
+				sprintf(callback_woof, "%s/%s", replicas_leader, DHT_REGISTER_TOPIC_WOOF);
+				unsigned long seq = WooFPut(callback_woof, "h_register_topic", &action_arg);
 				if (WooFInvalid(seq)) {
 					log_error("failed to invoke h_register_topic on %s", callback_woof);
 					exit(1);
 				}
-				log_debug("found successor_addr %s for action %s", dht_table.successor_addr[0], "REGISTER_TOPIC");
+				log_debug("found successor_addr %s for action %s", replicas_leader, "REGISTER_TOPIC");
 				break;
 			}
 			case DHT_ACTION_SUBSCRIBE: {
@@ -112,13 +116,13 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 				}
 				
 				char callback_woof[DHT_NAME_LENGTH];
-				sprintf(callback_woof, "%s/%s", dht_table.successor_addr[0], DHT_SUBSCRIBE_WOOF);
-				seq = WooFPut(callback_woof, "h_subscribe", &action_arg);
+				sprintf(callback_woof, "%s/%s", replicas_leader, DHT_SUBSCRIBE_WOOF);
+				unsigned long seq = WooFPut(callback_woof, "h_subscribe", &action_arg);
 				if (WooFInvalid(seq)) {
 					log_error("failed to invoke h_subscribe on %s", callback_woof);
 					exit(1);
 				}
-				log_debug("found successor_addr %s for action %s", dht_table.successor_addr[0], "SUBSCRIBE");
+				log_debug("found successor_addr %s for action %s", replicas_leader, "SUBSCRIBE");
 				break;
 			}
 			default: {
@@ -131,19 +135,25 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	char req_forward_woof[DHT_NAME_LENGTH];
 	int i;
 	for (i = SHA_DIGEST_LENGTH * 8; i > 0; --i) {
-		if (dht_table.finger_addr[i][0] == 0) {
+		if (is_empty(dht_table.finger_hash[i])) {
 			continue;
 		}
 		// if finger[i] in (n, id)
 		// return finger[i].find_succesor(id)
 		if (in_range(dht_table.finger_hash[i], dht_table.node_hash, arg->hashed_key)) {
-			sprintf(req_forward_woof, "%s/%s", dht_table.finger_addr[i], DHT_FIND_SUCCESSOR_WOOF);
-			seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+			DHT_HASHMAP_ENTRY finger = {0};
+			if (hmap_get(dht_table.finger_hash[i], &finger) < 0) {
+				log_error("failed to get finger[%d]'s replicas: %s", i, dht_error_msg);
+				exit(1);
+			}
+			char *finger_replicas_leader = finger.replicas[finger.leader];
+			sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
+			unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 			if (WooFInvalid(seq)) {
 				log_error("failed to forward find_successor request to %s", req_forward_woof);
 				exit(1);
 			}
-			log_debug("forwarded find_succesor request to finger[%d]: %s", i, dht_table.finger_addr[i]);
+			log_debug("forwarded find_succesor request to finger[%d]: %s", i, finger_replicas_leader);
 			return 1;
 		}
 	}
@@ -152,7 +162,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_debug("closest_preceding_node not found in finger table");
 
 	sprintf(req_forward_woof, "%s/%s", dht_table.node_addr, DHT_FIND_SUCCESSOR_WOOF);
-	seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+	unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 	if (WooFInvalid(seq)) {
 		log_error("failed to put woof to %s", req_forward_woof);
 		exit(1);

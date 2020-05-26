@@ -11,7 +11,7 @@ int h_fix_finger_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_FIX_FINGER_CALLBACK_ARG *arg = (DHT_FIX_FINGER_CALLBACK_ARG *)ptr;
 
 	log_set_tag("fix_finger_callback");
-	// log_set_level(LOG_DEBUG);
+	// log_set_level(DHT_LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
@@ -21,17 +21,12 @@ int h_fix_finger_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	unsigned long seq = WooFGetLatestSeqno(DHT_TABLE_WOOF);
-	if (WooFInvalid(seq)) {
-		log_error("failed to get latest dht_table seq_no");
-		exit(1);
-	}
 	DHT_TABLE dht_table = {0};
-	if (WooFGet(DHT_TABLE_WOOF, &dht_table, seq) < 0) {
-		log_error("failed to get latest dht_table with seq_no %lu", seq);
+	if (get_latest_element(DHT_TABLE_WOOF, &dht_table) < 0) {
+		log_error("couldn't get latest dht_table: %s", dht_error_msg);
 		exit(1);
 	}
-	log_debug("find_successor addr: %s", arg->node_addr);
+	log_debug("find_successor leader: %s(%d)", arg->node_replicas[arg->node_leader], arg->node_leader);
 
 	// finger[i] = find_successor(x);
 	int i = arg->finger_index;
@@ -42,9 +37,12 @@ int h_fix_finger_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		return 1;
 	}
 	
-	memcpy(dht_table.finger_addr[i], arg->node_addr, sizeof(dht_table.finger_addr[i]));
+	if (hmap_set_replicas(arg->node_hash, arg->node_replicas, arg->node_leader) < 0) {
+		log_error("failed to put finger's replicas in hashmap: %s", dht_error_msg);
+		exit(1);
+	}
 	memcpy(dht_table.finger_hash[i], arg->node_hash, sizeof(dht_table.finger_hash[i]));
-	seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
+	unsigned long seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
 	if (WooFInvalid(seq)) {
 		log_error("failed to update finger[%d]", i);
 		exit(1);
@@ -52,7 +50,7 @@ int h_fix_finger_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	char hash_str[2 * SHA_DIGEST_LENGTH + 1];
 	print_node_hash(hash_str, dht_table.finger_hash[i]);
-	log_debug("updated finger_addr[%d] = %s(%s)", i, dht_table.finger_addr[i], hash_str);
+	log_debug("updated finger_addr[%d] = %s(%s)", i, arg->node_replicas[arg->node_leader], hash_str);
 
 	return 1;
 }

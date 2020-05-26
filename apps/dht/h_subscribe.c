@@ -11,8 +11,8 @@ int h_subscribe(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_SUBSCRIBE_ARG *arg = (DHT_SUBSCRIBE_ARG *)ptr;
 
 	log_set_tag("subscribe");
-	// log_set_level(DHT_LOG_DEBUG);
-	log_set_level(DHT_LOG_INFO);
+	log_set_level(DHT_LOG_DEBUG);
+	// log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 
 	char subscription_woof[DHT_NAME_LENGTH];
@@ -21,14 +21,9 @@ int h_subscribe(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("topic %s doesn't exist", arg->topic_name);
 		exit(1);
 	}
-	unsigned long seq = WooFGetLatestSeqno(subscription_woof);
-	if (WooFInvalid(seq)) {
-		log_error("failed to get the latest seq_no of %s", subscription_woof);
-		exit(1);
-	}
 	DHT_SUBSCRIPTION_LIST list = {0};
-	if (WooFGet(subscription_woof, &list, seq) < 0) {
-		log_error("failed to get latest subscription list of %s", subscription_woof);
+	if (get_latest_element(subscription_woof, &list) < 0) {
+		log_error("failed to get latest subscription list of %s: %s", subscription_woof, dht_error_msg);
 		exit(1);
 	}
 
@@ -46,7 +41,7 @@ int h_subscribe(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_debug("[%d] %s/%s", i, list.namespace[i], list.handlers[i]);
 	}
 
-	seq = WooFPut(subscription_woof, NULL, &list);
+	unsigned long seq = WooFPut(subscription_woof, NULL, &list);
 	if (WooFInvalid(seq)) {
 		log_error("failed to update subscription list %s", arg->topic_name);
 		exit(1);

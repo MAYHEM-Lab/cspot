@@ -27,22 +27,14 @@ int h_trigger(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	unsigned long latest_subscription = WooFGetLatestSeqno(arg->subscription_woof);
-	if (WooFInvalid(latest_subscription) || latest_subscription == 0) {
-		log_error("failed to get subscription list");
-		exit(1);
-	}
 	DHT_SUBSCRIPTION_LIST list = {0};
-	if (WooFGet(arg->subscription_woof, &list, latest_subscription) < 0) {
-		log_error("failed to get the latest subscription list of %s", arg->topic_name);
+	if (get_latest_element(arg->subscription_woof, &list) < 0) {
+		log_error("failed to get the latest subscription list of %s: %s", arg->topic_name, dht_error_msg);
 		exit(1);
 	}
 
-	log_debug("number of subscription: %d", list.size);
 	int i;
 	for (i = 0; i < list.size; ++i) {
-		log_debug("%s/%s", list.namespace[i], list.handlers[i]);
-
 		DHT_INVOCATION_ARG invocation_arg = {0};
 		strcpy(invocation_arg.woof_name, arg->element_woof);
 		invocation_arg.seq_no = arg->element_seqno;
@@ -53,7 +45,7 @@ int h_trigger(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (WooFInvalid(seq)) {
 			log_error("failed to trigger handler %s in %s", list.handlers[i], list.namespace[i]);
 		} else {
-			log_debug("triggered handler %s in %s", list.handlers[i], list.namespace[i]);
+			log_debug("triggered handler %s/%s", list.namespace[i], list.handlers[i]);
 		}
 	}
 

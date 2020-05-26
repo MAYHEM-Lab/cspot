@@ -7,7 +7,6 @@
 #include "woofc-access.h"
 #include "dht.h"
 #include "dht_utils.h"
-// #define USE_RAFT
 #ifdef USE_RAFT
 #include "raft.h"
 #include "raft_client.h"
@@ -17,7 +16,8 @@ int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_INVOCATION_ARG *arg = (DHT_INVOCATION_ARG *)ptr;
 
 	log_set_tag("PUT_HANDLER_NAME");
-	log_set_level(DHT_LOG_INFO);
+	log_set_level(DHT_LOG_DEBUG);
+	// log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
 	
 	char topic_name[DHT_NAME_LENGTH];
@@ -27,6 +27,7 @@ int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 
 #ifdef USE_RAFT
+	log_debug("using raft, getting index %lu from %s", arg->seq_no, arg->woof_name);
 	RAFT_DATA_TYPE raft_data = {0};
 	raft_set_client_leader(arg->woof_name);
 	unsigned long term = raft_sync_get(&raft_data, arg->seq_no, 0);
@@ -36,9 +37,10 @@ int handler_wrapper(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	int err = PUT_HANDLER_NAME(topic_name, arg->seq_no, raft_data.val);
 #else
+	log_debug("using woof, getting seqno %lu from %s", arg->seq_no, arg->woof_name);
 	unsigned long element_size = WooFMsgGetElSize(arg->woof_name);
 	if (WooFInvalid(element_size)) {
-		log_error("failed to get element size of the topic");
+		log_error("failed to get element size of %s", arg->woof_name);
 		exit(1);
 	}
 

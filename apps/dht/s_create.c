@@ -7,16 +7,54 @@
 #include "woofc-host.h"
 #include "dht.h"
 
+#define ARGS "f:"
+char *Usage = "s_create -f config\n";
+
 int main(int argc, char **argv) {
+	char config[256];
+
+	int c;
+	while ((c = getopt(argc, argv, ARGS)) != EOF) {
+		switch (c) {
+			case 'f': {
+				strncpy(config, optarg, sizeof(config));
+				break;
+			}
+			default: {
+				fprintf(stderr, "unrecognized command %c\n", (char)c);
+				fprintf(stderr, "%s", Usage);
+				exit(1);
+			}
+		}
+	}
+
+	if (config[0] == 0) {
+		fprintf(stderr, "%s", Usage);
+		exit(1);
+	}
 	WooFInit();
+
+	FILE *fp = fopen(config, "r");
+	if (fp == NULL) {
+		fprintf(stderr, "failed to open config file\n");
+		exit(1);
+	}
+	int num_replica;
+	char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+	if (read_config(fp, &num_replica, replicas) < 0) {
+		fprintf(stderr, "failed to read config file\n");
+		fclose(fp);
+		exit(1);
+	}
+	fclose(fp);
 
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
 		fprintf(stderr, "failed to get local node's woof name: %s\n", dht_error_msg);
-		return -1;
+		exit(1);
 	}
 
-	if (dht_create_cluster(woof_name) < 0) {
+	if (dht_create_cluster(woof_name, replicas) < 0) {
 		fprintf(stderr, "failed to initialize the cluster: %s\n", dht_error_msg);
 		exit(1);
 	}
