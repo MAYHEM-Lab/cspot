@@ -18,14 +18,14 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
-	RAFT_SERVER_STATE server_state;
+	RAFT_SERVER_STATE server_state = {0};
 	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the latest server state");
 		free(arg);
 		exit(1);
 	}
 
-	RAFT_CONFIG_CHANGE_RESULT result;
+	RAFT_CONFIG_CHANGE_RESULT result = {0};
 	if (arg->observe) {
 		if (member_id(arg->observer_woof, server_state.member_woofs) != -1) {
 			log_debug("%s is already observing", arg->observer_woof);
@@ -71,9 +71,10 @@ int h_config_change(WOOF *wf, unsigned long seq_no, void *ptr) {
 			log_debug("there are %d members in the joint config", joint_members);
 
 			// append a config entry to log
-			RAFT_LOG_ENTRY entry;
+			RAFT_LOG_ENTRY entry = {0};
 			entry.term = server_state.current_term;
 			entry.is_config = RAFT_CONFIG_JOINT;
+			entry.is_handler = 0;
 			if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
 				log_error("failed to encode the joint config to a log entry");
 				free(arg);

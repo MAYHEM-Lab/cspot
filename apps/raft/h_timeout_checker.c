@@ -42,7 +42,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 	zsys_init();
 	
 	// check if it's leader, if so no need to timeout
-	RAFT_SERVER_STATE server_state;
+	RAFT_SERVER_STATE server_state = {0};
 	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the latest sever state");
 		free(arg);
@@ -61,7 +61,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		free(arg);
 		exit(1);
 	}
-	RAFT_HEARTBEAT heartbeat;
+	RAFT_HEARTBEAT heartbeat = {0};
 	if (WooFGet(RAFT_HEARTBEAT_WOOF, &heartbeat, latest_heartbeat_seqno) < 0) {
 		log_error("failed to get the latest heartbeat");
 		free(arg);
@@ -89,7 +89,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_info("started an election for term %lu", server_state.current_term);
 
 		// put a heartbeat to avoid another timeout
-		RAFT_HEARTBEAT heartbeat;
+		RAFT_HEARTBEAT heartbeat = {0};
 		heartbeat.term = server_state.current_term;
 		heartbeat.timestamp = get_milliseconds();
 		seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -115,7 +115,7 @@ int h_timeout_checker(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(arg);
 			exit(1);
 		}
-		RAFT_LOG_ENTRY last_log_entry;
+		RAFT_LOG_ENTRY last_log_entry = {0};
 		if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry) < 0) {
 			log_error("failed to get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
 			free(arg);

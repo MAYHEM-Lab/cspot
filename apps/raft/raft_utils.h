@@ -17,5 +17,6 @@ void log_debug(const char *message, ...);
 void log_info(const char *message, ...);
 void log_warn(const char *message, ...);
 void log_error(const char *message, ...);
+int read_config(FILE *fp, char *name, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 
 #endif

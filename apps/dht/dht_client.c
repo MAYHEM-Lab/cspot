@@ -19,7 +19,7 @@ int dht_find_node(char *topic_name, char result_node_replicas[DHT_REPLICA_NUMBER
 	}
 
 	char hashed_key[SHA_DIGEST_LENGTH];
-	SHA1(topic_name, strlen(topic_name), hashed_key);
+	dht_hash(hashed_key, topic_name);
 	DHT_FIND_SUCCESSOR_ARG arg = {0};
 	dht_init_find_arg(&arg, topic_name, hashed_key, local_namespace);
 	arg.action = DHT_ACTION_FIND_NODE;
@@ -83,7 +83,7 @@ int dht_register_topic(char *topic_name) {
 	}
 
 	char hashed_key[SHA_DIGEST_LENGTH];
-	SHA1(topic_name, strlen(topic_name), hashed_key);
+	dht_hash(hashed_key, topic_name);
 	DHT_FIND_SUCCESSOR_ARG arg = {0};
 	dht_init_find_arg(&arg, topic_name, hashed_key, ""); // namespace doesn't matter, acted in target namespace
 	arg.action = DHT_ACTION_REGISTER_TOPIC;
@@ -123,7 +123,7 @@ int dht_subscribe(char *topic_name, char *handler) {
 	}
 
 	char hashed_key[SHA_DIGEST_LENGTH];
-	SHA1(topic_name, strlen(topic_name), hashed_key);
+	dht_hash(hashed_key, topic_name);
 	DHT_FIND_SUCCESSOR_ARG arg = {0};
 	dht_init_find_arg(&arg, topic_name, hashed_key, ""); // namespace doesn't matter, acted in target namespace
 	arg.action = DHT_ACTION_SUBSCRIBE;

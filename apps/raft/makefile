@@ -23,7 +23,7 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${MONITORINC}
 
 all: test handlers copy clients
 
-copy: handlers
+copy: handlers clients test
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp s_create_woofs ./cspot
 	cp s_start_server ./cspot
@@ -38,9 +38,13 @@ copy: handlers
 	cp client_observe ./cspot
 	cp client_put ./cspot
 	cp client_reconfig ./cspot
+	cp test_append_handler ./cspot
+	cp test_client ./cspot
+	cp test_config ./cspot
+	cp test_raft_handler ./cspot
 	cp ../monitor/monitor_invoker ./cspot
 
-test: client_test config_test raft.o raft_client.o raft_utils.o
+test: test_append_handler test_client test_config test_raft_handler raft.o raft_client.o raft_utils.o
 
 clients: client_get client_observe client_put client_reconfig
 
@@ -68,11 +72,11 @@ client_put: client_put.c raft.o raft_client.o raft_utils.o
 client_reconfig: client_reconfig.c raft.o raft_client.o raft_utils.o 
 	${CC} ${CFLAGS} -o client_reconfig client_reconfig.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-client_test: client_test.c raft.o raft_client.o raft_utils.o 
-	${CC} ${CFLAGS} -o client_test client_test.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+test_client: test_client.c raft.o raft_client.o raft_utils.o 
+	${CC} ${CFLAGS} -o test_client test_client.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-config_test: config_test.c raft.o raft_client.o raft_utils.o  
-	${CC} ${CFLAGS} -o config_test config_test.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+test_config: test_config.c raft.o raft_client.o raft_utils.o  
+	${CC} ${CFLAGS} -o test_config test_config.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_append_entries: h_append_entries.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_append_entries/g' ${SHEP_SRC} > h_append_entries_shepherd.c
@@ -115,5 +119,13 @@ s_create_woofs: s_create_woofs.c raft.o raft_client.o raft_utils.o
 s_start_server: s_start_server.c raft.o raft_client.o raft_utils.o
 	${CC} ${CFLAGS} -o s_start_server s_start_server.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+test_append_handler: test_append_handler.c raft.o raft_client.o raft_utils.o
+	${CC} ${CFLAGS} -o test_append_handler test_append_handler.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+test_raft_handler: test_raft_handler.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/test_raft_handler/g' ${SHEP_SRC} > test_raft_handler_shepherd.c
+	${CC} ${CFLAGS} -c test_raft_handler_shepherd.c -o test_raft_handler_shepherd.o
+	${CC} ${CFLAGS} -o test_raft_handler test_raft_handler.c test_raft_handler_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 clean:
-	rm -rf ./cspot raft.o raft_client.o client_test config_test client_get client_put client_reconfig h_count_vote s_create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote s_start_server term_chair h_timeout_checker 
+	rm -rf ./cspot raft.o raft_client.o test_append_handler test_client test_config test_raft_handler client_get client_put client_reconfig h_count_vote s_create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote s_start_server term_chair h_timeout_checker 

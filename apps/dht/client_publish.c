@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 	
 	unsigned long seq = dht_publish(topic, data);
 	if (WooFInvalid(seq)) {
-		fprintf(stderr, "failed to publish data\n");
+		fprintf(stderr, "failed to publish data: %s\n", dht_error_msg);
 		exit(1);
 	}
 	

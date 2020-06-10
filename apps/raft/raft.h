@@ -14,6 +14,7 @@
 #define RAFT_CONFIG_JOINT 1
 #define RAFT_CONFIG_NEW 2
 #define RAFT_LOG_ENTRIES_WOOF "raft_log_entries.woof"
+#define RAFT_LOG_HANDLER_ENTRIES_WOOF "raft_log_entries_handler.woof"
 #define RAFT_SERVER_STATE_WOOF "raft_server_state.woof"
 #define RAFT_HEARTBEAT_WOOF "raft_heartbeat.woof"
 #define RAFT_TIMEOUT_CHECKER_WOOF "raft_timeout_checker.woof"
@@ -45,7 +46,9 @@
 #define RAFT_REPLICATE_ENTRIES_DELAY 100
 #define RAFT_CLIENT_PUT_DELAY 50
 
-#define RAFT_SAMPLING_RATE 10 // number of entries per sample
+#define RAFT_SAMPLING_RATE 0 // number of entries per sample
+
+char raft_error_msg[256];
 
 typedef struct data_type {
 	char val[RAFT_DATA_TYPE_SIZE];
@@ -55,7 +58,13 @@ typedef struct raft_log_entry {
 	unsigned long term;
 	RAFT_DATA_TYPE data;
 	int is_config;
+	int is_handler;
 } RAFT_LOG_ENTRY;
+
+typedef struct raft_log_handler_entry {
+	char handler[RAFT_NAME_LENGTH];
+	char ptr[RAFT_DATA_TYPE_SIZE - RAFT_NAME_LENGTH];
+} RAFT_LOG_HANDLER_ENTRY;
 
 typedef struct raft_server_state {
 	char woof_name[RAFT_NAME_LENGTH];
@@ -108,6 +117,7 @@ typedef struct raft_append_entries_result {
 typedef struct raft_client_put_request {
 	RAFT_DATA_TYPE data;
 	unsigned long created_ts;
+	int is_handler;
 } RAFT_CLIENT_PUT_REQUEST;
 
 typedef struct raft_client_put_arg {
@@ -138,6 +148,7 @@ typedef struct raft_config_change_result {
 typedef struct raft_replicate_entries {
 	unsigned long term;
 	unsigned long last_seen_result_seqno;
+	unsigned long last_ts;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {
@@ -154,11 +165,11 @@ typedef struct raft_request_vote_result {
 	int granted;
 	unsigned long candidate_vote_pool_seqno;
 	unsigned long request_created_ts;
+	char granter[RAFT_NAME_LENGTH];
 } RAFT_REQUEST_VOTE_RESULT;
 
 int get_server_state(RAFT_SERVER_STATE *server_state);
 int random_timeout(unsigned long seed);
-int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int encode_config(char *dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int decode_config(char *src, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);

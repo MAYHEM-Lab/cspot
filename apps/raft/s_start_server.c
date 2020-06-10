@@ -3,14 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-
 #include "woofc.h"
 #include "woofc-host.h"
 #include "raft.h"
+#include "raft_utils.h"
 #include "monitor.h"
 
 #define ARGS "f:o"
-char *Usage = "start_server -f config_file\n\
+char *Usage = "s_start_server -f config_file\n\
 -o as observer\n";
 
 int main(int argc, char **argv) {
@@ -46,9 +46,10 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Can't open config file\n");
 		exit(1);
 	}
+	char name[RAFT_NAME_LENGTH];
 	int members;
 	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-	if (read_config(fp, &members, member_woofs) < 0) {
+	if (read_config(fp, name, &members, member_woofs) < 0) {
 		fprintf(stderr, "Can't read config file\n");
 		fclose(fp);
 		exit(1);

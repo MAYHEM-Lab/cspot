@@ -20,15 +20,18 @@ void log_warn(const char *message, ...);
 void log_error(const char *message, ...);
 
 int get_latest_element(char *woof_name, void *element);
-int read_config(FILE *fp, int *len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
-void dht_init(unsigned char *node_hash, char *node_addr, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH], int replica_id, DHT_TABLE *dht_table);
+int read_config(FILE *fp, char *name, int *len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_init(unsigned char *node_hash, char *node_addr, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
 void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG *arg, char *key, char *hashed_key, char *callback_namespace);
+char *dht_hash(unsigned char *dst, char *src);
 void print_node_hash(char *dst, const unsigned char *id_hash);
 int is_empty(char hash[SHA_DIGEST_LENGTH]);
 int in_range(unsigned char *n, unsigned char *lower, unsigned char *upper);
-void shift_successor_list(unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH]);
-int hmap_set(char *hash, DHT_HASHMAP_ENTRY *entry);
-int hmap_get(char *hash, DHT_HASHMAP_ENTRY *entry);
-int hmap_set_replicas(char *hash, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH], int leader);
+void shift_successor_list(DHT_SUCCESSOR_INFO *successor);
+int get_latest_node_info(DHT_NODE_INFO *element);
+int get_latest_predecessor_info(DHT_PREDECESSOR_INFO *element);
+int get_latest_successor_info(DHT_SUCCESSOR_INFO *element);
+int get_latest_finger_info(int finger_id, DHT_FINGER_INFO *element);
+unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO *element);
 
 #endif

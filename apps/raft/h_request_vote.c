@@ -12,7 +12,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	RAFT_REQUEST_VOTE_ARG *request = (RAFT_REQUEST_VOTE_ARG *)monitor_cast(ptr);
 
 	log_set_tag("request_vote");
-	// log_set_level(LOG_INFO);
+	// log_set_level(RAFT_LOG_INFO);
 	log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
@@ -38,7 +38,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// }
 
 	unsigned long i;
-	RAFT_REQUEST_VOTE_RESULT result;
+	RAFT_REQUEST_VOTE_RESULT result = {0};
 	result.request_created_ts = request->created_ts;
 	result.candidate_vote_pool_seqno = request->candidate_vote_pool_seqno;
 	// deny the request if not a member
@@ -71,7 +71,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
-			RAFT_HEARTBEAT heartbeat;
+			RAFT_HEARTBEAT heartbeat = {0};
 			heartbeat.term = server_state.current_term;
 			heartbeat.timestamp = get_milliseconds();
 			seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -80,7 +80,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(request);
 				exit(1);
 			}
-			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
 			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
 			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
 			if (WooFInvalid(seq)) {
@@ -99,7 +99,7 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(request);
 				exit(1);
 			}
-			RAFT_LOG_ENTRY last_log_entry;
+			RAFT_LOG_ENTRY last_log_entry = {0};
 			if (latest_log_entry > 0) {
 				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry) < 0) {
 					log_error("failed to get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
@@ -125,7 +125,8 @@ int h_request_vote(WOOF *wf, unsigned long seq_no, void *ptr) {
 					exit(1);
 				}
 				result.granted = 1;
-				log_debug("granted vote at term %lu", server_state.current_term);
+				strcpy(result.granter, server_state.woof_name);
+				log_debug("granted vote at term %lu to %s", server_state.current_term, request->candidate_woof);
 			}
 		} else {
 			result.granted = 0;

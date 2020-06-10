@@ -15,7 +15,7 @@ int get_result_delay = 20;
 
 int main(int argc, char **argv) {
 	char config[256];
-	RAFT_DATA_TYPE data;
+	RAFT_DATA_TYPE data = {0};
 	memset(data.val, 0, sizeof(data.val));
 	int sync = 0;
 	int redirect = 0;

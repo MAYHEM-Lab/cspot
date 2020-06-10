@@ -16,21 +16,15 @@ int d_check_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	DHT_TABLE dht_table = {0};
-	if (get_latest_element(DHT_TABLE_WOOF, &dht_table) < 0) {
-		log_error("couldn't get latest dht_table: %s", dht_error_msg);
+	DHT_PREDECESSOR_INFO predecessor = {0};
+	if (get_latest_predecessor_info(&predecessor) < 0) {
+		log_error("couldn't get latest predecessor info: %s", dht_error_msg);
 		exit(1);
 	}
 
-	if (is_empty(dht_table.predecessor_hash)) {
+	if (is_empty(predecessor.hash)) {
 		log_debug("predecessor is nil");
 		return 1;
-	}
-	
-	DHT_HASHMAP_ENTRY predecessor = {0};
-	if (hmap_get(dht_table.predecessor_hash, &predecessor) < 0) {
-		log_error("failed to get predecessor's replicas: %s", dht_error_msg);
-		exit(1);
 	}
 	log_debug("checking predecessor: %s", predecessor.replicas[predecessor.leader]);
 	char *predecessor_addr = predecessor.replicas[predecessor.leader];
@@ -44,8 +38,10 @@ int d_check_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_warn("failed to access predecessor %s", predecessor_addr);
 
 		// predecessor = nil;
-		memset(dht_table.predecessor_hash, 0, sizeof(dht_table.predecessor_hash));
-		seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
+		memset(predecessor.hash, 0, sizeof(predecessor.hash));
+		memset(predecessor.replicas, 0, sizeof(predecessor.replicas));
+		predecessor.leader = 0;
+		seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
 		if (WooFInvalid(seq)) {
 			log_error("failed to set predecessor to nil");
 			exit(1);

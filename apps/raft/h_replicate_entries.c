@@ -50,8 +50,8 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	seq_no = monitor_seqno(ptr);
 
 	log_set_tag("replicate_entries");
-	log_set_level(RAFT_LOG_INFO);
-	// log_set_level(RAFT_LOG_DEBUG);
+	log_set_level(RAFT_LOG_DEBUG);
+	// log_set_level(RAFT_LOG_INFO);
 	log_set_output(stdout);
 
 	// zsys_init() is called automatically when a socket is created
@@ -60,7 +60,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	zsys_init();
 	
 	// get the server's current term and cluster members
-	RAFT_SERVER_STATE server_state;
+	RAFT_SERVER_STATE server_state = {0};
 	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the server state");
 		free(arg);
@@ -74,6 +74,17 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		return 1;
 	}
 
+	if (get_milliseconds() - arg->last_ts < RAFT_REPLICATE_ENTRIES_DELAY) {
+		monitor_exit(ptr);
+		unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
+		if (WooFInvalid(seq)) {
+			log_error("failed to queue the next h_replicate_entries handler");
+			free(arg);
+			exit(1);
+		}
+		return 1;
+	}
+
 	// check previous append_entries_result
 	unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
 	if (WooFInvalid(last_append_result_seqno)) {
@@ -83,7 +94,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	unsigned long result_seq;
 	for (result_seq = arg->last_seen_result_seqno + 1; result_seq <= last_append_result_seqno; ++result_seq) {
-		RAFT_APPEND_ENTRIES_RESULT result;
+		RAFT_APPEND_ENTRIES_RESULT result = {0};
 		if (WooFGet(RAFT_APPEND_ENTRIES_RESULT_WOOF, &result, result_seq) < 0) {
 			log_error("failed to get append_entries result at %lu", result_seq);
 			free(arg);
@@ -92,7 +103,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// if (get_milliseconds() - result.request_created_ts > RAFT_TIMEOUT_MIN) {
 		// 	log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
 		// }
-		if (result_seq % RAFT_SAMPLING_RATE == 0) {
+		if (RAFT_SAMPLING_RATE > 0 && (result_seq % RAFT_SAMPLING_RATE == 0)) {
 			log_debug("request %lu took %lums to receive response", result_seq, get_milliseconds() - result.request_created_ts);
 		}
 		int result_member_id = member_id(result.server_woof, server_state.member_woofs);
@@ -115,7 +126,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
-			RAFT_HEARTBEAT heartbeat;
+			RAFT_HEARTBEAT heartbeat = {0};
 			heartbeat.term = server_state.current_term;
 			heartbeat.timestamp = get_milliseconds();
 			seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -124,7 +135,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(arg);
 				exit(1);
 			}
-			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
 			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
 			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
 			if (WooFInvalid(seq)) {
@@ -140,9 +151,9 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			server_state.next_index[result_member_id] = result.last_entry_seq + 1;
 			if (result.success) {
 				server_state.match_index[result_member_id] = result.last_entry_seq;
-				// log_error("[%lu] success[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno, result_member_id, server_state.next_index[result_member_id]);
+				// log_debug("[%lu] success[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno, result_member_id, server_state.next_index[result_member_id]);
 			} else {
-				// log_error("[%lu] failed[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno, result_member_id, server_state.next_index[result_member_id]);
+				// log_debug("[%lu] failed[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno, result_member_id, server_state.next_index[result_member_id]);
 			}
 		}
 		arg->last_seen_result_seqno = result_seq;
@@ -156,7 +167,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		if (sorted_match_index[i] <= server_state.commit_index) {
 			break;
 		}
-		RAFT_LOG_ENTRY entry;
+		RAFT_LOG_ENTRY entry = {0};
 		if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, sorted_match_index[i]) < 0) {
 			log_error("failed to get the log_entry at %lu", sorted_match_index[i]);
 			free(sorted_match_index);
@@ -179,7 +190,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			if (server_state.current_config == RAFT_CONFIG_JOINT && server_state.commit_index >= server_state.last_config_seqno) {
 				log_info("joint config is committed, appending new config");
 				// append the new config
-				RAFT_LOG_ENTRY config_entry;
+				RAFT_LOG_ENTRY config_entry = {0};
 				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &config_entry, server_state.last_config_seqno) < 0) {
 					log_error("failed to get the commited config %lu", server_state.last_config_seqno);
 					free(sorted_match_index);
@@ -193,9 +204,10 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				log_debug("there are %d members in the new config", new_members);
 
 				// append a config entry to log
-				RAFT_LOG_ENTRY new_config_entry;
+				RAFT_LOG_ENTRY new_config_entry = {0};
 				new_config_entry.term = server_state.current_term;
 				new_config_entry.is_config = RAFT_CONFIG_NEW;
+				new_config_entry.is_handler = 0;
 				if (encode_config(new_config_entry.data.val, new_members, new_member_woofs) < 0) {
 					log_error("failed to encode the new config to a log entry");
 					free(sorted_match_index);
@@ -279,7 +291,7 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			if (thread_arg->arg.prev_log_index == 0) {
 				thread_arg->arg.prev_log_term = 0;
 			} else {
-				RAFT_LOG_ENTRY prev_entry;
+				RAFT_LOG_ENTRY prev_entry = {0};
 				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &prev_entry, thread_arg->arg.prev_log_index) < 0) {
 					log_error("failed to get the previous log entry");
 					free(arg);
@@ -314,7 +326,8 @@ int h_replicate_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	monitor_exit(ptr);
 
-	usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+	// usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+	arg->last_ts = get_milliseconds();
 	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
 	if (WooFInvalid(seq)) {
 		log_error("failed to queue the next h_replicate_entries handler");

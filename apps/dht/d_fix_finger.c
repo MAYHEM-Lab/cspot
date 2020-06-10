@@ -33,20 +33,41 @@ int d_fix_finger(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 	log_debug("index: %lu", arg->finger_index);
 
+	DHT_NODE_INFO node = {0};
+	if (get_latest_node_info(&node) < 0) {
+		log_error("couldn't get latest node info: %s", dht_error_msg);
+		exit(1);
+	}
+
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
 		log_error("failed to get local node's woof name");
 		exit(1);
 	}
-
 	// compute the node hash with SHA1
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	SHA1(woof_name, strlen(woof_name), node_hash);
+	dht_hash(node_hash, woof_name);
 		
 	// finger[i] = find_successor(n + 2^(i-1))
 	// finger_hash = n + 2^(i-1)
 	char hashed_finger_id[SHA_DIGEST_LENGTH];
 	get_finger_id(hashed_finger_id, node_hash, arg->finger_index);
+	if (arg->finger_index > 1) {
+		DHT_FINGER_INFO finger = {0};
+		if (get_latest_finger_info(arg->finger_index - 1, &finger) < 0) {
+			log_error("failed to get finger[%d]'s info: %s", arg->finger_index - 1, dht_error_msg);
+			exit(1);
+		}
+		// if this finger's hash is covered by the previous finger's range, no need to find_successor
+		if (in_range(hashed_finger_id, node.hash, finger.hash) || memcmp(hashed_finger_id, node.hash, SHA_DIGEST_LENGTH) == 0) {
+			unsigned long seq = set_finger_info(arg->finger_index, &finger);
+			if (WooFInvalid(seq)) {
+				log_error("failed to update finger[%d]", arg->finger_index);
+				exit(1);
+			}
+			return 1;
+		}
+	}
 	DHT_FIND_SUCCESSOR_ARG find_sucessor_arg = {0};
 	dht_init_find_arg(&find_sucessor_arg, "", hashed_finger_id, woof_name);
 	find_sucessor_arg.action = DHT_ACTION_FIX_FINGER;

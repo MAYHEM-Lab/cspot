@@ -14,17 +14,17 @@ int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 	log_set_output(stdout);
 
 	unsigned long now = get_milliseconds();
-	log_debug("since last stablize: %lums", now - arg->last_stablize);
+	log_debug("since last stabilize: %lums", now - arg->last_stabilize);
 	log_debug("since last check_predecessor: %lums", now - arg->last_check_predecessor);
 	log_debug("since last fix_finger: %lums", now - arg->last_fix_finger);
 
-	if (now - arg->last_stablize > DHT_STABLIZE_FREQUENCY) {
-		DHT_STABLIZE_ARG stablize_arg;
-		unsigned long seq = WooFPut(DHT_STABLIZE_WOOF, "d_stablize", &stablize_arg);
+	if (now - arg->last_stabilize > DHT_STABILIZE_FREQUENCY) {
+		DHT_STABILIZE_ARG stabilize_arg;
+		unsigned long seq = WooFPut(DHT_STABILIZE_WOOF, "d_stabilize", &stabilize_arg);
 		if (WooFInvalid(seq)) {
-			log_error("failed to invoke d_stablize");
+			log_error("failed to invoke d_stabilize");
 		}
-		arg->last_stablize = now;
+		arg->last_stabilize = now;
 	}
 
 	if (now - arg->last_check_predecessor > DHT_CHECK_PREDECESSOR_FRQUENCY) {
@@ -50,7 +50,7 @@ int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 
-	usleep(50 * 1000);
+	// usleep(50 * 1000);
 	unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
 	if (WooFInvalid(seq)) {
 		log_error("failed to invoke next d_daemon");

@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
 	}
 	
 	if (dht_subscribe(topic, handler) < 0) {
-		fprintf(stderr, "failed to subscribe to topic\n");
+		fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
 		exit(1);
 	}
 	

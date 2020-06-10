@@ -21,35 +21,33 @@ int h_fix_finger_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		exit(1);
 	}
 
-	DHT_TABLE dht_table = {0};
-	if (get_latest_element(DHT_TABLE_WOOF, &dht_table) < 0) {
-		log_error("couldn't get latest dht_table: %s", dht_error_msg);
-		exit(1);
-	}
 	log_debug("find_successor leader: %s(%d)", arg->node_replicas[arg->node_leader], arg->node_leader);
 
 	// finger[i] = find_successor(x);
 	int i = arg->finger_index;
+	DHT_FINGER_INFO finger = {0};
+	if (get_latest_finger_info(i, &finger) < 0) {
+		log_error("failed to get finger[%d]'s info: %s", i, dht_error_msg);
+		exit(1);
+	}
 	// sprintf(msg, "current finger_addr[%d] = %s, %s", i, dht_table.finger_addr[i], result->node_addr);
 	// log_info("fix_fingers_callback", msg);
-	if (memcmp(dht_table.finger_hash[i], arg->node_hash, SHA_DIGEST_LENGTH) == 0) {
+	if (memcmp(finger.hash, arg->node_hash, SHA_DIGEST_LENGTH) == 0) {
 		log_debug("no need to update finger_addr[%d]", i);
 		return 1;
 	}
 	
-	if (hmap_set_replicas(arg->node_hash, arg->node_replicas, arg->node_leader) < 0) {
-		log_error("failed to put finger's replicas in hashmap: %s", dht_error_msg);
-		exit(1);
-	}
-	memcpy(dht_table.finger_hash[i], arg->node_hash, sizeof(dht_table.finger_hash[i]));
-	unsigned long seq = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
+	memcpy(finger.hash, arg->node_hash, sizeof(finger.hash));
+	memcpy(finger.replicas, arg->node_replicas, sizeof(finger.replicas));
+	finger.leader = arg->node_leader;
+	unsigned long seq = set_finger_info(i, &finger);
 	if (WooFInvalid(seq)) {
 		log_error("failed to update finger[%d]", i);
 		exit(1);
 	}
 
 	char hash_str[2 * SHA_DIGEST_LENGTH + 1];
-	print_node_hash(hash_str, dht_table.finger_hash[i]);
+	print_node_hash(hash_str, finger.hash);
 	log_debug("updated finger_addr[%d] = %s(%s)", i, arg->node_replicas[arg->node_leader], hash_str);
 
 	return 1;

@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <sys/time.h>
+#include "raft.h"
 #include "raft_utils.h"
 
 char log_tag[1024];
-int raft_log_level;
-FILE *raft_log_output;
+int log_level;
+FILE *log_output;
 
 unsigned long get_milliseconds() {
     struct timeval tv;
@@ -29,8 +30,7 @@ int node_woof_name(char *node_woof) {
 	}
 	err = WooFLocalIP(local_ip, sizeof(local_ip));
 	if (err < 0) {
-		fprintf(stderr, "no local IP\n");
-		fflush(stderr);
+		sprintf(raft_error_msg, "no local IP\n");
 		return -1;
 	}
 	sprintf(node_woof, "woof://%s%s", local_ip, namespace);
@@ -42,69 +42,100 @@ void log_set_tag(const char *tag) {
 }
 
 void log_set_level(int level) {
-	raft_log_level = level;
+	log_level = level;
 }
 
 void log_set_output(FILE *file) {
-	raft_log_output = file;
+	log_output = file;
 }
 
 void log_debug(const char *message, ...) {
-	if (raft_log_level > RAFT_LOG_DEBUG) {
+	if (log_output == NULL || log_level > RAFT_LOG_DEBUG) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;34m");
-	fprintf(raft_log_output, "DEBUG| %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(log_output, "\033[0;34m");
+	fprintf(log_output, "DEBUG| %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(log_output, message, argptr);
+	fprintf(log_output, "\033[0m\n");
     va_end(argptr);
 }
 
 void log_info(const char *message, ...) {
-	if (raft_log_level > RAFT_LOG_INFO) {
+	if (log_output == NULL || log_level > RAFT_LOG_INFO) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;32m");
-	fprintf(raft_log_output, "INFO | %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(log_output, "\033[0;32m");
+	fprintf(log_output, "INFO | %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(log_output, message, argptr);
+	fprintf(log_output, "\033[0m\n");
     va_end(argptr);
 }
 
 void log_warn(const char *message, ...) {
-	if (raft_log_level > RAFT_LOG_WARN) {
+	if (log_output == NULL || log_level > RAFT_LOG_WARN) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;33m");
-	fprintf(raft_log_output, "WARN | %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(log_output, "\033[0;33m");
+	fprintf(log_output, "WARN | %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(log_output, message, argptr);
+	fprintf(log_output, "\033[0m\n");
     va_end(argptr);
 }
 
 void log_error(const char *message, ...) {
-	if (raft_log_level > RAFT_LOG_ERROR) {
+	if (log_output == NULL || log_level > RAFT_LOG_ERROR) {
 		return;
 	}
 	time_t now;
 	time(&now);
 	va_list argptr;
     va_start(argptr, message);
-	fprintf(raft_log_output, "\033[0;31m");
-	fprintf(raft_log_output, "ERROR| %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
-    vfprintf(raft_log_output, message, argptr);
-	fprintf(raft_log_output, "\033[0m\n");
+	fprintf(log_output, "\033[0;31m");
+	fprintf(log_output, "ERROR| %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds()% 1000, log_tag);
+    vfprintf(log_output, message, argptr);
+	fprintf(log_output, "\033[0m\n");
     va_end(argptr);
+}
+
+int read_config(FILE *fp, char *name, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
+	char buffer[256];
+	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+		sprintf(raft_error_msg, "wrong format of config file\n");
+		return -1;
+	}
+	strcpy(name, buffer);
+	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+		sprintf(raft_error_msg, "wrong format of config file\n");
+		return -1;
+	}
+	*members = (int)strtol(buffer, (char **)NULL, 10);
+	if (*members == 0) {
+		sprintf(raft_error_msg, "wrong format of config file\n");
+		return -1;
+	}
+	int i;
+	for (i = 0; i < *members; ++i) {
+		if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+			sprintf(raft_error_msg, "wrong format of config file\n");
+			return -1;
+		}
+		buffer[strcspn(buffer, "\n")] = 0;
+		if (buffer[strlen(buffer) - 1] == '/') {
+			buffer[strlen(buffer) - 1] = 0;
+		}
+		strcpy(member_woofs[i], buffer);
+	}
+	return 0;
 }

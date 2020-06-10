@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
 	}
 	fclose(fp);
 
-	RAFT_DATA_TYPE data;
+	RAFT_DATA_TYPE data = {0};
 	unsigned long term;
 	if (index > 0) {
 		term = raft_sync_get(&data, index, 1);

@@ -22,6 +22,7 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE *data, int timeout); // return log in
 unsigned long raft_async_put(RAFT_DATA_TYPE *data); // return client_put request seqno
 unsigned long raft_sync_get(RAFT_DATA_TYPE *data, unsigned long index, int committed_only); // return term or ERROR
 unsigned long raft_async_get(RAFT_DATA_TYPE *data, unsigned long client_put_seqno); // return term or ERROR
+unsigned long raft_put_handler(char *handler, void *data, unsigned long size, int timeout);
 int raft_client_put_result(unsigned long *index, unsigned long *term, unsigned long seq_no); 
 int raft_config_change(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int timeout);
 int raft_observe(int timeout);

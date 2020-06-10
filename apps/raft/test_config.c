@@ -5,7 +5,7 @@
 #include "raft.h"
 
 int test_encode_decode() {
-	RAFT_DATA_TYPE data;
+	RAFT_DATA_TYPE data = {0};
 	int members = 3;
 	char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 	sprintf(member_woofs[0], "woof://192.168.0.1/home/centos/cspot1");

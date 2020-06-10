@@ -21,11 +21,13 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {
 	DHT_NOTIFY_CALLBACK_WOOF,
 	DHT_NOTIFY_WOOF,
 	DHT_REGISTER_TOPIC_WOOF,
-	DHT_STABLIZE_WOOF,
-	DHT_STABLIZE_CALLBACK_WOOF,
+	DHT_STABILIZE_WOOF,
+	DHT_STABILIZE_CALLBACK_WOOF,
 	DHT_SUBSCRIBE_WOOF,
-	DHT_TABLE_WOOF,
-	DHT_TRIGGER_WOOF
+	DHT_TRIGGER_WOOF,
+	DHT_NODE_INFO_WOOF,
+	DHT_PREDECESSOR_INFO_WOOF,
+	DHT_SUCCESSOR_INFO_WOOF,
 };
 
 unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
@@ -41,18 +43,49 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
 	sizeof(DHT_NOTIFY_CALLBACK_ARG),
 	sizeof(DHT_NOTIFY_ARG),
 	sizeof(DHT_REGISTER_TOPIC_ARG),
-	sizeof(DHT_STABLIZE_ARG),
-	sizeof(DHT_STABLIZE_CALLBACK_ARG),
+	sizeof(DHT_STABILIZE_ARG),
+	sizeof(DHT_STABILIZE_CALLBACK_ARG),
 	sizeof(DHT_SUBSCRIBE_ARG),
-	sizeof(DHT_TABLE),
-	sizeof(DHT_TRIGGER_ARG)
+	sizeof(DHT_TRIGGER_ARG),
+	sizeof(DHT_NODE_INFO),
+	sizeof(DHT_PREDECESSOR_INFO),
+	sizeof(DHT_SUCCESSOR_INFO),
+};
+
+unsigned long DHT_ELEMENT_SIZE[] = {
+	DHT_HISTORY_LENGTH_SHORT, //DHT_CHECK_PREDECESSOR_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_DAEMON_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_FIND_NODE_RESULT_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_FIND_SUCCESSOR_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_FIX_FINGER_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_FIX_FINGER_CALLBACK_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_GET_PREDECESSOR_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_INVOCATION_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_JOIN_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_NOTIFY_CALLBACK_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_NOTIFY_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_REGISTER_TOPIC_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_STABILIZE_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_STABILIZE_CALLBACK_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_SUBSCRIBE_WOOF,
+	DHT_HISTORY_LENGTH_LONG, //DHT_TRIGGER_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_NODE_INFO_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_PREDECESSOR_INFO_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_SUCCESSOR_INFO_WOOF,
 };
 
 int dht_create_woofs() {
 	int num_woofs = sizeof(DHT_WOOF_TO_CREATE) / DHT_NAME_LENGTH;
 	int i;
 	for (i = 0; i < num_woofs; ++i) {
-		if (WooFCreate(DHT_WOOF_TO_CREATE[i], DHT_WOOF_ELEMENT_SIZE[i], DHT_HISTORY_LENGTH_LONG) < 0) {
+		if (WooFCreate(DHT_WOOF_TO_CREATE[i], DHT_WOOF_ELEMENT_SIZE[i], DHT_ELEMENT_SIZE[i]) < 0) {
+			return -1;
+		}
+	}
+	char finger_woof_name[DHT_NAME_LENGTH];
+	for (i = 1; i < SHA_DIGEST_LENGTH * 8 + 1; ++i) {
+		sprintf(finger_woof_name, "%s%d", DHT_FINGER_INFO_WOOF, i);
+		if (WooFCreate(finger_woof_name, sizeof(DHT_FINGER_INFO), DHT_HISTORY_LENGTH_LONG) < 0) {
 			return -1;
 		}
 	}
@@ -60,8 +93,8 @@ int dht_create_woofs() {
 }
 
 int dht_start_daemon() {
-	DHT_DAEMON_ARG arg;
-	arg.last_stablize = 0;
+	DHT_DAEMON_ARG arg = {0};
+	arg.last_stabilize = 0;
 	arg.last_check_predecessor = 0;
 	arg.last_fix_finger = 0;
 	arg.last_fixed_finger_index = 1;
@@ -72,7 +105,7 @@ int dht_start_daemon() {
 	return 0;
 }
 
-int dht_create_cluster(char *woof_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+int dht_create_cluster(char *woof_name, char *node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
 	int replica_id;
 	for (replica_id = 0; replica_id < DHT_REPLICA_NUMBER; ++replica_id) {
 		if (strcmp(woof_name, replicas[replica_id]) == 0) {
@@ -90,18 +123,10 @@ int dht_create_cluster(char *woof_name, char replicas[DHT_REPLICA_NUMBER][DHT_NA
 	}
 
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	SHA1(woof_name, strlen(woof_name), node_hash);
-	
-	if (hmap_set_replicas(node_hash, replicas, replica_id) < 0) {
-		sprintf(dht_error_msg, "failed to set node's replicas in hashmap: %s", dht_error_msg);
-		return -1;
-	}
+	dht_hash(node_hash, node_name);
 
-	DHT_TABLE dht_table = {0};
-	dht_init(node_hash, woof_name, replicas, replica_id, &dht_table);
-	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
-	if (WooFInvalid(seq_no)) {
-		sprintf(dht_error_msg, "failed to initialize DHT to woof %s", DHT_TABLE_WOOF);
+	if (dht_init(node_hash, woof_name, replicas) < 0) {
+		sprintf(dht_error_msg, "failed to initialize DHT: %s", dht_error_msg);
 		return -1;
 	}
 
@@ -109,17 +134,20 @@ int dht_create_cluster(char *woof_name, char replicas[DHT_REPLICA_NUMBER][DHT_NA
 		sprintf(dht_error_msg, "failed to start daemon");
 		return -1;
 	}
-	char h[DHT_NAME_LENGTH];
-	print_node_hash(h, node_hash);
-	printf("node_hash: %s\nnode_addr: %s\nid: %d\n", h, woof_name, replica_id);
+	char hash_str[DHT_NAME_LENGTH];
+	print_node_hash(hash_str, node_hash);
+	printf("node_name: %s\nnode_hash: %s\nnode_addr: %s\nid: %d\n", node_name, hash_str, woof_name, replica_id);
 	int i;
 	for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+		if (replicas[i][0] == 0) {
+			break;
+		}
 		printf("replica: %s\n", replicas[i]);
 	}
 	return 0;
 }
 
-int dht_join_cluster(char *node_woof, char *woof_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+int dht_join_cluster(char *node_woof, char *woof_name, char *node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
 	int replica_id;
 	for (replica_id = 0; replica_id < DHT_REPLICA_NUMBER; ++replica_id) {
 		if (strcmp(woof_name, replicas[replica_id]) == 0) {
@@ -137,18 +165,10 @@ int dht_join_cluster(char *node_woof, char *woof_name, char replicas[DHT_REPLICA
 	}
 
 	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	SHA1(woof_name, strlen(woof_name), node_hash);
-
-	if (hmap_set_replicas(node_hash, replicas, replica_id) < 0) {
-		sprintf(dht_error_msg, "failed to set node's replicas in hashmap: %s", dht_error_msg);
-		return -1;
-	}
+	dht_hash(node_hash, node_name);
 	
-	DHT_TABLE dht_table;
-	dht_init(node_hash, woof_name, replicas, replica_id, &dht_table);
-	unsigned long seq_no = WooFPut(DHT_TABLE_WOOF, NULL, &dht_table);
-	if (WooFInvalid(seq_no)) {
-		sprintf(dht_error_msg, "failed to initialize DHT");
+	if (dht_init(node_hash, woof_name, replicas) < 0) {
+		sprintf(dht_error_msg, "failed to initialize DHT: %s", dht_error_msg);
 		return -1;
 	}
 
@@ -160,8 +180,8 @@ int dht_join_cluster(char *node_woof, char *woof_name, char replicas[DHT_REPLICA
 	} else {
 		sprintf(node_woof, "%s/%s", node_woof, DHT_FIND_SUCCESSOR_WOOF);
 	}
-	seq_no = WooFPut(node_woof, "h_find_successor", &arg);
-	if (WooFInvalid(seq_no)) {
+	unsigned long seq = WooFPut(node_woof, "h_find_successor", &arg);
+	if (WooFInvalid(seq)) {
 		sprintf(dht_error_msg, "failed to invoke find_successor on %s", node_woof);
 		return -1;
 	}

@@ -5,7 +5,7 @@
 #include "raft_client.h"
 
 #define ARGS "f:c:t:s"
-char *Usage = "client_test -f config_file -c count\n\
+char *Usage = "test_client -f config_file -c count\n\
 -s for synchronously put, -t timeout\n";
 
 int main(int argc, char **argv) {
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 	if (sync) {
 		int i;
 		for (i = 0; i < count; ++i) {
-			RAFT_DATA_TYPE data;
+			RAFT_DATA_TYPE data = {0};
 			sprintf(data.val, "sync_%d", i);
 			unsigned long index = raft_sync_put(&data, timeout);
 			while (index == RAFT_REDIRECTED) {
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
 		unsigned long seq[count];
 		int i;
 		for (i = 0; i < count; ++i) {
-			RAFT_DATA_TYPE data;
+			RAFT_DATA_TYPE data = {0};
 			sprintf(data.val, "async_%d", i);
 			seq[i] = raft_async_put(&data);
 			if (raft_is_error(seq[i])) {

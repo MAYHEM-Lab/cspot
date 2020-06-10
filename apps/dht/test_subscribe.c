@@ -12,8 +12,8 @@
 #include "dht_utils.h"
 
 #define TEST_TOPIC "test"
-#define TEST_HANDLER "test_handler"
-#define TEST_MESSAGE "test message"
+#define TEST_HANDLER "test_dht_handler"
+#define TEST_MESSAGE "test_message"
 #define TEST_COUNT 10
 
 typedef struct test_stc {

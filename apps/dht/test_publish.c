@@ -12,7 +12,7 @@
 #include "dht_client.h"
 
 #define TEST_TOPIC "test"
-#define TEST_HANDLER "test_handler"
+#define TEST_HANDLER "test_dht_handler"
 
 typedef struct test_stc {
 	char msg[256];

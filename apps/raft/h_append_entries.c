@@ -14,19 +14,19 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 	seq_no = monitor_seqno(ptr);
 
 	log_set_tag("append_entries");
-	// log_set_level(RAFT_LOG_INFO);
-	log_set_level(RAFT_LOG_DEBUG);
+	log_set_level(RAFT_LOG_INFO);
+	// log_set_level(RAFT_LOG_DEBUG);
 	log_set_output(stdout);
 
 	// get the server's current term
-	RAFT_SERVER_STATE server_state;
+	RAFT_SERVER_STATE server_state = {0};
 	if (get_server_state(&server_state) < 0) {
 		log_error("failed to get the server's latest state");
 		free(request);
 		exit(1);
 	}
 
-	RAFT_APPEND_ENTRIES_RESULT result;
+	RAFT_APPEND_ENTRIES_RESULT result = {0};
 	result.request_created_ts = request->created_ts;
 	result.seqno = seq_no;
 	memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
@@ -43,7 +43,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// fail the request from lower term
 		result.term = server_state.current_term;
 		result.success = 0;
-		// log_debug("received a previous request [%lu]", seq_no);
+		log_debug("received a previous request [%lu]", seq_no);
 	} else {
 		if (request->term == server_state.current_term && server_state.role == RAFT_LEADER) {
 			log_error("fatal error: receiving append_entries request at term %lu while being a leader", server_state.current_term);
@@ -65,10 +65,12 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 		} else if (request->term > server_state.current_term || (request->term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
 			// fall back to follower
 			log_debug("request term %lu is higher, fall back to follower", request->term);
-			server_state.current_term = request->term;
+			if (request->term > server_state.current_term) {
+				server_state.current_term = request->term;
+				memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
+			}
 			server_state.role = RAFT_FOLLOWER;
 			strcpy(server_state.current_leader, request->leader_woof);
-			memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
 			unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
 			if (WooFInvalid(seq)) {
 				log_error("failed to fall back to follower at term %lu", request->term);
@@ -76,7 +78,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				exit(1);
 			}
 			log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
-			RAFT_HEARTBEAT heartbeat;
+			RAFT_HEARTBEAT heartbeat = {0};
 			heartbeat.term = server_state.current_term;
 			heartbeat.timestamp = get_milliseconds();
 			seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -85,7 +87,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 				free(request);
 				exit(1);
 			}
-			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+			RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
 			timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
 			seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
 			if (WooFInvalid(seq)) {
@@ -95,7 +97,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			}
 		}
 		// it's a valid append_entries request, treat as a heartbeat from leader
-		RAFT_HEARTBEAT heartbeat;
+		RAFT_HEARTBEAT heartbeat = {0};
 		heartbeat.term = server_state.current_term;
 		heartbeat.timestamp = get_milliseconds();
 		unsigned long seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -104,7 +106,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			free(request);
 			exit(1);
 		}
-		// log_debug("received a heartbeat [%lu]", seq_no);
+		log_debug("received a heartbeat [%lu]", seq_no);
 
 		// check if the previous log matches with the leader
 		unsigned long last_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
@@ -115,7 +117,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 			result.last_entry_seq = last_entry_seqno;
 		} else {
 			// read the previous log entry
-			RAFT_LOG_ENTRY previous_entry;
+			RAFT_LOG_ENTRY previous_entry = {0};
 			if (request->prev_log_index > 0) {
 				if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &previous_entry, request->prev_log_index) < 0) {
 					log_error("failed to get log entry at prev_log_index %lu", request->prev_log_index);
@@ -154,7 +156,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 						exit(1);
 					}
 					// if this entry is a config entry, update server config
-					if (request->entries[i].is_config > 0) {
+					if (request->entries[i].is_config) {
 						int new_members;
 						char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 						if (decode_config(request->entries[i].data.val, &new_members, new_member_woofs) < 0) {
@@ -169,7 +171,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 						// if the observer is in the new config, start as follower
 						if (server_state.role == RAFT_OBSERVER && member_id(server_state.woof_name, server_state.member_woofs) < server_state.members) {
 							server_state.role = RAFT_FOLLOWER;
-							RAFT_HEARTBEAT heartbeat;
+							RAFT_HEARTBEAT heartbeat = {0};
 							heartbeat.term = server_state.current_term;
 							heartbeat.timestamp = get_milliseconds();
 							seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -178,7 +180,7 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 								free(request);
 								exit(1);
 							}
-							RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+							RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
 							timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
 							seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
 							if (WooFInvalid(seq)) {
@@ -199,6 +201,17 @@ int h_append_entries(WOOF *wf, unsigned long seq_no, void *ptr) {
 						} else if (server_state.current_config == RAFT_CONFIG_NEW) {
 							log_info("start using new config with %d members at term %lu", server_state.members, server_state.current_term);
 						}
+					}
+					// if it's a handler entry, invoke the handler
+					if (request->entries[i].is_handler) {
+						RAFT_LOG_HANDLER_ENTRY *handler_entry = (RAFT_LOG_HANDLER_ENTRY *)(&request->entries[i].data);
+						unsigned long invoked_seq = WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+						if (WooFInvalid(invoked_seq)) {
+							log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
+							free(request);
+							exit(1);
+						}
+						log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
 					}
 				}
 				unsigned long last_entry_seq = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);

@@ -7,13 +7,13 @@
 #include "monitor.h"
 
 char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_LOG_ENTRIES_WOOF, RAFT_SERVER_STATE_WOOF, RAFT_HEARTBEAT_WOOF, RAFT_TIMEOUT_CHECKER_WOOF,
-	RAFT_APPEND_ENTRIES_ARG_WOOF, RAFT_APPEND_ENTRIES_RESULT_WOOF,
+	RAFT_APPEND_ENTRIES_ARG_WOOF, RAFT_APPEND_ENTRIES_RESULT_WOOF, RAFT_LOG_HANDLER_ENTRIES_WOOF,
 	RAFT_CLIENT_PUT_REQUEST_WOOF, RAFT_CLIENT_PUT_ARG_WOOF, RAFT_CLIENT_PUT_RESULT_WOOF,
 	RAFT_CONFIG_CHANGE_ARG_WOOF, RAFT_CONFIG_CHANGE_RESULT_WOOF, RAFT_REPLICATE_ENTRIES_WOOF,
 	RAFT_REQUEST_VOTE_ARG_WOOF, RAFT_REQUEST_VOTE_RESULT_WOOF};
 
 unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_LOG_ENTRY), sizeof(RAFT_SERVER_STATE), sizeof(RAFT_HEARTBEAT), sizeof(RAFT_TIMEOUT_CHECKER_ARG),
-	sizeof(RAFT_APPEND_ENTRIES_ARG), sizeof(RAFT_APPEND_ENTRIES_RESULT),
+	sizeof(RAFT_APPEND_ENTRIES_ARG), sizeof(RAFT_APPEND_ENTRIES_RESULT), sizeof(RAFT_LOG_HANDLER_ENTRY),
 	sizeof(RAFT_CLIENT_PUT_REQUEST), sizeof(RAFT_CLIENT_PUT_ARG), sizeof(RAFT_CLIENT_PUT_RESULT),
 	sizeof(RAFT_CONFIG_CHANGE_ARG), sizeof(RAFT_CONFIG_CHANGE_RESULT), sizeof(RAFT_REPLICATE_ENTRIES_ARG),
 	sizeof(RAFT_REQUEST_VOTE_ARG), sizeof(RAFT_REQUEST_VOTE_RESULT)};
@@ -32,32 +32,6 @@ int get_server_state(RAFT_SERVER_STATE *server_state) {
 int random_timeout(unsigned long seed) {
 	srand(seed);
 	return RAFT_TIMEOUT_MIN + (rand() % (RAFT_TIMEOUT_MAX - RAFT_TIMEOUT_MIN));
-}
-
-int read_config(FILE *fp, int *members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
-	char buffer[256];
-	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-		fprintf(stderr, "wrong format of config file\n");
-		return -1;
-	}
-	*members = (int)strtol(buffer, (char **)NULL, 10);
-	if (*members == 0) {
-		fprintf(stderr, "wrong format of config file\n");
-		return -1;
-	}
-	int i;
-	for (i = 0; i < *members; ++i) {
-		if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-			fprintf(stderr, "wrong format of config file\n");
-			return -1;
-		}
-		buffer[strcspn(buffer, "\n")] = 0;
-		if (buffer[strlen(buffer) - 1] == '/') {
-			buffer[strlen(buffer) - 1] = 0;
-		}
-		strcpy(member_woofs[i], buffer);
-	}
-	return 0;
 }
 
 int member_id(char *woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
@@ -173,7 +147,7 @@ int raft_create_woofs() {
 }
 
 int raft_start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH], int observer) {
-	RAFT_SERVER_STATE server_state;
+	RAFT_SERVER_STATE server_state = {0};
 	server_state.members = members;
 	memcpy(server_state.member_woofs, member_woofs, sizeof(server_state.member_woofs));
 	server_state.current_term = 0;
@@ -209,7 +183,7 @@ int raft_start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX
 		printf("%d: %s\n", i + 1, server_state.member_woofs[i]);
 	}
 
-	RAFT_HEARTBEAT heartbeat;
+	RAFT_HEARTBEAT heartbeat = {0};
 	heartbeat.term = 0;
 	heartbeat.timestamp = get_milliseconds();
 	seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
@@ -219,7 +193,7 @@ int raft_start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX
 	}
 	printf("Put a heartbeat\n");
 
-	RAFT_CLIENT_PUT_ARG client_put_arg;
+	RAFT_CLIENT_PUT_ARG client_put_arg = {0};
 	client_put_arg.last_seqno = 0;
 	seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg);
 	if (WooFInvalid(seq)) {
@@ -227,7 +201,7 @@ int raft_start_server(int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX
 		return -1;
 	}
 	if (!observer) {
-		RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg;
+		RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
 		timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
 		seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
 		if (WooFInvalid(seq)) {
