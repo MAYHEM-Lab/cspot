@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <openssl/sha.h>
 #include <sys/stat.h>
 #include "dht.h"
 #include "dht_utils.h"
@@ -125,6 +126,9 @@ int read_config(FILE *fp, char *name, int *len, char replicas[DHT_REPLICA_NUMBER
 		return -1;
 	}
 	strcpy(name, buffer);
+	if (name[strlen(name) - 1] == '\n') {
+		name[strlen(name)] = 0;
+	}
 	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
 		sprintf(dht_error_msg, "wrong format of config file\n");
 		return -1;

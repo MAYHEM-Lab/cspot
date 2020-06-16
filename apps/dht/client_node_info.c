@@ -9,6 +9,9 @@
 #include "woofc-host.h"
 #include "dht.h"
 #include "dht_utils.h"
+#ifdef USE_RAFT
+#include "raft_client.h"
+#endif
 
 int main(int argc, char **argv) {
 	WooFInit();
@@ -33,6 +36,13 @@ int main(int argc, char **argv) {
 	char woof_name[DHT_NAME_LENGTH];
 	char hash[DHT_NAME_LENGTH];
 	// node
+#ifdef USE_RAFT
+	if (raft_is_leader()) {
+		printf("leader: yes\n");
+	} else {
+		printf("leader: no\n");
+	}
+#endif
 	print_node_hash(hash, node.hash);
 	printf("node_hash: %s\n", hash);
 	printf("node_addr: %s\n", node.addr);

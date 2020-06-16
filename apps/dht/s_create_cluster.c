@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include <openssl/sha.h>
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"

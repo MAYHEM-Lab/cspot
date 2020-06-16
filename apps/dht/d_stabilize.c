@@ -13,7 +13,7 @@ int d_stabilize(WOOF *wf, unsigned long seq_no, void *ptr) {
 	char woof_name[DHT_NAME_LENGTH];
 	if (node_woof_name(woof_name) < 0) {
 		log_error("failed to get local node's woof name");
-		return;
+		exit(1);
 	}
 
 	DHT_NODE_INFO node = {0};
@@ -71,35 +71,48 @@ int d_stabilize(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 		log_info("successor set to self");
 	} else {
-		char *successor_addr = successor.replicas[0][successor.leader[0]];
-		log_debug("current successor_addr: %s", successor_addr);
-
 		// x = successor.predecessor
-		DHT_GET_PREDECESSOR_ARG arg = {0};
-		sprintf(arg.callback_woof, "%s/%s", woof_name, DHT_STABILIZE_CALLBACK_WOOF);
-		sprintf(arg.callback_handler, "h_stabilize_callback");
-		char successor_woof_name[DHT_NAME_LENGTH];
-		while (successor_addr[0] != 0) {
+		DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
+		sprintf(get_predecessor_arg.callback_woof, "%s/%s", woof_name, DHT_STABILIZE_CALLBACK_WOOF);
+		sprintf(get_predecessor_arg.callback_handler, "h_stabilize_callback");
+
+		int tried = 0;
+		while (tried < DHT_REPLICA_NUMBER) {
+			char *successor_addr = successor.replicas[0][successor.leader[0]];
+			log_debug("current successor_addr: %s", successor_addr);
+
+			char successor_woof_name[DHT_NAME_LENGTH];
 			sprintf(successor_woof_name, "%s/%s", successor_addr, DHT_GET_PREDECESSOR_WOOF);
-			unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &arg);
+			unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
 			if (WooFInvalid(seq)) {
 				log_warn("failed to invoke h_get_predecessor", successor_woof_name);
-// TODO: use the next replica first
-				// failed to contact successor, use the next one
-				shift_successor_list(&successor);
+				do {
+					successor.leader[0] = (successor.leader[0] + 1) % DHT_REPLICA_NUMBER;
+					++tried;
+				} while (successor.replicas[successor.leader[0]][0] == 0);
 				seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
 				if (WooFInvalid(seq)) {
-					log_error("failed to shift successor");
+					log_error("failed to try the next successor replica");
 					exit(1);
 				}
-				log_debug("successor shifted. new: %s", successor.replicas[0][successor.leader[0]]);
+				log_warn("try next successor replica %s", successor.replicas[0][successor.leader[0]]);
 				continue;
 			}
 			log_debug("asked to get_predecessor from %s", successor_woof_name);
 			return 1;
 		}
-		log_error("fatal error: none of the successors is responding");
-		exit(1);
+
+		if (tried >= DHT_REPLICA_NUMBER) {
+			// failed to contact successor, use the next one
+			shift_successor_list(&successor);
+			unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+			if (WooFInvalid(seq)) {
+				log_error("failed to shift successor");
+				exit(1);
+			}
+			log_debug("successor shifted. new: %s", successor.replicas[0][successor.leader[0]]);
+			log_warn("none of successor's replica is responding, use the next successor in line");
+		}
 	}
 	
 	return 1;

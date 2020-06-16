@@ -21,12 +21,23 @@ unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_LOG_ENTRY), sizeof(RAFT_SE
 int get_server_state(RAFT_SERVER_STATE *server_state) {
 	unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
 	if (WooFInvalid(last_server_state)) {
+		sprintf(raft_error_msg, "failed to get the latest seqno of server_state");
 		return -1;
 	}
 	if (WooFGet(RAFT_SERVER_STATE_WOOF, server_state, last_server_state) < 0) {
+		sprintf(raft_error_msg, "failed to get the latest server_state");
 		return -1;
 	}
 	return 0;
+}
+
+int raft_is_leader() {
+	RAFT_SERVER_STATE server_state = {0};
+	if (get_server_state(&server_state) < 0) {
+		sprintf(raft_error_msg, "failed to get the current server_state");
+		return -1;
+	}
+	return server_state.role == RAFT_LEADER;
 }
 
 int random_timeout(unsigned long seed) {

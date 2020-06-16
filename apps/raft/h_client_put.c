@@ -14,8 +14,8 @@ int h_client_put(WOOF *wf, unsigned long seq_no, void *ptr) {
 	seq_no = monitor_seqno(ptr);
 	
 	log_set_tag("client_put");
-	// log_set_level(LOG_INFO);
-	log_set_level(RAFT_LOG_DEBUG);
+	// log_set_level(RAFT_LOG_DEBUG);
+	log_set_level(RAFT_LOG_INFO);
 	log_set_output(stdout);
 
 	// get the server's current term

@@ -4,6 +4,9 @@
 #include "woofc.h"
 #include "dht.h"
 #include "dht_utils.h"
+#ifdef USE_RAFT
+#include "raft.h"
+#endif
 
 int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 	DHT_DAEMON_ARG *arg = (DHT_DAEMON_ARG *)ptr;
@@ -12,6 +15,18 @@ int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 	// log_set_level(DHT_LOG_DEBUG);
 	log_set_level(DHT_LOG_INFO);
 	log_set_output(stdout);
+
+#ifdef USE_RAFT
+	if (!raft_is_leader()) {
+		log_debug("not a raft leader, daemon went to sleep");
+		unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
+		if (WooFInvalid(seq)) {
+			log_error("failed to invoke next d_daemon");
+			exit(1);
+		}
+		return 1;
+	}
+#endif
 
 	unsigned long now = get_milliseconds();
 	log_debug("since last stabilize: %lums", now - arg->last_stabilize);
@@ -49,6 +64,17 @@ int d_daemon(WOOF *wf, unsigned long seq_no, void *ptr) {
 			arg->last_fixed_finger_index = 1;
 		}
 	}
+
+#ifdef USE_RAFT
+	if (now - arg->last_replicate_state > DHT_REPLICATE_STATE_FREQUENCY) {
+		DHT_REPLICATE_STATE_ARG replicate_state_arg;
+		unsigned long seq = WooFPut(DHT_REPLICATE_STATE_WOOF, "d_replicate_state", &replicate_state_arg);
+		if (WooFInvalid(seq)) {
+			log_error("failed to invoke d_replicate_state");
+		}
+		arg->last_replicate_state = now;
+	}
+#endif
 
 	// usleep(50 * 1000);
 	unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);

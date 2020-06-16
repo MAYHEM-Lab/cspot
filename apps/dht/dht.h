@@ -25,6 +25,9 @@
 #define DHT_PREDECESSOR_INFO_WOOF "dht_predecessor_info.woof"
 #define DHT_SUCCESSOR_INFO_WOOF "dht_successor_info.woof"
 #define DHT_FINGER_INFO_WOOF "dht_finger_info.woof"
+#ifdef USE_RAFT
+#define DHT_REPLICATE_STATE_WOOF "dht_replicate_state.woof"
+#endif
 
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
@@ -38,6 +41,7 @@
 #define DHT_FIX_FINGER_FRQUENCY 100
 #define DHT_SUCCESSOR_LIST_R 3
 #define DHT_REPLICA_NUMBER 3
+#define DHT_REPLICATE_STATE_FREQUENCY 5000
 
 #define DHT_ACTION_NONE 0
 #define DHT_ACTION_FIND_NODE 1
@@ -171,6 +175,9 @@ typedef struct dht_daemon_arg {
 	unsigned long last_stabilize;
 	unsigned long last_check_predecessor;
 	unsigned long last_fix_finger;
+#ifdef USE_RAFT
+	unsigned long last_replicate_state;
+#endif
 	int last_fixed_finger_index;
 } DHT_DAEMON_ARG;
 
@@ -181,6 +188,15 @@ typedef struct dht_stabilize_arg {
 typedef struct dht_check_predecessor_arg {
 
 } DHT_CHECK_PREDECESSOR_ARG;
+
+typedef struct dht_set_finger_arg {
+	int finger_index;
+	DHT_FINGER_INFO finger;
+} DHT_SET_FINGER_ARG;
+
+typedef struct dht_replicate_state_arg {
+	
+} DHT_REPLICATE_STATE_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon();

@@ -20,7 +20,7 @@ DHTOBJ=dht.o dht_utils.o dht_client.o
 RAFTDIR=${WOOFC}/apps/raft
 RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o ${WOOFC}/apps/monitor/monitor.o
 
-# CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
+# CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR}
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -DUSE_RAFT
 
 all: handlers copy clients test
@@ -30,6 +30,7 @@ copy: handlers clients test
 	cp d_check_predecessor ./cspot;
 	cp d_daemon ./cspot;
 	cp d_fix_finger ./cspot;
+	cp d_replicate_state ./cspot;
 	cp d_stabilize ./cspot;
 	cp h_find_result ./cspot;
 	cp h_find_successor ./cspot;
@@ -45,6 +46,11 @@ copy: handlers clients test
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
 	cp s_join_cluster ./cspot;
+	cp s_start_daemon ./cspot;
+	cp r_set_finger ./cspot;
+	cp r_set_node ./cspot;
+	cp r_set_predecessor ./cspot;
+	cp r_set_successor ./cspot;
 	cp client_find_node ./cspot;
 	cp client_init_topic ./cspot;
 	cp client_node_info ./cspot;
@@ -53,10 +59,10 @@ copy: handlers clients test
 	cp test_dht_handler ./cspot;
 	cp test_publish ./cspot;
 	cp test_subscribe ./cspot;
+	
+handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor
 
-handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger
-
-clients: s_create_cluster s_create_woofs s_join_cluster client_find_node client_init_topic client_node_info client_publish client_subscribe
+clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon client_find_node client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe
 
@@ -98,6 +104,11 @@ d_fix_finger: d_fix_finger.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${
 	sed 's/WOOF_HANDLER_NAME/d_fix_finger/g' ${SHEP_SRC} > d_fix_finger_shepherd.c
 	${CC} ${CFLAGS} -c d_fix_finger_shepherd.c -o d_fix_finger_shepherd.o
 	${CC} ${CFLAGS} -o d_fix_finger d_fix_finger.c d_fix_finger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+d_replicate_state: d_replicate_state.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/d_replicate_state/g' ${SHEP_SRC} > d_replicate_state_shepherd.c
+	${CC} ${CFLAGS} -c d_replicate_state_shepherd.c -o d_replicate_state_shepherd.o
+	${CC} ${CFLAGS} -o d_replicate_state d_replicate_state.c d_replicate_state_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 d_stabilize: d_stabilize.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/d_stabilize/g' ${SHEP_SRC} > d_stabilize_shepherd.c
@@ -159,6 +170,26 @@ h_trigger: h_trigger.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} 
 	${CC} ${CFLAGS} -c h_trigger_shepherd.c -o h_trigger_shepherd.o
 	${CC} ${CFLAGS} -o h_trigger h_trigger.c h_trigger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+r_set_finger: r_set_finger.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_set_finger/g' ${SHEP_SRC} > r_set_finger_shepherd.c
+	${CC} ${CFLAGS} -c r_set_finger_shepherd.c -o r_set_finger_shepherd.o
+	${CC} ${CFLAGS} -o r_set_finger r_set_finger.c r_set_finger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+r_set_node: r_set_node.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_set_node/g' ${SHEP_SRC} > r_set_node_shepherd.c
+	${CC} ${CFLAGS} -c r_set_node_shepherd.c -o r_set_node_shepherd.o
+	${CC} ${CFLAGS} -o r_set_node r_set_node.c r_set_node_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+r_set_predecessor: r_set_predecessor.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_set_predecessor/g' ${SHEP_SRC} > r_set_predecessor_shepherd.c
+	${CC} ${CFLAGS} -c r_set_predecessor_shepherd.c -o r_set_predecessor_shepherd.o
+	${CC} ${CFLAGS} -o r_set_predecessor r_set_predecessor.c r_set_predecessor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+r_set_successor: r_set_successor.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_set_successor/g' ${SHEP_SRC} > r_set_successor_shepherd.c
+	${CC} ${CFLAGS} -c r_set_successor_shepherd.c -o r_set_successor_shepherd.o
+	${CC} ${CFLAGS} -o r_set_successor r_set_successor.c r_set_successor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 s_create_cluster: s_create_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_create_cluster s_create_cluster.c ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
@@ -167,6 +198,9 @@ s_create_woofs: s_create_woofs.c dht.o dht_utils.o
 
 s_join_cluster: s_join_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_join_cluster s_join_cluster.c ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+s_start_daemon: s_start_daemon.c dht.o dht_utils.o
+	${CC} ${CFLAGS} -o s_start_daemon s_start_daemon.c ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 test_dht_handler: test_dht_handler.c handler_wrapper.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/PUT_HANDLER_NAME/test_dht_handler/g' handler_wrapper.c > test_dht_handler_wrapped.c
@@ -182,5 +216,5 @@ test_subscribe: test_subscribe.c ${DHTOBJ} ${RAFTOBJ}
 	${CC} ${CFLAGS} -o test_subscribe test_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot *.o *_shepherd.c s_create_cluster s_create_woofs s_join_cluster client_find_node client_node_info d_check_predecessor d_daemon d_fix_finger d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger test_dht_handler test_publish test_subscribe
+	rm -rf ./cspot *.o *_shepherd.c s_create_cluster s_create_woofs s_join_cluster s_start_daemon client_find_node client_node_info d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor test_dht_handler test_publish test_subscribe
 

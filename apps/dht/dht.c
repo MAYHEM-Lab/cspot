@@ -28,6 +28,9 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {
 	DHT_NODE_INFO_WOOF,
 	DHT_PREDECESSOR_INFO_WOOF,
 	DHT_SUCCESSOR_INFO_WOOF,
+#ifdef USE_RAFT
+	DHT_REPLICATE_STATE_WOOF,
+#endif
 };
 
 unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
@@ -50,6 +53,9 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
 	sizeof(DHT_NODE_INFO),
 	sizeof(DHT_PREDECESSOR_INFO),
 	sizeof(DHT_SUCCESSOR_INFO),
+#ifdef USE_RAFT
+	sizeof(DHT_REPLICATE_STATE_WOOF),
+#endif
 };
 
 unsigned long DHT_ELEMENT_SIZE[] = {
@@ -72,6 +78,7 @@ unsigned long DHT_ELEMENT_SIZE[] = {
 	DHT_HISTORY_LENGTH_SHORT, //DHT_NODE_INFO_WOOF,
 	DHT_HISTORY_LENGTH_SHORT, //DHT_PREDECESSOR_INFO_WOOF,
 	DHT_HISTORY_LENGTH_SHORT, //DHT_SUCCESSOR_INFO_WOOF,
+	DHT_HISTORY_LENGTH_SHORT, //DHT_REPLICATE_STATE_WOOF,
 };
 
 int dht_create_woofs() {
@@ -97,6 +104,9 @@ int dht_start_daemon() {
 	arg.last_stabilize = 0;
 	arg.last_check_predecessor = 0;
 	arg.last_fix_finger = 0;
+#ifdef USE_RAFT
+	arg.last_replicate_state = 0;
+#endif
 	arg.last_fixed_finger_index = 1;
 	unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", &arg);
 	if (WooFInvalid(seq)) {
