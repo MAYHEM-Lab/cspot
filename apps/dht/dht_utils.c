@@ -285,3 +285,15 @@ unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO *element) {
 	sprintf(woof_name, "%s%d", DHT_FINGER_INFO_WOOF, finger_id);
 	return WooFPut(woof_name, NULL, element);
 }
+
+char *predecessor_addr(DHT_PREDECESSOR_INFO *info) {
+	return info->replicas[info->leader];
+}
+
+char *successor_addr(DHT_SUCCESSOR_INFO *info, int r) {
+	return info->replicas[r][info->leader[r]];
+}
+
+char *finger_addr(DHT_FINGER_INFO *info) {
+	return info->replicas[info->leader];
+}

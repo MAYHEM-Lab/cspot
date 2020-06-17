@@ -5,7 +5,7 @@
 #include "woofc.h"
 #include "woofc-host.h"
 #include "dht.h"
-#ifdef USE_RAFT_NO
+#ifdef USE_RAFT
 #include "raft_client.h"
 #endif
 

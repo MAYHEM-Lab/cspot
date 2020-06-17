@@ -78,24 +78,23 @@ int d_stabilize(WOOF *wf, unsigned long seq_no, void *ptr) {
 
 		int tried = 0;
 		while (tried < DHT_REPLICA_NUMBER) {
-			char *successor_addr = successor.replicas[0][successor.leader[0]];
-			log_debug("current successor_addr: %s", successor_addr);
+			log_debug("current successor_addr: %s", successor_addr(&successor, 0));
 
 			char successor_woof_name[DHT_NAME_LENGTH];
-			sprintf(successor_woof_name, "%s/%s", successor_addr, DHT_GET_PREDECESSOR_WOOF);
+			sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
 			unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
 			if (WooFInvalid(seq)) {
 				log_warn("failed to invoke h_get_predecessor", successor_woof_name);
 				do {
 					successor.leader[0] = (successor.leader[0] + 1) % DHT_REPLICA_NUMBER;
 					++tried;
-				} while (successor.replicas[successor.leader[0]][0] == 0);
+				} while (successor_addr(&successor, 0)[0] == 0);
 				seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
 				if (WooFInvalid(seq)) {
 					log_error("failed to try the next successor replica");
 					exit(1);
 				}
-				log_warn("try next successor replica %s", successor.replicas[0][successor.leader[0]]);
+				log_warn("try next successor replica %s", successor_addr(&successor, 0));
 				continue;
 			}
 			log_debug("asked to get_predecessor from %s", successor_woof_name);
@@ -110,7 +109,7 @@ int d_stabilize(WOOF *wf, unsigned long seq_no, void *ptr) {
 				log_error("failed to shift successor");
 				exit(1);
 			}
-			log_debug("successor shifted. new: %s", successor.replicas[0][successor.leader[0]]);
+			log_debug("successor shifted. new: %s", successor_addr(&successor, 0));
 			log_warn("none of successor's replica is responding, use the next successor in line");
 		}
 	}

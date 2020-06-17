@@ -33,5 +33,8 @@ int get_latest_predecessor_info(DHT_PREDECESSOR_INFO *element);
 int get_latest_successor_info(DHT_SUCCESSOR_INFO *element);
 int get_latest_finger_info(int finger_id, DHT_FINGER_INFO *element);
 unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO *element);
+char *predecessor_addr(DHT_PREDECESSOR_INFO *info);
+char *successor_addr(DHT_SUCCESSOR_INFO *info, int r);
+char *finger_addr(DHT_FINGER_INFO *info);
 
 #endif

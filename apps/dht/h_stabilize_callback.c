@@ -45,7 +45,7 @@ int h_stabilize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 		}
 	}
 
-	char *successor_leader = successor.replicas[0][successor.leader[0]];
+	char *successor_leader = successor_addr(&successor, 0);
 
 	// successor.notify(n);
 	char notify_woof_name[DHT_NAME_LENGTH];

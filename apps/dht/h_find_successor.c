@@ -38,7 +38,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	if (in_range(arg->hashed_key, node.hash, successor.hash[0])
 		|| memcmp(arg->hashed_key, successor.hash[0], SHA_DIGEST_LENGTH) == 0) {
 		// return successor
-		char *replicas_leader = successor.replicas[0][successor.leader[0]];
+		char *replicas_leader = successor_addr(&successor, 0);
 		switch (arg->action) {
 			case DHT_ACTION_FIND_NODE: {
 				DHT_FIND_NODE_RESULT action_result = {0};
@@ -175,7 +175,7 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		// if finger[i] in (n, id)
 		// return finger[i].find_succesor(id)
 		if (in_range(finger.hash, node.hash, arg->hashed_key)) {
-			char *finger_replicas_leader = finger.replicas[finger.leader];
+			char *finger_replicas_leader = finger_addr(&finger);
 			sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
 			unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 			if (WooFInvalid(seq)) {
@@ -188,13 +188,13 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 	}
 	// TODO: also check the other successors
 	if (in_range(successor.hash[0], node.hash, arg->hashed_key)) {
-		sprintf(req_forward_woof, "%s/%s", successor.replicas[0][successor.leader[0]], DHT_FIND_SUCCESSOR_WOOF);
+		sprintf(req_forward_woof, "%s/%s", successor_addr(&successor, 0), DHT_FIND_SUCCESSOR_WOOF);
 		unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 		if (WooFInvalid(seq)) {
 			log_error("failed to forward find_successor request to %s", req_forward_woof);
 			exit(1);
 		}
-		log_debug("forwarded find_succesor request to successor: %s", successor.replicas[0][successor.leader[0]]);
+		log_debug("forwarded find_succesor request to successor: %s", successor_addr(&successor, 0));
 		return 1;
 	}
 

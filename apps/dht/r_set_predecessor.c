@@ -19,7 +19,7 @@ int r_set_predecessor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to set predecessor");
 		exit(1);
 	}
-	log_debug("set predecessor to %s", arg->replicas[arg->leader]);
+	log_debug("set predecessor to %s", predecessor_addr(arg));
 
 	return 1;
 }

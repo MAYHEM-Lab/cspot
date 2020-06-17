@@ -20,10 +20,12 @@ DHTOBJ=dht.o dht_utils.o dht_client.o
 RAFTDIR=${WOOFC}/apps/raft
 RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o ${WOOFC}/apps/monitor/monitor.o
 
-# CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR}
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -DUSE_RAFT
+# CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -DUSE_RAFT
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} ${MAKEOPT}
 
 all: handlers copy clients test
+	@echo MAKEOPT=${MAKEOPT}
+	@echo CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} ${MAKEOPT}
 
 copy: handlers clients test
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot

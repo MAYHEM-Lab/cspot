@@ -19,7 +19,7 @@ int r_set_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		log_error("failed to set successor");
 		exit(1);
 	}
-	log_debug("set successor to %s", arg->replicas[0][arg->leader[0]]);
+	log_debug("set successor to %s", successor_addr(arg, 0));
 
 	return 1;
 }

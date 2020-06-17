@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 		printf("predecessor_addr: nil\n");
 	} else {
 		print_node_hash(woof_name + strlen(woof_name), predecessor.hash);
-		printf("predecessor_addr: %s\n", predecessor.replicas[predecessor.leader]);
+		printf("predecessor_addr: %s\n", predecessor_addr(&predecessor));
 		for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
 			if (predecessor.replicas[i][0] == 0) {
 				break;
@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 			printf("successor_addr %d: nil\n", j);
 		} else {
 			print_node_hash(woof_name + strlen(woof_name), successor.hash[j]);
-			printf("successor_addr %d: %s\n", j, successor.replicas[j][successor.leader[j]]);
+			printf("successor_addr %d: %s\n", j, successor_addr(&successor, j));
 			for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
 				if (successor.replicas[i][0] == 0) {
 					break;
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 		if (is_empty(finger.hash)) {
 			printf("finger_addr %d: nil\n", j);
 		} else {
-			printf("finger_addr %d: %s\n", j, finger.replicas[finger.leader]);
+			printf("finger_addr %d: %s\n", j, finger_addr(&finger));
 		}
 	}
 	return 0;
