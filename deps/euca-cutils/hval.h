@@ -32,6 +32,8 @@
 #ifndef HVAL_H
 #define HVAL_H
 
+#include <stdint.h>
+
 union hval_un
 {
 	int i;

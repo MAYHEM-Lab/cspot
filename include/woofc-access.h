@@ -3,6 +3,7 @@
 
 #define REPAIR
 #include "dlist.h"
+#include "log.h"
 
 #include <czmq.h>
 

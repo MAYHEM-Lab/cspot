@@ -1,6 +1,7 @@
 #ifndef MIO_H
 #define MIO_H
 
+#include <stdio.h>
 #include "mymalloc.h"
 
 struct mio_stc

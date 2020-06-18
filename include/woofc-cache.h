@@ -4,6 +4,7 @@
 #include "dlist.h"
 #include "hval.h"
 #include "redblack.h"
+#include <pthread.h>
 
 struct woof_cache_stc {
     pthread_mutex_t lock;
