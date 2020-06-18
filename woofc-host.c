@@ -18,7 +18,7 @@ char Host_ip[25];
 char Namelog_name[2048];
 unsigned long Name_id;
 LOG *Name_log;
-
+char **WooF_worker_containers = NULL;
 static int WooFDone;
 
 struct cont_arg_stc
@@ -28,8 +28,12 @@ struct cont_arg_stc
 
 typedef struct cont_arg_stc CA;
 
+// #define DEBUG
+
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
+ * note that this does NOT work for 32-bit architectures which means
+ * a raspbian client needs to specify the port number explicitly
  */
 unsigned long WooFNameHash(char *namespace)
 {
@@ -179,6 +183,9 @@ void *WooFContainerLauncher(void *arg);
 
 void CatchSignals();
 
+void CleanUpDocker(int, void *);
+void CleanUpContainers(char **names);
+
 static int WooFHostInit(int min_containers, int max_containers)
 {
 	char log_name[2048];
@@ -284,6 +291,35 @@ void *WooFContainerLauncher(void *arg)
 	container_count = ca->container_count;
 	free(ca);
 
+	/*
+	 * find the last directory in the path
+	 */
+	pathp = strrchr(WooF_dir, '/');
+	if (pathp == NULL)
+	{
+		fprintf(stderr, "couldn't find leaf dir in %s\n",
+				WooF_dir);
+		exit(1);
+	}
+
+	// build the names for the workers to spawn
+	WooF_worker_containers = malloc(sizeof(char *) * (container_count + 1));
+	WooF_worker_containers[container_count] = NULL;
+#ifdef DEBUG 
+	fprintf(stdout, "worker names\n");
+#endif 
+	for (count = 0; count < container_count; ++count) {
+		WooF_worker_containers[count] = (char *)malloc(1024);
+		sprintf(WooF_worker_containers[count], "CSPOTWorker-%s-%x-%d", pathp + 1, WooFNameHash(WooF_namespace), count);
+#ifdef DEBUG 
+		fprintf(stdout, "\t - %s\n", WooF_worker_containers[count]);
+#endif
+	}
+
+	// kill any existing workers using CleanupDocker
+	CleanUpContainers(WooF_worker_containers);
+
+	// now create the new containers
 #ifdef DEBUG
 	fprintf(stdout, "WooFContainerLauncher started\n");
 	fflush(stdout);
@@ -306,17 +342,6 @@ void *WooFContainerLauncher(void *arg)
 		fflush(stdout);
 #endif
 
-		/*
-		 * find the last directory in the path
-		 */
-		pathp = strrchr(WooF_dir, '/');
-		if (pathp == NULL)
-		{
-			fprintf(stderr, "couldn't find leaf dir in %s\n",
-					WooF_dir);
-			exit(1);
-		}
-
 		launch_string = (char *)malloc(1024 * 8);
 		if (launch_string == NULL)
 		{
@@ -330,15 +355,15 @@ void *WooFContainerLauncher(void *arg)
 		// begin constructing the launch string
 		sprintf(launch_string + strlen(launch_string),
 				"docker run -t "
-				"--rm " // option tells the container to remove itself when it is stopped
-				"--name CSPOTWorker-%s-%d "
+				"--rm " // option tells the container that it shuold remove itself when stopped
+				"--name %s "
 				"-e LD_LIBRARY_PATH=/usr/local/lib "
 				"-e WOOFC_NAMESPACE=%s "
 				"-e WOOFC_DIR=%s "
 				"-e WOOF_NAME_ID=%lu "
 				"-e WOOF_NAMELOG_NAME=%s "
 				"-e WOOF_HOST_IP=%s ",
-				pathp + 1 /*pathp starts with a / */, count, // container name = {namespace dir}-{count}
+				WooF_worker_containers[count],
 				WooF_namespace,
 				pathp,
 				Name_id,
@@ -442,48 +467,47 @@ char *SignalFgetS(char *buffer, int size, FILE *fd)
 	}
 }
 
-void CleanUpDocker(int status, void *arg)
+void CleanUpContainers(char **names) {
+	char **ptr = names;
+
+	int name_lengths = 0;
+	while (*ptr != NULL) {
+		name_lengths += strlen(*ptr) + 2 /* account for the space we will add */;
+		*ptr++;
+	}
+	ptr = names;
+
+	char *command = malloc(name_lengths + 512);
+	command[0] = 0;
+	strcpy(command, "docker rm -f ");
+	while (*ptr != NULL) {
+		sprintf(command + strlen(command), "%s ", *ptr);
+		ptr++;
+	}
+	strcpy(command + strlen(command), "\n");
+#ifdef DEBUG 
+	fprintf(stdout, "CleanUpDocker command: %s\n", command);
+#endif 
+	system(command);
+}
+
+void CleanUpDocker(int signal, void *arg)
 {
+	// simple guard, try to prevent two threads from making it in here at once
+	// no real harm is done however if two threads do make it in other than
+	// a possible double free, but the process is about to exit anyway
+	if (WooF_worker_containers == NULL) 
+		return ;
 
-	// find the base container name
-	char *pathp = strrchr(WooF_dir, '/');
-	if (pathp == NULL)
-	{
-		fprintf(stderr, "couldn't find leaf dir in %s\n",
-				WooF_dir);
-		exit(1);
+	char **names = WooF_worker_containers;
+	WooF_worker_containers = NULL;
+	CleanUpContainers(names);
+
+	char **ptr = names;
+	while (*ptr != NULL) {
+		free(*ptr++);
 	}
-
-	// kill all containers that match the pattern
-	int count = 0;
-	while (count < 100)
-	{
-		// general docker command template
-		char command_fmt[512];
-		snprintf(command_fmt, sizeof(command_fmt) - 1,
-				 "/usr/bin/docker %s CSPOTWorker-%s-%d 2>&1\n", "%s", pathp + 1, count);
-
-		char command[512];
-		snprintf(command, sizeof(command) - 1, command_fmt, "stop -t 2");
-
-		FILE *fd = popen(command, "r");
-		if (fd == NULL)
-		{
-			fprintf(stderr, "error: failed to open handle on the output\n");
-			exit(1);
-		}
-
-		char result[4096];
-		memset(result, 0, sizeof(result));
-		int read_bytes = read(fileno(fd), result, sizeof(result));
-		if (strstr(result, "No such container") != NULL || read_bytes == 0)
-		{
-			fprintf(stderr, "Done. Closed %d worker docker containers\n", count);
-			return;
-		}
-
-		count++;
-	}
+	free(names);
 }
 
 void sig_int_handler(int signal)
@@ -506,8 +530,10 @@ void CatchSignals()
 	sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGINT);
 	sigaddset(&action.sa_mask, SIGTERM);
+	sigaddset(&action.sa_mask, SIGHUP);
 	sigaction(SIGINT, &action, NULL);
 	sigaction(SIGTERM, &action, NULL);
+	sigaction(SIGHUP, &action, NULL);
 
 	return;
 }

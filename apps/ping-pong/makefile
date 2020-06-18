@@ -14,9 +14,9 @@ WINC=${WOOFC}/woofc.h ${WOOFC}/woofc-access.h ${WOOFC}/woofc-cache.h
 WOBJ=${WOOFC}/woofc.o ${WOOFC}/woofc-access.o ${WOOFC}/woofc-cache.o
 WHINC=${WOOFC}/woofc-host.h
 WHOBJ=${WOOFC}/woofc-host.o
-TINC=${WOOFC}/woofc-thread.h
-TOBJ=${WOOFC}/woofc-thread.o
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
+
+DEPS=${MLIB} ${ULIB} ${LOBJ} ${LINC} ${WINC} ${WOBJ} ${TINC} ${TOBJ} ${SHEP_SRC}
 
 HAND1=ping
 HAND2=pong
@@ -25,17 +25,17 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
 all: ping-pong-start ping-start pong-start ${HAND1} ${HAND2}
 
-ping-pong-start: ping-pong-start.c ping-pong.h
+ping-pong-start: ping-pong-start.c ping-pong.h ${DEPS}
 	${CC} ${CFLAGS} -o ping-pong-start ping-pong-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ping-pong-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ping-pong-start ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
-ping-start: ping-start.c ping-pong.h
+ping-start: ping-start.c ping-pong.h ${DEPS}
 	${CC} ${CFLAGS} -o ping-start ping-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp ping-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp ping-start ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
-pong-start: pong-start.c ping-pong.h
+pong-start: pong-start.c ping-pong.h ${DEPS}
 	${CC} ${CFLAGS} -o pong-start pong-start.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp pong-start ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp pong-start ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
@@ -55,5 +55,5 @@ ${HAND2}: ${HAND2}.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	mkdir -p cspot-2; cp ${HAND2} ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
 clean:
-	rm -f ping-pong-start *.o ${HAND1} ${HAND2}
+	rm -f ping-pong-start ping-start pong-start *.o ${HAND1} ${HAND2}
 

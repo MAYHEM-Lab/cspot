@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 HERE=`pwd`
 yum -y install docker gcc-gfortran python-devel python34-devel
 cd ..

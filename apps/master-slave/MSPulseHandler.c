@@ -652,7 +652,7 @@ void DoMaster(STATE *state, unsigned long start_seq_no)
 		}
 	}
 
-	fprintf(stdout,"IAM: %c at seq_no %lu\n",new_state.my_state,start_seq_no);
+	fprintf(stdout,"\nIAM: %c at seq_no %lu\n",new_state.my_state,start_seq_no);
 	fflush(stdout);
 			
 	WooFDrop(l_state_w);
@@ -931,7 +931,7 @@ void DoSlave(STATE *state, unsigned long start_seq_no)
 		}
 	}
 			
-	fprintf(stdout,"IAM: %c at seq_no %lu\n",new_state.my_state,start_seq_no);
+	fprintf(stdout,"\nIAM: %c at seq_no %lu\n",new_state.my_state,start_seq_no);
 	fflush(stdout);
 
 	WooFDrop(l_state_w);

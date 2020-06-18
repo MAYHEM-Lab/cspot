@@ -22,18 +22,6 @@ LOG *Name_log;
 
 #define ARGS "M"
 
-WOOF_CACHE *WooF_handler_cache;
-struct woof_fork_cache_stc
-{
-	int hpd[2];
-	unsigned long element_size;
-	unsigned long history_size;
-	unsigned long ino;
-};
-
-typedef struct woof_fork_cache_stc WOOF_FORK_EL;
-#define WOOF_CONTAINER_MAX_CACHE (100)
-
 static int WooFDone;
 
 #define WOOF_CONTAINER_FORKERS (15)
@@ -317,11 +305,8 @@ void *WooFForker(void *arg)
 	char *pbuf;
 	char **eenvp;
 	int i;
-	char cache_name[4096];
 	sig_t old_sig;
 	int pd[2];
-	WOOF_FORK_EL *ce;
-	WOOF_FORK_EL *pe;
 	int retries;
 	unsigned long cache_vals[2];
 
@@ -564,126 +549,12 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 
-#ifdef CACHE_ON
-		if (WooF_handler_cache == NULL)
-		{
-			WooF_handler_cache = WooFCacheInit(WOOF_CONTAINER_MAX_CACHE);
-			if (WooF_handler_cache == NULL)
-			{
-				fprintf(stderr, "WooFForker: failed to init handler cache\n");
-				fflush(stderr);
-				exit(1);
-			}
-		}
-#endif
 
-		memset(cache_name, 0, sizeof(cache_name));
-		sprintf(cache_name, "%s.%s", ev[first].woofc_name, ev[first].woofc_handler);
-		/*
-		 * if we find the pipe descriptor in the cache, try and write it
-		 */
-		if (WooF_handler_cache != NULL)
-		{
-			ce = WooFCacheFind(WooF_handler_cache, cache_name);
-		}
-		else
-		{
-			ce = NULL;
-		}
-		if ((ce != NULL) && (ce->element_size == ev[first].woofc_element_size) && (ce->history_size == ev[first].woofc_history_size) &&
-			(ce->ino == ev[first].ino))
-		{
-#ifdef DEBUG
-			fprintf(stdout, "WooFForker: found cache entry for %s, el_size: %lu, hsize: %lu\n",
-					cache_name, ce->element_size, ce->history_size);
-			fflush(stdout);
-#endif
-			old_sig = signal(SIGPIPE, SIG_IGN);
-			/*
-			 * do it this way so it goes in one, indivisible write()
-			 */
-			cache_vals[0] = ev[first].woofc_seq_no;
-			cache_vals[1] = ev[first].woofc_ndx;
-			err = write(ce->hpd[1], cache_vals, sizeof(cache_vals));
-			if (err <= 0)
-			{
-				if (errno == EPIPE)
-				{
-#ifdef DEBUG
-					fprintf(stdout, "WooFForker: removing cache entry for %s\n", cache_name);
-					fflush(stdout);
-#endif
-					WooFCacheRemove(WooF_handler_cache, cache_name);
-					close(ce->hpd[1]);
-					free(ce);
-					ce = NULL;
-				}
-				else
-				{
-					fprintf(stderr, "WooFForker: couldn't write seq_no pd for %s\n",
-							cache_name);
-					perror("WooFForker: bad pd write");
-					WooFCacheRemove(WooF_handler_cache, cache_name);
-					close(ce->hpd[1]);
-					free(ce);
-					ce = NULL;
-					signal(SIGPIPE, old_sig);
-				}
-			}
-			else
-			{ /* new seq_no sent, continue */
-#ifdef DEBUG
-				fprintf(stdout, "WooFForker: sending %s new seq_no: %lu and ndx: %lu on fd: %d\n",
-						cache_name, ev[first].woofc_seq_no, ev[first].woofc_ndx, ce->hpd[1]);
-				fflush(stdout);
-#endif
-				while (waitpid(-1, &status, WNOHANG) > 0)
-					;
-				signal(SIGPIPE, old_sig);
-				LogFree(log_tail);
-				continue;
-			}
-		}
-
-		/*
-		 * if we get here and ce was found, we need to get rid of it
-		 */
-		if (ce != NULL)
-		{
-#ifdef DEBUG
-			fprintf(stdout, "WooFForker: removing cache entry for %s due to difference, ce: %lu %lu ev: %lu %lu\n",
-					cache_name, ce->element_size, ce->history_size,
-					ev[first].woofc_element_size, ev[first].woofc_history_size);
-			fflush(stdout);
-#endif
-			WooFCacheRemove(WooF_handler_cache, cache_name);
-			close(ce->hpd[1]);
-			free(ce);
-			ce = NULL;
-		}
 
 		/*
 		 * here, we need to fork a new process for the handler
 		 */
 
-		/*
-		 * create a pipe for cache
-		 */
-		if (WooF_handler_cache != NULL)
-		{
-			err = pipe(pd);
-			ce = NULL;
-			if (err >= 0)
-			{
-				ce = (WOOF_FORK_EL *)malloc(sizeof(WOOF_FORK_EL));
-				if (ce == NULL)
-				{
-					exit(1);
-				}
-				ce->hpd[0] = pd[0];
-				ce->hpd[1] = pd[1];
-			}
-		}
 
 		/*
 		 * block here not to overload the machine
@@ -708,20 +579,10 @@ void *WooFForker(void *arg)
 		{
 
 			/*
-		 * I am the child.  I need the read end but not the write end
-		 */
+		 	 * I am the child.  I need the read end but not the write end
+		 	 */
 
-			if (ce != NULL)
-			{
-				dup2(ce->hpd[0], 0);
-				close(ce->hpd[0]);
-				close(ce->hpd[1]);
-				free(ce);
-			}
-			else
-			{
-				close(0); /* so shepherd knows there is no pipe */
-			}
+			close(0); /* so shepherd knows there is no pipe */
 
 			wf = WooFOpen(ev[first].woofc_name);
 
@@ -736,8 +597,8 @@ void *WooFForker(void *arg)
 			}
 
 			/*
-		 * find the last directory in the path
-		 */
+		 	 * find the last directory in the path
+		 	 */
 			pathp = strrchr(WooF_dir, '/');
 			if (pathp == NULL)
 			{
@@ -795,7 +656,7 @@ void *WooFForker(void *arg)
 				fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
 				exit(1);
 			}
-			/*
+		/*
 		 * XXX if we can get the file name in a different way we can eliminate this call to WooFOpen()
 		 */
 			sprintf(pbuf, "WOOF_SHEPHERD_NAME=%s", wf->shared->filename);
@@ -932,43 +793,6 @@ void *WooFForker(void *arg)
 		}
 		else
 		{ /* parent */
-
-			if (ce != NULL)
-			{
-				/* don't need the read end */
-				ce->element_size = ev[first].woofc_element_size;
-				ce->history_size = ev[first].woofc_history_size;
-				ce->ino = ev[first].ino;
-				err = WooFCacheInsert(WooF_handler_cache, cache_name, (void *)ce);
-				retries = 0;
-				if (err < 0)
-				{
-					while (retries < 10)
-					{
-						pe = (WOOF_FORK_EL *)WooFCacheAge(WooF_handler_cache);
-						if (pe != NULL)
-						{
-							close(pe->hpd[1]);
-							free(pe);
-						}
-						err = WooFCacheInsert(WooF_handler_cache, cache_name, (void *)ce);
-						if (err >= 0)
-						{
-							break;
-						}
-						retries++;
-					}
-				}
-				if (retries >= 10)
-				{
-					free(ce);
-					ce = NULL;
-				}
-				else
-				{
-					close(ce->hpd[0]);
-				}
-			}
 
 			/*
 			 * remember its sequence number for next time
