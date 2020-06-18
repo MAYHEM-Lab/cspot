@@ -2,26 +2,28 @@
 #define WOOFC_ACCESS_H
 
 #define REPAIR
-#include <czmq.h>
 #include "dlist.h"
 
-int WooFValidURI(char *str);
-int WooFNameSpaceFromURI(char *woof_uri_str, char *woof_namespace, int len);
-int WooFNameFromURI(char *woof_uri_str, char *woof_name, int len);
-int WooFIPAddrFromURI(char *woof_uri_str, char *woof_ip, int len);
-unsigned int WooFPortHash(char *namespace);
-int WooFLocalIP(char *ip_str, int len);
+#include <czmq.h>
 
-unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size);
-unsigned long WooFMsgGetElSize(char *woof_name);
-int WooFMsgServer(char *namespace);
+int WooFValidURI(char* str);
+int WooFNameSpaceFromURI(char* woof_uri_str, char* woof_namespace, int len);
+int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len);
+int WooFIPAddrFromURI(char* woof_uri_str, char* woof_ip, int len);
+unsigned int WooFPortHash(char* namespace);
+int WooFLocalIP(char* ip_str, int len);
 
-int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
+unsigned long
+WooFMsgPut(char* woof_name, char* hand_name, void* element, unsigned long el_size);
+unsigned long WooFMsgGetElSize(char* woof_name);
+int WooFMsgServer(char* namespace);
+
+int WooFURINameSpace(char* woof_uri_str, char* woof_namespace, int len);
 
 #ifdef REPAIR
-unsigned long int LogGetRemoteSize(char *endpoint);
-int LogGetRemote(LOG *log, MIO *mio, char *endpoint);
-int WooFMsgRepair(char *woof_name, Dlist *holes);
+unsigned long int LogGetRemoteSize(char* endpoint);
+int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
+int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
 /*

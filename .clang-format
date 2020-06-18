@@ -1,0 +1,46 @@
+ColumnLimit: 90
+IndentWidth: 4
+UseTab: Never
+
+AccessModifierOffset: -4
+BreakInheritanceList: BeforeComma
+BreakConstructorInitializers: BeforeComma
+
+NamespaceIndentation: None
+CompactNamespaces: false
+
+MaxEmptyLinesToKeep: 2
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+BinPackParameters: false
+BinPackArguments: false
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: true
+  AfterStruct: false
+  AfterClass: false
+  SplitEmptyFunction: false
+  AfterControlStatement: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterExternBlock: false
+
+IncludeBlocks: Regroup
+SortIncludes: true
+
+#SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeCpp11BracedList: false
+
+AllowShortLoopsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: None
+#AllowShortLambdasOnASingleLine: true
+
+AlwaysBreakTemplateDeclarations: Yes
