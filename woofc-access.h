@@ -13,8 +13,7 @@ int WooFIPAddrFromURI(char* woof_uri_str, char* woof_ip, int len);
 unsigned int WooFPortHash(char* namespace);
 int WooFLocalIP(char* ip_str, int len);
 
-unsigned long
-WooFMsgPut(char* woof_name, char* hand_name, void* element, unsigned long el_size);
+unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsigned long el_size);
 unsigned long WooFMsgGetElSize(char* woof_name);
 int WooFMsgServer(char* namespace);
 

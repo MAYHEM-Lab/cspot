@@ -101,8 +101,7 @@ int SyncLogs(GLOG** glogs, LOG** llogs, unsigned long host_id, unsigned long max
         }
         err = ImportLogTail(gl, ll);
         if (err < 0) {
-            fprintf(
-                stderr, "thread %lu failed to sync log for host %d\n", host_id, i + 1);
+            fprintf(stderr, "thread %lu failed to sync log for host %d\n", host_id, i + 1);
             fflush(stderr);
             goto errout;
         }
@@ -173,10 +172,7 @@ void* WorkerThread(void* arg) {
              */
             ev = EventCreate(FUNC, warg->host_id);
             if (ev == NULL) {
-                fprintf(stderr,
-                        "thread: %d couldn't create local event %d\n",
-                        warg->host_id,
-                        i);
+                fprintf(stderr, "thread: %d couldn't create local event %d\n", warg->host_id, i);
                 fflush(stderr);
                 exit(1);
             }
@@ -184,8 +180,7 @@ void* WorkerThread(void* arg) {
             ev->cause_seq_no = last_seq_no;
             seq_no = LogEvent(warg->llogs[warg->host_id - 1], ev);
             if (seq_no == 0) {
-                fprintf(
-                    stderr, "thread: %d couldn't log local event %d\n", warg->host_id, i);
+                fprintf(stderr, "thread: %d couldn't log local event %d\n", warg->host_id, i);
                 fflush(stderr);
                 exit(1);
             }
@@ -202,10 +197,7 @@ void* WorkerThread(void* arg) {
              */
             ev = EventCreate(TRIGGER, warg->host_id);
             if (ev == NULL) {
-                fprintf(stderr,
-                        "thread: %d couldn't create local trigger %d\n",
-                        warg->host_id,
-                        i);
+                fprintf(stderr, "thread: %d couldn't create local trigger %d\n", warg->host_id, i);
                 fflush(stderr);
                 exit(1);
             }
@@ -213,8 +205,7 @@ void* WorkerThread(void* arg) {
             ev->cause_seq_no = last_seq_no;
             seq_no = LogEvent(warg->llogs[warg->host_id - 1], ev);
             if (seq_no == 0) {
-                fprintf(
-                    stderr, "thread: %d couldn't log local event %d\n", warg->host_id, i);
+                fprintf(stderr, "thread: %d couldn't log local event %d\n", warg->host_id, i);
                 fflush(stderr);
                 exit(1);
             }
@@ -226,11 +217,7 @@ void* WorkerThread(void* arg) {
              */
             ev = EventCreate(FUNC, remote_host);
             if (ev == NULL) {
-                fprintf(stderr,
-                        "thread: %d couldn't create fire event %d on host %d\n",
-                        warg->host_id,
-                        i,
-                        remote_host);
+                fprintf(stderr, "thread: %d couldn't create fire event %d on host %d\n", warg->host_id, i, remote_host);
                 fflush(stderr);
                 exit(1);
             }
@@ -238,11 +225,7 @@ void* WorkerThread(void* arg) {
             ev->cause_seq_no = last_seq_no;
             err = SendEvent(remote_host, ev);
             if (err < 0) {
-                fprintf(stderr,
-                        "thread: %d couldn't create fire event %d on host %d\n",
-                        warg->host_id,
-                        i,
-                        remote_host);
+                fprintf(stderr, "thread: %d couldn't create fire event %d on host %d\n", warg->host_id, i, remote_host);
                 fflush(stderr);
                 exit(1);
             }
@@ -257,11 +240,7 @@ void* WorkerThread(void* arg) {
         if (ev != NULL) {
             seq_no = LogEvent(warg->llogs[warg->host_id - 1], ev);
             if (seq_no == 0) {
-                fprintf(stderr,
-                        "thread: %d couldn't log remote event %d from %lu\n",
-                        warg->host_id,
-                        i,
-                        ev->cause_host);
+                fprintf(stderr, "thread: %d couldn't log remote event %d from %lu\n", warg->host_id, i, ev->cause_host);
                 fflush(stderr);
                 exit(1);
             }
@@ -275,10 +254,7 @@ void* WorkerThread(void* arg) {
         if (until_sync == 0) {
             err = SyncLogs(warg->glogs, warg->llogs, warg->host_id, warg->max_host_id);
             if (err < 0) {
-                fprintf(stderr,
-                        "thread %d couldn't sync logs at event %d\n",
-                        warg->host_id,
-                        i);
+                fprintf(stderr, "thread %d couldn't sync logs at event %d\n", warg->host_id, i);
                 exit(1);
             }
             until_sync = warg->sync;
@@ -293,11 +269,7 @@ void* WorkerThread(void* arg) {
     while ((ev = RecvEvent(warg->host_id)) != NULL) {
         seq_no = LogEvent(warg->llogs[warg->host_id - 1], ev);
         if (seq_no == 0) {
-            fprintf(stderr,
-                    "thread: %d couldn't mop log remote event %d from %lu\n",
-                    warg->host_id,
-                    i,
-                    ev->cause_host);
+            fprintf(stderr, "thread: %d couldn't mop log remote event %d from %lu\n", warg->host_id, i, ev->cause_host);
             fflush(stderr);
             exit(1);
         }
@@ -340,8 +312,7 @@ void PrintGLogDiffs(GLOG** glogs, int log_count) {
             curr = l1->head;
             while (curr != l1->tail) {
                 if (curr == l2->tail) {
-                    printf(
-                        "%d at %lu but %d has tail %lu\n", i + 1, curr, j + 1, l2->tail);
+                    printf("%d at %lu but %d has tail %lu\n", i + 1, curr, j + 1, l2->tail);
                     fflush(stdout);
                     break;
                 }

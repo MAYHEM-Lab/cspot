@@ -122,8 +122,7 @@ int main(int argc, char* key, void* data) {
 
     wf_ndx = getenv("WOOF_SHEPHERD_NDX");
     if (wf_ndx == NULL) {
-        fprintf(
-            stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n", wf_name);
+        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n", wf_name);
         fflush(stderr);
         exit(1);
     }
@@ -136,8 +135,7 @@ int main(int argc, char* key, void* data) {
 
     wf_seq_no = getenv("WOOF_SHEPHERD_SEQNO");
     if (wf_seq_no == NULL) {
-        fprintf(
-            stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n", wf_name);
+        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n", wf_name);
         fflush(stderr);
         exit(1);
     }
@@ -161,10 +159,7 @@ int main(int argc, char* key, void* data) {
     strncpy(Namelog_name, namelog_name, sizeof(Namelog_name));
     namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
     if (namelog_seq_no == NULL) {
-        fprintf(stderr,
-                "WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n",
-                namelog_name,
-                wf_name);
+        fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n", namelog_name, wf_name);
         fflush(stderr);
         exit(1);
     }

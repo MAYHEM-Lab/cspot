@@ -223,9 +223,7 @@ int main(int argc, char** argv) {
 #ifdef DEBUG
     gettimeofday(&t2, NULL);
     elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-    printf("finished pulling log from hosts: %f ms, %lu bytes in total\n",
-           elapsedTime,
-           total_log_size);
+    printf("finished pulling log from hosts: %f ms, %lu bytes in total\n", elapsedTime, total_log_size);
     fflush(stdout);
 #endif
 
@@ -271,8 +269,7 @@ int main(int argc, char** argv) {
 #ifdef DEBUG
     gettimeofday(&t2, NULL);
     elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-    printf(
-        "finished merging logs: %f ms, %lu events in total\n", elapsedTime, total_events);
+    printf("finished merging logs: %f ms, %lu events in total\n", elapsedTime, total_events);
     fflush(stdout);
 #endif
 
@@ -319,8 +316,7 @@ int main(int argc, char** argv) {
     root = RBInitS();
     casualty = RBInitS();
     progress = RBInitS();
-    GLogFindAffectedWooF(
-        glog, root, &count_root, casualty, &count_casualty, progress, &count_progress);
+    GLogFindAffectedWooF(glog, root, &count_root, casualty, &count_casualty, progress, &count_progress);
 #ifdef DEBUG
     gettimeofday(&t2, NULL);
     elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
@@ -446,13 +442,9 @@ int Repair(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
     // TODO: put host name here, need to make this smarter
     sprintf(wf, "woof:///%s/%s", namespace, wf_name);
     if (host == 7886325280287311374ul) {
-        sprintf(wf,
-                "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s",
-                wf_name);
+        sprintf(wf, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s", wf_name);
     } else if (host == 797386831364045376ul) {
-        sprintf(wf,
-                "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/%s",
-                wf_name);
+        sprintf(wf, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/%s", wf_name);
     }
 #ifdef DEBUG
     printf("Repair: repairing %s(%lu): %d holes\n", wf_name, host, holes->count);
@@ -497,9 +489,7 @@ int RepairRO(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
     RB_FORWARD(asker, rb) {
         rbc = RBFindS(mapping_count, rb->key.key.s);
         if (rbc == NULL) {
-            fprintf(stderr,
-                    "RepairRO: can't find entry %s in mapping_count\n",
-                    rb->key.key.s);
+            fprintf(stderr, "RepairRO: can't find entry %s in mapping_count\n", rb->key.key.s);
             fflush(stderr);
             RBDestroyS(asker);
             RBDestroyS(mapping_count);
@@ -509,32 +499,18 @@ int RepairRO(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
         // TODO: put host name here, need to make this smarter
         sprintf(wf, "woof:///%s/%s", namespace, wf_name);
         if (host == 7886325280287311374ul) {
-            sprintf(wf,
-                    "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s",
-                    wf_name);
+            sprintf(wf, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s", wf_name);
         } else if (host == 797386831364045376ul) {
-            sprintf(
-                wf,
-                "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/%s",
-                wf_name);
+            sprintf(wf, "woof://10.1.5.155:55376/home/centos/cspot2/apps/regress-pair/cspot/%s", wf_name);
         }
 #ifdef DEBUG
-        printf(
-            "RepairRO: sending mapping from cause_woof %s to %s\n", cause_woof, wf_name);
+        printf("RepairRO: sending mapping from cause_woof %s to %s\n", cause_woof, wf_name);
         fflush(stdout);
 #endif
         if (dryrun == 0) {
-            err = WooFRepairProgress(wf_name,
-                                     cause_host,
-                                     cause_woof,
-                                     rbc->value.i,
-                                     (unsigned long*)rb->value.i64);
+            err = WooFRepairProgress(wf_name, cause_host, cause_woof, rbc->value.i, (unsigned long*)rb->value.i64);
             if (err < 0) {
-                fprintf(stderr,
-                        "RepairRO: cannot repair woof %s/%s(%lu)\n",
-                        namespace,
-                        wf_name,
-                        host);
+                fprintf(stderr, "RepairRO: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
                 fflush(stderr);
                 RBDestroyS(asker);
                 RBDestroyS(mapping_count);
@@ -566,11 +542,7 @@ void Guide(GLOG* glog, FILE* fd) {
         if (ev_array[curr].type == (TRIGGER | ROOT)) {
             // printf("  host %lu, woof_name %s, seq_no %lu\n", ev_array[curr].host,
             // ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
-            fprintf(fd,
-                    "%lu,%s,%lu\n",
-                    ev_array[curr].host,
-                    ev_array[curr].woofc_name,
-                    ev_array[curr].woofc_seq_no);
+            fprintf(fd, "%lu,%s,%lu\n", ev_array[curr].host, ev_array[curr].woofc_name, ev_array[curr].woofc_seq_no);
             fflush(fd);
         }
         curr = (curr + 1) % log->size;

@@ -143,8 +143,7 @@ int WooFInit() {
 #ifndef IS_PLATFORM
     lmio = MIOReOpen(log_name);
     if (lmio == NULL) {
-        fprintf(
-            stderr, "WooFInit: name %s (%s) log not initialized.\n", log_name, WooF_dir);
+        fprintf(stderr, "WooFInit: name %s (%s) log not initialized.\n", log_name, WooF_dir);
         fflush(stderr);
         exit(1);
     }
@@ -178,10 +177,7 @@ static int WooFHostInit(int min_containers, int max_containers) {
 
     Name_log = LogCreate(log_name, Name_id, DEFAULT_WOOF_LOG_SIZE);
     if (Name_log == NULL) {
-        fprintf(stderr,
-                "WooFInit: couldn't create name log as %s, size %d\n",
-                log_name,
-                DEFAULT_WOOF_LOG_SIZE);
+        fprintf(stderr, "WooFInit: couldn't create name log as %s, size %d\n", log_name, DEFAULT_WOOF_LOG_SIZE);
         fflush(stderr);
         exit(1);
     }
@@ -283,11 +279,7 @@ void* WooFContainerLauncher(void* arg) {
 #endif
     for (count = 0; count < container_count; ++count) {
         WooF_worker_containers[count] = (char*)malloc(1024);
-        sprintf(WooF_worker_containers[count],
-                "CSPOTWorker-%s-%x-%d",
-                pathp + 1,
-                WooFNameHash(WooF_namespace),
-                count);
+        sprintf(WooF_worker_containers[count], "CSPOTWorker-%s-%x-%d", pathp + 1, WooFNameHash(WooF_namespace), count);
 #ifdef DEBUG
         fprintf(stdout, "\t - %s\n", WooF_worker_containers[count]);
 #endif

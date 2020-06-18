@@ -355,8 +355,7 @@ int PendingAddEvent(PENDING* pending, EVENT* event) {
      */
     local_event = PendingFindEvent(pending, event->host, event->seq_no);
     if (local_event != NULL) {
-        fprintf(
-            stderr, "found %lu %llu pending while adding\n", event->host, event->seq_no);
+        fprintf(stderr, "found %lu %llu pending while adding\n", event->host, event->seq_no);
         PendingPrint(stderr, pending);
         fflush(stderr);
         return (-1);
@@ -374,10 +373,7 @@ int PendingAddEvent(PENDING* pending, EVENT* event) {
     }
 
     if (fail == 1) {
-        fprintf(stderr,
-                "couldn't find free space for pending %lu %llu\n",
-                event->host,
-                event->seq_no);
+        fprintf(stderr, "couldn't find free space for pending %lu %llu\n", event->host, event->seq_no);
         fflush(stderr);
         return (-1);
     }
@@ -401,8 +397,7 @@ int PendingRemoveEvent(PENDING* pending, EVENT* event) {
     ndx = EventIndex(event->host, event->seq_no);
     rb = RBFindI64(pending->alive, ndx);
     if (rb == NULL) {
-        fprintf(
-            stderr, "couldn't find %lu %llu pending alive\n", event->host, event->seq_no);
+        fprintf(stderr, "couldn't find %lu %llu pending alive\n", event->host, event->seq_no);
         fflush(stderr);
         return (-1);
     }
@@ -418,8 +413,7 @@ int PendingRemoveEvent(PENDING* pending, EVENT* event) {
 
     start = RBFindI64(pending->causes, ndx);
     if (start == NULL) {
-        fprintf(
-            stderr, "couldn't find %lu %llu pending cause\n", event->host, event->seq_no);
+        fprintf(stderr, "couldn't find %lu %llu pending cause\n", event->host, event->seq_no);
         fflush(stderr);
         return (-1);
     }
@@ -612,8 +606,7 @@ int LogResolveHorizon(GLOG* gl, EVENT* event) {
      * if the event is missing, skip
      */
     if (this_event == NULL) {
-        fprintf(
-            stderr, "event %lu %llu not on pending list\n", event->host, event->seq_no);
+        fprintf(stderr, "event %lu %llu not on pending list\n", event->host, event->seq_no);
         fflush(stderr);
         return (-1);
     }
@@ -635,15 +628,14 @@ int LogResolveHorizon(GLOG* gl, EVENT* event) {
             return (-1);
         }
 #ifdef DEBUG
-        printf(
-            "logresolve %lu: terminating ev %lu %llu cause %lu %llu max: %llu eh: %llu\n",
-            gl->host_id,
-            this_event->host,
-            this_event->seq_no,
-            this_event->cause_host,
-            this_event->cause_seq_no,
-            host->max_seen,
-            host->event_horizon);
+        printf("logresolve %lu: terminating ev %lu %llu cause %lu %llu max: %llu eh: %llu\n",
+               gl->host_id,
+               this_event->host,
+               this_event->seq_no,
+               this_event->cause_host,
+               this_event->cause_seq_no,
+               host->max_seen,
+               host->event_horizon);
         fflush(stdout);
 #endif
         /*
@@ -657,13 +649,12 @@ int LogResolveHorizon(GLOG* gl, EVENT* event) {
          */
         err = PendingRemoveEvent(gl->pending, this_event);
         if (err < 0) {
-            fprintf(
-                stderr,
-                "couldn't remove pending event %lu %llu with max %llu and horizon %llu\n",
-                new_ev->host,
-                new_ev->seq_no,
-                host->max_seen,
-                host->event_horizon);
+            fprintf(stderr,
+                    "couldn't remove pending event %lu %llu with max %llu and horizon %llu\n",
+                    new_ev->host,
+                    new_ev->seq_no,
+                    host->max_seen,
+                    host->event_horizon);
             fflush(stderr);
             EventFree(new_ev);
             return (-1);
@@ -809,9 +800,7 @@ int GLogEvent(GLOG* gl, EVENT* event) {
         }
         cause_host = HostListFind(gl->host_list, event->cause_host);
         if (cause_host == NULL) {
-            fprintf(stderr,
-                    "couldn't find after add of new cause host %lu\n",
-                    event->cause_host);
+            fprintf(stderr, "couldn't find after add of new cause host %lu\n", event->cause_host);
             fflush(stderr);
             return (-1);
         }
@@ -850,8 +839,7 @@ int GLogEvent(GLOG* gl, EVENT* event) {
         }
         host = HostListFind(gl->host_list, event->host);
         if (host == NULL) {
-            fprintf(
-                stderr, "couldn't find after add of new cause host %lu\n", event->host);
+            fprintf(stderr, "couldn't find after add of new cause host %lu\n", event->host);
             fflush(stderr);
             return (-1);
         }
@@ -923,8 +911,8 @@ int GLogEvent(GLOG* gl, EVENT* event) {
      * if cause host is not up to date, put this event on the pending
      * list
      */
-    if ((cause_host->max_seen < event->cause_seq_no) &&
-        (cause_host->event_horizon < event->cause_seq_no) && !IsAnchor(event)) {
+    if ((cause_host->max_seen < event->cause_seq_no) && (cause_host->event_horizon < event->cause_seq_no) &&
+        !IsAnchor(event)) {
 #ifdef DEBUG
         printf("glog %lu: pending %lu %llu because of waiting cause %lu %llu ",
                gl->host_id,
@@ -953,11 +941,7 @@ int GLogEvent(GLOG* gl, EVENT* event) {
 #endif
     err = LogAdd(gl->log, event);
     if (err < 0) {
-        fprintf(stderr,
-                "glog %lu couldn't add event %lu %llu\n",
-                gl->host_id,
-                event->host,
-                event->seq_no);
+        fprintf(stderr, "glog %lu couldn't add event %lu %llu\n", gl->host_id, event->host, event->seq_no);
         fflush(stderr);
         return (-1);
     }
@@ -973,10 +957,7 @@ int GLogEvent(GLOG* gl, EVENT* event) {
     this_event = PendingFindCause(gl->pending, event->host, event->seq_no);
     while (this_event != NULL) {
 #ifdef DEBUG
-        printf("glog %lu: next event considered: %lu %llu\n",
-               gl->host_id,
-               this_event->host,
-               this_event->seq_no);
+        printf("glog %lu: next event considered: %lu %llu\n", gl->host_id, this_event->host, this_event->seq_no);
         fflush(stdout);
 #endif
         cause_host = HostListFind(gl->host_list, this_event->cause_host);
@@ -1149,15 +1130,14 @@ int GLogFastForward(GLOG* gl, unsigned long remote_host_id) {
     while (rb != NULL) {
         event = (EVENT*)rb->value.v;
 #ifdef DEBUG
-        printf(
-            "glogfastforward %lu: pending %lu %llu cause %lu %llu max: %llu eh: %llu\n",
-            gl->host_id,
-            event->host,
-            event->seq_no,
-            event->cause_host,
-            event->cause_seq_no,
-            remote_host->max_seen,
-            remote_host->event_horizon);
+        printf("glogfastforward %lu: pending %lu %llu cause %lu %llu max: %llu eh: %llu\n",
+               gl->host_id,
+               event->host,
+               event->seq_no,
+               event->cause_host,
+               event->cause_seq_no,
+               remote_host->max_seen,
+               remote_host->event_horizon);
         fflush(stdout);
 #endif
         if (event->cause_host != remote_host->host_id) {
@@ -1184,8 +1164,7 @@ int GLogFastForward(GLOG* gl, unsigned long remote_host_id) {
 #endif
         err = LogResolveHorizon(gl, event);
         if (err < 0) {
-            fprintf(
-                stderr, "fast forward of %lu %llu failed\n", event->host, event->seq_no);
+            fprintf(stderr, "fast forward of %lu %llu failed\n", event->host, event->seq_no);
             V(&gl->mutex);
             return (-1);
         }
@@ -1250,10 +1229,7 @@ int ImportLogTail(GLOG* gl, LOG* ll) {
          * there is no local log tail we haven't seen
          */
 #ifdef DEBUG
-        printf("import %lu: from %lu, earliest %llu no tail\n",
-               gl->host_id,
-               ll->host_id,
-               earliest);
+        printf("import %lu: from %lu, earliest %llu no tail\n", gl->host_id, ll->host_id, earliest);
         fflush(stdout);
 #endif
         V(&ll->mutex);

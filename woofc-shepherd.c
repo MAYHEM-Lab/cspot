@@ -136,8 +136,7 @@ int main(int argc, char** argv, char** envp) {
 
     wf_ndx = getenv("WOOF_SHEPHERD_NDX");
     if (wf_ndx == NULL) {
-        fprintf(
-            stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n", wf_name);
+        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n", wf_name);
         fflush(stderr);
         exit(1);
     }
@@ -149,8 +148,7 @@ int main(int argc, char** argv, char** envp) {
 
     wf_seq_no = getenv("WOOF_SHEPHERD_SEQNO");
     if (wf_seq_no == NULL) {
-        fprintf(
-            stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n", wf_name);
+        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n", wf_name);
         fflush(stderr);
         exit(1);
     }
@@ -175,10 +173,7 @@ int main(int argc, char** argv, char** envp) {
 
     namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
     if (namelog_seq_no == NULL) {
-        fprintf(stderr,
-                "WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n",
-                namelog_name,
-                wf_name);
+        fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n", namelog_name, wf_name);
         fflush(stderr);
         exit(1);
     }
@@ -248,10 +243,7 @@ int main(int argc, char** argv, char** envp) {
 #endif
 
 #ifdef DEBUG
-    fprintf(stdout,
-            "WooFShepherd: wf: 0x%u assigned, el size: %lu\n",
-            wfs,
-            wfs->element_size);
+    fprintf(stdout, "WooFShepherd: wf: 0x%u assigned, el size: %lu\n", wfs, wfs->element_size);
     fflush(stdout);
 #endif
 
@@ -271,9 +263,7 @@ int main(int argc, char** argv, char** envp) {
 
         farg = (unsigned char*)malloc(wfs->element_size);
         if (farg == NULL) {
-            fprintf(stderr,
-                    "WooFShepherd: no space for farg of size %lu\n",
-                    wfs->element_size);
+            fprintf(stderr, "WooFShepherd: no space for farg of size %lu\n", wfs->element_size);
             fflush(stderr);
             return (-1);
         }
@@ -295,10 +285,7 @@ int main(int argc, char** argv, char** envp) {
          */
         el_id->busy = 0;
 #ifdef DEBUG
-        fprintf(stdout,
-                "WooFShepherd: marked el done at %lu and signalling, ino: %lu\n",
-                ndx,
-                wf->ino);
+        fprintf(stdout, "WooFShepherd: marked el done at %lu and signalling, ino: %lu\n", ndx, wf->ino);
         fflush(stdout);
 #endif
 

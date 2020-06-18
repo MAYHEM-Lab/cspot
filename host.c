@@ -56,10 +56,7 @@ int HostListAdd(HOSTLIST* hl, unsigned long host_id) {
     }
 
     if ((hl->count + 1) >= hl->hash_size) {
-        fprintf(stderr,
-                "HostListAdd: count: %lu hash_size: %d\n",
-                hl->count + 1,
-                hl->hash_size);
+        fprintf(stderr, "HostListAdd: count: %lu hash_size: %d\n", hl->count + 1, hl->hash_size);
         fflush(stderr);
         return (-1);
     }
