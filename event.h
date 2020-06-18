@@ -3,28 +3,27 @@
 
 #define REPAIR
 
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 
-struct event_stc
-{
-	unsigned char type;
-	unsigned long host;
-	unsigned long long seq_no;
-	unsigned long cause_host;
-	unsigned long long cause_seq_no;
-	/*
-	 * woofc payload
-	 */
-	unsigned long woofc_seq_no;
-	unsigned long woofc_ndx;
-	unsigned long woofc_element_size;
-	unsigned long woofc_history_size;
-	char woofc_name[128];
-	char woofc_handler[128];
-	char namespace[1024];
-	unsigned long ino; // for caching if enabled
-	uint64_t timestamp;
+struct event_stc {
+    unsigned char type;
+    unsigned long host;
+    unsigned long long seq_no;
+    unsigned long cause_host;
+    unsigned long long cause_seq_no;
+    /*
+     * woofc payload
+     */
+    unsigned long woofc_seq_no;
+    unsigned long woofc_ndx;
+    unsigned long woofc_element_size;
+    unsigned long woofc_history_size;
+    char woofc_name[128];
+    char woofc_handler[128];
+    char namespace[1024];
+    unsigned long ino; // for caching if enabled
+    uint64_t timestamp;
 };
 
 typedef struct event_stc EVENT;
@@ -44,12 +43,11 @@ typedef struct event_stc EVENT;
 #define INVALID (128)
 #endif
 
-EVENT *EventCreate(unsigned char type, unsigned long host);
+EVENT* EventCreate(unsigned char type, unsigned long host);
 
-void EventFree(EVENT *ev);
+void EventFree(EVENT* ev);
 
-int EventSetCause(EVENT *ev, unsigned long cause_host,
-				  unsigned long long cause_seq_no);
+int EventSetCause(EVENT* ev, unsigned long cause_host, unsigned long long cause_seq_no);
 
 int64_t EventIndex(unsigned long host, unsigned long long seq_no);
 
