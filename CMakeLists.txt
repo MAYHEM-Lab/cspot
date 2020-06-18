@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(cspot)
 
+add_subdirectory(uriparser2)
 add_subdirectory(deps)
 
 add_library(woof 
