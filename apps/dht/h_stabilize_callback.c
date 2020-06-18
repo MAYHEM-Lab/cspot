@@ -58,8 +58,25 @@ int h_stabilize_callback(WOOF *wf, unsigned long seq_no, void *ptr) {
 	sprintf(notify_arg.callback_handler, "h_notify_callback");
 	unsigned long seq = WooFPut(notify_woof_name, "h_notify", &notify_arg);
 	if (WooFInvalid(seq)) {
-		log_error("failed to call notify on successor %s", notify_woof_name);
-		exit(1);
+		log_warn("failed to call notify on successor %s", notify_woof_name);
+#ifdef USE_RAFT
+		DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
+		try_replicas_arg.type = DHT_TRY_SUCCESSOR;
+		seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+		if (WooFInvalid(seq)) {
+			log_error("failed to invoke r_try_replicas");
+			exit(1);
+		}
+#else
+		shift_successor_list(&successor);
+		unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+		if (WooFInvalid(seq)) {
+			log_error("failed to shift successor");
+			exit(1);
+		}
+		log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+#endif
+		return 1;
 	}
 	log_debug("called notify on successor %s", successor_leader);
 

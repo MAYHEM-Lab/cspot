@@ -53,6 +53,7 @@ copy: handlers clients test
 	cp r_set_node ./cspot;
 	cp r_set_predecessor ./cspot;
 	cp r_set_successor ./cspot;
+	cp r_try_replicas ./cspot;
 	cp client_find_node ./cspot;
 	cp client_init_topic ./cspot;
 	cp client_node_info ./cspot;
@@ -62,7 +63,7 @@ copy: handlers clients test
 	cp test_publish ./cspot;
 	cp test_subscribe ./cspot;
 	
-handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor
+handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
 
 clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon client_find_node client_init_topic client_node_info client_publish client_subscribe
 
@@ -192,6 +193,11 @@ r_set_successor: r_set_successor.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LI
 	${CC} ${CFLAGS} -c r_set_successor_shepherd.c -o r_set_successor_shepherd.o
 	${CC} ${CFLAGS} -o r_set_successor r_set_successor.c r_set_successor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+r_try_replicas: r_try_replicas.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_try_replicas/g' ${SHEP_SRC} > r_try_replicas_shepherd.c
+	${CC} ${CFLAGS} -c r_try_replicas_shepherd.c -o r_try_replicas_shepherd.o
+	${CC} ${CFLAGS} -o r_try_replicas r_try_replicas.c r_try_replicas_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 s_create_cluster: s_create_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_create_cluster s_create_cluster.c ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
@@ -218,5 +224,5 @@ test_subscribe: test_subscribe.c ${DHTOBJ} ${RAFTOBJ}
 	${CC} ${CFLAGS} -o test_subscribe test_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot *.o *_shepherd.c s_create_cluster s_create_woofs s_join_cluster s_start_daemon client_find_node client_node_info d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor test_dht_handler test_publish test_subscribe
+	rm -rf ./cspot *.o *_shepherd.c s_create_cluster s_create_woofs s_join_cluster s_start_daemon client_find_node client_node_info d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas test_dht_handler test_publish test_subscribe
 

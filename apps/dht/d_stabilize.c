@@ -75,43 +75,33 @@ int d_stabilize(WOOF *wf, unsigned long seq_no, void *ptr) {
 		DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
 		sprintf(get_predecessor_arg.callback_woof, "%s/%s", woof_name, DHT_STABILIZE_CALLBACK_WOOF);
 		sprintf(get_predecessor_arg.callback_handler, "h_stabilize_callback");
-
-		int tried = 0;
-		while (tried < DHT_REPLICA_NUMBER) {
-			log_debug("current successor_addr: %s", successor_addr(&successor, 0));
-
-			char successor_woof_name[DHT_NAME_LENGTH];
-			sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
-			unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
+		log_debug("current successor_addr: %s", successor_addr(&successor, 0));
+		char successor_woof_name[DHT_NAME_LENGTH];
+		sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
+		unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
+		if (WooFInvalid(seq)) {
+#ifdef USE_RAFT
+			log_warn("failed to invoke h_get_predecessor on %s", successor_woof_name);
+			DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
+			try_replicas_arg.type = DHT_TRY_SUCCESSOR;
+			seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
 			if (WooFInvalid(seq)) {
-				log_warn("failed to invoke h_get_predecessor", successor_woof_name);
-				do {
-					successor.leader[0] = (successor.leader[0] + 1) % DHT_REPLICA_NUMBER;
-					++tried;
-				} while (successor_addr(&successor, 0)[0] == 0);
-				seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
-				if (WooFInvalid(seq)) {
-					log_error("failed to try the next successor replica");
-					exit(1);
-				}
-				log_warn("try next successor replica %s", successor_addr(&successor, 0));
-				continue;
+				log_error("failed to invoke r_try_replicas");
+				exit(1);
 			}
-			log_debug("asked to get_predecessor from %s", successor_woof_name);
-			return 1;
-		}
-
-		if (tried >= DHT_REPLICA_NUMBER) {
-			// failed to contact successor, use the next one
+#else
 			shift_successor_list(&successor);
 			unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
 			if (WooFInvalid(seq)) {
 				log_error("failed to shift successor");
 				exit(1);
 			}
-			log_debug("successor shifted. new: %s", successor_addr(&successor, 0));
-			log_warn("none of successor's replica is responding, use the next successor in line");
+			log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+#endif
+			return 1;
 		}
+		log_debug("asked to get_predecessor from %s", successor_woof_name);
+		return 1;
 	}
 	
 	return 1;

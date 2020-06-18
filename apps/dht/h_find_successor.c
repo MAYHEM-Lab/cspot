@@ -179,8 +179,31 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 			sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
 			unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 			if (WooFInvalid(seq)) {
-				log_error("failed to forward find_successor request to %s", req_forward_woof);
-				exit(1);
+				log_warn("failed to forward find_successor request to %s", req_forward_woof);
+#ifdef USE_RAFT
+				DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
+				try_replicas_arg.type = DHT_TRY_FINGER;
+				try_replicas_arg.finger_id = i;
+				strcpy(try_replicas_arg.woof_name, wf->shared->filename);
+				strcpy(try_replicas_arg.handler_name, "h_find_successor");
+				try_replicas_arg.seq_no = seq_no;
+				seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+				if (WooFInvalid(seq)) {
+					log_error("failed to invoke r_try_replicas");
+					exit(1);
+				}
+				return 1;
+#else
+				memset(&finger, 0, sizeof(finger));
+				unsigned long seq = set_finger_info(i, &finger);
+				if (WooFInvalid(seq)) {
+					log_error("failed to set finger[%d] to nil", i);
+					exit(1);
+				}
+				log_warn("set finger[%d] to nil", i);
+				continue;
+#endif
+				
 			}
 			log_debug("forwarded find_succesor request to finger[%d]: %s", i, finger_replicas_leader);
 			return 1;
@@ -191,11 +214,31 @@ int h_find_successor(WOOF *wf, unsigned long seq_no, void *ptr) {
 		sprintf(req_forward_woof, "%s/%s", successor_addr(&successor, 0), DHT_FIND_SUCCESSOR_WOOF);
 		unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
 		if (WooFInvalid(seq)) {
-			log_error("failed to forward find_successor request to %s", req_forward_woof);
-			exit(1);
+			log_warn("failed to forward find_successor request to %s", req_forward_woof);
+#ifdef USE_RAFT
+			DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
+			try_replicas_arg.type = DHT_TRY_SUCCESSOR;
+			strcpy(try_replicas_arg.woof_name, wf->shared->filename);
+			strcpy(try_replicas_arg.handler_name, "h_find_successor");
+			try_replicas_arg.seq_no = seq_no;
+			seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+			if (WooFInvalid(seq)) {
+				log_error("failed to invoke r_try_replicas");
+				exit(1);
+			}
+#else
+			shift_successor_list(&successor);
+			unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+			if (WooFInvalid(seq)) {
+				log_error("failed to shift successor");
+				exit(1);
+			}
+			log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+#endif
+		} else {
+			log_debug("forwarded find_succesor request to successor: %s", successor_addr(&successor, 0));
+			return 1;
 		}
-		log_debug("forwarded find_succesor request to successor: %s", successor_addr(&successor, 0));
-		return 1;
 	}
 
 	// return n.find_succesor(id)

@@ -25,7 +25,8 @@
 #define DHT_PREDECESSOR_INFO_WOOF "dht_predecessor_info.woof"
 #define DHT_SUCCESSOR_INFO_WOOF "dht_successor_info.woof"
 #define DHT_FINGER_INFO_WOOF "dht_finger_info.woof"
-
+#define DHT_REPLICATE_STATE_WOOF "dht_replicate_state.woof"
+#define DHT_TRY_REPLICAS_WOOF "dht_try_replicas.woof"
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
 
@@ -37,6 +38,8 @@
 #define DHT_CHECK_PREDECESSOR_FRQUENCY 1000
 #define DHT_FIX_FINGER_FRQUENCY 100
 #define DHT_SUCCESSOR_LIST_R 3
+#define DHT_REPLICA_NUMBER 3
+#define DHT_REPLICATE_STATE_FREQUENCY 5000
 
 #define DHT_ACTION_NONE 0
 #define DHT_ACTION_FIND_NODE 1
@@ -45,18 +48,9 @@
 #define DHT_ACTION_REGISTER_TOPIC 4
 #define DHT_ACTION_SUBSCRIBE 5
 
-#ifdef USE_RAFT
-#define DHT_REPLICATE_STATE_WOOF "dht_replicate_state.woof"
-
-#define DHT_REPLICA_NUMBER 3
-#define DHT_REPLICATE_STATE_FREQUENCY 5000
-
-#define DHT_RETRY_PREDECESSOR 0
-#define DHT_RETRY_SUCCESSOR 1
-#define DHT_RETRY_FINGER 2
-#else
-#define DHT_REPLICA_NUMBER 1
-#endif
+#define DHT_TRY_PREDECESSOR 0
+#define DHT_TRY_SUCCESSOR 1
+#define DHT_TRY_FINGER 2
 
 char dht_error_msg[256];
 
@@ -206,12 +200,13 @@ typedef struct dht_replicate_state_arg {
 	
 } DHT_REPLICATE_STATE_ARG;
 
-#ifdef USE_RAFT
-typedef struct dht_retry_replica_arg {
+typedef struct dht_try_replicas_arg {
 	int type;
-	
-} DHT_RETRY_REPLICA_ARG;
-#endif
+	int finger_id;
+	char woof_name[DHT_NAME_LENGTH];
+	char handler_name[DHT_NAME_LENGTH];
+	unsigned long seq_no;
+} DHT_TRY_REPLICAS_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon();
