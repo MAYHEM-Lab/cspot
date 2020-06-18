@@ -3,3 +3,4 @@
 build
 .clangd
 .idea
+cmake-build-*
