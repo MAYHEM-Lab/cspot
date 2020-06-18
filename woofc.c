@@ -224,8 +224,6 @@ WOOF* WooFOpen(char* name) {
     char fname[4096];
     int err;
     struct stat sbuf;
-    WOOF_OPEN_CACHE_EL* wel;
-    WOOF_OPEN_CACHE_EL* pel;
 #ifdef REPAIR
     char shadow_name[4096];
 #endif
@@ -359,8 +357,6 @@ int WooFExist(char* name) {
     char fname[4096];
     int err;
     struct stat sbuf;
-    WOOF_OPEN_CACHE_EL* wel;
-    WOOF_OPEN_CACHE_EL* pel;
 
     if (name == NULL) {
         return 0;
@@ -2062,8 +2058,6 @@ WOOF* WooFOpenOriginal(char* name) {
     char fname[4096];
     int err;
     struct stat sbuf;
-    WOOF_OPEN_CACHE_EL* wel;
-    WOOF_OPEN_CACHE_EL* pel;
 
     if (name == NULL) {
         return (NULL);
@@ -2074,12 +2068,6 @@ WOOF* WooFOpenOriginal(char* name) {
         fflush(stderr);
         exit(1);
     }
-
-#ifdef CACHE_ON
-    if (WooF_open_cache == NULL) {
-        WooF_open_cache = WooFCacheInit(WOOF_OPEN_CACHE_MAX);
-    }
-#endif
 
     memset(local_name, 0, sizeof(local_name));
     strncpy(local_name, WooF_dir, sizeof(local_name));
@@ -2108,34 +2096,6 @@ WOOF* WooFOpenOriginal(char* name) {
         return (NULL);
     }
 
-    /*
-     * here is the HACK for open woof caching
-     */
-    if (WooF_open_cache != NULL) {
-        wel = WooFCacheFind(WooF_open_cache, local_name);
-        if (wel != NULL) {
-            /*
-             * if the woof hasn't been recreated
-             * it is still "good"
-             */
-            if (wel->ino == sbuf.st_ino) {
-#ifdef DEBUG
-                printf("WooFOpenOriginal: found cached woof for %s\n", local_name);
-                fflush(stdout);
-#endif
-                return (wel->wf);
-            } else {
-#ifdef DEBUG
-                printf("WooFOpenOriginal: expiring cached woof for %s\n", local_name);
-                fflush(stdout);
-#endif
-                WooFCacheRemove(WooF_open_cache, local_name);
-                WooFDrop(wel->wf);
-                free(wel);
-            }
-        }
-    }
-
     mio = MIOReOpen(local_name);
     if (mio == NULL) {
         return (NULL);
@@ -2156,32 +2116,6 @@ WOOF* WooFOpenOriginal(char* name) {
     wf->mio = mio;
     wf->ino = sbuf.st_ino;
 
-    if (WooF_open_cache != NULL) {
-        wel = (WOOF_OPEN_CACHE_EL*)malloc(sizeof(WOOF_OPEN_CACHE_EL));
-        if ((wel != NULL) && (stat(local_name, &sbuf) >= 0)) {
-            wel->wf = wf;
-            wel->ino = sbuf.st_ino;
-        }
-#ifdef DEBUG
-        printf("WooFOpenOriginal: inserting cached woof for %s\n", local_name);
-        fflush(stdout);
-#endif
-        err = WooFCacheInsert(WooF_open_cache, local_name, (void*)wel);
-        /*
-         * try only once on failure
-         */
-        if (err < 0) {
-            pel = (WOOF_OPEN_CACHE_EL*)WooFCacheAge(WooF_open_cache);
-            if (pel != NULL) {
-                WooFDrop(pel->wf);
-                free(pel);
-            }
-            err = WooFCacheInsert(WooF_open_cache, local_name, (void*)wel);
-            if (err < 0) {
-                free(wel);
-            }
-        }
-    }
     return (wf);
 }
 

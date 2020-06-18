@@ -3,6 +3,7 @@
 
 #include "dlist.h"
 #include "hval.h"
+#include "pthread.h"
 #include "redblack.h"
 
 struct woof_cache_stc {
