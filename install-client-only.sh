@@ -6,6 +6,14 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 
+GITHUBUSER=$1
+
+if ( test -z "$GITHUBUSER" ) ; then
+        echo "please specify github user to use"
+        echo "usage: install.sh githubuserID"
+        exit 1
+fi
+
 DTEST=`lsb_release -a | grep Distributor | awk '{print $3}'`
 
 if ( test "$DEST" = "Ubuntu" ) ; then

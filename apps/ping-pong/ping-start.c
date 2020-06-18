@@ -6,51 +6,39 @@
 #include "woofc.h"
 #include "ping-pong.h"
 
-#define ARGS "c:f:s:N:n:H:"
-char *Usage = "ping-start -f woof_name\n\
-\t-H namelog-path\n\
-\t-s size (in events)\n\
-\t-N ping namespace-path\n\
-\t-n pong namespace-path\n";
+#define ARGS "W:w:s:"
+char *Usage = "ping-start -w ping_woof_name\n\
+\t-W pong_woof_name\n\
+\t-s size\n";
 
-char Fname[4096];
-char Wname[4096];
-char Wname2[4096];
-char NameSpace[4096];
-char NameSpace2[4096];
-char Namelog_dir[4096];
-char putbuf1[4096];
-char putbuf2[4096];
+char ping_Wname[4096];
+char pong_Wname[4096];
+char ping_NameSpace[4096];
+char putbuf1[4098];
+char putbuf2[4098];
 
 int main(int argc, char **argv)
 {
 	int c;
-	int size;
 	int err;
 	PP_EL el;
 	unsigned long seq_no;
 	unsigned int pid;
 	char local_ns[4096];
-	char ip_addr_str[50];
+	char l_wname[4096];
+	int size;
 
 	size = 5;
-
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
-			case 'f':
-				strncpy(Fname,optarg,sizeof(Fname));
+			case 'w':
+				strncpy(ping_Wname,optarg,sizeof(ping_Wname));
+				break;
+			case 'W':
+				strncpy(pong_Wname,optarg,sizeof(pong_Wname));
 				break;
 			case 's':
 				size = atoi(optarg);
-				break;
-			case 'N':
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			case 'n':
-				strncpy(NameSpace2,optarg,sizeof(NameSpace));
-				break;
-			case 'H':
-				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
 				break;
 			default:
 				fprintf(stderr,
@@ -60,93 +48,68 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if(Fname[0] == 0) {
-		fprintf(stderr,"must specify filename for object\n");
+	if((ping_Wname[0] == 0) ||
+	   (pong_Wname[0] == 0)) {
+		fprintf(stderr,"must specify fully qualified woof name for ping and pong objects\n");
 		fprintf(stderr,"%s",Usage);
 		fflush(stderr);
 		exit(1);
 	}
 
-	if((NameSpace[0] == 0) && 
-	   (NameSpace2[0] != 0)) {
-		fprintf(stderr,"must specify two name spaces or none\n");
-		fprintf(stderr,"%s",Usage);
-		exit(1);
-	}
-
-	if((NameSpace[0] != 0) && 
-	   (NameSpace2[0] == 0)) {
-		fprintf(stderr,"must specify two name spaces or none\n");
-		fprintf(stderr,"%s",Usage);
-		exit(1);
-	}
-
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
-	}
-
 	/*
-	 * I am ping
+	 * I am ping -- pong woof must have already been created
 	 */
-	err = WooFIPAddrFromURI(NameSpace,ip_addr_str,sizeof(ip_addr_str));
-	if(err < 0) { // no host spec
-		err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
-		if(err > 0) {
-			sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
-		} else { // assume it is a local path
-			sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
-		}
-	} else { // there is a host spec
-		err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
-		if(err < 0) {
-			fprintf(stderr,"badly formed namespace %s\n",NameSpace);
-			exit(1);
-		}
+	memset(local_ns,0,sizeof(local_ns));
+	err = WooFNameSpaceFromURI(ping_Wname,local_ns,sizeof(local_ns));
+	if(err < 0) { // not a valid woof spec
+		fprintf(stderr,"%s does not contain a valid namespace\n",ping_Wname);
+		fprintf(stderr,"please specify full woof name for ping\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	} else { // name space okay
 		sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
+		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",local_ns);
 	}
 	putenv(putbuf1);
-	/*
-	 * ping's woof
-	 */
-	sprintf(Wname,"%s/%s",NameSpace,Fname);
-	/*
-	 * pong's woof
-	 */
-	sprintf(Wname2,"%s/%s",NameSpace2,Fname);
-
 
 	WooFInit();
 
-	/*
-	 * create ping's woof (assume pong is up)
-	 */
-	err = WooFCreate(Wname,sizeof(PP_EL),size);
-
+	memset(l_wname,0,sizeof(l_wname));
+	err = WooFNameFromURI(ping_Wname,l_wname,sizeof(l_wname));
 	if(err < 0) {
-		fprintf(stderr,"couldn't create wf_1 from %s\n",Wname);
-		fflush(stderr);
+		fprintf(stderr,"%s does not contain a valid object name for ping\n",
+			ping_Wname);
+		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}
 
-	memset(&el,0,sizeof(el));
 	/*
-	 * ping moves first and triggers pong
+	 * create ping woof
 	 */
-	strncpy(el.next_woof,Wname,sizeof(el.next_woof));
-	strncpy(el.next_woof2,Wname2,sizeof(el.next_woof2));
+	err = WooFCreate(l_wname,sizeof(PP_EL),size);
+
+	if(err < 0) {
+		fprintf(stderr,"couldn't create %s in %s from %s\n",
+			l_wname,
+			local_ns,
+			ping_Wname);
+		fflush(stderr);
+		exit(1);
+	}
+	memset(&el,0,sizeof(el));
+	strncpy(el.next_woof2,pong_Wname,sizeof(el.next_woof));
+	strncpy(el.next_woof,ping_Wname,sizeof(el.next_woof2));
 
 	el.counter = 0;
 	el.max = size;
-	seq_no = WooFPut(Wname2,"pong",(void *)&el);
-
+	seq_no = WooFPut(pong_Wname,"pong",(void *)&el);
 	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"first WooFPut failed\n");
-		fflush(stderr);
+		fprintf(stderr,"couldn't put first put to %s\n",
+				pong_Wname);
 		exit(1);
 	}
 
-	pthread_exit(NULL);
+	exit(0);
 	return(0);
 }
 
