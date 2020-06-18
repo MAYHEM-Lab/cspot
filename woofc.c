@@ -343,6 +343,45 @@ void WooFDrop(WOOF *wf)
 	return;
 }
 
+int WooFTruncate(char *name, unsigned long seq_no) {
+	WOOF *wf = WooFOpen(name);
+	if (wf == NULL) {
+		return -1;
+	}
+	WOOF_SHARED *wfs = wf->shared;
+
+	P(&wfs->tail_wait);
+	P(&wfs->mutex);
+
+	if (seq_no == 0) {
+		wfs->head = 0;
+		wfs->tail = 0;
+		wfs->seq_no = 1;
+	} else {
+		// if new seq_no is less than earliest seq_no, return -1
+		unsigned long earliest_seqno = (wfs->tail + 1) % wfs->history_size;
+		if (seq_no < earliest_seqno) {
+			fprintf(stderr, "WooFTruncate: seq_no %lu is less than the earliest seq_no %lu\n", seq_no, earliest_seqno);
+			fflush(stderr);
+			V(&wfs->mutex);
+			V(&wfs->tail_wait);
+			WooFFree(wf);
+			return -1;
+		}
+
+		unsigned long latest_seqno = wfs->seq_no - 1;
+		unsigned long trunc_head = (wfs->head + wfs->history_size - (latest_seqno - seq_no)) % wfs->history_size;
+		wfs->head = trunc_head;
+		wfs->seq_no = seq_no + 1;
+	}
+	
+	V(&wfs->mutex);
+	V(&wfs->tail_wait);
+	WooFFree(wf);
+
+	return 1;
+}
+
 unsigned long WooFAppend(WOOF *wf, char *hand_name, void *element)
 {
 	MIO *mio;
@@ -795,6 +834,7 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no)
 	fflush(stdout);
 #endif
 
+
 	memset(ns_ip, 0, sizeof(ns_ip));
 	err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
 	if (err < 0)
@@ -1094,8 +1134,8 @@ int WooFRead(WOOF *wf, void *element, unsigned long seq_no)
 	ELID *el_id;
 
 	if((seq_no == 0) || WooFInvalid(seq_no)) {
-                return(-1);
-        }
+		return(-1);
+	}
 
 	wfs = wf->shared;
 

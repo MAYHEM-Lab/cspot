@@ -31,5 +31,5 @@ RUN /bin/bash -l -c '\
     cd ../ && rm -rf ${LAPACK}'
 # install python36 for AWS Lambda execution
 RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
-    yum update && \
+    yum update -y && \
     yum install -y python36u python36u-libs python36u-devel python36u-pip \

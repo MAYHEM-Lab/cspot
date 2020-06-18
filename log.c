@@ -327,17 +327,17 @@ PENDING *PendingCreate(char *filename, unsigned long psize)
 	pending = (PENDING *)MIOAddr(mio);
 	memset(pending, 0, sizeof(PENDING));
 
-	pending->alive = RBInitD();
+	pending->alive = RBInitI64();
 	if (pending->alive == NULL)
 	{
 		MIOClose(mio);
 		return (NULL);
 	}
 
-	pending->causes = RBInitD();
+	pending->causes = RBInitI64();
 	if (pending->causes == NULL)
 	{
-		RBDestroyD(pending->alive);
+		RBDestroyI64(pending->alive);
 		MIOClose(mio);
 		return (NULL);
 	}
@@ -362,12 +362,12 @@ void PendingFree(PENDING *pending)
 
 	if (pending->alive != NULL)
 	{
-		RBDestroyD(pending->alive);
+		RBDestroyI64(pending->alive);
 	}
 
 	if (pending->causes != NULL)
 	{
-		RBDestroyD(pending->causes);
+		RBDestroyI64(pending->causes);
 	}
 
 	if (pending->p_mio != NULL)
@@ -380,7 +380,7 @@ void PendingFree(PENDING *pending)
 
 int PendingAddEvent(PENDING *pending, EVENT *event)
 {
-	double ndx;
+	int64_t ndx;
 	EVENT *local_event;
 	unsigned long start;
 	EVENT *ev_array;
@@ -422,10 +422,10 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 	}
 	memcpy(&ev_array[pending->next_free], event, sizeof(EVENT));
 	ndx = EventIndex(event->host, event->seq_no);
-	RBInsertD(pending->alive, ndx,
+	RBInsertI64(pending->alive, ndx,
 			  (Hval)(void *)(&ev_array[pending->next_free]));
 	ndx = EventIndex(event->cause_host, event->cause_seq_no);
-	RBInsertD(pending->causes, ndx,
+	RBInsertI64(pending->causes, ndx,
 			  (Hval)(void *)(&ev_array[pending->next_free]));
 
 	return (1);
@@ -437,11 +437,11 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	RB *start;
 	EVENT *local_event;
 	EVENT *this_event;
-	double ndx;
+	int64_t ndx;
 	int found = 0;
 
 	ndx = EventIndex(event->host, event->seq_no);
-	rb = RBFindD(pending->alive, ndx);
+	rb = RBFindI64(pending->alive, ndx);
 	if (rb == NULL)
 	{
 		fprintf(stderr,
@@ -452,7 +452,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 		return (-1);
 	}
 	local_event = (EVENT *)rb->value.v;
-	RBDeleteD(pending->alive, rb);
+	RBDeleteI64(pending->alive, rb);
 
 	/*
 	 * there could be multiple events with the same cause event
@@ -461,7 +461,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	 */
 	ndx = EventIndex(event->cause_host, event->cause_seq_no);
 
-	start = RBFindD(pending->causes, ndx);
+	start = RBFindI64(pending->causes, ndx);
 	if (start == NULL)
 	{
 		fprintf(stderr,
@@ -476,7 +476,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	{
 		if (rb->value.v == local_event)
 		{
-			RBDeleteD(pending->causes, rb);
+			RBDeleteI64(pending->causes, rb);
 			local_event->seq_no = 0; /* marks MIO space as free */
 			return (1);
 		}
@@ -487,7 +487,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 	{
 		if (rb->value.v == local_event)
 		{
-			RBDeleteD(pending->causes, rb);
+			RBDeleteI64(pending->causes, rb);
 			local_event->seq_no = 0; /* marks MIO space as free */
 			return (1);
 		}
@@ -499,11 +499,11 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 
 EVENT *PendingFindEvent(PENDING *pending, unsigned long host, unsigned long long seq_no)
 {
-	double ndx = EventIndex(host, seq_no);
+	int64_t ndx = EventIndex(host, seq_no);
 	RB *rb;
 	EVENT *ev;
 
-	rb = RBFindD(pending->alive, ndx);
+	rb = RBFindI64(pending->alive, ndx);
 	if (rb == NULL)
 	{
 		return (NULL);
@@ -525,11 +525,11 @@ EVENT *PendingFindEvent(PENDING *pending, unsigned long host, unsigned long long
 
 EVENT *PendingFindCause(PENDING *pending, unsigned long host, unsigned long long seq_no)
 {
-	double ndx = EventIndex(host, seq_no);
+	int64_t ndx = EventIndex(host, seq_no);
 	RB *rb;
 	EVENT *ev;
 
-	rb = RBFindD(pending->causes, ndx);
+	rb = RBFindI64(pending->causes, ndx);
 	if (rb == NULL)
 	{
 		return (NULL);
@@ -856,7 +856,7 @@ int IsAnchor(EVENT *ev)
 
 int GLogEvent(GLOG *gl, EVENT *event)
 {
-	double ndx;
+	int64_t ndx;
 	unsigned long host_id;
 	unsigned long long seq_no;
 	unsigned long long cause_seq_no;

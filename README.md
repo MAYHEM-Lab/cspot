@@ -3,7 +3,7 @@ c spot run
 
 For a brief overview of CSPOT, please see the wiki at
 
-https://github.com/MAYHEM-Lab/cspot/wiki/CSPOT-Run
+https://github.com/MAYHEM-Lab/cspot/wiki
 
 CSPOT depends on two other libraries
 
@@ -49,8 +49,8 @@ is necessary in the shell that launches the binary.
 To enable rather verbose debugging in the CSPOT runtime, define DEBUG as a compile-time 
 constant in the cspot source files and recompile.
 
-The apps subdirectory contains several sample applications.  Their function is document on the CSPOT github wiki
+The apps subdirectory contains several sample applications.  Their function is documented on the CSPOT github wiki
 
-https://github.com/MAYHEM-Lab/cspot/wiki/CSPOT-Run
+https://github.com/MAYHEM-Lab/cspot/wiki
 
 

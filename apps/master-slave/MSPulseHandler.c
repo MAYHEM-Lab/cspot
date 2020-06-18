@@ -203,6 +203,7 @@ void PrintState(STATE *state)
 	printf("\t\tother_color: %c\n",state->other_color);
 	printf("\tclient_ip: %s\n",state->client_ip);
 	printf("\t\tclient_color: %c\n",state->client_color);
+	printf("IAM: %c\n",state->my_state);
 	fflush(stdout);
 	return;
 }

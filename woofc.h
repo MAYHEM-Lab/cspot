@@ -57,6 +57,7 @@ unsigned long WooFForward(WOOF *wf, unsigned long ndx, unsigned long elements);
 int WooFHandlerDone(char *wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF *wf);
+int WooFTruncate(char *name, unsigned long seq_no);
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"

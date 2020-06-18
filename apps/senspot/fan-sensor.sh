@@ -18,7 +18,8 @@ if ( test "$DISTRO" == "debian" ) ; then
 else
 # yum -y install lm_sensors
 # sensors-detect
-        TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
+#        TEMP=`sensors -f | grep "Package" | awk '{print $4}' | sed 's/+//' | cat -v | sed 's/M-BM-0F//'`
+        TEMP=`sensors -f | grep "fan2:" | awk '{print $2}'`
 fi
 
 
