@@ -1,3 +1,5 @@
+// #define DEBUG
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -42,6 +44,7 @@ LOG *LogCreate(char *filename, unsigned long host_id, unsigned long int size)
 	log->host_id = host_id;
 	log->size = size + 1;
 	log->seq_no = 1;
+	// log->last_trigger_seq_no = 0;
 	InitSem(&log->mutex, 1);
 	/*
 	 * for WooF launch synchronization
@@ -292,12 +295,16 @@ void LogPrint(FILE *fd, LOG *log)
 	while (curr != log->tail)
 	{
 		fprintf(fd,
-				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu\n",
+				"\t[%lu] host: %lu seq_no: %llu r_host: %lu r_seq_no: %llu woofc_seq_no: %lu woof: %s type: %d timestamp: %lu\n",
 				curr,
 				ev_array[curr].host,
 				ev_array[curr].seq_no,
 				ev_array[curr].cause_host,
-				ev_array[curr].cause_seq_no);
+				ev_array[curr].cause_seq_no,
+				ev_array[curr].woofc_seq_no,
+				ev_array[curr].woofc_name,
+				ev_array[curr].type,
+				ev_array[curr].timestamp);
 		fflush(fd);
 		curr = curr - 1;
 		if (curr >= log->size)
@@ -347,7 +354,11 @@ PENDING *PendingCreate(char *filename, unsigned long psize)
 	pending->size = psize;
 	pending->next_free = 0;
 	ev_array = (EVENT *)(MIOAddr(mio) + sizeof(PENDING));
-	memset(ev_array, 0, psize * sizeof(EVENT));
+// printf("memset start\n");
+// fflush(stdout);
+// 	memset(ev_array, 0, psize * sizeof(EVENT));
+// printf("memset done\n");
+// fflush(stdout);
 
 	return (pending);
 }
@@ -394,6 +405,7 @@ int PendingAddEvent(PENDING *pending, EVENT *event)
 	{
 		fprintf(stderr, "found %lu %llu pending while adding\n",
 				event->host, event->seq_no);
+		PendingPrint(stderr, pending);
 		fflush(stderr);
 		return (-1);
 	}
@@ -472,7 +484,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 		return (-1);
 	}
 	rb = start;
-	while ((rb != NULL) && (rb->key.key.d == ndx))
+	while ((rb != NULL) && (rb->key.key.i64 == ndx))
 	{
 		if (rb->value.v == local_event)
 		{
@@ -483,7 +495,7 @@ int PendingRemoveEvent(PENDING *pending, EVENT *event)
 		rb = rb->next;
 	}
 	rb = start;
-	while ((rb != NULL) && (rb->key.key.d == ndx))
+	while ((rb != NULL) && (rb->key.key.i64 == ndx))
 	{
 		if (rb->value.v == local_event)
 		{

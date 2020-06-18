@@ -1,4 +1,6 @@
 #define HAS_WOOF
+#define TIMING
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -7,6 +9,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/time.h>
 
 #include "c-twist.h"
 #include "c-runstest.h"
@@ -32,6 +35,11 @@ int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	int i;
 	double *v;
 
+#ifdef TIMING
+	struct timeval t1, t2;
+	double elapsedTime;
+	gettimeofday(&t1, NULL);
+#endif
 
 	/*
 	 * sanity check
@@ -112,8 +120,15 @@ fflush(stdout);
 			exit(1);
 		}
 	}
+
+#ifdef TIMING
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("Timing:SHandler: %f ms\n", elapsedTime);
+	fflush(stdout);
+#endif
+
 	return(1);
 }
-
 
 

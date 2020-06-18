@@ -1,3 +1,5 @@
+#define TIMING
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -6,6 +8,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/time.h>
 
 #include "c-twist.h"
 #include "c-runstest.h"
@@ -33,6 +36,12 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	unsigned long seq_no;
 	int count;
 	WOOF *s_wf;
+
+#ifdef TIMING
+	struct timeval t1, t2;
+	double elapsedTime;
+	gettimeofday(&t1, NULL);
+#endif
 
 	/*
 	 * sanity check
@@ -118,6 +127,11 @@ fflush(stdout);
 
 	WooFFree(s_wf);
 
+#ifdef TIMING
+	gettimeofday(&t2, NULL);
+	elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	printf("Timing:KHandler: %f ms\n", elapsedTime);
+	fflush(stdout);
+#endif
 	return(1);
 }
-
