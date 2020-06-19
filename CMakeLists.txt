@@ -36,6 +36,5 @@ target_include_directories(woof-thread PUBLIC include)
 target_link_libraries(woof-thread PUBLIC mio euca_utils)
 
 add_executable(woofc-namespace-platform src/woofc-host.c include/woofc-host.h)
-target_include_directories(woofc-namespace-platform PRIVATE include)
 target_link_libraries(woofc-namespace-platform PRIVATE woof)
 target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)
