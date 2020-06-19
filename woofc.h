@@ -1,8 +1,6 @@
 #ifndef WOOFC
 #define WOOFC
 
-#define REPAIR
-
 #include "dlist.h"
 #include "log.h"
 #include "lsema.h"
@@ -27,11 +25,13 @@ struct woof_shared_stc {
 
 typedef struct woof_shared_stc WOOF_SHARED;
 
+#ifdef REPAIR
 #define NORMAL (0)
 #define REPAIRING (1)
 #define SHADOW (2)
 #define READONLY (4)
 #define REMOVE (8)
+#endif
 
 struct woof_stc {
     WOOF_SHARED* shared;

@@ -1,7 +1,6 @@
 #ifndef WOOFC_ACCESS_H
 #define WOOFC_ACCESS_H
 
-#define REPAIR
 #include "dlist.h"
 #include "log.h"
 

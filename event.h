@@ -1,8 +1,6 @@
 #ifndef EVENT_H
 #define EVENT_H
 
-#define REPAIR
-
 #include <stdint.h>
 #include <stdlib.h>
 

@@ -1,5 +1,4 @@
 // #define DEBUG
-#define REPAIR
 
 #include "woofc-access.h"
 

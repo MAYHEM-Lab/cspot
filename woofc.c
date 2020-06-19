@@ -1,13 +1,13 @@
 // #define DEBUG
-#define REPAIR
-// #define TIMING
 
 #include "woofc.h"
 
 #include "log.h"
-#include "repair.h"
 #include "woofc-access.h"
 #include "woofc-cache.h"
+#ifdef REPAIR
+#include "repair.h"
+#endif
 
 #include <errno.h>
 #include <pthread.h>
@@ -921,10 +921,6 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
     struct timeval t1, t2;
     double elapsedTime;
 
-#ifdef TIMING
-    gettimeofday(&t1, NULL);
-#endif
-
 #ifdef DEBUG
     printf("WooFPut: called %s %s\n", wf_name, hand_name);
     fflush(stdout);
@@ -964,12 +960,6 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
         el_size = WooFMsgGetElSize(wf_name);
         if (el_size != (unsigned long)-1) {
             seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
-#ifdef TIMING
-            gettimeofday(&t2, NULL);
-            elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-            printf("WooFPut REMOTE: %f ms\n", elapsedTime);
-            fflush(stdout);
-#endif
             return (seq_no);
         } else {
             fprintf(stderr, "WooFPut: couldn't get element size for %s\n", wf_name);
@@ -1028,23 +1018,10 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
         printf("WooFPut: deleted shadow file %s\n", shadow_name);
         fflush(stdout);
 #endif
-#ifdef TIMING
-        gettimeofday(&t2, NULL);
-        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-        printf("WooFPut LOCAL: %f ms\n", elapsedTime);
-        fflush(stdout);
-#endif
         return (seq_no);
     }
 #endif
     WooFFree(wf);
-
-#ifdef TIMING
-    gettimeofday(&t2, NULL);
-    elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-    printf("WooFPut LOCAL: %f ms\n", elapsedTime);
-    fflush(stdout);
-#endif
     return (seq_no);
 }
 
@@ -1164,10 +1141,6 @@ int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
     struct timeval t1, t2;
     double elapsedTime;
 
-#ifdef TIMING
-    gettimeofday(&t1, NULL);
-#endif
-
 #ifdef DEBUG
     printf("WooFGet: called %s %lu\n", wf_name, seq_no);
     fflush(stdout);
@@ -1205,12 +1178,6 @@ int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
         el_size = WooFMsgGetElSize(wf_name);
         if (el_size != (unsigned long)-1) {
             err = WooFMsgGet(wf_name, element, el_size, seq_no);
-#ifdef TIMING
-            gettimeofday(&t2, NULL);
-            elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-            printf("WooFGet REMOTE: %f ms\n", elapsedTime);
-            fflush(stdout);
-#endif
             return (err);
         } else {
             fprintf(stderr, "WooFGet: couldn't get element size for %s\n", wf_name);
@@ -1248,12 +1215,6 @@ int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
     err = WooFReadWithCause(wf, element, seq_no, Name_id, my_log_seq_no);
 
     WooFFree(wf);
-#ifdef TIMING
-    gettimeofday(&t2, NULL);
-    elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-    printf("WooFGet LOCAL: %f ms\n", elapsedTime);
-    fflush(stdout);
-#endif
     return (err);
 }
 
@@ -1375,10 +1336,6 @@ unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
     struct timeval t1, t2;
     double elapsedTime;
 
-#ifdef TIMING
-    gettimeofday(&t1, NULL);
-#endif
-
 #ifdef DEBUG
     printf("WooFGetLatestSeqno: called %s\n", wf_name);
     fflush(stdout);
@@ -1414,12 +1371,6 @@ unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
      */
     if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
         latest_seq_no = WooFMsgGetLatestSeqno(wf_name, cause_woof_name, cause_woof_latest_seq_no);
-#ifdef TIMING
-        gettimeofday(&t2, NULL);
-        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-        printf("WooFGetLatestSeqno REMOTE: %f ms\n", elapsedTime);
-        fflush(stdout);
-#endif
         return (latest_seq_no);
     }
 
@@ -1443,12 +1394,6 @@ unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
     latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof_name, cause_woof_latest_seq_no);
     WooFFree(wf);
 
-#ifdef TIMING
-    gettimeofday(&t2, NULL);
-    elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
-    printf("WooFGetLatestSeqno LOCAL: %f ms\n", elapsedTime);
-    fflush(stdout);
-#endif
     return (latest_seq_no);
 }
 
@@ -1559,8 +1504,8 @@ unsigned long WooFGetTail(char* wf_name, void* elements, unsigned long element_c
     fflush(stdout);
 #endif
     err = WooFReadTail(wf, elements, element_count);
-
     WooFFree(wf);
+
     return (err);
 }
 
