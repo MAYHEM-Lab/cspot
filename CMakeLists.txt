@@ -22,8 +22,10 @@ add_library(woof
   include/lsema.h
 )
 
+find_package(Threads REQUIRED)
+
 target_include_directories(woof PUBLIC include)
-target_link_libraries(woof PUBLIC mio euca_utils czmq m pthread uriparser2 caps cspot_net)
+target_link_libraries(woof PUBLIC mio euca_utils czmq m Threads::Threads uriparser2)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 add_library(woof-thread 
