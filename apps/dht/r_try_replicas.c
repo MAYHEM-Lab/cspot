@@ -7,12 +7,13 @@
 #include <string.h>
 #include <unistd.h>
 
+// TODO: find the leader
 int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_TRY_REPLICAS_ARG* arg = (DHT_TRY_REPLICAS_ARG*)ptr;
 
     log_set_tag("try_replicas");
-    // log_set_level(DHT_LOG_DEBUG);
     log_set_level(DHT_LOG_INFO);
+    log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     switch (arg->type) {
@@ -32,25 +33,30 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
         for (i = (start_id + 1) % DHT_REPLICA_NUMBER; i != start_id; i = (i + 1) % DHT_REPLICA_NUMBER) {
             predecessor.leader = i;
             if (predecessor_addr(&predecessor)[0] == 0) {
-                continue;
+                break;
             }
             log_warn("trying predecessor replica[%d]: %s", i, predecessor_addr(&predecessor));
-            // check if predecessor woof is working, do nothing
-            DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
-            char predecessor_woof_name[DHT_NAME_LENGTH];
-            sprintf(predecessor_woof_name, "%s/%s", predecessor_addr(&predecessor), DHT_GET_PREDECESSOR_WOOF);
-            unsigned long seq = WooFPut(predecessor_woof_name, NULL, &get_predecessor_arg);
-            if (WooFInvalid(seq)) {
-                log_warn("predecessor replica[%d] not responding: %s", i, predecessor_addr(&predecessor));
+            // check if the replica is leader
+            char replica_woof[DHT_NAME_LENGTH];
+            sprintf(replica_woof, "%s/%s", predecessor_addr(&predecessor), DHT_NODE_INFO_WOOF);
+            unsigned long latest_node = WooFGetLatestSeqno(replica_woof);
+            if (WooFInvalid(latest_node)) {
+                log_warn("failed to get the latest seq_no of %s", replica_woof);
                 continue;
             }
-            log_debug("predecessor replica[%d] %s is working", i, predecessor_addr(&predecessor));
-            seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
+            DHT_NODE_INFO node = {0};
+            if (WooFGet(replica_woof, &node, latest_node) < 0) {
+                log_warn("failed to get the latest node info from %s", replica_woof);
+                continue;
+            }
+            predecessor.leader = node.leader_id;
+			log_debug("got leader_id %d from %s", node.leader_id, replica_woof);
+            unsigned long seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
             if (WooFInvalid(seq)) {
-                log_error("failed to update predecessor to use replica[%d]: %s", i, predecessor_addr(&predecessor));
+                log_error("failed to update predecessor to use replica[%d]: %s", node.leader_id, predecessor_addr(&predecessor));
                 exit(1);
             }
-            log_debug("updated predecessor to use replica[%d]: %s", i, predecessor_addr(&predecessor));
+            log_debug("updated predecessor to use replica[%d]: %s", node.leader_id, predecessor_addr(&predecessor));
             return 1;
         }
         log_warn("none of predecessor replicas is responding");
@@ -79,25 +85,30 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
         for (i = (start_id + 1) % DHT_REPLICA_NUMBER; i != start_id; i = (i + 1) % DHT_REPLICA_NUMBER) {
             successor.leader[0] = i;
             if (successor_addr(&successor, 0)[0] == 0) {
-                continue;
+                break;
             }
             log_warn("trying successor replica[%d]: %s", i, successor_addr(&successor, 0));
-            // check if predecessor woof is working, do nothing
-            DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
-            char successor_woof_name[DHT_NAME_LENGTH];
-            sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
-            unsigned long seq = WooFPut(successor_woof_name, NULL, &get_predecessor_arg);
-            if (WooFInvalid(seq)) {
-                log_warn("successor replica[%d] not responding: %s", i, successor_addr(&successor, 0));
+            // check if the replica is leader
+            char replica_woof[DHT_NAME_LENGTH];
+            sprintf(replica_woof, "%s/%s", successor_addr(&successor, 0), DHT_NODE_INFO_WOOF);
+            unsigned long latest_node = WooFGetLatestSeqno(replica_woof);
+            if (WooFInvalid(latest_node)) {
+                log_warn("failed to get the latest seq_no of %s", replica_woof);
                 continue;
             }
-            log_debug("successor replica[%d] %s is working", i, successor_addr(&successor, 0));
-            seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &successor);
+            DHT_NODE_INFO node = {0};
+            if (WooFGet(replica_woof, &node, latest_node) < 0) {
+                log_warn("failed to get the latest node info from %s", replica_woof);
+                continue;
+            }
+            successor.leader[0] = node.leader_id;
+			log_debug("got leader_id %d from %s", node.leader_id, replica_woof);
+            unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
             if (WooFInvalid(seq)) {
-                log_error("failed to update successor to use replica[%d]: %s", i, successor_addr(&successor, 0));
+                log_error("failed to update successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
                 exit(1);
             }
-            log_debug("updated successor to use replica[%d]: %s", i, successor_addr(&successor, 0));
+            log_debug("updated successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
             return 1;
         }
         log_warn("none of successor replicas is responding");

@@ -2,7 +2,6 @@
 #include "dht_utils.h"
 #include "woofc.h"
 
-#include <openssl/sha.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +14,12 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+
+    DHT_NODE_INFO node = {0};
+    if (get_latest_node_info(&node) < 0) {
+        log_error("couldn't get latest node info: %s", dht_error_msg);
+        exit(1);
+    }
 
     DHT_PREDECESSOR_INFO predecessor = {0};
     if (get_latest_predecessor_info(&predecessor) < 0) {

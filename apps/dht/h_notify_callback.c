@@ -2,18 +2,15 @@
 #include "dht_utils.h"
 #include "woofc.h"
 
-#include <openssl/sha.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_NOTIFY_CALLBACK_ARG* result = (DHT_NOTIFY_CALLBACK_ARG*)ptr;
 
     log_set_tag("notify_callback");
-    log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
+    log_set_level(DHT_LOG_INFO);
     log_set_output(stdout);
 
     DHT_SUCCESSOR_INFO successor = {0};

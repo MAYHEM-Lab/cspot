@@ -11,12 +11,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
-    char woof_name[DHT_NAME_LENGTH];
-    if (node_woof_name(woof_name) < 0) {
-        log_error("failed to get local node's woof name");
-        exit(1);
-    }
-
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
@@ -72,6 +66,12 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         log_info("successor set to self");
     } else {
+        char woof_name[DHT_NAME_LENGTH];
+        if (node_woof_name(woof_name) < 0) {
+            log_error("failed to get local node's woof name");
+            exit(1);
+        }
+
         // x = successor.predecessor
         DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
         sprintf(get_predecessor_arg.callback_woof, "%s/%s", woof_name, DHT_STABILIZE_CALLBACK_WOOF);

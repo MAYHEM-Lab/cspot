@@ -21,6 +21,7 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         exit(1);
     }
+
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
@@ -28,7 +29,6 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     log_debug("get_predecessor addr: %s", result->predecessor_replicas[result->predecessor_leader]);
-
     // x = successor.predecessor
     // if (x ∈ (n, successor))
     if (!is_empty(result->predecessor_hash) && in_range(result->predecessor_hash, node.hash, successor.hash[0])) {

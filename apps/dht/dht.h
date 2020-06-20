@@ -1,9 +1,10 @@
 #ifndef DHT_H
 #define DHT_H
 
-#include <stdint.h>
-#include <openssl/sha.h>
 #include "woofc.h"
+
+#include <openssl/sha.h>
+#include <stdint.h>
 
 #define DHT_CHECK_PREDECESSOR_WOOF "dht_check_predecessor.woof"
 #define DHT_DAEMON_WOOF "dht_daemon.woof"
@@ -55,132 +56,133 @@
 char dht_error_msg[256];
 
 typedef struct dht_node_info {
-	unsigned char hash[SHA_DIGEST_LENGTH];
-	char addr[DHT_NAME_LENGTH];
-	char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int replica_id;
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    char addr[DHT_NAME_LENGTH];
+    char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int replica_id;
+    int leader_id;
 } DHT_NODE_INFO;
 
 typedef struct dht_predecessor_info {
-	unsigned char hash[SHA_DIGEST_LENGTH];
-	char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int leader;
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int leader;
 } DHT_PREDECESSOR_INFO;
 
 typedef struct dht_successor_info {
-	unsigned char hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
-	char replicas[DHT_SUCCESSOR_LIST_R][DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int leader[DHT_SUCCESSOR_LIST_R];
+    unsigned char hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
+    char replicas[DHT_SUCCESSOR_LIST_R][DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int leader[DHT_SUCCESSOR_LIST_R];
 } DHT_SUCCESSOR_INFO;
 
 typedef struct dht_finger_info {
-	unsigned char hash[SHA_DIGEST_LENGTH];
-	char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int leader;
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int leader;
 } DHT_FINGER_INFO;
 
 typedef struct dht_find_successor_arg {
-	int hops;
-	char key[DHT_NAME_LENGTH];
-	unsigned char hashed_key[SHA_DIGEST_LENGTH];
-	int action;
-	char action_namespace[DHT_NAME_LENGTH];
-	unsigned long action_seqno; // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
-	char callback_namespace[DHT_NAME_LENGTH];
+    int hops;
+    char key[DHT_NAME_LENGTH];
+    unsigned char hashed_key[SHA_DIGEST_LENGTH];
+    int action;
+    char action_namespace[DHT_NAME_LENGTH];
+    unsigned long action_seqno; // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
+    char callback_namespace[DHT_NAME_LENGTH];
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
-	char topic[DHT_NAME_LENGTH];
-	int hops;
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int node_leader;
+    char topic[DHT_NAME_LENGTH];
+    int hops;
+    unsigned char node_hash[SHA_DIGEST_LENGTH];
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int node_leader;
 } DHT_FIND_NODE_RESULT;
 
 typedef struct dht_invocation_arg {
-	char woof_name[DHT_NAME_LENGTH];
-	unsigned long seq_no;
+    char woof_name[DHT_NAME_LENGTH];
+    unsigned long seq_no;
 } DHT_INVOCATION_ARG;
 
 typedef struct dht_join_arg {
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int node_leader;
+    unsigned char node_hash[SHA_DIGEST_LENGTH];
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int node_leader;
 } DHT_JOIN_ARG;
 
 typedef struct dht_fix_finger_arg {
-	int finger_index;
+    int finger_index;
 } DHT_FIX_FINGER_ARG;
 
 typedef struct dht_fix_finger_callback_arg {
-	int finger_index;
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int node_leader;
+    int finger_index;
+    unsigned char node_hash[SHA_DIGEST_LENGTH];
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int node_leader;
 } DHT_FIX_FINGER_CALLBACK_ARG;
 
 typedef struct dht_get_predecessor_arg {
-	char callback_woof[DHT_NAME_LENGTH];
-	char callback_handler[DHT_NAME_LENGTH];
+    char callback_woof[DHT_NAME_LENGTH];
+    char callback_handler[DHT_NAME_LENGTH];
 } DHT_GET_PREDECESSOR_ARG;
 
 typedef struct dht_stabilize_callback_arg {
-	unsigned char predecessor_hash[SHA_DIGEST_LENGTH];
-	char predecessor_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int predecessor_leader;
+    unsigned char predecessor_hash[SHA_DIGEST_LENGTH];
+    char predecessor_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int predecessor_leader;
 } DHT_STABILIZE_CALLBACK_ARG;
 
 typedef struct dht_notify_arg {
-	unsigned char node_hash[SHA_DIGEST_LENGTH];
-	char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int node_leader;
-	char callback_woof[DHT_NAME_LENGTH];
-	char callback_handler[DHT_NAME_LENGTH];
+    unsigned char node_hash[SHA_DIGEST_LENGTH];
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int node_leader;
+    char callback_woof[DHT_NAME_LENGTH];
+    char callback_handler[DHT_NAME_LENGTH];
 } DHT_NOTIFY_ARG;
 
 typedef struct dht_notify_callback_arg {
-	unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
-	char successor_replicas[DHT_SUCCESSOR_LIST_R][DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	int successor_leader[DHT_SUCCESSOR_LIST_R];
+    unsigned char successor_hash[DHT_SUCCESSOR_LIST_R][SHA_DIGEST_LENGTH];
+    char successor_replicas[DHT_SUCCESSOR_LIST_R][DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int successor_leader[DHT_SUCCESSOR_LIST_R];
 } DHT_NOTIFY_CALLBACK_ARG;
 
 typedef struct dht_register_topic_arg {
-	char topic_name[DHT_NAME_LENGTH];
-	char topic_namespace[DHT_NAME_LENGTH];
+    char topic_name[DHT_NAME_LENGTH];
+    char topic_namespace[DHT_NAME_LENGTH];
 } DHT_REGISTER_TOPIC_ARG;
 
 typedef struct dht_subscription_list {
-	int size;
-	char handlers[DHT_MAX_SUBSCRIPTIONS][DHT_NAME_LENGTH];
-	char namespace[DHT_MAX_SUBSCRIPTIONS][DHT_NAME_LENGTH];
+    int size;
+    char handlers[DHT_MAX_SUBSCRIPTIONS][DHT_NAME_LENGTH];
+    char namespace[DHT_MAX_SUBSCRIPTIONS][DHT_NAME_LENGTH];
 } DHT_SUBSCRIPTION_LIST;
 
 typedef struct dht_subscribe_arg {
-	char topic_name[DHT_NAME_LENGTH];
-	char handler[DHT_NAME_LENGTH];
-	char handler_namespace[DHT_NAME_LENGTH];
+    char topic_name[DHT_NAME_LENGTH];
+    char handler[DHT_NAME_LENGTH];
+    char handler_namespace[DHT_NAME_LENGTH];
 } DHT_SUBSCRIBE_ARG;
 
 typedef struct dht_trigger_arg {
-	char topic_name[DHT_NAME_LENGTH];
-	char element_woof[DHT_NAME_LENGTH];
-	unsigned long element_seqno;
-	char subscription_woof[DHT_NAME_LENGTH];
+    char topic_name[DHT_NAME_LENGTH];
+    char element_woof[DHT_NAME_LENGTH];
+    unsigned long element_seqno;
+    char subscription_woof[DHT_NAME_LENGTH];
 } DHT_TRIGGER_ARG;
 
 typedef struct dht_topic_registry {
-	char topic_name[DHT_NAME_LENGTH];
-	char topic_namespace[DHT_NAME_LENGTH];
+    char topic_name[DHT_NAME_LENGTH];
+    char topic_namespace[DHT_NAME_LENGTH];
 } DHT_TOPIC_REGISTRY;
 
 typedef struct dht_daemon_arg {
-	unsigned long last_stabilize;
-	unsigned long last_check_predecessor;
-	unsigned long last_fix_finger;
+    unsigned long last_stabilize;
+    unsigned long last_check_predecessor;
+    unsigned long last_fix_finger;
 #ifdef USE_RAFT
-	unsigned long last_replicate_state;
+    unsigned long last_replicate_state;
 #endif
-	int last_fixed_finger_index;
+    int last_fixed_finger_index;
 } DHT_DAEMON_ARG;
 
 typedef struct dht_stabilize_arg {
@@ -192,25 +194,28 @@ typedef struct dht_check_predecessor_arg {
 } DHT_CHECK_PREDECESSOR_ARG;
 
 typedef struct dht_set_finger_arg {
-	int finger_index;
-	DHT_FINGER_INFO finger;
+    int finger_index;
+    DHT_FINGER_INFO finger;
 } DHT_SET_FINGER_ARG;
 
 typedef struct dht_replicate_state_arg {
-	
+
 } DHT_REPLICATE_STATE_ARG;
 
 typedef struct dht_try_replicas_arg {
-	int type;
-	int finger_id;
-	char woof_name[DHT_NAME_LENGTH];
-	char handler_name[DHT_NAME_LENGTH];
-	unsigned long seq_no;
+    int type;
+    int finger_id;
+    char woof_name[DHT_NAME_LENGTH];
+    char handler_name[DHT_NAME_LENGTH];
+    unsigned long seq_no;
 } DHT_TRY_REPLICAS_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon();
-int dht_create_cluster(char *woof_name, char *node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
-int dht_join_cluster(char *node_woof, char *woof_name, char *node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_join_cluster(char* node_woof,
+                     char* woof_name,
+                     char* node_name,
+                     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
 
 #endif

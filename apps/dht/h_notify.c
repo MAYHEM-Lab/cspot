@@ -51,7 +51,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
         char hash_str[2 * SHA_DIGEST_LENGTH + 1];
         print_node_hash(hash_str, predecessor.hash);
         log_info("updated predecessor_hash: %s", hash_str);
-        log_info("updated predecessor_addr: %s", arg->node_replicas[arg->node_leader]);
+        log_info("updated predecessor_addr: %s", predecessor_addr(&predecessor));
     }
 
     if (arg->callback_woof[0] == 0) {
