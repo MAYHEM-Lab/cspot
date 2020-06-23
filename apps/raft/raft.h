@@ -10,9 +10,11 @@
 #define RAFT_CANDIDATE 2
 #define RAFT_OBSERVER 3
 #define RAFT_SHUTDOWN 4
-#define RAFT_CONFIG_STABLE 0
-#define RAFT_CONFIG_JOINT 1
-#define RAFT_CONFIG_NEW 2
+#define RAFT_CONFIG_STATUS_STABLE 0
+#define RAFT_CONFIG_STATUS_JOINT 1
+#define RAFT_CONFIG_ENTRY_NOT 0
+#define RAFT_CONFIG_ENTRY_JOINT 1
+#define RAFT_CONFIG_ENTRY_NEW 2
 #define RAFT_LOG_ENTRIES_WOOF "raft_log_entries.woof"
 #define RAFT_LOG_HANDLER_ENTRIES_WOOF "raft_log_entries_handler.woof"
 #define RAFT_SERVER_STATE_WOOF "raft_server_state.woof"
