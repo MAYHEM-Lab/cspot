@@ -2,18 +2,15 @@
 #include "dht_utils.h"
 #include "woofc.h"
 
-#include <openssl/sha.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_NOTIFY_ARG* arg = (DHT_NOTIFY_ARG*)ptr;
 
     log_set_tag("notify");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     log_debug("potential predecessor_addr: %s", arg->node_replicas[arg->node_leader]);

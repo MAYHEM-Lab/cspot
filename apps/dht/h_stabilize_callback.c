@@ -1,19 +1,19 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "woofc.h"
+#ifdef USE_RAFT
+#include "raft_client.h"
+#endif
 
-#include <openssl/sha.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_STABILIZE_CALLBACK_ARG* result = (DHT_STABILIZE_CALLBACK_ARG*)ptr;
 
     log_set_tag("stabilize_callback");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_NODE_INFO node = {0};
@@ -37,11 +37,23 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(successor.hash[0], result->predecessor_hash, sizeof(successor.hash[0]));
             memcpy(successor.replicas[0], result->predecessor_replicas, sizeof(successor.replicas[0]));
             successor.leader[0] = result->predecessor_leader;
+#ifdef USE_RAFT
+            unsigned long index = raft_put_handler("r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0);
+            while (index == RAFT_REDIRECTED) {
+                log_debug("r_set_successor redirected to %s", raft_client_leader);
+                index = raft_put_handler("r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0);
+            }
+            if (raft_is_error(index)) {
+                log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+                exit(1);
+            }
+#else
             unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
             if (WooFInvalid(seq)) {
                 log_error("failed to update DHT table to %s", DHT_SUCCESSOR_INFO_WOOF);
                 exit(1);
             }
+#endif
             log_info("updated successor to %s", result->predecessor_replicas[result->predecessor_leader]);
         }
     }

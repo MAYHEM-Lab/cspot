@@ -38,6 +38,7 @@ copy: handlers clients test
 	cp h_find_successor ./cspot;
 	cp h_fix_finger_callback ./cspot;
 	cp h_get_predecessor ./cspot;
+	cp h_invalidate_fingers ./cspot;
 	cp h_join_callback ./cspot;
 	cp h_notify_callback ./cspot;
 	cp h_notify ./cspot;
@@ -63,9 +64,13 @@ copy: handlers clients test
 	cp test_publish ./cspot;
 	cp test_subscribe ./cspot;
 	
-handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
+handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize \
+	h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
+	h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger \
+	r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
 
-clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon client_find_node client_init_topic client_node_info client_publish client_subscribe
+clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon \
+	client_find_node client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe
 
@@ -137,6 +142,11 @@ h_get_predecessor: h_get_predecessor.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} 
 	sed 's/WOOF_HANDLER_NAME/h_get_predecessor/g' ${SHEP_SRC} > h_get_predecessor_shepherd.c
 	${CC} ${CFLAGS} -c h_get_predecessor_shepherd.c -o h_get_predecessor_shepherd.o
 	${CC} ${CFLAGS} -o h_get_predecessor h_get_predecessor.c h_get_predecessor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+h_invalidate_fingers: h_invalidate_fingers.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_invalidate_fingers/g' ${SHEP_SRC} > h_invalidate_fingers_shepherd.c
+	${CC} ${CFLAGS} -c h_invalidate_fingers_shepherd.c -o h_invalidate_fingers_shepherd.o
+	${CC} ${CFLAGS} -o h_invalidate_fingers h_invalidate_fingers.c h_invalidate_fingers_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_join_callback: h_join_callback.c ${DHTOBJ} ${RAFTOBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_join_callback/g' ${SHEP_SRC} > h_join_callback_shepherd.c
@@ -228,7 +238,7 @@ clean:
 	rm s_create_cluster s_create_woofs s_join_cluster s_start_daemon
 	rm client_find_node client_node_info
 	rm d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize
-	rm h_find_result h_find_successor h_fix_finger_callback h_get_predecessor
+	rm h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger
 	rm r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
 	rm test_dht_handler test_publish test_subscribe

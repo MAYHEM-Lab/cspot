@@ -2,17 +2,15 @@
 #include "dht_utils.h"
 #include "woofc.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_GET_PREDECESSOR_ARG* arg = (DHT_GET_PREDECESSOR_ARG*)ptr;
 
     log_set_tag("get_predecessor");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_NODE_INFO node = {0};

@@ -13,6 +13,7 @@
 #define DHT_FIX_FINGER_WOOF "dht_fix_finger.woof"
 #define DHT_FIX_FINGER_CALLBACK_WOOF "dht_fix_finger_callback.woof"
 #define DHT_GET_PREDECESSOR_WOOF "dht_get_predecessor.woof"
+#define DHT_INVALIDATE_FINGERS_WOOF "dht_invalidate_fingers.woof"
 #define DHT_INVOCATION_WOOF "dht_invocation.woof"
 #define DHT_JOIN_WOOF "dht_join.woof"
 #define DHT_NOTIFY_CALLBACK_WOOF "dht_notify_callback.woof"
@@ -209,6 +210,10 @@ typedef struct dht_try_replicas_arg {
     char handler_name[DHT_NAME_LENGTH];
     unsigned long seq_no;
 } DHT_TRY_REPLICAS_ARG;
+
+typedef struct dht_invalidate_fingers_arg {
+    unsigned char finger_hash[SHA_DIGEST_LENGTH];
+} DHT_INVALIDATE_FINGERS_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon();

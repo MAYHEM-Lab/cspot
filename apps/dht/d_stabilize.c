@@ -1,6 +1,9 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "woofc.h"
+#ifdef USE_RAFT
+#include "raft_client.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -8,7 +11,7 @@
 int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("stabilize");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_NODE_INFO node = {0};
@@ -34,11 +37,23 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(successor.hash[0], predecessor.hash, sizeof(successor.hash[0]));
             memcpy(successor.replicas[0], predecessor.replicas, sizeof(successor.replicas[0]));
             successor.leader[0] = predecessor.leader;
+#ifdef USE_RAFT
+            unsigned long index = raft_put_handler("r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0);
+            while (index == RAFT_REDIRECTED) {
+                log_debug("r_set_successor redirected to %s", raft_client_leader);
+                index = raft_put_handler("r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0);
+            }
+            if (raft_is_error(index)) {
+                log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+                exit(1);
+            }
+#else
             unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
             if (WooFInvalid(seq)) {
                 log_error("failed to update successor");
                 exit(1);
             }
+#endif
             log_info("updated successor to predecessor because the current successor is itself");
         }
 
@@ -59,11 +74,23 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         memcpy(successor.hash[0], node.hash, sizeof(successor.hash[0]));
         memcpy(successor.replicas[0], node.replicas, sizeof(successor.replicas[0]));
         successor.leader[0] = node.replica_id;
+#ifdef USE_RAFT
+            unsigned long index = raft_put_handler("r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0);
+            while (index == RAFT_REDIRECTED) {
+                log_debug("r_set_successor redirected to %s", raft_client_leader);
+                index = raft_put_handler("r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0);
+            }
+            if (raft_is_error(index)) {
+                log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+                exit(1);
+            }
+#else
         unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
         if (WooFInvalid(seq)) {
             log_error("failed to set successor back to self");
             exit(1);
         }
+#endif
         log_info("successor set to self");
     } else {
         char woof_name[DHT_NAME_LENGTH];

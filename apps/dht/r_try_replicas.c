@@ -7,7 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-// TODO: find the leader
 int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_TRY_REPLICAS_ARG* arg = (DHT_TRY_REPLICAS_ARG*)ptr;
 
@@ -50,10 +49,12 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
                 continue;
             }
             predecessor.leader = node.leader_id;
-			log_debug("got leader_id %d from %s", node.leader_id, replica_woof);
+            log_debug("got leader_id %d from %s", node.leader_id, replica_woof);
             unsigned long seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
             if (WooFInvalid(seq)) {
-                log_error("failed to update predecessor to use replica[%d]: %s", node.leader_id, predecessor_addr(&predecessor));
+                log_error("failed to update predecessor to use replica[%d]: %s",
+                          node.leader_id,
+                          predecessor_addr(&predecessor));
                 exit(1);
             }
             log_debug("updated predecessor to use replica[%d]: %s", node.leader_id, predecessor_addr(&predecessor));
@@ -102,10 +103,11 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
                 continue;
             }
             successor.leader[0] = node.leader_id;
-			log_debug("got leader_id %d from %s", node.leader_id, replica_woof);
+            log_debug("got leader_id %d from %s", node.leader_id, replica_woof);
             unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
             if (WooFInvalid(seq)) {
-                log_error("failed to update successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
+                log_error(
+                    "failed to update successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
                 exit(1);
             }
             log_debug("updated successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));

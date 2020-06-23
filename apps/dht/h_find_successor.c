@@ -180,6 +180,16 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
             if (WooFInvalid(seq)) {
                 log_warn("failed to forward find_successor request to %s", req_forward_woof);
+				DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
+				memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
+				seq = WooFPut(DHT_INVALIDATE_FINGERS_WOOF, "h_invalidate_fingers", &invalidate_fingers_arg);
+				if (WooFInvalid(seq)) {
+					log_error("failed to call h_invalidate_fingers to invalidate failed fingers");
+					continue;
+				}
+				char hash_str[DHT_NAME_LENGTH];
+				print_node_hash(hash_str, invalidate_fingers_arg.finger_hash);
+				log_debug("invoked h_invalidate_fingers to invalidate failed finger %s", hash_str);
 // #ifdef USE_RAFT
 //                 DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
 //                 try_replicas_arg.type = DHT_TRY_FINGER;
@@ -194,13 +204,13 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
 //                 }
 //                 return 1;
 // #else
-                memset(&finger, 0, sizeof(finger));
-                unsigned long seq = set_finger_info(i, &finger);
-                if (WooFInvalid(seq)) {
-                    log_error("failed to set finger[%d] to nil", i);
-                    exit(1);
-                }
-                log_warn("set finger[%d] to nil", i);
+//                 memset(&finger, 0, sizeof(finger));
+//                 unsigned long seq = set_finger_info(i, &finger);
+//                 if (WooFInvalid(seq)) {
+//                     log_error("failed to set finger[%d] to nil", i);
+//                     exit(1);
+//                 }
+//                 log_warn("set finger[%d] to nil", i);
                 continue;
 // #endif
             }

@@ -2,17 +2,15 @@
 #include "dht_utils.h"
 #include "woofc-host.h"
 #include "woofc.h"
-
-#include <openssl/sha.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
 #ifdef USE_RAFT
 #include "raft_client.h"
 #endif
+
+#include <openssl/sha.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 int main(int argc, char** argv) {
     WooFInit();

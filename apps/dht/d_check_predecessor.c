@@ -8,7 +8,7 @@
 int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("check_predecessor");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_PREDECESSOR_INFO predecessor = {0};
@@ -35,16 +35,16 @@ int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     sprintf(predecessor_woof_name, "%s/%s", predecessor_addr(&predecessor), DHT_GET_PREDECESSOR_WOOF);
     unsigned long seq = WooFPut(predecessor_woof_name, NULL, &get_predecessor_arg);
     if (WooFInvalid(seq)) {
-// #ifdef USE_RAFT
-//         log_warn("failed to access predecessor %s, try other replicas", predecessor_addr(&predecessor));
-//         DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-//         try_replicas_arg.type = DHT_TRY_PREDECESSOR;
-//         seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
-//         if (WooFInvalid(seq)) {
-//             log_error("failed to invoke r_try_replicas");
-//             exit(1);
-//         }
-// #else
+        // #ifdef USE_RAFT
+        //         log_warn("failed to access predecessor %s, try other replicas", predecessor_addr(&predecessor));
+        //         DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
+        //         try_replicas_arg.type = DHT_TRY_PREDECESSOR;
+        //         seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+        //         if (WooFInvalid(seq)) {
+        //             log_error("failed to invoke r_try_replicas");
+        //             exit(1);
+        //         }
+        // #else
         memset(&predecessor, 0, sizeof(predecessor));
         unsigned long seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
         if (WooFInvalid(seq)) {
@@ -52,7 +52,7 @@ int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
         log_warn("set predecessor to nil");
-// #endif
+        // #endif
         return 1;
     }
     log_debug("predecessor %s is working", predecessor_addr(&predecessor));

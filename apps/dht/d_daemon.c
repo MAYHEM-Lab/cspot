@@ -4,7 +4,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #ifdef USE_RAFT
 #include "raft.h"
 #endif
@@ -66,18 +65,17 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-#ifdef USE_RAFT
-    if (now - arg->last_replicate_state > DHT_REPLICATE_STATE_FREQUENCY) {
-        DHT_REPLICATE_STATE_ARG replicate_state_arg;
-        unsigned long seq = WooFPut(DHT_REPLICATE_STATE_WOOF, "d_replicate_state", &replicate_state_arg);
-        if (WooFInvalid(seq)) {
-            log_error("failed to invoke d_replicate_state");
-        }
-        arg->last_replicate_state = now;
-    }
-#endif
+// #ifdef USE_RAFT
+//     if (now - arg->last_replicate_state > DHT_REPLICATE_STATE_FREQUENCY) {
+//         DHT_REPLICATE_STATE_ARG replicate_state_arg;
+//         unsigned long seq = WooFPut(DHT_REPLICATE_STATE_WOOF, "d_replicate_state", &replicate_state_arg);
+//         if (WooFInvalid(seq)) {
+//             log_error("failed to invoke d_replicate_state");
+//         }
+//         arg->last_replicate_state = now;
+//     }
+// #endif
 
-    // usleep(50 * 1000);
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next d_daemon");
