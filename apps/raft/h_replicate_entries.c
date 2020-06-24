@@ -25,7 +25,7 @@ void* replicate_thread(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg);
+    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 1);
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d", replicate_thread_arg->member_id);
     } else {
@@ -62,7 +62,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     log_set_tag("replicate_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     // zsys_init() is called automatically when a socket is created
@@ -87,7 +87,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (get_milliseconds() - arg->last_ts < RAFT_REPLICATE_ENTRIES_DELAY) {
         monitor_exit(ptr);
-        unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
+        unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to queue the next h_replicate_entries handler");
             free(arg);
@@ -151,7 +151,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
             timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
-            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
                 free(arg);
@@ -332,9 +332,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    // usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+    usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
     arg->last_ts = get_milliseconds();
-    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
+    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_replicate_entries handler");
         free(arg);

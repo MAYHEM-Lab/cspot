@@ -14,8 +14,8 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     seq_no = monitor_seqno(ptr);
 
     log_set_tag("client_put");
-    log_set_level(RAFT_LOG_DEBUG);
     log_set_level(RAFT_LOG_INFO);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     // get the server's current term
@@ -114,8 +114,8 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    usleep(RAFT_CLIENT_PUT_DELAY * 1000);
-    unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg);
+    // usleep(RAFT_CLIENT_PUT_DELAY * 1000);
+    unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg, 0);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_client_put handler");
         free(arg);

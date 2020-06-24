@@ -72,7 +72,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
             timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
-            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
                 free(request);
@@ -132,7 +132,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     char candidate_result_woof[RAFT_NAME_LENGTH];
     sprintf(candidate_monitor, "%s/%s", request->candidate_woof, RAFT_MONITOR_NAME);
     sprintf(candidate_result_woof, "%s/%s", request->candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
-    unsigned long seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result);
+    unsigned long seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the vote result to %s", candidate_result_woof);
     }

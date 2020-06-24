@@ -16,7 +16,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     log_set_tag("append_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     // get the server's current term
@@ -31,7 +31,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     result.request_created_ts = request->created_ts;
     result.seqno = seq_no;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
-    if (get_milliseconds() - request->created_ts > RAFT_HEARTBEAT_RATE) {
+    if (RAFT_WARNING_LATENCY > 0 && get_milliseconds() - request->created_ts > RAFT_WARNING_LATENCY) {
         log_warn("request %lu took %lums to receive", seq_no, get_milliseconds() - request->created_ts);
     }
     int m_id = member_id(request->leader_woof, server_state.member_woofs);
@@ -92,7 +92,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
             timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
-            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
                 free(request);
@@ -201,7 +201,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                             seq = monitor_put(RAFT_MONITOR_NAME,
                                               RAFT_TIMEOUT_CHECKER_WOOF,
                                               "h_timeout_checker",
-                                              &timeout_checker_arg);
+                                              &timeout_checker_arg, 1);
                             if (WooFInvalid(seq)) {
                                 log_error("failed to start the timeout checker");
                                 free(request);
@@ -274,7 +274,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-    if (get_milliseconds() - request->created_ts > RAFT_TIMEOUT_MIN) {
+    if (RAFT_WARNING_LATENCY > 0 && get_milliseconds() - request->created_ts > RAFT_WARNING_LATENCY) {
         log_warn("request %lu took %lums to process", seq_no, get_milliseconds() - request->created_ts);
     }
 

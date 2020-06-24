@@ -22,10 +22,11 @@ void* request_vote(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", thread_arg->member_woof, RAFT_REQUEST_VOTE_ARG_WOOF);
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_request_vote", &thread_arg->arg);
+    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_request_vote", &thread_arg->arg, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to request vote from %s", thread_arg->member_woof);
     }
+	log_debug("reqested vote [%lu] from %s", seq, thread_arg->member_woof);
     free(arg);
 }
 
@@ -145,8 +146,8 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    usleep(RAFT_TIMEOUT_CHECKER_DELAY * 1000);
-    unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", arg);
+    // usleep(RAFT_TIMEOUT_CHECKER_DELAY * 1000);
+    unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_timeout_checker handler");
         free(arg);

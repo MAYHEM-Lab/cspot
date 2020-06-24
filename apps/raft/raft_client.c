@@ -273,7 +273,7 @@ int raft_config_change(int members,
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", raft_client_leader, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CONFIG_CHANGE_ARG_WOOF);
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg);
+    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg, 0);
     if (WooFInvalid(seq)) {
         sprintf(raft_error_msg, "failed to send reconfig request");
         return RAFT_ERROR;
@@ -323,7 +323,7 @@ int raft_observe(int timeout) {
         char woof_name[RAFT_NAME_LENGTH];
         sprintf(monitor_name, "%s/%s", raft_client_replicas[i], RAFT_MONITOR_NAME);
         sprintf(woof_name, "%s/%s", raft_client_replicas[i], RAFT_CONFIG_CHANGE_ARG_WOOF);
-        unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg);
+        unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg, 0);
         if (WooFInvalid(seq)) {
             sprintf(raft_error_msg, "failed to send observe request");
             return RAFT_ERROR;

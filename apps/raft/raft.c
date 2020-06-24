@@ -46,6 +46,10 @@ int get_server_state(RAFT_SERVER_STATE* server_state) {
         sprintf(raft_error_msg, "failed to get the latest seqno of server_state");
         return -1;
     }
+    if (last_server_state == 0) {
+        sprintf(raft_error_msg, "server_state is not initialized yet, latest seq_no is 0");
+        return -1;
+    }
     if (WooFGet(RAFT_SERVER_STATE_WOOF, server_state, last_server_state) < 0) {
         sprintf(raft_error_msg, "failed to get the latest server_state");
         return -1;
@@ -234,7 +238,7 @@ int raft_start_server(int members,
 
     RAFT_CLIENT_PUT_ARG client_put_arg = {0};
     client_put_arg.last_seqno = 0;
-    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg);
+    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg, 1);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't start h_client_put\n");
         return -1;
@@ -242,7 +246,7 @@ int raft_start_server(int members,
     if (!observer) {
         RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
         timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
-        seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
+        seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
         if (WooFInvalid(seq)) {
             fprintf(stderr, "Couldn't start h_timeout_checker\n");
             return -1;
