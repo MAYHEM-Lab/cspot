@@ -26,10 +26,11 @@ copy:
 
 handlers: monitor_invoker
 
-test: test_monitor test_handler_concurrent test_handler_monitored monitor.o copy
+test: test_monitor test_handler_concurrent test_handler_monitored test_handler_idempotent monitor.o copy
 	cp test_monitor ./cspot
 	cp test_handler_concurrent ./cspot
 	cp test_handler_monitored ./cspot
+	cp test_handler_idempotent ./cspot
 
 monitor.o: monitor.c monitor.h
 	${CC} ${CFLAGS} -c monitor.c
@@ -49,8 +50,13 @@ test_handler_monitored: test_handler_monitored.c monitor.o ${SHEP_SRC} ${WINC} $
 	${CC} ${CFLAGS} -c test_handler_monitored_shepherd.c -o test_handler_monitored_shepherd.o
 	${CC} ${CFLAGS} -o test_handler_monitored test_handler_monitored.c test_handler_monitored_shepherd.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+test_handler_idempotent: test_handler_monitored.c monitor.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/test_handler_idempotent/g' ${SHEP_SRC} > test_handler_idempotent_shepherd.c
+	${CC} ${CFLAGS} -c test_handler_idempotent_shepherd.c -o test_handler_idempotent_shepherd.o
+	${CC} ${CFLAGS} -o test_handler_idempotent test_handler_idempotent.c test_handler_idempotent_shepherd.o monitor.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 test_monitor: test_monitor.c test_monitor.h monitor.o
 	${CC} ${CFLAGS} -o test_monitor test_monitor.c monitor.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot *.o test_handler_concurrent test_handler_monitored test_monitor monitor_invoker
+	rm -rf ./cspot *.o test_handler_concurrent test_handler_monitored test_handler_idempotent test_monitor monitor_invoker

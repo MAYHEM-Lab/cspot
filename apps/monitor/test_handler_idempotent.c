@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int test_handler_monitored(WOOF* wf, unsigned long seq_no, void* ptr) {
+int test_handler_idempotent(WOOF* wf, unsigned long seq_no, void* ptr) {
     TEST_MONITOR_ARG* arg = (TEST_MONITOR_ARG*)monitor_cast(ptr);
 
     TEST_MONITOR_COUNTER counter;
@@ -22,7 +22,7 @@ int test_handler_monitored(WOOF* wf, unsigned long seq_no, void* ptr) {
             fprintf(stderr, "can't get the latest counter %lu from %s", seq, TEST_MONITOR_COUNTER_WOOF);
             exit(1);
         }
-        counter.counter++;
+        counter.counter = seq_no * 100 + i;
         seq = WooFPut(TEST_MONITOR_COUNTER_WOOF, NULL, &counter);
         if (WooFInvalid(seq)) {
             fprintf(stderr, "can't increment the counter\n");
