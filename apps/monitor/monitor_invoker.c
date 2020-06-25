@@ -20,9 +20,6 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     if (last_done + 1 <= last_queued) {
-        if (MONITOR_WARNING_QUEUED_HANDLERS > 0 && last_queued - last_done >= MONITOR_WARNING_QUEUED_HANDLERS) {
-            printf("queued handlers: %lu\n", last_queued - last_done);
-        }
         int count = last_queued - last_done;
         MONITOR_POOL_ITEM pool_item[count];
         memset(pool_item, 0, sizeof(MONITOR_POOL_ITEM) * count);
@@ -33,6 +30,14 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
                 fprintf(stderr, "failed to get queued handler information from %s\n", arg->pool_woof);
                 exit(1);
             }
+        }
+
+        if (MONITOR_WARNING_QUEUED_HANDLERS > 0 && last_queued - last_done >= MONITOR_WARNING_QUEUED_HANDLERS) {
+            printf("queued handlers: %lu\n", last_queued - last_done);
+            for (i = 0; i < count; ++i) {
+                printf("%s ", pool_item[i].handler);
+            }
+            printf("\n");
         }
 
         for (i = 0; i < count; ++i) {

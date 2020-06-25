@@ -25,8 +25,9 @@ void* request_vote(void* arg) {
     unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_request_vote", &thread_arg->arg, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to request vote from %s", thread_arg->member_woof);
+    } else {
+        log_debug("reqested vote [%lu] from %s", seq, thread_arg->member_woof);
     }
-	log_debug("reqested vote [%lu] from %s", seq, thread_arg->member_woof);
     free(arg);
 }
 

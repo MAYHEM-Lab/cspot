@@ -93,6 +93,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             free(arg);
             exit(1);
         }
+        free(arg);
         return 1;
     }
 
@@ -151,7 +152,8 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
             timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
-            seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
+            seq =
+                monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
                 free(arg);

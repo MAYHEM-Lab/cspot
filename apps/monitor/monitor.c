@@ -33,7 +33,7 @@ int monitor_create(char* monitor_name) {
         return -1;
     }
 
-    MONITOR_INVOKER_ARG invoker_arg;
+    MONITOR_INVOKER_ARG invoker_arg = {0};
     sprintf(invoker_arg.pool_woof, "%s_%s", monitor_name, MONITOR_POOL_WOOF);
     sprintf(invoker_arg.done_woof, "%s_%s", monitor_name, MONITOR_DONE_WOOF);
     sprintf(invoker_arg.handler_woof, "%s_%s", monitor_name, MONITOR_HANDLER_WOOF);
@@ -185,8 +185,10 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
 void* monitor_cast(void* ptr) {
     MONITOR_POOL_ITEM* pool_item = (MONITOR_POOL_ITEM*)ptr;
     void* element = malloc(pool_item->element_size);
-    int err = WooFGet(pool_item->woof_name, element, pool_item->seq_no);
-    if (err < 0) {
+    if (element == NULL) {
+        return NULL;
+    }
+    if (WooFGet(pool_item->woof_name, element, pool_item->seq_no) < 0) {
         return NULL;
     }
     return element;
@@ -208,7 +210,7 @@ int monitor_exit(void* ptr) {
         return -1;
     }
 
-    MONITOR_INVOKER_ARG invoker_arg;
+    MONITOR_INVOKER_ARG invoker_arg = {0};
     sprintf(invoker_arg.pool_woof, "%s_%s", pool_item->monitor_name, MONITOR_POOL_WOOF);
     sprintf(invoker_arg.done_woof, "%s_%s", pool_item->monitor_name, MONITOR_DONE_WOOF);
     sprintf(invoker_arg.handler_woof, "%s_%s", pool_item->monitor_name, MONITOR_HANDLER_WOOF);

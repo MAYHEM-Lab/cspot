@@ -40,7 +40,7 @@
 #define RAFT_DATA_TYPE_SIZE 4096
 // #define RAFT_TIMEOUT_MIN 500
 // #define RAFT_TIMEOUT_MAX 1000
-#define RAFT_TIMEOUT_MIN 1000
+#define RAFT_TIMEOUT_MIN 1000 // better greater than zeromq timeout to avoid unnecessary election
 #define RAFT_TIMEOUT_MAX 2000
 #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 5)
 #define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
