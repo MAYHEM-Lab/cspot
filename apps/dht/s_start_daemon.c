@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
     unsigned char node_hash[SHA_DIGEST_LENGTH];
     dht_hash(node_hash, name);
 
-    if (dht_init(node_hash, woof_name, replicas) < 0) {
+    if (dht_init(node_hash, name, woof_name, replicas) < 0) {
         sprintf(dht_error_msg, "failed to initialize DHT: %s", dht_error_msg);
         return -1;
     }

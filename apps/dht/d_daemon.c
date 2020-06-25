@@ -16,9 +16,31 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     log_set_output(stdout);
 
+    unsigned long now = get_milliseconds();
+
 #ifdef USE_RAFT
+    if (now - arg->last_update_leader_id > DHT_UPDATE_LEADER_ID_FREQUENCY) {
+        int leader_id = raft_leader_id();
+        if (leader_id < 0) {
+            log_error("failed to get replica's current leader_id: %s", dht_error_msg);
+        } else {
+            DHT_NODE_INFO node = {0};
+            if (get_latest_node_info(&node) < 0) {
+                log_error("couldn't get latest node info: %s", dht_error_msg);
+                exit(1);
+            }
+            node.leader_id = leader_id;
+            unsigned long seq = WooFPut(DHT_NODE_INFO_WOOF, NULL, &node);
+            if (WooFInvalid(seq)) {
+                log_error("failed to update replica's leader_id to %d", node.leader_id);
+                exit(1);
+            }
+            log_debug("updated replica's leader_id to %d", node.leader_id);
+        }
+		arg->last_update_leader_id = now;
+    }
     if (!raft_is_leader()) {
-        log_debug("not a raft leader, daemon went to sleep");
+        log_debug("not a raft leader, went to sleep");
         unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke next d_daemon");
@@ -28,10 +50,9 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 #endif
 
-    unsigned long now = get_milliseconds();
-    log_debug("since last stabilize: %lums", now - arg->last_stabilize);
-    log_debug("since last check_predecessor: %lums", now - arg->last_check_predecessor);
-    log_debug("since last fix_finger: %lums", now - arg->last_fix_finger);
+    // log_debug("since last stabilize: %lums", now - arg->last_stabilize);
+    // log_debug("since last check_predecessor: %lums", now - arg->last_check_predecessor);
+    // log_debug("since last fix_finger: %lums", now - arg->last_fix_finger);
 
     if (now - arg->last_stabilize > DHT_STABILIZE_FREQUENCY) {
         DHT_STABILIZE_ARG stabilize_arg;
@@ -65,16 +86,16 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-// #ifdef USE_RAFT
-//     if (now - arg->last_replicate_state > DHT_REPLICATE_STATE_FREQUENCY) {
-//         DHT_REPLICATE_STATE_ARG replicate_state_arg;
-//         unsigned long seq = WooFPut(DHT_REPLICATE_STATE_WOOF, "d_replicate_state", &replicate_state_arg);
-//         if (WooFInvalid(seq)) {
-//             log_error("failed to invoke d_replicate_state");
-//         }
-//         arg->last_replicate_state = now;
-//     }
-// #endif
+    // #ifdef USE_RAFT
+    //     if (now - arg->last_replicate_state > DHT_REPLICATE_STATE_FREQUENCY) {
+    //         DHT_REPLICATE_STATE_ARG replicate_state_arg;
+    //         unsigned long seq = WooFPut(DHT_REPLICATE_STATE_WOOF, "d_replicate_state", &replicate_state_arg);
+    //         if (WooFInvalid(seq)) {
+    //             log_error("failed to invoke d_replicate_state");
+    //         }
+    //         arg->last_replicate_state = now;
+    //     }
+    // #endif
 
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
     if (WooFInvalid(seq)) {

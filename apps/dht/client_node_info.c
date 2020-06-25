@@ -36,12 +36,16 @@ int main(int argc, char** argv) {
     char hash[DHT_NAME_LENGTH];
     // node
 #ifdef USE_RAFT
-    if (raft_is_leader()) {
+    int is_leader = raft_is_leader();
+    if (is_leader < 0) {
+        printf("leader: ???\n");
+    } else if (is_leader) {
         printf("leader: yes\n");
     } else {
         printf("leader: no\n");
     }
 #endif
+    printf("node_name: %s\n", node.name);
     print_node_hash(hash, node.hash);
     printf("node_hash: %s\n", hash);
     printf("node_addr: %s\n", node.addr);

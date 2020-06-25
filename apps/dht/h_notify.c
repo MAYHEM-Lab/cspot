@@ -60,7 +60,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_NOTIFY_CALLBACK_ARG result = {0};
     memcpy(result.successor_hash[0], node.hash, sizeof(result.successor_hash[0]));
     memcpy(result.successor_replicas[0], node.replicas, sizeof(result.successor_replicas[0]));
-    result.successor_leader[0] = node.replica_id;
+    result.successor_leader[0] = node.leader_id;
     int i;
     for (i = 0; i < DHT_SUCCESSOR_LIST_R - 1; ++i) {
         if (is_empty(successor.hash[i])) {

@@ -42,6 +42,7 @@
 #define DHT_SUCCESSOR_LIST_R 3
 #define DHT_REPLICA_NUMBER 3
 #define DHT_REPLICATE_STATE_FREQUENCY 5000
+#define DHT_UPDATE_LEADER_ID_FREQUENCY 1000
 
 #define DHT_ACTION_NONE 0
 #define DHT_ACTION_FIND_NODE 1
@@ -57,6 +58,7 @@
 char dht_error_msg[256];
 
 typedef struct dht_node_info {
+    char name[DHT_NAME_LENGTH];
     unsigned char hash[SHA_DIGEST_LENGTH];
     char addr[DHT_NAME_LENGTH];
     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
@@ -181,6 +183,7 @@ typedef struct dht_daemon_arg {
     unsigned long last_check_predecessor;
     unsigned long last_fix_finger;
 #ifdef USE_RAFT
+    unsigned long last_update_leader_id;
     unsigned long last_replicate_state;
 #endif
     int last_fixed_finger_index;

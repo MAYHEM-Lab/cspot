@@ -122,6 +122,7 @@ int dht_start_daemon() {
     arg.last_check_predecessor = 0;
     arg.last_fix_finger = 0;
 #ifdef USE_RAFT
+	arg.last_update_leader_id = 0;
     arg.last_replicate_state = 0;
 #endif
     arg.last_fixed_finger_index = 1;
@@ -152,7 +153,7 @@ int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLI
     unsigned char node_hash[SHA_DIGEST_LENGTH];
     dht_hash(node_hash, node_name);
 
-    if (dht_init(node_hash, woof_name, replicas) < 0) {
+    if (dht_init(node_hash, node_name, woof_name, replicas) < 0) {
         sprintf(dht_error_msg, "failed to initialize DHT: %s", dht_error_msg);
         return -1;
     }
@@ -197,7 +198,7 @@ int dht_join_cluster(char* node_woof,
     unsigned char node_hash[SHA_DIGEST_LENGTH];
     dht_hash(node_hash, node_name);
 
-    if (dht_init(node_hash, woof_name, replicas) < 0) {
+    if (dht_init(node_hash, node_name, woof_name, replicas) < 0) {
         sprintf(dht_error_msg, "failed to initialize DHT: %s", dht_error_msg);
         return -1;
     }

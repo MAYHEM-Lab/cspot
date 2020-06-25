@@ -1,4 +1,5 @@
 #include "dht.h"
+#include "dht_utils.h"
 #include "woofc-host.h"
 #include "woofc.h"
 #ifdef USE_RAFT
@@ -74,7 +75,7 @@ int main(int argc, char** argv) {
         unsigned char node_hash[SHA_DIGEST_LENGTH];
         dht_hash(node_hash, name);
 
-        if (dht_init(node_hash, woof_name, replicas) < 0) {
+        if (dht_init(node_hash, name, woof_name, replicas) < 0) {
             fprintf(stderr, "failed to initialize DHT: %s", dht_error_msg);
             exit(1);
         }

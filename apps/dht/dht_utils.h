@@ -22,7 +22,10 @@ void log_error(const char* message, ...);
 
 int get_latest_element(char* woof_name, void* element);
 int read_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
-int dht_init(unsigned char* node_hash, char* node_addr, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_init(unsigned char* node_hash,
+             char* node_name,
+             char* node_addr,
+             char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
 void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG* arg, char* key, char* hashed_key, char* callback_namespace);
 char* dht_hash(unsigned char* dst, char* src);
 void print_node_hash(char* dst, const unsigned char* id_hash);
@@ -37,5 +40,8 @@ unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO* element);
 char* predecessor_addr(DHT_PREDECESSOR_INFO* info);
 char* successor_addr(DHT_SUCCESSOR_INFO* info, int r);
 char* finger_addr(DHT_FINGER_INFO* info);
+#ifdef USE_RAFT
+int raft_leader_id();
+#endif
 
 #endif

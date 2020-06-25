@@ -1,12 +1,17 @@
 #include "dht_utils.h"
 
 #include "dht.h"
+#ifdef USE_RAFT
+#include "raft.h"
+#include "raft_client.h"
+#endif
 
 #include <openssl/sha.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 char log_tag[DHT_NAME_LENGTH];
 FILE* log_output;
@@ -160,7 +165,10 @@ int read_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER
     return 0;
 }
 
-int dht_init(unsigned char* node_hash, char* node_addr, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+int dht_init(unsigned char* node_hash,
+             char* node_name,
+             char* node_addr,
+             char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
     int i;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         if (strcmp(node_addr, node_replicas[i]) == 0) {
@@ -172,6 +180,7 @@ int dht_init(unsigned char* node_hash, char* node_addr, char node_replicas[DHT_R
         return -1;
     }
     DHT_NODE_INFO node_info = {0};
+    memcpy(node_info.name, node_name, sizeof(node_info.name));
     memcpy(node_info.hash, node_hash, sizeof(node_info.hash));
     memcpy(node_info.addr, node_addr, sizeof(node_info.addr));
     memcpy(node_info.replicas, node_replicas, sizeof(node_info.replicas));
@@ -299,3 +308,30 @@ char* successor_addr(DHT_SUCCESSOR_INFO* info, int r) {
 char* finger_addr(DHT_FINGER_INFO* info) {
     return info->replicas[info->leader];
 }
+
+#ifdef USE_RAFT
+int raft_leader_id() {
+    DHT_NODE_INFO node = {0};
+    if (get_latest_node_info(&node) < 0) {
+        sprintf(dht_error_msg, "couldn't get latest node info: %s", dht_error_msg);
+        return -1;
+    }
+
+    RAFT_SERVER_STATE raft_state = {0};
+    if (get_server_state(&raft_state) < 0) {
+        sprintf(dht_error_msg, "failed to get RAFT's server_state");
+        return -1;
+    }
+    int i;
+    for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+        if (strcmp(raft_state.current_leader, node.replicas[i]) == 0) {
+            break;
+        }
+    }
+    if (i == DHT_REPLICA_NUMBER) {
+        sprintf(dht_error_msg, "current_leader %s is not in the replica list", raft_state.current_leader);
+        return -1;
+    }
+    return i;
+}
+#endif
