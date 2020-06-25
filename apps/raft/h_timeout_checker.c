@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 pthread_t thread_id[RAFT_MAX_MEMBERS];
+REQUEST_VOTE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS];
 
 typedef struct request_vote_thread_arg {
     char member_woof[RAFT_NAME_LENGTH];
@@ -73,6 +74,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // if timeout, start an election
     memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_MEMBERS);
+    memset(thread_arg, 0, sizeof(REQUEST_VOTE_THREAD_ARG) * RAFT_MAX_MEMBERS);
     if (get_milliseconds() - heartbeat.timestamp > arg.timeout_value) {
         arg.timeout_value = random_timeout(get_milliseconds());
         log_warn(
@@ -124,14 +126,13 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         // requesting votes from members
         int i;
         for (i = 0; i < server_state.members; ++i) {
-            REQUEST_VOTE_THREAD_ARG* thread_arg = malloc(sizeof(REQUEST_VOTE_THREAD_ARG));
-            strcpy(thread_arg->member_woof, server_state.member_woofs[i]);
-            thread_arg->arg.term = server_state.current_term;
-            strcpy(thread_arg->arg.candidate_woof, server_state.woof_name);
-            thread_arg->arg.candidate_vote_pool_seqno = vote_pool_seqno;
-            thread_arg->arg.last_log_index = latest_log_entry;
-            thread_arg->arg.last_log_term = last_log_entry.term;
-            thread_arg->arg.created_ts = get_milliseconds();
+            strcpy(thread_arg[i].member_woof, server_state.member_woofs[i]);
+            thread_arg[i].arg.term = server_state.current_term;
+            strcpy(thread_arg[i].arg.candidate_woof, server_state.woof_name);
+            thread_arg[i].arg.candidate_vote_pool_seqno = vote_pool_seqno;
+            thread_arg[i].arg.last_log_index = latest_log_entry;
+            thread_arg[i].arg.last_log_term = last_log_entry.term;
+            thread_arg[i].arg.created_ts = get_milliseconds();
             if (pthread_create(&thread_id[i], NULL, request_vote, (void*)thread_arg) < 0) {
                 log_error("failed to create thread to send entries");
                 exit(1);
