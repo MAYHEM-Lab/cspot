@@ -114,7 +114,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    // usleep(RAFT_CLIENT_PUT_DELAY * 1000);
+    usleep(RAFT_CLIENT_PUT_DELAY * 1000);
     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg, 0);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_client_put handler");

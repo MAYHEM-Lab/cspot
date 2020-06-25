@@ -373,3 +373,12 @@ int raft_current_leader(char* member_woof, char* current_leader) {
 int raft_is_error(unsigned long code) {
     return code >= RAFT_OVERRIDEN && code <= RAFT_ERROR;
 }
+
+int raft_is_leader() {
+    RAFT_SERVER_STATE server_state = {0};
+    if (get_server_state(&server_state) < 0) {
+        sprintf(raft_error_msg, "failed to get the current server_state");
+        return -1;
+    }
+    return server_state.role == RAFT_LEADER;
+}

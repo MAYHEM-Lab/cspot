@@ -54,39 +54,29 @@ int main(int argc, char** argv) {
     char name[RAFT_NAME_LENGTH];
     int members;
     char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-    printf("1 %d\n", fp);
     if (read_config(fp, name, &members, member_woofs) < 0) {
         fprintf(stderr, "failed to read the config file\n");
         fclose(fp);
         exit(1);
     }
-    printf("2 %d\n", fp);
     if (raft_init_client(members, member_woofs) < 0) {
         fprintf(stderr, "can't init client\n");
         fclose(fp);
         exit(1);
     }
-    printf("???? %d\n", fp);
-    fflush(stdout);
     fclose(fp);
-    printf("3 %d\n", fp);
-    fflush(stdout);
 
     fp = fopen(new_config, "r");
-    printf("3a\n");
-    fflush(stdout);
     if (fp == NULL) {
         fprintf(stderr, "failed to open new config file %s\n", new_config);
         exit(1);
     }
-    printf("4\n");
     if (read_config(fp, name, &members, member_woofs) < 0) {
         fprintf(stderr, "failed to read the config file\n");
         fclose(fp);
         exit(1);
     }
     fclose(fp);
-    printf("5\n");
     int err = raft_config_change(members, member_woofs, timeout);
     while (err == RAFT_REDIRECTED) {
         err = raft_config_change(members, member_woofs, timeout);

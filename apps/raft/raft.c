@@ -1,6 +1,7 @@
 #include "raft.h"
 
 #include "monitor.h"
+#include "raft_utils.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -55,15 +56,6 @@ int get_server_state(RAFT_SERVER_STATE* server_state) {
         return -1;
     }
     return 0;
-}
-
-int raft_is_leader() {
-    RAFT_SERVER_STATE server_state = {0};
-    if (get_server_state(&server_state) < 0) {
-        sprintf(raft_error_msg, "failed to get the current server_state");
-        return -1;
-    }
-    return server_state.role == RAFT_LEADER;
 }
 
 int random_timeout(unsigned long seed) {
@@ -234,7 +226,7 @@ int raft_start_server(int members,
         fprintf(stderr, "Couldn't put the first heartbeat\n");
         return -1;
     }
-    printf("Put a heartbeat\n");
+    printf("Put a heartbeat[%lu] %lu\n", seq, heartbeat.timestamp);
 
     RAFT_CLIENT_PUT_ARG client_put_arg = {0};
     client_put_arg.last_seqno = 0;

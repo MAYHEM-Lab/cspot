@@ -85,17 +85,18 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         return 1;
     }
 
-    if (get_milliseconds() - arg->last_ts < RAFT_REPLICATE_ENTRIES_DELAY) {
-        monitor_exit(ptr);
-        unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg, 1);
-        if (WooFInvalid(seq)) {
-            log_error("failed to queue the next h_replicate_entries handler");
-            free(arg);
-            exit(1);
-        }
-        free(arg);
-        return 1;
-    }
+    // if (get_milliseconds() - arg->last_ts < RAFT_REPLICATE_ENTRIES_DELAY) {
+    //     monitor_exit(ptr);
+	// 	usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+    //     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg, 1);
+    //     if (WooFInvalid(seq)) {
+    //         log_error("failed to queue the next h_replicate_entries handler");
+    //         free(arg);
+    //         exit(1);
+    //     }
+    //     free(arg);
+    //     return 1;
+    // }
 
     // check previous append_entries_result
     unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
@@ -252,6 +253,11 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     server_state.last_sent_timestamp[i] = 0;
                     server_state.last_sent_index[i] = 0;
                 }
+				if (member_id(server_state.woof_name, server_state.member_woofs) < 0) {
+					// TODO shutdown
+					log_debug("not in new config, shutdown");
+					server_state.role = RAFT_SHUTDOWN;
+				}
                 unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                 if (WooFInvalid(seq)) {
                     log_error("failed to update server config at term %lu", server_state.current_term);
@@ -260,6 +266,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     exit(1);
                 }
                 log_info("start using new config with %d members", server_state.members);
+				if (server_state.role == RAFT_SHUTDOWN) {
+					log_info("server not in the leader config anymore: SHUTDOWN");
+				}
             }
             break;
         }
@@ -334,7 +343,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+    // usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
     arg->last_ts = get_milliseconds();
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg, 1);
     if (WooFInvalid(seq)) {

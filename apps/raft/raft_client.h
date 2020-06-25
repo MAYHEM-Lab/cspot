@@ -30,5 +30,6 @@ int raft_config_change(int members,
 int raft_observe(int timeout);
 int raft_current_leader(char* woof_name, char* current_leader);
 int raft_is_error(unsigned long code);
+int raft_is_leader();
 
 #endif
