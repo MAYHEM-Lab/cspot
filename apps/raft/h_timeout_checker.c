@@ -9,13 +9,13 @@
 #include <time.h>
 #include <unistd.h>
 
-pthread_t thread_id[RAFT_MAX_MEMBERS];
-REQUEST_VOTE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS];
-
 typedef struct request_vote_thread_arg {
     char member_woof[RAFT_NAME_LENGTH];
     RAFT_REQUEST_VOTE_ARG arg;
 } REQUEST_VOTE_THREAD_ARG;
+
+pthread_t thread_id[RAFT_MAX_MEMBERS];
+REQUEST_VOTE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS];
 
 void* request_vote(void* arg) {
     REQUEST_VOTE_THREAD_ARG* thread_arg = (REQUEST_VOTE_THREAD_ARG*)arg;
@@ -29,7 +29,6 @@ void* request_vote(void* arg) {
     } else {
         log_debug("reqested vote [%lu] from %s", seq, thread_arg->member_woof);
     }
-    free(arg);
 }
 
 int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
@@ -133,7 +132,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
             thread_arg[i].arg.last_log_index = latest_log_entry;
             thread_arg[i].arg.last_log_term = last_log_entry.term;
             thread_arg[i].arg.created_ts = get_milliseconds();
-            if (pthread_create(&thread_id[i], NULL, request_vote, (void*)thread_arg) < 0) {
+            if (pthread_create(&thread_id[i], NULL, request_vote, (void*)&thread_arg[i]) < 0) {
                 log_error("failed to create thread to send entries");
                 exit(1);
             }

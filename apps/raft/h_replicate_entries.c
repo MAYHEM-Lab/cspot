@@ -10,15 +10,15 @@
 #include <time.h>
 #include <unistd.h>
 
-pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-REPLICATE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-
 typedef struct replicate_thread_arg {
     int member_id;
     char member_woof[RAFT_NAME_LENGTH];
     int num_entries;
     RAFT_APPEND_ENTRIES_ARG arg;
 } REPLICATE_THREAD_ARG;
+
+pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+REPLICATE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 
 void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
@@ -50,7 +50,6 @@ void* replicate_thread(void* arg) {
             // log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
         }
     }
-    free(arg);
 }
 
 int comp_index(const void* a, const void* b) {
@@ -305,7 +304,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             thread_arg[m].arg.leader_commit = server_state.commit_index;
             thread_arg[m].arg.created_ts = get_milliseconds();
-            if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)thread_arg) < 0) {
+            if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)&thread_arg[m]) < 0) {
                 log_error("failed to create thread to send entries");
                 exit(1);
             }
