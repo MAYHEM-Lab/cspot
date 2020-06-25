@@ -182,16 +182,12 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
     return monitor_seq;
 }
 
-void* monitor_cast(void* ptr) {
+int monitor_cast(void* ptr, void* element) {
     MONITOR_POOL_ITEM* pool_item = (MONITOR_POOL_ITEM*)ptr;
-    void* element = malloc(pool_item->element_size);
-    if (element == NULL) {
-        return NULL;
-    }
     if (WooFGet(pool_item->woof_name, element, pool_item->seq_no) < 0) {
-        return NULL;
+        return -1;
     }
-    return element;
+    return 0;
 }
 
 unsigned long monitor_seqno(void* ptr) {

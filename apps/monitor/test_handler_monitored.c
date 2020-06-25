@@ -7,7 +7,11 @@
 #include <string.h>
 
 int test_handler_monitored(WOOF* wf, unsigned long seq_no, void* ptr) {
-    TEST_MONITOR_ARG* arg = (TEST_MONITOR_ARG*)monitor_cast(ptr);
+    TEST_MONITOR_ARG arg = {0};
+    if (monitor_cast(ptr, &arg) < 0) {
+        fprintf(stderr, "failed to call monitor_cast\n");
+        exit(1);
+    }
 
     TEST_MONITOR_COUNTER counter;
     int i;
@@ -29,7 +33,7 @@ int test_handler_monitored(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
     }
-    printf("[%lu] %s, counter: %d\n", seq_no, arg->msg, counter.counter);
+    printf("[%lu] %s, counter: %d\n", seq_no, arg.msg, counter.counter);
     if (monitor_exit(ptr) < 0) {
         fprintf(stderr, "failed to notify the monitor\n");
         exit(1);

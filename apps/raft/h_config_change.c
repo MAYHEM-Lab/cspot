@@ -10,38 +10,40 @@
 #include <unistd.h>
 
 int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
-    RAFT_CONFIG_CHANGE_ARG* arg = (RAFT_CONFIG_CHANGE_ARG*)monitor_cast(ptr);
-    seq_no = monitor_seqno(ptr);
-
     log_set_tag("config_change");
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
+    RAFT_CONFIG_CHANGE_ARG arg = {0};
+    if (monitor_cast(ptr, &arg) < 0) {
+        log_error("failed to monitor_cast");
+        exit(1);
+    }
+    seq_no = monitor_seqno(ptr);
+
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the latest server state");
-        free(arg);
         exit(1);
     }
 
     RAFT_CONFIG_CHANGE_RESULT result = {0};
-    if (arg->observe) {
-        if (member_id(arg->observer_woof, server_state.member_woofs) != -1) {
-            log_debug("%s is already observing", arg->observer_woof);
+    if (arg.observe) {
+        if (member_id(arg.observer_woof, server_state.member_woofs) != -1) {
+            log_debug("%s is already observing", arg.observer_woof);
             result.redirected = 0;
             result.success = 1;
             strcpy(result.current_leader, server_state.current_leader);
         } else {
-            strcpy(server_state.member_woofs[RAFT_MAX_MEMBERS + server_state.observers], arg->observer_woof);
+            strcpy(server_state.member_woofs[RAFT_MAX_MEMBERS + server_state.observers], arg.observer_woof);
             server_state.observers += 1;
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to add observer to server at term %lu", server_state.current_term);
-                free(arg);
                 exit(1);
             }
-            log_info("%s starts observing", arg->observer_woof);
+            log_info("%s starts observing", arg.observer_woof);
             result.redirected = 0;
             result.success = 1;
             strcpy(result.current_leader, server_state.current_leader);
@@ -58,19 +60,18 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             result.success = 0;
             strcpy(result.current_leader, server_state.current_leader);
         } else {
-            log_debug("processing new config with %d members", arg->members);
+            log_debug("processing new config with %d members", arg.members);
 
             // compute the joint config
             int joint_members;
             char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
             if (compute_joint_config(server_state.members,
                                      server_state.member_woofs,
-                                     arg->members,
-                                     arg->member_woofs,
+                                     arg.members,
+                                     arg.member_woofs,
                                      &joint_members,
                                      joint_member_woofs) < 0) {
                 log_error("failed to compute the joint config");
-                free(arg);
                 exit(1);
             }
             log_debug("there are %d members in the joint config", joint_members);
@@ -82,18 +83,15 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             entry.is_handler = 0;
             if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
                 log_error("failed to encode the joint config to a log entry");
-                free(arg);
                 exit(1);
             }
-            if (encode_config(entry.data.val + strlen(entry.data.val), arg->members, arg->member_woofs) < 0) {
+            if (encode_config(entry.data.val + strlen(entry.data.val), arg.members, arg.member_woofs) < 0) {
                 log_error("failed to encode the new config to a log entry");
-                free(arg);
                 exit(1);
             }
             unsigned long entry_seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
             if (WooFInvalid(entry_seq)) {
                 log_error("failed to put the joint config as log entry");
-                free(arg);
                 exit(1);
             }
             log_debug("appended the joint config as a log entry");
@@ -130,7 +128,6 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to update server config at term %lu", server_state.current_term);
-                free(arg);
                 exit(1);
             }
             log_info("start using joint config with %d members at term %lu",
@@ -162,10 +159,8 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (result_seq != seq_no) {
         log_error("config_change seqno %lu doesn't match result seno %lu", seq_no, result_seq);
-        free(arg);
         exit(1);
     }
 
-    free(arg);
     return 1;
 }
