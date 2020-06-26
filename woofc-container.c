@@ -24,7 +24,7 @@ LOG* Name_log;
 
 static int WooFDone;
 
-#define WOOF_CONTAINER_FORKERS (15)
+#define WOOF_CONTAINER_FORKERS (64)
 sema ForkerThrottle;
 pthread_mutex_t Tlock;
 int Tcount;

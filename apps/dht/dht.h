@@ -31,6 +31,7 @@
 #define DHT_TRY_REPLICAS_WOOF "dht_try_replicas.woof"
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
+#define DHT_MONITOR_NAME "dht"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
 #define DHT_HISTORY_LENGTH_LONG 256

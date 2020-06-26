@@ -33,7 +33,7 @@
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
 #define RAFT_MONITOR_NAME "raft"
 
-#define RAFT_WOOF_HISTORY_SIZE 65536
+#define RAFT_WOOF_HISTORY_SIZE 256
 #define RAFT_NAME_LENGTH WOOFNAMESIZE
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
@@ -41,8 +41,8 @@
 #define RAFT_DATA_TYPE_SIZE 4096
 // #define RAFT_TIMEOUT_MIN 500
 // #define RAFT_TIMEOUT_MAX 1000
-#define RAFT_TIMEOUT_MIN 1000 // better greater than zeromq timeout to avoid unnecessary election
-#define RAFT_TIMEOUT_MAX 2000
+#define RAFT_TIMEOUT_MIN 2000 // better greater than zeromq timeout to avoid unnecessary election
+#define RAFT_TIMEOUT_MAX 4000
 #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
 // #define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
 // #define RAFT_REPLICATE_ENTRIES_DELAY 20

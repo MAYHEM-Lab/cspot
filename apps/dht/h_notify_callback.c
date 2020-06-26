@@ -1,5 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
+#include "monitor.h"
 #include "woofc.h"
 #ifdef USE_RAFT
 #include "raft_client.h"
