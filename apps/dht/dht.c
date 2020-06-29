@@ -1,6 +1,7 @@
 #include "dht.h"
 
 #include "dht_utils.h"
+#include "monitor.h"
 #include "woofc.h"
 
 #include <openssl/sha.h>
@@ -105,13 +106,18 @@ int dht_create_woofs() {
             return -1;
         }
     }
-    char finger_woof_name[DHT_NAME_LENGTH];
+    char finger_woof_name[DHT_NAME_LENGTH] = {0};
     for (i = 1; i < SHA_DIGEST_LENGTH * 8 + 1; ++i) {
         sprintf(finger_woof_name, "%s%d", DHT_FINGER_INFO_WOOF, i);
         if (WooFCreate(finger_woof_name, sizeof(DHT_FINGER_INFO), DHT_HISTORY_LENGTH_LONG) < 0) {
             sprintf(dht_error_msg, "failed to create %s", finger_woof_name);
             return -1;
         }
+    }
+
+    if (monitor_create(DHT_MONITOR_NAME) < 0) {
+        fprintf(stderr, "Failed to create and start the handler monitor\n");
+        return -1;
     }
     return 0;
 }
@@ -122,7 +128,7 @@ int dht_start_daemon() {
     arg.last_check_predecessor = 0;
     arg.last_fix_finger = 0;
 #ifdef USE_RAFT
-	arg.last_update_leader_id = 0;
+    arg.last_update_leader_id = 0;
     arg.last_replicate_state = 0;
 #endif
     arg.last_fixed_finger_index = 1;
@@ -162,7 +168,7 @@ int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLI
         sprintf(dht_error_msg, "failed to start daemon");
         return -1;
     }
-    char hash_str[DHT_NAME_LENGTH];
+    char hash_str[DHT_NAME_LENGTH] = {0};
     print_node_hash(hash_str, node_hash);
     printf("node_name: %s\nnode_hash: %s\nnode_addr: %s\nid: %d\n", node_name, hash_str, woof_name, replica_id);
     int i;

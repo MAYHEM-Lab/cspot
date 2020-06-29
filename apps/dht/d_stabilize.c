@@ -18,16 +18,19 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
+        monitor_exit(ptr);
         exit(1);
     }
     DHT_PREDECESSOR_INFO predecessor = {0};
     if (get_latest_predecessor_info(&predecessor) < 0) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
+        monitor_exit(ptr);
         exit(1);
     }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
+        monitor_exit(ptr);
         exit(1);
     }
 
@@ -46,12 +49,14 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+                monitor_exit(ptr);
                 exit(1);
             }
 #else
             unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
             if (WooFInvalid(seq)) {
                 log_error("failed to update successor");
+                monitor_exit(ptr);
                 exit(1);
             }
 #endif
@@ -63,9 +68,10 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         memcpy(notify_arg.node_hash, node.hash, sizeof(notify_arg.node_hash));
         memcpy(notify_arg.node_replicas, node.replicas, sizeof(notify_arg.node_replicas));
         notify_arg.node_leader = node.replica_id;
-        unsigned long seq = WooFPut(DHT_NOTIFY_WOOF, "h_notify", &notify_arg);
+        unsigned long seq = monitor_put(DHT_MONITOR_NAME, DHT_NOTIFY_WOOF, "h_notify", &notify_arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to call notify on self %s", node.addr);
+            monitor_exit(ptr);
             exit(1);
         }
         log_debug("calling notify on self");
@@ -83,20 +89,23 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         if (raft_is_error(index)) {
             log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+            monitor_exit(ptr);
             exit(1);
         }
 #else
         unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
         if (WooFInvalid(seq)) {
             log_error("failed to set successor back to self");
+            monitor_exit(ptr);
             exit(1);
         }
 #endif
         log_info("successor set to self");
     } else {
-        char woof_name[DHT_NAME_LENGTH];
+        char woof_name[DHT_NAME_LENGTH] = {0};
         if (node_woof_name(woof_name) < 0) {
             log_error("failed to get local node's woof name");
+            monitor_exit(ptr);
             exit(1);
         }
 
@@ -105,7 +114,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         sprintf(get_predecessor_arg.callback_woof, "%s/%s", woof_name, DHT_STABILIZE_CALLBACK_WOOF);
         sprintf(get_predecessor_arg.callback_handler, "h_stabilize_callback");
         log_debug("current successor_addr: %s", successor_addr(&successor, 0));
-        char successor_woof_name[DHT_NAME_LENGTH];
+        char successor_woof_name[DHT_NAME_LENGTH] = {0};
         sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
         unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
         if (WooFInvalid(seq)) {
@@ -116,6 +125,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke r_try_replicas");
+                monitor_exit(ptr);
                 exit(1);
             }
 #else
@@ -123,15 +133,19 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
             if (WooFInvalid(seq)) {
                 log_error("failed to shift successor");
+                monitor_exit(ptr);
                 exit(1);
             }
             log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
 #endif
+            monitor_exit(ptr);
             return 1;
         }
         log_debug("asked to get_predecessor from %s", successor_woof_name);
+        monitor_exit(ptr);
         return 1;
     }
 
+    monitor_exit(ptr);
     return 1;
 }

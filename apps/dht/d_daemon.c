@@ -1,5 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
+#include "monitor.h"
 #include "woofc.h"
 
 #include <stdio.h>
@@ -37,7 +38,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             log_debug("updated replica's leader_id to %d", node.leader_id);
         }
-		arg->last_update_leader_id = now;
+        arg->last_update_leader_id = now;
     }
     if (!raft_is_leader()) {
         log_debug("not a raft leader, went to sleep");
@@ -56,7 +57,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (now - arg->last_stabilize > DHT_STABILIZE_FREQUENCY) {
         DHT_STABILIZE_ARG stabilize_arg;
-        unsigned long seq = WooFPut(DHT_STABILIZE_WOOF, "d_stabilize", &stabilize_arg);
+        unsigned long seq = monitor_put(DHT_MONITOR_NAME, DHT_STABILIZE_WOOF, "d_stabilize", &stabilize_arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke d_stabilize");
         }
