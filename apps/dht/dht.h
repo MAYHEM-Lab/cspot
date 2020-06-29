@@ -19,6 +19,7 @@
 #define DHT_NOTIFY_CALLBACK_WOOF "dht_notify_callback.woof"
 #define DHT_NOTIFY_WOOF "dht_notify.woof"
 #define DHT_REGISTER_TOPIC_WOOF "dht_register_topic.woof"
+#define DHT_SHIFT_SUCCESSOR_WOOF "dht_shift_successor.woof"
 #define DHT_STABILIZE_WOOF "dht_stabilize.woof"
 #define DHT_STABILIZE_CALLBACK_WOOF "dht_stabilize_callback.woof"
 #define DHT_SUBSCRIBE_WOOF "dht_subscribe.woof"
@@ -154,6 +155,10 @@ typedef struct dht_register_topic_arg {
     char topic_name[DHT_NAME_LENGTH];
     char topic_namespace[DHT_NAME_LENGTH];
 } DHT_REGISTER_TOPIC_ARG;
+
+typedef struct dht_shift_successor_arg {
+
+} DHT_SHIFT_SUCCESSOR_ARG;
 
 typedef struct dht_subscription_list {
     int size;

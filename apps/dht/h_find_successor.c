@@ -1,5 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
+#include "monitor.h"
 #include "woofc.h"
 
 #include <stdio.h>
@@ -14,8 +15,8 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_FIND_SUCCESSOR_ARG* arg = (DHT_FIND_SUCCESSOR_ARG*)ptr;
 
     log_set_tag("find_successor");
-    // log_set_level(DHT_LOG_DEBUG);
     log_set_level(DHT_LOG_INFO);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_NODE_INFO node = {0};
@@ -180,39 +181,17 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
             if (WooFInvalid(seq)) {
                 log_warn("failed to forward find_successor request to %s", req_forward_woof);
-				DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
-				memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
-				seq = WooFPut(DHT_INVALIDATE_FINGERS_WOOF, "h_invalidate_fingers", &invalidate_fingers_arg);
-				if (WooFInvalid(seq)) {
-					log_error("failed to call h_invalidate_fingers to invalidate failed fingers");
-					continue;
-				}
-				char hash_str[DHT_NAME_LENGTH];
-				print_node_hash(hash_str, invalidate_fingers_arg.finger_hash);
-				log_debug("invoked h_invalidate_fingers to invalidate failed finger %s", hash_str);
-// #ifdef USE_RAFT
-//                 DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-//                 try_replicas_arg.type = DHT_TRY_FINGER;
-//                 try_replicas_arg.finger_id = i;
-//                 strcpy(try_replicas_arg.woof_name, wf->shared->filename);
-//                 strcpy(try_replicas_arg.handler_name, "h_find_successor");
-//                 try_replicas_arg.seq_no = seq_no;
-//                 seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
-//                 if (WooFInvalid(seq)) {
-//                     log_error("failed to invoke r_try_replicas");
-//                     exit(1);
-//                 }
-//                 return 1;
-// #else
-//                 memset(&finger, 0, sizeof(finger));
-//                 unsigned long seq = set_finger_info(i, &finger);
-//                 if (WooFInvalid(seq)) {
-//                     log_error("failed to set finger[%d] to nil", i);
-//                     exit(1);
-//                 }
-//                 log_warn("set finger[%d] to nil", i);
+                DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
+                memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
+                seq = WooFPut(DHT_INVALIDATE_FINGERS_WOOF, "h_invalidate_fingers", &invalidate_fingers_arg);
+                if (WooFInvalid(seq)) {
+                    log_error("failed to call h_invalidate_fingers to invalidate failed fingers");
+                    continue;
+                }
+                char hash_str[DHT_NAME_LENGTH];
+                print_node_hash(hash_str, invalidate_fingers_arg.finger_hash);
+                log_debug("invoked h_invalidate_fingers to invalidate failed finger %s", hash_str);
                 continue;
-// #endif
             }
             log_debug("forwarded find_succesor request to finger[%d]: %s", i, finger_replicas_leader);
             return 1;
@@ -226,23 +205,24 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_warn("failed to forward find_successor request to %s", req_forward_woof);
 #ifdef USE_RAFT
             DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-            try_replicas_arg.type = DHT_TRY_SUCCESSOR;
-            strcpy(try_replicas_arg.woof_name, wf->shared->filename);
-            strcpy(try_replicas_arg.handler_name, "h_find_successor");
-            try_replicas_arg.seq_no = seq_no;
+            try_replicas_arg->type = DHT_TRY_SUCCESSOR;
+            strcpy(try_replicas_arg->woof_name, wf->shared->filename);
+            strcpy(try_replicas_arg->handler_name, "h_find_successor");
+            try_replicas_arg->seq_no = seq_no;
             seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke r_try_replicas");
                 exit(1);
             }
 #else
-            shift_successor_list(&successor);
-            unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+            DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
+            unsigned long seq =
+                monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
             if (WooFInvalid(seq)) {
                 log_error("failed to shift successor");
                 exit(1);
             }
-            log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+            log_warn("called h_shift_successor to use the next successor in line");
 #endif
         } else {
             log_debug("forwarded find_succesor request to successor: %s", successor_addr(&successor, 0));
@@ -252,13 +232,11 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // return n.find_succesor(id)
     log_debug("closest_preceding_node not found in finger table");
-
-    sprintf(req_forward_woof, "%s/%s", node.addr, DHT_FIND_SUCCESSOR_WOOF);
-    unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+    unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", arg);
     if (WooFInvalid(seq)) {
-        log_error("failed to put woof to %s", req_forward_woof);
+        log_error("failed to put woof to self");
         exit(1);
     }
-    log_debug("forwarded find_succesor request to self: %s", node.addr);
+    log_debug("forwarded find_succesor request to self");
     return 1;
 }

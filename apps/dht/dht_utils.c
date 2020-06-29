@@ -261,18 +261,6 @@ int in_range(unsigned char* n, unsigned char* lower, unsigned char* upper) {
     return 0;
 }
 
-void shift_successor_list(DHT_SUCCESSOR_INFO* successor) {
-    int i;
-    for (i = 0; i < DHT_SUCCESSOR_LIST_R - 1; ++i) {
-        memcpy(successor->hash[i], successor->hash[i + 1], sizeof(successor->hash[i]));
-        memcpy(successor->replicas[i], successor->replicas[i + 1], sizeof(successor->replicas[i]));
-        successor->leader[i] = successor->leader[i + 1];
-    }
-    memset(successor->hash[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor->hash[DHT_SUCCESSOR_LIST_R - 1]));
-    memset(successor->replicas[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor->replicas[DHT_SUCCESSOR_LIST_R - 1]));
-    successor->leader[DHT_SUCCESSOR_LIST_R - 1] = 0;
-}
-
 int get_latest_node_info(DHT_NODE_INFO* element) {
     return get_latest_element(DHT_NODE_INFO_WOOF, element);
 }

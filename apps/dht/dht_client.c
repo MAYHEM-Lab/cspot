@@ -1,6 +1,7 @@
 #include "dht_client.h"
 
 #include "dht.h"
+#include "monitor.h"
 #include "woofc-access.h"
 #include "woofc.h"
 #ifdef USE_RAFT
@@ -17,7 +18,7 @@
 int dht_find_node(char* topic_name,
                   char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
                   int* result_node_leader) {
-    char local_namespace[DHT_NAME_LENGTH];
+    char local_namespace[DHT_NAME_LENGTH] = {0};
     if (node_woof_name(local_namespace) < 0) {
         sprintf(dht_error_msg, "failed to get local woof namespace");
         return -1;
@@ -29,15 +30,13 @@ int dht_find_node(char* topic_name,
     dht_init_find_arg(&arg, topic_name, hashed_key, local_namespace);
     arg.action = DHT_ACTION_FIND_NODE;
 
-    char target_woof[DHT_NAME_LENGTH];
-    char result_woof[DHT_NAME_LENGTH];
-    sprintf(target_woof, "%s/%s", local_namespace, DHT_FIND_SUCCESSOR_WOOF);
+    char result_woof[DHT_NAME_LENGTH] = {0};
     sprintf(result_woof, "%s/%s", local_namespace, DHT_FIND_NODE_RESULT_WOOF);
     unsigned long last_checked_result = WooFGetLatestSeqno(result_woof);
 
-    unsigned long seq_no = WooFPut(target_woof, "h_find_successor", &arg);
+    unsigned long seq_no = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &arg);
     if (WooFInvalid(seq_no)) {
-        sprintf(dht_error_msg, "failed to invoke h_find_successor on %s", target_woof);
+        sprintf(dht_error_msg, "failed to invoke h_find_successor");
         exit(1);
     }
 
@@ -72,7 +71,7 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
 }
 
 int dht_register_topic(char* topic_name) {
-    char local_namespace[DHT_NAME_LENGTH];
+    char local_namespace[DHT_NAME_LENGTH] = {0};
     if (node_woof_name(local_namespace) < 0) {
         sprintf(dht_error_msg, "failed to get local woof namespace");
         return -1;
@@ -95,11 +94,9 @@ int dht_register_topic(char* topic_name) {
     strcpy(arg.action_namespace, local_namespace);
     arg.action_seqno = action_seqno;
 
-    char target_woof[DHT_NAME_LENGTH];
-    sprintf(target_woof, "%s/%s", local_namespace, DHT_FIND_SUCCESSOR_WOOF);
-    unsigned long seq_no = WooFPut(target_woof, "h_find_successor", &arg);
+    unsigned long seq_no = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &arg);
     if (WooFInvalid(seq_no)) {
-        sprintf(dht_error_msg, "failed to invoke h_find_successor on %s", target_woof);
+        sprintf(dht_error_msg, "failed to invoke h_find_successor");
         exit(1);
     }
     return 0;
@@ -111,7 +108,7 @@ int dht_subscribe(char* topic_name, char* handler) {
         return -1;
     }
 
-    char local_namespace[DHT_NAME_LENGTH];
+    char local_namespace[DHT_NAME_LENGTH] = {0};
     if (node_woof_name(local_namespace) < 0) {
         sprintf(dht_error_msg, "failed to get local woof namespace");
         return -1;
@@ -135,11 +132,9 @@ int dht_subscribe(char* topic_name, char* handler) {
     strcpy(arg.action_namespace, local_namespace);
     arg.action_seqno = action_seqno;
 
-    char target_woof[DHT_NAME_LENGTH];
-    sprintf(target_woof, "%s/%s", local_namespace, DHT_FIND_SUCCESSOR_WOOF);
-    unsigned long seq = WooFPut(target_woof, "h_find_successor", &arg);
+    unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &arg);
     if (WooFInvalid(seq)) {
-        sprintf(dht_error_msg, "failed to invoke h_find_successor on %s", target_woof);
+        sprintf(dht_error_msg, "failed to invoke h_find_successor");
         exit(1);
     }
 
@@ -147,7 +142,7 @@ int dht_subscribe(char* topic_name, char* handler) {
 }
 
 unsigned long dht_publish(char* topic_name, void* element) {
-    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
     if (dht_find_node(topic_name, node_replicas, &node_leader) < 0) {
         sprintf(dht_error_msg, "failed to find node hosting the topic");
@@ -157,7 +152,7 @@ unsigned long dht_publish(char* topic_name, void* element) {
 
     // TODO: if failed use the next replica
     // get the topic namespace
-    char registration_woof[DHT_NAME_LENGTH];
+    char registration_woof[DHT_NAME_LENGTH] = {0};
     sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
 
     DHT_TOPIC_REGISTRY topic_entry = {0};
@@ -194,7 +189,7 @@ unsigned long dht_publish(char* topic_name, void* element) {
         return -1;
     }
 #endif
-    char trigger_woof[DHT_NAME_LENGTH];
+    char trigger_woof[DHT_NAME_LENGTH] = {0};
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_namespace, DHT_TRIGGER_WOOF);
     return WooFPut(trigger_woof, "h_trigger", &trigger_arg);
 }

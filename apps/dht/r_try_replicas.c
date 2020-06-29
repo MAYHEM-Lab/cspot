@@ -1,6 +1,7 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <stdio.h>
@@ -115,13 +116,14 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
             return 1;
         }
         log_warn("none of successor replicas is responding");
-        shift_successor_list(&successor);
-        unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+        DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
+        unsigned long seq =
+            monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
         if (WooFInvalid(seq)) {
             log_error("failed to shift successor");
             exit(1);
         }
-        log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+        log_warn("called h_shift_successor to use the next successor in line");
         break;
     }
     case DHT_TRY_FINGER: {

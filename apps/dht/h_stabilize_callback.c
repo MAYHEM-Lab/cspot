@@ -93,14 +93,15 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
 #else
-        shift_successor_list(&successor);
-        unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+        DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
+        unsigned long seq =
+            monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
         if (WooFInvalid(seq)) {
             log_error("failed to shift successor");
             monitor_exit(ptr);
             exit(1);
         }
-        log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+        log_warn("called h_shift_successor to use the next successor in line");
 #endif
         monitor_exit(ptr);
         return 1;

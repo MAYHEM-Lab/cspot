@@ -31,7 +31,6 @@ char* dht_hash(unsigned char* dst, char* src);
 void print_node_hash(char* dst, const unsigned char* id_hash);
 int is_empty(char hash[SHA_DIGEST_LENGTH]);
 int in_range(unsigned char* n, unsigned char* lower, unsigned char* upper);
-void shift_successor_list(DHT_SUCCESSOR_INFO* successor);
 int get_latest_node_info(DHT_NODE_INFO* element);
 int get_latest_predecessor_info(DHT_PREDECESSOR_INFO* element);
 int get_latest_successor_info(DHT_SUCCESSOR_INFO* element);

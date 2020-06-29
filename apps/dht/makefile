@@ -44,6 +44,7 @@ copy: handlers clients test
 	cp h_notify_callback ./cspot;
 	cp h_notify ./cspot;
 	cp h_register_topic ./cspot;
+	cp h_shift_successor ./cspot;
 	cp h_stabilize_callback ./cspot;
 	cp h_subscribe ./cspot;
 	cp h_trigger ./cspot;
@@ -68,7 +69,7 @@ copy: handlers clients test
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize \
 	h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
-	h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger \
+	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
 	r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
 
 clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon \
@@ -170,6 +171,11 @@ h_register_topic: h_register_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_S
 	${CC} ${CFLAGS} -c h_register_topic_shepherd.c -o h_register_topic_shepherd.o
 	${CC} ${CFLAGS} -o h_register_topic h_register_topic.c h_register_topic_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+h_shift_successor: h_shift_successor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_shift_successor/g' ${SHEP_SRC} > h_shift_successor_shepherd.c
+	${CC} ${CFLAGS} -c h_shift_successor_shepherd.c -o h_shift_successor_shepherd.o
+	${CC} ${CFLAGS} -o h_shift_successor h_shift_successor.c h_shift_successor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 h_stabilize_callback: h_stabilize_callback.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_stabilize_callback/g' ${SHEP_SRC} > h_stabilize_callback_shepherd.c
 	${CC} ${CFLAGS} -c h_stabilize_callback_shepherd.c -o h_stabilize_callback_shepherd.o
@@ -241,7 +247,7 @@ clean:
 	rm client_find_node client_node_info
 	rm d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize
 	rm h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
-	rm h_join_callback h_notify_callback h_notify h_register_topic h_stabilize_callback h_subscribe h_trigger
+	rm h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
 	rm r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
 	rm test_dht_handler test_publish test_subscribe
 
