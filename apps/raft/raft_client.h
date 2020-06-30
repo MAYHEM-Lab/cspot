@@ -18,6 +18,7 @@ char raft_client_leader[RAFT_NAME_LENGTH];
 int raft_client_result_delay;
 int raft_init_client(int members, char replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 void raft_set_client_leader(char* leader);
+void raft_set_client_result_delay(int delay);
 unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout); // return log index
 unsigned long raft_async_put(RAFT_DATA_TYPE* data);             // return client_put request seqno
 unsigned long raft_sync_get(RAFT_DATA_TYPE* data, unsigned long index, int committed_only); // return term or ERROR

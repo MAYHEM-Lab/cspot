@@ -49,7 +49,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             action_result.node_leader = successor.leader[0];
             action_result.hops = arg->hops;
 
-            char callback_woof[DHT_NAME_LENGTH];
+            char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIND_NODE_RESULT_WOOF);
             unsigned long seq = WooFPut(callback_woof, NULL, &action_result);
             if (WooFInvalid(seq)) {
@@ -65,9 +65,11 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(action_arg.node_replicas, successor.replicas[0], sizeof(action_arg.node_replicas));
             action_arg.node_leader = successor.leader[0];
 
-            char callback_woof[DHT_NAME_LENGTH];
+            char callback_monitor[DHT_NAME_LENGTH] = {0};
+            sprintf(callback_monitor, "%s/%s", arg->callback_namespace, DHT_MONITOR_NAME);
+            char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_JOIN_WOOF);
-            unsigned long seq = WooFPut(callback_woof, "h_join_callback", &action_arg);
+            unsigned long seq = monitor_remote_put(callback_monitor, callback_woof, "h_join_callback", &action_arg, 0);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke h_join_callback on %s", callback_woof);
                 exit(1);
@@ -82,9 +84,12 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             action_arg.node_leader = successor.leader[0];
             action_arg.finger_index = (int)arg->action_seqno;
 
-            char callback_woof[DHT_NAME_LENGTH];
+            char callback_monitor[DHT_NAME_LENGTH] = {0};
+            sprintf(callback_monitor, "%s/%s", arg->callback_namespace, DHT_MONITOR_NAME);
+            char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIX_FINGER_CALLBACK_WOOF);
-            unsigned long seq = WooFPut(callback_woof, "h_fix_finger_callback", &action_arg);
+            unsigned long seq =
+                monitor_remote_put(callback_monitor, callback_woof, "h_fix_finger_callback", &action_arg, 0);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke h_fix_finger_callback on %s", callback_woof);
                 exit(1);
@@ -93,7 +98,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             break;
         }
         case DHT_ACTION_REGISTER_TOPIC: {
-            char action_arg_woof[DHT_NAME_LENGTH];
+            char action_arg_woof[DHT_NAME_LENGTH] = {0};
             sprintf(action_arg_woof, "%s/%s", arg->action_namespace, DHT_REGISTER_TOPIC_WOOF);
             DHT_REGISTER_TOPIC_ARG action_arg = {0};
             if (WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
@@ -113,7 +118,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
 #else
-            char callback_woof[DHT_NAME_LENGTH];
+            char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", replicas_leader, DHT_REGISTER_TOPIC_WOOF);
             unsigned long seq = WooFPut(callback_woof, "h_register_topic", &action_arg);
             if (WooFInvalid(seq)) {
@@ -125,7 +130,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             break;
         }
         case DHT_ACTION_SUBSCRIBE: {
-            char action_arg_woof[DHT_NAME_LENGTH];
+            char action_arg_woof[DHT_NAME_LENGTH] = {0};
             sprintf(action_arg_woof, "%s/%s", arg->action_namespace, DHT_SUBSCRIBE_WOOF);
             DHT_SUBSCRIBE_ARG action_arg = {0};
             if (WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
@@ -144,7 +149,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
 #else
-            char callback_woof[DHT_NAME_LENGTH];
+            char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", replicas_leader, DHT_SUBSCRIBE_WOOF);
             unsigned long seq = WooFPut(callback_woof, "h_subscribe", &action_arg);
             if (WooFInvalid(seq)) {
@@ -162,7 +167,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         return 1;
     }
     // else closest_preceding_node(id)
-    char req_forward_woof[DHT_NAME_LENGTH];
+    char req_forward_woof[DHT_NAME_LENGTH] = {0};
     int i;
     for (i = SHA_DIGEST_LENGTH * 8; i > 0; --i) {
         DHT_FINGER_INFO finger = {0};
@@ -183,12 +188,13 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_warn("failed to forward find_successor request to %s", req_forward_woof);
                 DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
                 memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
-                seq = WooFPut(DHT_INVALIDATE_FINGERS_WOOF, "h_invalidate_fingers", &invalidate_fingers_arg);
+                seq = monitor_put(
+                    DHT_MONITOR_NAME, DHT_INVALIDATE_FINGERS_WOOF, "h_invalidate_fingers", &invalidate_fingers_arg, 0);
                 if (WooFInvalid(seq)) {
                     log_error("failed to call h_invalidate_fingers to invalidate failed fingers");
                     continue;
                 }
-                char hash_str[DHT_NAME_LENGTH];
+                char hash_str[DHT_NAME_LENGTH] = {0};
                 print_node_hash(hash_str, invalidate_fingers_arg.finger_hash);
                 log_debug("invoked h_invalidate_fingers to invalidate failed finger %s", hash_str);
                 continue;
@@ -205,10 +211,10 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_warn("failed to forward find_successor request to %s", req_forward_woof);
 #ifdef USE_RAFT
             DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-            try_replicas_arg->type = DHT_TRY_SUCCESSOR;
-            strcpy(try_replicas_arg->woof_name, wf->shared->filename);
-            strcpy(try_replicas_arg->handler_name, "h_find_successor");
-            try_replicas_arg->seq_no = seq_no;
+            try_replicas_arg.type = DHT_TRY_SUCCESSOR;
+            strcpy(try_replicas_arg.woof_name, wf->shared->filename);
+            strcpy(try_replicas_arg.handler_name, "h_find_successor");
+            try_replicas_arg.seq_no = seq_no;
             seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke r_try_replicas");

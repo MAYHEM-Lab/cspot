@@ -76,11 +76,15 @@ int main(int argc, char** argv) {
         dht_hash(node_hash, name);
 
         if (dht_init(node_hash, name, woof_name, replicas) < 0) {
-            fprintf(stderr, "failed to initialize DHT: %s", dht_error_msg);
+            fprintf(stderr, "failed to initialize DHT: %s\n", dht_error_msg);
             exit(1);
         }
+		if (monitor_create(DHT_MONITOR_NAME) < 0) {
+			fprintf(stderr, "failed to create and start the handler monitor\n");
+			return -1;
+		}
         if (dht_start_daemon() < 0) {
-            fprintf(stderr, "failed to start the daemon");
+            fprintf(stderr, "failed to start the daemon\n");
             exit(1);
         }
     }

@@ -1,6 +1,5 @@
 #include "dht.h"
 #include "dht_utils.h"
-#include "monitor.h"
 #include "woofc.h"
 
 #include <stdlib.h>
@@ -10,8 +9,8 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_SUBSCRIBE_ARG* arg = (DHT_SUBSCRIBE_ARG*)ptr;
 
     log_set_tag("subscribe");
-    log_set_level(DHT_LOG_DEBUG);
-    // log_set_level(DHT_LOG_INFO);
+    log_set_level(DHT_LOG_INFO);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     char subscription_woof[DHT_NAME_LENGTH];

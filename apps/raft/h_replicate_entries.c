@@ -319,7 +319,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    // usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+    usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
     arg.last_ts = get_milliseconds();
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &arg, 1);
     if (WooFInvalid(seq)) {

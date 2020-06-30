@@ -14,7 +14,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     DHT_NOTIFY_ARG arg = {0};
     if (monitor_cast(ptr, &arg) < 0) {
-        fprintf(stderr, "failed to call monitor_cast\n");
+        log_error("failed to call monitor_cast");
         exit(1);
     }
 

@@ -141,7 +141,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    // usleep(RAFT_TIMEOUT_CHECKER_DELAY * 1000);
+    usleep(RAFT_TIMEOUT_CHECKER_DELAY * 1000);
     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_timeout_checker handler");

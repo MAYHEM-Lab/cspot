@@ -128,4 +128,8 @@ test_raft_handler: test_raft_handler.c raft.o raft_client.o raft_utils.o ${SHEP_
 	${CC} ${CFLAGS} -o test_raft_handler test_raft_handler.c test_raft_handler_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf ./cspot raft.o raft_client.o test_append_handler test_client test_config test_raft_handler client_get client_put client_reconfig h_count_vote s_create_woofs h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote s_start_server term_chair h_timeout_checker 
+	rm -rf ./cspot *.o 
+	rm -f test_append_handler test_client test_config test_raft_handler 
+	rm -f client_get client_put client_reconfig 
+	rm -f h_count_vote h_replicate_entries h_append_entries h_client_put h_config_change h_request_vote h_timeout_checker 
+	rm -f s_create_woofs s_start_server 

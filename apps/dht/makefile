@@ -243,11 +243,11 @@ test_subscribe: test_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
-	rm s_create_cluster s_create_woofs s_join_cluster s_start_daemon
-	rm client_find_node client_node_info
-	rm d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize
-	rm h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
-	rm h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
-	rm r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
-	rm test_dht_handler test_publish test_subscribe
+	rm -f s_create_cluster s_create_woofs s_join_cluster s_start_daemon
+	rm -f client_find_node client_node_info
+	rm -f d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize
+	rm -f h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
+	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
+	rm -f r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
+	rm -f test_dht_handler test_publish test_subscribe
 

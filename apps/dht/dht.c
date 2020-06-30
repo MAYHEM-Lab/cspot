@@ -107,10 +107,6 @@ int dht_create_woofs() {
         }
     }
 
-    if (monitor_create(DHT_MONITOR_NAME) < 0) {
-        fprintf(stderr, "Failed to create and start the handler monitor\n");
-        return -1;
-    }
     return 0;
 }
 
@@ -143,8 +139,8 @@ int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLI
         return -1;
     }
 
-    if (dht_create_woofs() < 0) {
-        sprintf(dht_error_msg, "can't create woofs");
+    if (monitor_create(DHT_MONITOR_NAME) < 0) {
+        sprintf(dht_error_msg, "failed to create and start the handler monitor\n");
         return -1;
     }
 
@@ -188,8 +184,8 @@ int dht_join_cluster(char* node_woof,
         return -1;
     }
 
-    if (dht_create_woofs() < 0) {
-        sprintf(dht_error_msg, "can't create woofs");
+    if (monitor_create(DHT_MONITOR_NAME) < 0) {
+        sprintf(dht_error_msg, "failed to create and start the handler monitor\n");
         return -1;
     }
 

@@ -19,6 +19,10 @@ void raft_set_client_leader(char* leader) {
     strcpy(raft_client_leader, leader);
 }
 
+void raft_set_client_result_delay(int delay) {
+    raft_client_result_delay = delay;
+}
+
 // return log index
 unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     unsigned long begin = get_milliseconds();
@@ -28,8 +32,9 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     request.created_ts = get_milliseconds();
     printf("request.created_ts: %lu\n", request.created_ts);
     memcpy(&request.data, data, sizeof(RAFT_DATA_TYPE));
-    char woof_name[RAFT_NAME_LENGTH];
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
+    printf("req woof_name: %s\n", woof_name);
     unsigned long seq = WooFPut(woof_name, NULL, &request);
     if (WooFInvalid(seq)) {
         sprintf(raft_error_msg, "failed to send put request\n");
@@ -37,6 +42,7 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     }
     RAFT_CLIENT_PUT_RESULT result = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
+    printf("res woof_name: %s\n", woof_name);
     unsigned long latest_result = 0;
     while (latest_result < seq) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
@@ -65,6 +71,10 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
             return RAFT_TIMEOUT;
         }
         unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+        if (WooFInvalid(latest_server_state)) {
+            sprintf(raft_error_msg, "failed to get latest server state\n");
+            return RAFT_ERROR;
+        }
         if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
             sprintf(raft_error_msg, "appended but can't get leader's commit index\n");
             return RAFT_ERROR;
@@ -104,7 +114,7 @@ unsigned long raft_async_put(RAFT_DATA_TYPE* data) {
     request.is_handler = 0;
     request.created_ts = get_milliseconds();
     memcpy(&request.data, data, sizeof(RAFT_DATA_TYPE));
-    char woof_name[RAFT_NAME_LENGTH];
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
     unsigned seq = WooFPut(woof_name, NULL, &request);
     if (WooFInvalid(seq)) {
@@ -116,7 +126,7 @@ unsigned long raft_async_put(RAFT_DATA_TYPE* data) {
 
 // return term or ERROR
 unsigned long raft_sync_get(RAFT_DATA_TYPE* data, unsigned long index, int committed_only) {
-    char woof_name[RAFT_NAME_LENGTH];
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     // check if it's committed
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_SERVER_STATE_WOOF);
     unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
@@ -181,7 +191,7 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
     RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
     strcpy(handler_entry->handler, handler);
     memcpy(handler_entry->ptr, data, sizeof(handler_entry->ptr));
-    char woof_name[RAFT_NAME_LENGTH];
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
     unsigned long seq = WooFPut(woof_name, NULL, &request);
     if (WooFInvalid(seq)) {
@@ -245,7 +255,7 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
 }
 
 int raft_client_put_result(unsigned long* index, unsigned long* term, unsigned long seq_no) {
-    char woof_name[RAFT_NAME_LENGTH];
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
     if (WooFGetLatestSeqno(woof_name) < seq_no) {
         return -1;
@@ -269,8 +279,8 @@ int raft_config_change(int members,
     arg.members = members;
     memcpy(arg.member_woofs, member_woofs, (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS) * RAFT_NAME_LENGTH);
 
-    char monitor_name[RAFT_NAME_LENGTH];
-    char woof_name[RAFT_NAME_LENGTH];
+    char monitor_name[RAFT_NAME_LENGTH] = {0};
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(monitor_name, "%s/%s", raft_client_leader, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CONFIG_CHANGE_ARG_WOOF);
     unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg, 0);
@@ -319,8 +329,8 @@ int raft_observe(int timeout) {
 
     int i;
     for (i = 0; i < raft_client_members; ++i) {
-        char monitor_name[RAFT_NAME_LENGTH];
-        char woof_name[RAFT_NAME_LENGTH];
+        char monitor_name[RAFT_NAME_LENGTH] = {0};
+        char woof_name[RAFT_NAME_LENGTH] = {0};
         sprintf(monitor_name, "%s/%s", raft_client_replicas[i], RAFT_MONITOR_NAME);
         sprintf(woof_name, "%s/%s", raft_client_replicas[i], RAFT_CONFIG_CHANGE_ARG_WOOF);
         unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_config_change", &arg, 0);
@@ -354,7 +364,7 @@ int raft_observe(int timeout) {
 }
 
 int raft_current_leader(char* member_woof, char* current_leader) {
-    char woof_name[RAFT_NAME_LENGTH];
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", member_woof, RAFT_SERVER_STATE_WOOF);
     unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
     if (WooFInvalid(latest_server_state)) {

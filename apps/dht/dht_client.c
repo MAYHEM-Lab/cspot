@@ -167,6 +167,7 @@ unsigned long dht_publish(char* topic_name, void* element) {
 #ifdef USE_RAFT
     printf("using raft, leader: %s\n", topic_entry.topic_namespace);
     raft_set_client_leader(topic_entry.topic_namespace);
+	raft_set_client_result_delay(50);
     RAFT_DATA_TYPE raft_data = {0};
     memcpy(raft_data.val, element, sizeof(raft_data.val));
     sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_namespace);

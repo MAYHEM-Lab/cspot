@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #ifdef USE_RAFT
 #include "raft.h"
 #endif
@@ -64,7 +65,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         arg->last_stabilize = now;
     }
 
-    if (now - arg->last_check_predecessor > DHT_CHECK_PREDECESSOR_FRQUENCY) {
+    if (now - arg->last_check_predecessor > DHT_CHECK_PREDECESSOR_FREQUENCY) {
         DHT_CHECK_PREDECESSOR_ARG check_predecessor_arg;
         unsigned long seq = WooFPut(DHT_CHECK_PREDECESSOR_WOOF, "d_check_predecessor", &check_predecessor_arg);
         if (WooFInvalid(seq)) {
@@ -73,7 +74,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         arg->last_check_predecessor = now;
     }
 
-    if (now - arg->last_fix_finger > DHT_FIX_FINGER_FRQUENCY) {
+    if (now - arg->last_fix_finger > DHT_FIX_FINGER_FREQUENCY) {
         DHT_FIX_FINGER_ARG fix_finger_arg = {0};
         fix_finger_arg.finger_index = arg->last_fixed_finger_index;
         unsigned long seq = WooFPut(DHT_FIX_FINGER_WOOF, "d_fix_finger", &fix_finger_arg);
@@ -98,6 +99,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     //     }
     // #endif
 
+	usleep(DHT_DAEMON_WAKEUP_FREQUENCY * 1000);
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next d_daemon");

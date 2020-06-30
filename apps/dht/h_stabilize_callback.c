@@ -17,7 +17,7 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     DHT_STABILIZE_CALLBACK_ARG result = {0};
     if (monitor_cast(ptr, &result) < 0) {
-        fprintf(stderr, "failed to call monitor_cast\n");
+        log_error("failed to call monitor_cast");
         exit(1);
     }
 
