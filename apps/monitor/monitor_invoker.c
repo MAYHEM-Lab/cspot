@@ -76,9 +76,10 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     } else {
         usleep(arg->spinlock_delay * 1000);
-        unsigned long seq = WooFPut(arg->handler_woof, "monitor_invoker", arg);
+        ++arg->wasted_cycle;
+        unsigned long seq = WooFPut(wf->shared->filename, "monitor_invoker", arg);
         if (WooFInvalid(seq)) {
-            fprintf(stderr, "failed to spinlock on %s\n", arg->handler_woof);
+            fprintf(stderr, "failed to spinlock on %s\n", wf->shared->filename);
             exit(1);
         }
     }
