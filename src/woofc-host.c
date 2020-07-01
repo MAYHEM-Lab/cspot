@@ -7,8 +7,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <woofc-access.h>
 
 char WooF_dir[2048];
 char WooF_namespace[2048];

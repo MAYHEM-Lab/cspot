@@ -1,2 +1,7 @@
 .vscode
 .DS_STORE
+.idea
+.clangd
+compile_commands.json
+cmake-build*
+build

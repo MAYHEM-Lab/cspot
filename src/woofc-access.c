@@ -3,7 +3,7 @@
 #include "woofc-access.h"
 
 #include "dlist.h"
-#include "uriparser2/uriparser2.h"
+#include "uriparser2.h"
 #include "woofc-cache.h"
 #include "woofc.h" /* for WooFPut */
 

@@ -1,0 +1,47 @@
+cmake_minimum_required(VERSION 3.10)
+project(cspot)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+add_subdirectory(deps)
+add_subdirectory(src)
+
+add_library(woof 
+  src/log.c 
+  include/log.h
+  src/woofc.c
+  include/woofc.h 
+  src/woofc-access.c
+  include/woofc-access.h 
+  src/woofc-cache.c
+  include/woofc-cache.h
+  src/event.c
+  include/event.h
+  src/host.c
+  include/host.h
+  src/sema.c
+  include/sema.h
+  src/lsema.c
+  include/lsema.h
+)
+
+find_package(Threads REQUIRED)
+
+target_include_directories(woof PUBLIC include)
+target_link_libraries(woof PUBLIC mio euca_utils czmq m Threads::Threads uriparser2)
+target_compile_features(woof PUBLIC cxx_std_17)
+
+add_library(woof-thread 
+  src/woofc-thread.c 
+  include/woofc-thread.h
+)
+target_include_directories(woof-thread PUBLIC include)
+target_link_libraries(woof-thread PUBLIC mio euca_utils)
+
+add_executable(woofc-namespace-platform src/woofc-host.c include/woofc-host.h)
+target_link_libraries(woofc-namespace-platform PRIVATE woof)
+target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)
