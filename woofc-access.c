@@ -720,7 +720,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	else
 	{
 		el_size = wf->shared->element_size;
-		WooFFree(wf);
+		WooFDrop(wf);
 	}
 
 #ifdef DEBUG
@@ -835,7 +835,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	else
 	{
 		latest_seq_no = WooFLatestSeqno(wf);
-		WooFFree(wf);
+		WooFDrop(wf);
 	}
 
 #ifdef DEBUG
@@ -1144,7 +1144,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 	else
 	{
 		el_size = wf->shared->element_size;
-//		WooFFree(wf);
+//		WooFDrop(wf);
 	}
 
 	if (wf != NULL)
@@ -1154,12 +1154,12 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 		{
 			fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
 			fflush(stderr);
-			WooFFree(wf);
+			WooFDrop(wf);
 			return;
 		}
 
 		el_read = WooFReadTail(wf, ptr, el_count);
-		WooFFree(wf);
+		WooFDrop(wf);
 		wf = NULL;
 	}
 
@@ -1362,7 +1362,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 					el_size = 0;
 				}
 			}
-			WooFFree(wf);
+			WooFDrop(wf);
 		}
 	}
 	else
@@ -1535,7 +1535,7 @@ void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
 		else
 		{
 			done = wf->shared->done;
-			WooFFree(wf);
+			WooFDrop(wf);
 		}
 	}
 	else

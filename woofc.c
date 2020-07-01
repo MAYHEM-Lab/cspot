@@ -331,11 +331,6 @@ WOOF *WooFOpen(char *name)
 	return (wf);
 }
 
-void WooFFree(WOOF *wf)
-{
-	return;
-}
-
 void WooFDrop(WOOF *wf)
 {
 	MIOClose(wf->mio);
@@ -365,7 +360,7 @@ int WooFTruncate(char *name, unsigned long seq_no) {
 			fflush(stderr);
 			V(&wfs->mutex);
 			V(&wfs->tail_wait);
-			WooFFree(wf);
+			WooFDrop(wf);
 			return -1;
 		}
 
@@ -377,7 +372,7 @@ int WooFTruncate(char *name, unsigned long seq_no) {
 	
 	V(&wfs->mutex);
 	V(&wfs->tail_wait);
-	WooFFree(wf);
+	WooFDrop(wf);
 
 	return 1;
 }
@@ -722,7 +717,7 @@ unsigned long WooFPut(char *wf_name, char *hand_name, void *element)
 #endif
 	seq_no = WooFAppend(wf, hand_name, element);
 
-	WooFFree(wf);
+	WooFDrop(wf);
 	return (seq_no);
 }
 
@@ -814,7 +809,7 @@ int WooFGet(char *wf_name, void *element, unsigned long seq_no)
 #endif
 	err = WooFRead(wf, element, seq_no);
 
-	WooFFree(wf);
+	WooFDrop(wf);
 	return (err);
 }
 
@@ -905,7 +900,7 @@ int WooFHandlerDone(char *wf_name, unsigned long seq_no)
 		retval = 0;
 	}
 
-	WooFFree(wf);
+	WooFDrop(wf);
 	return (retval);
 }
 
@@ -988,7 +983,7 @@ unsigned long WooFGetLatestSeqno(char *wf_name)
 #endif
 	latest_seq_no = WooFLatestSeqno(wf);
 
-	WooFFree(wf);
+	WooFDrop(wf);
 	return (latest_seq_no);
 }
 
@@ -1118,7 +1113,7 @@ unsigned long WooFGetTail(char *wf_name, void *elements, unsigned long element_c
 #endif
 	err = WooFReadTail(wf, elements, element_count);
 
-	WooFFree(wf);
+	WooFDrop(wf);
 	return (err);
 }
 

@@ -750,7 +750,7 @@ void *WooFForker(void *arg)
 			earg[0] = pbuf;
 			earg[1] = NULL;
 
-			WooFFree(wf);
+			WooFDrop(wf);
 
 			execve(pbuf, earg, eenvp);
 
