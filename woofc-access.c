@@ -679,7 +679,7 @@ void WooFProcessGetElSize(zmsg_t* req_msg, zsock_t* receiver) {
         el_size = -1;
     } else {
         el_size = wf->shared->element_size;
-        WooFFree(wf);
+        WooFDrop(wf);
     }
 
 #ifdef DEBUG
@@ -857,7 +857,7 @@ void WooFProcessGetLatestSeqno(zmsg_t* req_msg, zsock_t* receiver) {
         latest_seq_no = -1;
     } else {
         latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof, cause_woof_latest_seq_no);
-        WooFFree(wf);
+        WooFDrop(wf);
     }
 
 #ifdef DEBUG
@@ -1321,7 +1321,7 @@ void WooFProcessGetTail(zmsg_t* req_msg, zsock_t* receiver) {
         el_read = 0;
     } else {
         el_size = wf->shared->element_size;
-        //		WooFFree(wf);
+        //		WooFDrop(wf);
     }
 
     if (wf != NULL) {
@@ -1329,12 +1329,12 @@ void WooFProcessGetTail(zmsg_t* req_msg, zsock_t* receiver) {
         if (ptr == NULL) {
             fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
             fflush(stderr);
-            WooFFree(wf);
+            WooFDrop(wf);
             return;
         }
 
         el_read = WooFReadTail(wf, ptr, el_count);
-        WooFFree(wf);
+        WooFDrop(wf);
         wf = NULL;
     }
 
@@ -1547,7 +1547,7 @@ void WooFProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
                     el_size = 0;
                 }
             }
-            WooFFree(wf);
+            WooFDrop(wf);
         }
     } else { /* copy_size <= 0 */
         fprintf(stderr, "WooFProcessGet: no seq_no frame data for %s\n", woof_name);
@@ -1697,7 +1697,7 @@ void WooFProcessGetDone(zmsg_t* req_msg, zsock_t* receiver) {
             done = -1;
         } else {
             done = wf->shared->done;
-            WooFFree(wf);
+            WooFDrop(wf);
         }
     } else { /* copy_size <= 0 */
         fprintf(stderr, "WooFProcessGetDone: no seq_no frame data for %s\n", woof_name);

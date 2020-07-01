@@ -52,7 +52,7 @@ unsigned long monitor_put(char* monitor_name, char* woof_name, char* handler, vo
     }
     unsigned long woof_seq = WooFAppend(wf, NULL, ptr);
     if (WooFInvalid(woof_seq)) {
-        WooFFree(wf);
+        WooFDrop(wf);
         return -1;
     }
     MONITOR_POOL_ITEM pool_item = {0};
@@ -62,7 +62,7 @@ unsigned long monitor_put(char* monitor_name, char* woof_name, char* handler, vo
     pool_item.element_size = wf->shared->element_size;
     strcpy(pool_item.monitor_name, monitor_name);
     pool_item.idempotent = idempotent;
-    WooFFree(wf);
+    WooFDrop(wf);
 #ifdef PROCESS_TIME
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -90,7 +90,7 @@ unsigned long monitor_queue(char* monitor_name, char* woof_name, char* handler, 
     pool_item.seq_no = seq_no;
     pool_item.element_size = wf->shared->element_size;
     strcpy(pool_item.monitor_name, monitor_name);
-    WooFFree(wf);
+    WooFDrop(wf);
 #ifdef PROCESS_TIME
     struct timeval tv;
     gettimeofday(&tv, NULL);

@@ -300,10 +300,6 @@ WOOF* WooFOpen(char* name) {
     return (wf);
 }
 
-void WooFFree(WOOF* wf) {
-    return;
-}
-
 void WooFDrop(WOOF* wf) {
     MIOClose(wf->mio);
     free(wf);
@@ -332,7 +328,7 @@ int WooFTruncate(char* name, unsigned long seq_no) {
             fflush(stderr);
             V(&wfs->mutex);
             V(&wfs->tail_wait);
-            WooFFree(wf);
+            WooFDrop(wf);
             return -1;
         }
 
@@ -344,7 +340,7 @@ int WooFTruncate(char* name, unsigned long seq_no) {
 
     V(&wfs->mutex);
     V(&wfs->tail_wait);
-    WooFFree(wf);
+    WooFDrop(wf);
 
     return 1;
 }
@@ -1008,7 +1004,7 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
         printf("WooFPut: deleting shadow file %s\n", shadow_name);
         fflush(stdout);
 #endif
-        WooFFree(wf);
+        WooFDrop(wf);
         err = remove(shadow_name);
         if (err < 0) {
             fprintf(stderr, "WooFPut: couldn't delete shadow file %s\n", shadow_name);
@@ -1021,7 +1017,7 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
         return (seq_no);
     }
 #endif
-    WooFFree(wf);
+    WooFDrop(wf);
     return (seq_no);
 }
 
@@ -1116,7 +1112,7 @@ unsigned long WooFPutWithCause(
         printf("WooFPutWithCause: deleting shadow file %s\n", shadow_name);
         fflush(stdout);
 #endif
-        WooFFree(wf);
+        WooFDrop(wf);
         err = remove(shadow_name);
         if (err < 0) {
             fprintf(stderr, "WooFPutWithCause: couldn't delete shadow file %s\n", shadow_name);
@@ -1125,7 +1121,7 @@ unsigned long WooFPutWithCause(
         return (seq_no);
     }
 #endif
-    WooFFree(wf);
+    WooFDrop(wf);
     return (seq_no);
 }
 
@@ -1214,7 +1210,7 @@ int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
     }
     err = WooFReadWithCause(wf, element, seq_no, Name_id, my_log_seq_no);
 
-    WooFFree(wf);
+    WooFDrop(wf);
     return (err);
 }
 
@@ -1291,7 +1287,7 @@ int WooFHandlerDone(char* wf_name, unsigned long seq_no) {
         retval = 0;
     }
 
-    WooFFree(wf);
+    WooFDrop(wf);
     return (retval);
 }
 
@@ -1392,7 +1388,7 @@ unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
     fflush(stdout);
 #endif
     latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof_name, cause_woof_latest_seq_no);
-    WooFFree(wf);
+    WooFDrop(wf);
 
     return (latest_seq_no);
 }
@@ -1504,7 +1500,7 @@ unsigned long WooFGetTail(char* wf_name, void* elements, unsigned long element_c
     fflush(stdout);
 #endif
     err = WooFReadTail(wf, elements, element_count);
-    WooFFree(wf);
+    WooFDrop(wf);
 
     return (err);
 }
@@ -2156,7 +2152,7 @@ int WooFRepairProgress(
         fprintf(stderr, "WooFRepairProgress: WooF %s is currently being repaired\n", wf_name);
         fflush(stderr);
         V(&wfs->mutex);
-        WooFFree(wf);
+        WooFDrop(wf);
         return (-1);
     }
 
@@ -2167,7 +2163,7 @@ int WooFRepairProgress(
             stderr, "WooFRepairProgress: couldn't create shadow mapping %s.%lu_%s\n", wf_name, cause_host, cause_woof);
         fflush(stderr);
         V(&wfs->mutex);
-        WooFFree(wf);
+        WooFDrop(wf);
         return (-1);
     }
 #ifdef DEBUG
@@ -2176,7 +2172,7 @@ int WooFRepairProgress(
 #endif
 
     V(&wfs->mutex);
-    WooFFree(wf);
+    WooFDrop(wf);
     return (0);
 }
 
@@ -2258,7 +2254,7 @@ int WooFRepair(char* wf_name, Dlist* seq_no) {
         fprintf(stderr, "WooFRepair: WooF %s is currently being repaired\n", wf_name);
         fflush(stderr);
         V(&wfs->mutex);
-        WooFFree(wf);
+        WooFDrop(wf);
         return (-1);
     }
     sprintf(shadow_name, "%s_shadow", wf_name);
@@ -2267,7 +2263,7 @@ int WooFRepair(char* wf_name, Dlist* seq_no) {
         fprintf(stderr, "WooFRepair: cannot create shadow for WooF %s\n", wf_name);
         fflush(stderr);
         V(&wfs->mutex);
-        WooFFree(wf);
+        WooFDrop(wf);
         return (-1);
     }
 #ifdef DEBUG
@@ -2277,7 +2273,7 @@ int WooFRepair(char* wf_name, Dlist* seq_no) {
 
     wfs->repair_mode |= REPAIRING;
     V(&wfs->mutex);
-    WooFFree(wf);
+    WooFDrop(wf);
 
     wf = WooFOpenOriginal(shadow_name);
     if (wf == NULL) {
@@ -2292,11 +2288,11 @@ int WooFRepair(char* wf_name, Dlist* seq_no) {
         fprintf(stderr, "WooFRepair: couldn't forward shadow %s\n", shadow_name);
         fflush(stderr);
         V(&wfs->mutex);
-        WooFFree(wf);
+        WooFDrop(wf);
         return (-1);
     }
     V(&wfs->mutex);
-    WooFFree(wf);
+    WooFDrop(wf);
 
     return (0);
 }
@@ -2568,7 +2564,7 @@ int WooFShadowForward(WOOF* wf) {
                     wfs->seq_no,
                     wfs->filename);
             fflush(stderr);
-            WooFFree(og_wf);
+            WooFDrop(og_wf);
             return (-1);
         }
         size = repair_seq_no[*repair_head] - wfs->seq_no;
@@ -2581,7 +2577,7 @@ int WooFShadowForward(WOOF* wf) {
                         ndx,
                         size);
                 fflush(stderr);
-                WooFFree(og_wf);
+                WooFDrop(og_wf);
                 return (-1);
             }
             next = (wfs->head + size) % wfs->history_size;
@@ -2629,7 +2625,7 @@ int WooFShadowForward(WOOF* wf) {
                         wfs->seq_no,
                         wfs->filename);
                 fflush(stderr);
-                WooFFree(og_wf);
+                WooFDrop(og_wf);
                 return (-1);
             }
             err = WooFReplace(wf, og_wf, ndx, size);
@@ -2640,7 +2636,7 @@ int WooFShadowForward(WOOF* wf) {
                         ndx,
                         size);
                 fflush(stderr);
-                WooFFree(og_wf);
+                WooFDrop(og_wf);
                 return (-1);
             }
             next = (wfs->head + size) % wfs->history_size;
@@ -2668,7 +2664,7 @@ int WooFShadowForward(WOOF* wf) {
                     "woof: %s\n",
                     og_wf->shared->filename);
             fflush(stderr);
-            WooFFree(og_wf);
+            WooFDrop(og_wf);
             return (-1);
         }
 #ifdef DEBUG
@@ -2707,7 +2703,7 @@ int WooFShadowForward(WOOF* wf) {
         wfs->repair_mode = NORMAL;
     }
 
-    WooFFree(og_wf);
+    WooFDrop(og_wf);
     return (1);
 }
 
