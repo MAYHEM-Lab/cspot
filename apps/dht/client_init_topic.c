@@ -46,19 +46,13 @@ int main(int argc, char** argv) {
 
     WooFInit();
 
-    char woof_name[DHT_NAME_LENGTH];
-    if (node_woof_name(woof_name) < 0) {
-        printf("couldn't get local woof namespace\n");
-        return 0;
-    }
-
     if (dht_create_topic(topic, element_size, history_size) < 0) {
-        fprintf(stderr, "failed to create topic woof\n");
+        fprintf(stderr, "failed to create topic woof: %s\n", dht_error_msg);
         exit(1);
     }
 
     if (dht_register_topic(topic) < 0) {
-        fprintf(stderr, "failed to register topic on DHT\n");
+        fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
         exit(1);
     }
 

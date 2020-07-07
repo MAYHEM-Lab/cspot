@@ -18,13 +18,6 @@ int h_fix_finger_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
-    char woof_name[DHT_NAME_LENGTH];
-    if (node_woof_name(woof_name) < 0) {
-        log_error("failed to get local node's woof name");
-		monitor_exit(ptr);
-        exit(1);
-    }
-
     log_debug("find_successor leader: %s(%d)", arg.node_replicas[arg.node_leader], arg.node_leader);
 
     // finger[i] = find_successor(x);

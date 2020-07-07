@@ -10,8 +10,8 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_TRIGGER_ARG* arg = (DHT_TRIGGER_ARG*)ptr;
 
     log_set_tag("trigger");
+    log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
-    // log_set_level(DHT_LOG_INFO);
     log_set_output(stdout);
 
 #ifdef USE_RAFT
@@ -19,12 +19,6 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
 #else
     log_debug("topic: %s, woof: %s, seqno: %lu", arg->topic_name, arg->element_woof, arg->element_seqno);
 #endif
-
-    char local_namespace[DHT_NAME_LENGTH];
-    if (node_woof_name(local_namespace) < 0) {
-        log_error("failed to get local namespace");
-        exit(1);
-    }
 
     DHT_SUBSCRIPTION_LIST list = {0};
     if (get_latest_element(arg->subscription_woof, &list) < 0) {

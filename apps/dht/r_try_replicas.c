@@ -36,7 +36,7 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (predecessor_addr(&predecessor)[0] == 0) {
                 break;
             }
-            log_warn("trying predecessor replica[%d]: %s", i, predecessor_addr(&predecessor));
+            log_debug("trying predecessor replica[%d]: %s", i, predecessor_addr(&predecessor));
             // check if the replica is leader
             char replica_woof[DHT_NAME_LENGTH];
             sprintf(replica_woof, "%s/%s", predecessor_addr(&predecessor), DHT_NODE_INFO_WOOF);
@@ -59,7 +59,7 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
                           predecessor_addr(&predecessor));
                 exit(1);
             }
-            log_debug("updated predecessor to use replica[%d]: %s", node.leader_id, predecessor_addr(&predecessor));
+            log_info("updated predecessor to use replica[%d]: %s", node.leader_id, predecessor_addr(&predecessor));
             return 1;
         }
         log_warn("none of predecessor replicas is responding");

@@ -155,6 +155,9 @@ typedef struct dht_notify_callback_arg {
 typedef struct dht_register_topic_arg {
     char topic_name[DHT_NAME_LENGTH];
     char topic_namespace[DHT_NAME_LENGTH];
+#ifdef USE_RAFT
+    char topic_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+#endif
 } DHT_REGISTER_TOPIC_ARG;
 
 typedef struct dht_shift_successor_arg {
@@ -183,6 +186,9 @@ typedef struct dht_trigger_arg {
 typedef struct dht_topic_registry {
     char topic_name[DHT_NAME_LENGTH];
     char topic_namespace[DHT_NAME_LENGTH];
+#ifdef USE_RAFT
+    char topic_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+#endif
 } DHT_TOPIC_REGISTRY;
 
 typedef struct dht_daemon_arg {
@@ -203,6 +209,12 @@ typedef struct dht_stabilize_arg {
 typedef struct dht_check_predecessor_arg {
 
 } DHT_CHECK_PREDECESSOR_ARG;
+
+typedef struct dht_create_topic_arg {
+    char topic_name[DHT_NAME_LENGTH];
+    unsigned long element_size;
+    unsigned long history_size;
+} DHT_CREATE_TOPIC_ARG;
 
 typedef struct dht_set_finger_arg {
     int finger_index;

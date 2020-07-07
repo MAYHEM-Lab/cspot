@@ -16,7 +16,7 @@
 #define TEST_COUNT 10
 
 typedef struct test_stc {
-    char msg[256];
+    char msg[256 - 8];
     unsigned long sent;
 } TEST_EL;
 

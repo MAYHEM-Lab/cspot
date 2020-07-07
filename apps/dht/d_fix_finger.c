@@ -29,11 +29,9 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_FIX_FINGER_ARG* arg = (DHT_FIX_FINGER_ARG*)ptr;
 
     log_set_tag("fix_finger");
-    // log_set_level(DHT_LOG_DEBUG);
     log_set_level(DHT_LOG_INFO);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-
-    log_debug("index: %lu", arg->finger_index);
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
@@ -46,14 +44,12 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get local node's woof name");
         exit(1);
     }
-    // compute the node hash with SHA1
-    unsigned char node_hash[SHA_DIGEST_LENGTH];
-    dht_hash(node_hash, woof_name);
 
     // finger[i] = find_successor(n + 2^(i-1))
     // finger_hash = n + 2^(i-1)
     char hashed_finger_id[SHA_DIGEST_LENGTH];
-    get_finger_id(hashed_finger_id, node_hash, arg->finger_index);
+    get_finger_id(hashed_finger_id, node.hash, arg->finger_index);
+
     if (arg->finger_index > 1) {
         DHT_FINGER_INFO finger = {0};
         if (get_latest_finger_info(arg->finger_index - 1, &finger) < 0) {
@@ -68,6 +64,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to update finger[%d]", arg->finger_index);
                 exit(1);
             }
+            log_debug("use finger[%d] for finger[%d]", arg->finger_index - 1, arg->finger_index);
             return 1;
         }
     }
@@ -75,9 +72,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
     dht_init_find_arg(&find_sucessor_arg, "", hashed_finger_id, woof_name);
     find_sucessor_arg.action = DHT_ACTION_FIX_FINGER;
     find_sucessor_arg.action_seqno = (unsigned long)arg->finger_index;
-    // sprintf(msg, "fixing finger[%d](", finger_id);
-    // print_node_hash(msg + strlen(msg), arg.id_hash);
-    // log_debug("fix_finger", msg);
+    log_debug("fixing finger[%d]", arg->finger_index);
 
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &find_sucessor_arg);
     if (WooFInvalid(seq)) {

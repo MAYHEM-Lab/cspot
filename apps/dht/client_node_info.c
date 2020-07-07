@@ -94,6 +94,7 @@ int main(int argc, char** argv) {
     }
 
     // finger
+    int all_filled = 1;
     for (j = 1; j <= SHA_DIGEST_LENGTH * 8; ++j) {
         DHT_FINGER_INFO finger = {0};
         if (get_latest_finger_info(j, &finger) < 0) {
@@ -103,10 +104,16 @@ int main(int argc, char** argv) {
         print_node_hash(hash, finger.hash);
         printf("finger_hash %d: %s\n", j, hash);
         if (is_empty(finger.hash)) {
+            all_filled = 0;
             printf("finger_addr %d: nil\n", j);
         } else {
             printf("finger_addr %d: %s\n", j, finger_addr(&finger));
         }
+    }
+    if (all_filled) {
+        printf("all fingers filled: yes\n");
+    } else {
+        printf("all fingers filled: no\n");
     }
     return 0;
 }

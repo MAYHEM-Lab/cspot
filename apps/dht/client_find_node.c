@@ -1,5 +1,6 @@
 #include "dht.h"
 #include "dht_client.h"
+#include "dht_utils.h"
 #include "woofc-host.h"
 #include "woofc.h"
 
@@ -37,18 +38,16 @@ int main(int argc, char** argv) {
 
     WooFInit();
 
-    char local_namespace[DHT_NAME_LENGTH];
-    if (node_woof_name(local_namespace) < 0) {
-        fprintf(stderr, "find: couldn't get local node's woof name\n");
-        exit(1);
-    }
-
     char result_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int result_leader;
-    if (dht_find_node(topic, result_replicas, &result_leader) < 0) {
+    int hops;
+    unsigned long begin = get_milliseconds();
+    if (dht_find_node(topic, result_replicas, &result_leader, &hops) < 0) {
         fprintf(stderr, "failed to find the topic\n");
         exit(1);
     }
+    printf("latency: %lu ms\n", get_milliseconds() - begin);
+    printf("hops: %d\n", hops);
     printf("replicas:\n");
     int i;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {

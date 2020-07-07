@@ -40,12 +40,6 @@ int main(int argc, char** argv) {
 
     WooFInit();
 
-    char woof_name[DHT_NAME_LENGTH];
-    if (node_woof_name(woof_name) < 0) {
-        printf("couldn't get local woof name\n");
-        return 0;
-    }
-
     if (dht_subscribe(topic, handler) < 0) {
         fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
         exit(1);

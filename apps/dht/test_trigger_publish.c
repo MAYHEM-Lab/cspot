@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TEST_TOPIC "test"
 #define TEST_HANDLER "test_dht_handler"
 
 typedef struct test_stc {
@@ -18,15 +17,15 @@ typedef struct test_stc {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: ./test_publish data\n");
+        fprintf(stderr, "Usage: ./test_trigger_publish topic\n");
         exit(1);
     }
     WooFInit();
 
     TEST_EL el = {0};
-    strcpy(el.msg, argv[1]);
+    sprintf(el.msg, "test_trigger_publish");
     el.sent = get_milliseconds();
-    unsigned long seq = dht_publish(TEST_TOPIC, &el);
+    unsigned long seq = dht_publish(argv[1], &el);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
         exit(1);

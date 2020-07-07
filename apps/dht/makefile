@@ -52,6 +52,7 @@ copy: handlers clients test
 	cp s_create_woofs ./cspot;
 	cp s_join_cluster ./cspot;
 	cp s_start_daemon ./cspot;
+	cp r_create_topic ./cspot;
 	cp r_set_finger ./cspot;
 	cp r_set_node ./cspot;
 	cp r_set_predecessor ./cspot;
@@ -63,19 +64,23 @@ copy: handlers clients test
 	cp client_publish ./cspot;
 	cp client_subscribe ./cspot;
 	cp test_dht_handler ./cspot;
+	cp test_latency_call ./cspot;
+	cp test_latency_create ./cspot;
+	cp test_latency_handler ./cspot;
 	cp test_publish ./cspot;
 	cp test_subscribe ./cspot;
+	cp test_trigger_publish ./cspot;
 	cp ../monitor/monitor_invoker ./cspot
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize \
 	h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
-	r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
+	r_create_topic r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
 
 clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon \
 	client_find_node client_init_topic client_node_info client_publish client_subscribe
 
-test: test_dht_handler test_publish test_subscribe
+test: test_dht_handler test_publish test_subscribe test_trigger_publish test_latency_call test_latency_create test_latency_handler
 
 client_find_node: client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o client_find_node client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -191,6 +196,11 @@ h_trigger: h_trigger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${
 	${CC} ${CFLAGS} -c h_trigger_shepherd.c -o h_trigger_shepherd.o
 	${CC} ${CFLAGS} -o h_trigger h_trigger.c h_trigger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+r_create_topic: r_create_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_create_topic/g' ${SHEP_SRC} > r_create_topic_shepherd.c
+	${CC} ${CFLAGS} -c r_create_topic_shepherd.c -o r_create_topic_shepherd.o
+	${CC} ${CFLAGS} -o r_create_topic r_create_topic.c r_create_topic_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 r_set_finger: r_set_finger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_set_finger/g' ${SHEP_SRC} > r_set_finger_shepherd.c
 	${CC} ${CFLAGS} -c r_set_finger_shepherd.c -o r_set_finger_shepherd.o
@@ -235,11 +245,25 @@ test_dht_handler: test_dht_handler.c handler_wrapper.c ${DHTOBJ} ${RAFTOBJ} ${MO
 	${CC} ${CFLAGS} -c test_dht_handler.c -o test_dht_handler.o
 	${CC} ${CFLAGS} -o test_dht_handler test_dht_handler_wrapped.c test_dht_handler.o test_dht_handler_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+test_latency_call: test_latency_call.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
+	${CC} ${CFLAGS} -o test_latency_call test_latency_call.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+test_latency_create: test_latency_create.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
+	${CC} ${CFLAGS} -o test_latency_create test_latency_create.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+test_latency_handler: test_latency_handler.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/test_latency_handler/g' ${SHEP_SRC} > test_latency_handler_shepherd.c
+	${CC} ${CFLAGS} -c test_latency_handler_shepherd.c -o test_latency_handler_shepherd.o
+	${CC} ${CFLAGS} -o test_latency_handler test_latency_handler.c test_latency_handler_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 test_publish: test_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o test_publish test_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 test_subscribe: test_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o test_subscribe test_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+test_trigger_publish: test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
+	${CC} ${CFLAGS} -o test_trigger_publish test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
@@ -248,6 +272,6 @@ clean:
 	rm -f d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize
 	rm -f h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
-	rm -f r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
-	rm -f test_dht_handler test_publish test_subscribe
+	rm -f r_create_topic r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
+	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish
 
