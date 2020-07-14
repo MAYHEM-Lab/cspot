@@ -384,12 +384,13 @@ void* WooFContainerLauncher(void* arg) {
     pthread_exit(NULL);
 }
 
-#define ARGS "m:M:d:H:N:"
+#define ARGS "m:M:d:H:N:I:"
 char* Usage = "woofc-name-platform -d application woof directory\n\
 \t-H directory for hostwide namelog\n\
 \t-m min container count\n\
--t-M max container count\n\
--t-N namespace\n";
+\t-M max container count\n\
+\t-N namespace\n\
+\t-I binded IP\n";
 
 char putbuf0[1024];
 char putbuf1[1024];
@@ -499,6 +500,7 @@ int main(int argc, char** argv, char** envp) {
     int max_containers;
     char name_dir[2048];
     char name_space[2048];
+    char host_ip[2048];
     int err;
 
     //	signal(SIGINT,sig_int_handler);
@@ -509,6 +511,7 @@ int main(int argc, char** argv, char** envp) {
 
     memset(name_dir, 0, sizeof(name_dir));
     memset(name_space, 0, sizeof(name_space));
+    memset(host_ip, 0, sizeof(host_ip));
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
         switch (c) {
         case 'm':
@@ -522,6 +525,9 @@ int main(int argc, char** argv, char** envp) {
             break;
         case 'N':
             strncpy(name_space, optarg, sizeof(name_space));
+            break;
+        case 'I':
+            strncpy(host_ip, optarg, sizeof(host_ip));
             break;
         default:
             fprintf(stderr, "unrecognized command %c\n", (char)c);
@@ -577,12 +583,17 @@ int main(int argc, char** argv, char** envp) {
     on_exit(CleanUpDocker, NULL);
 #endif
 
-    err = WooFLocalIP(Host_ip, sizeof(Host_ip));
-    if (err < 0) {
-        fprintf(stderr, "woofc-namespace-platform no local host IP found\n");
-        exit(1);
+    if (host_ip[0] != 0) {
+        strncpy(Host_ip, host_ip, sizeof(Host_ip));
+    } else {
+        err = WooFLocalIP(Host_ip, sizeof(Host_ip));
+        if (err < 0) {
+            fprintf(stderr, "woofc-namespace-platform no local host IP found\n");
+            exit(1);
+        }
     }
     sprintf(putbuf4, "WOOF_HOST_IP=%s", Host_ip);
+    putenv(putbuf4);
 
     WooFHostInit(min_containers, max_containers);
 
