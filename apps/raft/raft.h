@@ -39,10 +39,8 @@
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST 8
 #define RAFT_DATA_TYPE_SIZE 4096
-// #define RAFT_TIMEOUT_MIN 500
-// #define RAFT_TIMEOUT_MAX 1000
-#define RAFT_TIMEOUT_MIN 2000 // better greater than zeromq timeout to avoid unnecessary election
-#define RAFT_TIMEOUT_MAX 4000
+#define RAFT_TIMEOUT_MIN 500 // better to be greater than zeromq timeout to avoid unnecessary election
+#define RAFT_TIMEOUT_MAX 1000
 #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
 #define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
 // #define RAFT_REPLICATE_ENTRIES_DELAY 20
@@ -188,6 +186,7 @@ int threads_cancel(int members, pthread_t* pids);
 
 int raft_create_woofs();
 int raft_start_server(int members,
+                      char woof_name[RAFT_NAME_LENGTH],
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer);
 

@@ -23,12 +23,10 @@ typedef struct test_stc {
 int main(int argc, char** argv) {
     WooFInit();
 
-    char local_namespace[DHT_NAME_LENGTH];
-    if (node_woof_name(local_namespace) < 0) {
-        fprintf(stderr, "failed to get the local woof name: %s\n", dht_error_msg);
-        exit(1);
+    if (argc >= 2) {
+        dht_set_client_ip(argv[1]);
     }
-
+    
     if (dht_create_topic(TEST_TOPIC, sizeof(TEST_EL), DHT_HISTORY_LENGTH_SHORT) < 0) {
         fprintf(stderr, "failed to create topic: %s\n", dht_error_msg);
         exit(1);

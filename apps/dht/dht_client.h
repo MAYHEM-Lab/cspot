@@ -3,6 +3,7 @@
 
 #include "dht.h"
 
+void dht_set_client_ip(char* ip);
 int dht_find_node(char* topic_name,
                   char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
                   int* result_node_leader,

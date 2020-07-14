@@ -75,31 +75,15 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     if (now - arg->last_fix_finger > DHT_FIX_FINGER_FREQUENCY) {
-        DHT_FIX_FINGER_ARG fix_finger_arg = {0};
-        fix_finger_arg.finger_index = arg->last_fixed_finger_index;
-        unsigned long seq = WooFPut(DHT_FIX_FINGER_WOOF, "d_fix_finger", &fix_finger_arg);
+        DHT_FIX_FINGER_ARG fix_finger_arg;
+        unsigned long seq = monitor_put(DHT_MONITOR_NAME, DHT_FIX_FINGER_WOOF, "d_fix_finger", &fix_finger_arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke d_fix_finger");
         }
         arg->last_fix_finger = now;
-        ++arg->last_fixed_finger_index;
-        if (arg->last_fixed_finger_index > SHA_DIGEST_LENGTH * 8) {
-            arg->last_fixed_finger_index = 1;
-        }
     }
 
-    // #ifdef USE_RAFT
-    //     if (now - arg->last_replicate_state > DHT_REPLICATE_STATE_FREQUENCY) {
-    //         DHT_REPLICATE_STATE_ARG replicate_state_arg;
-    //         unsigned long seq = WooFPut(DHT_REPLICATE_STATE_WOOF, "d_replicate_state", &replicate_state_arg);
-    //         if (WooFInvalid(seq)) {
-    //             log_error("failed to invoke d_replicate_state");
-    //         }
-    //         arg->last_replicate_state = now;
-    //     }
-    // #endif
-
-	usleep(DHT_DAEMON_WAKEUP_FREQUENCY * 1000);
+    usleep(DHT_DAEMON_WAKEUP_FREQUENCY * 1000);
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next d_daemon");

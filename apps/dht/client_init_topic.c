@@ -8,13 +8,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "t:s:n:"
-char* Usage = "client_subscribe -t topic -s element_size -n history_size\n";
+#define ARGS "t:s:n:i:"
+char* Usage = "client_subscribe -t topic -s element_size -n history_size -i client_ip\n";
 
 int main(int argc, char** argv) {
-    char topic[DHT_NAME_LENGTH];
+    char topic[DHT_NAME_LENGTH] = {0};
     unsigned long element_size;
     unsigned long history_size;
+    char client_ip[DHT_NAME_LENGTH] = {0};
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -31,6 +32,10 @@ int main(int argc, char** argv) {
             history_size = strtoul(optarg, NULL, 0);
             break;
         }
+        case 'i': {
+            strncpy(client_ip, optarg, sizeof(client_ip));
+            break;
+        }
         default: {
             fprintf(stderr, "unrecognized command %c\n", (char)c);
             fprintf(stderr, "%s", Usage);
@@ -45,6 +50,10 @@ int main(int argc, char** argv) {
     }
 
     WooFInit();
+
+    if (client_ip[0] != 0) {
+        dht_set_client_ip(client_ip);
+    }
 
     if (dht_create_topic(topic, element_size, history_size) < 0) {
         fprintf(stderr, "failed to create topic woof: %s\n", dht_error_msg);

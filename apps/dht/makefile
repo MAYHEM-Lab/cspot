@@ -33,7 +33,6 @@ copy: handlers clients test
 	cp d_check_predecessor ./cspot;
 	cp d_daemon ./cspot;
 	cp d_fix_finger ./cspot;
-	cp d_replicate_state ./cspot;
 	cp d_stabilize ./cspot;
 	cp h_find_result ./cspot;
 	cp h_find_successor ./cspot;
@@ -51,11 +50,6 @@ copy: handlers clients test
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
 	cp s_join_cluster ./cspot;
-	cp s_start_daemon ./cspot;
-	cp r_create_topic ./cspot;
-	cp r_set_finger ./cspot;
-	cp r_set_node ./cspot;
-	cp r_set_predecessor ./cspot;
 	cp r_set_successor ./cspot;
 	cp r_try_replicas ./cspot;
 	cp client_find_node ./cspot;
@@ -72,12 +66,12 @@ copy: handlers clients test
 	cp test_trigger_publish ./cspot;
 	cp ../monitor/monitor_invoker ./cspot
 	
-handlers: d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize \
+handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 	h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
-	r_create_topic r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
+	r_set_successor r_try_replicas
 
-clients: s_create_cluster s_create_woofs s_join_cluster s_start_daemon \
+clients: s_create_cluster s_create_woofs s_join_cluster \
 	client_find_node client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe test_trigger_publish test_latency_call test_latency_create test_latency_handler
@@ -120,11 +114,6 @@ d_fix_finger: d_fix_finger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WI
 	sed 's/WOOF_HANDLER_NAME/d_fix_finger/g' ${SHEP_SRC} > d_fix_finger_shepherd.c
 	${CC} ${CFLAGS} -c d_fix_finger_shepherd.c -o d_fix_finger_shepherd.o
 	${CC} ${CFLAGS} -o d_fix_finger d_fix_finger.c d_fix_finger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-d_replicate_state: d_replicate_state.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/d_replicate_state/g' ${SHEP_SRC} > d_replicate_state_shepherd.c
-	${CC} ${CFLAGS} -c d_replicate_state_shepherd.c -o d_replicate_state_shepherd.o
-	${CC} ${CFLAGS} -o d_replicate_state d_replicate_state.c d_replicate_state_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 d_stabilize: d_stabilize.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/d_stabilize/g' ${SHEP_SRC} > d_stabilize_shepherd.c
@@ -196,26 +185,6 @@ h_trigger: h_trigger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${
 	${CC} ${CFLAGS} -c h_trigger_shepherd.c -o h_trigger_shepherd.o
 	${CC} ${CFLAGS} -o h_trigger h_trigger.c h_trigger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-r_create_topic: r_create_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/r_create_topic/g' ${SHEP_SRC} > r_create_topic_shepherd.c
-	${CC} ${CFLAGS} -c r_create_topic_shepherd.c -o r_create_topic_shepherd.o
-	${CC} ${CFLAGS} -o r_create_topic r_create_topic.c r_create_topic_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-r_set_finger: r_set_finger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/r_set_finger/g' ${SHEP_SRC} > r_set_finger_shepherd.c
-	${CC} ${CFLAGS} -c r_set_finger_shepherd.c -o r_set_finger_shepherd.o
-	${CC} ${CFLAGS} -o r_set_finger r_set_finger.c r_set_finger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-r_set_node: r_set_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/r_set_node/g' ${SHEP_SRC} > r_set_node_shepherd.c
-	${CC} ${CFLAGS} -c r_set_node_shepherd.c -o r_set_node_shepherd.o
-	${CC} ${CFLAGS} -o r_set_node r_set_node.c r_set_node_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-r_set_predecessor: r_set_predecessor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/r_set_predecessor/g' ${SHEP_SRC} > r_set_predecessor_shepherd.c
-	${CC} ${CFLAGS} -c r_set_predecessor_shepherd.c -o r_set_predecessor_shepherd.o
-	${CC} ${CFLAGS} -o r_set_predecessor r_set_predecessor.c r_set_predecessor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
 r_set_successor: r_set_successor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_set_successor/g' ${SHEP_SRC} > r_set_successor_shepherd.c
 	${CC} ${CFLAGS} -c r_set_successor_shepherd.c -o r_set_successor_shepherd.o
@@ -234,9 +203,6 @@ s_create_woofs: s_create_woofs.c dht.o dht_utils.o
 
 s_join_cluster: s_join_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_join_cluster s_join_cluster.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-s_start_daemon: s_start_daemon.c dht.o dht_utils.o
-	${CC} ${CFLAGS} -o s_start_daemon s_start_daemon.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 test_dht_handler: test_dht_handler.c handler_wrapper.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/PUT_HANDLER_NAME/test_dht_handler/g' handler_wrapper.c > test_dht_handler_wrapped.c
@@ -267,11 +233,11 @@ test_trigger_publish: test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
-	rm -f s_create_cluster s_create_woofs s_join_cluster s_start_daemon
+	rm -f s_create_cluster s_create_woofs s_join_cluster
 	rm -f client_find_node client_node_info
-	rm -f d_check_predecessor d_daemon d_fix_finger d_replicate_state d_stabilize
+	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
 	rm -f h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
-	rm -f r_create_topic r_set_finger r_set_node r_set_predecessor r_set_successor r_try_replicas
+	rm -f r_set_successor r_try_replicas
 	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish
 

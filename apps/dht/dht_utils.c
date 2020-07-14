@@ -24,7 +24,7 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
-int node_woof_name(char* woof_name) {
+void node_woof_namespace(char* woof_namespace) {
     char* str = getenv("WOOFC_NAMESPACE");
     char namespace[DHT_NAME_LENGTH];
     if (str == NULL) {
@@ -32,13 +32,7 @@ int node_woof_name(char* woof_name) {
     } else {
         strncpy(namespace, str, sizeof(namespace));
     }
-    char local_ip[25];
-    if (WooFLocalIP(local_ip, sizeof(local_ip)) < 0) {
-        sprintf(dht_error_msg, "no local IP");
-        return -1;
-    }
-    sprintf(woof_name, "woof://%s%s", local_ip, namespace);
-    return 0;
+    strcpy(woof_namespace, namespace);
 }
 
 void log_set_tag(const char* tag) {

@@ -261,10 +261,6 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-    if (RAFT_WARNING_LATENCY > 0 && get_milliseconds() - request.created_ts > RAFT_WARNING_LATENCY) {
-        log_warn("request %lu took %lums to process", seq_no, get_milliseconds() - request.created_ts);
-    }
-
     monitor_exit(ptr);
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];

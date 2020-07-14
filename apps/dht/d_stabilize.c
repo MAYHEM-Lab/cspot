@@ -102,16 +102,9 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
 #endif
         log_info("successor set to self");
     } else {
-        char woof_name[DHT_NAME_LENGTH] = {0};
-        if (node_woof_name(woof_name) < 0) {
-            log_error("failed to get local node's woof name");
-            monitor_exit(ptr);
-            exit(1);
-        }
-
         // x = successor.predecessor
         DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
-        sprintf(get_predecessor_arg.callback_woof, "%s/%s", woof_name, DHT_STABILIZE_CALLBACK_WOOF);
+        sprintf(get_predecessor_arg.callback_woof, "%s/%s", node.addr, DHT_STABILIZE_CALLBACK_WOOF);
         sprintf(get_predecessor_arg.callback_handler, "h_stabilize_callback");
         log_debug("current successor_addr: %s", successor_addr(&successor, 0));
         char successor_woof_name[DHT_NAME_LENGTH] = {0};
@@ -129,8 +122,9 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
 #else
-			DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
-			unsigned long seq = monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 1);
+            DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
+            unsigned long seq =
+                monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to shift successor");
                 monitor_exit(ptr);

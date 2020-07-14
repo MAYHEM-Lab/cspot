@@ -11,7 +11,7 @@ int raft_init_client(int members, char replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSE
     raft_client_members = members;
     memcpy(raft_client_replicas, replicas, sizeof(raft_client_replicas));
     strcpy(raft_client_leader, raft_client_replicas[0]);
-    raft_client_result_delay = 50;
+    raft_client_result_delay = DHT_CLIENT_DEFAULT_RESULT_DELAY;
     return 0;
 }
 
@@ -30,11 +30,9 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     RAFT_CLIENT_PUT_REQUEST request = {0};
     request.is_handler = 0;
     request.created_ts = get_milliseconds();
-    printf("request.created_ts: %lu\n", request.created_ts);
     memcpy(&request.data, data, sizeof(RAFT_DATA_TYPE));
     char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
-    printf("req woof_name: %s\n", woof_name);
     unsigned long seq = WooFPut(woof_name, NULL, &request);
     if (WooFInvalid(seq)) {
         sprintf(raft_error_msg, "failed to send put request\n");
@@ -42,7 +40,6 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     }
     RAFT_CLIENT_PUT_RESULT result = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
-    printf("res woof_name: %s\n", woof_name);
     unsigned long latest_result = 0;
     while (latest_result < seq) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
@@ -317,15 +314,12 @@ int raft_config_change(int members,
     return RAFT_SUCCESS;
 }
 
-int raft_observe(int timeout) {
+int raft_observe(char oberver_woof_name[RAFT_NAME_LENGTH], int timeout) {
     unsigned long begin = get_milliseconds();
 
     RAFT_CONFIG_CHANGE_ARG arg = {0};
     arg.observe = 1;
-    if (node_woof_name(arg.observer_woof) < 0) {
-        sprintf(raft_error_msg, "failed to get observer's woof");
-        return -1;
-    }
+    memcpy(arg.observer_woof, oberver_woof_name, sizeof(arg.observer_woof));
 
     int i;
     for (i = 0; i < raft_client_members; ++i) {

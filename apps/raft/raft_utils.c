@@ -18,25 +18,15 @@ unsigned long get_milliseconds() {
     return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
 }
 
-int node_woof_name(char* node_woof) {
-    int err;
-    char local_ip[25];
-    char namespace[256];
-    char* str;
-
-    str = getenv("WOOFC_NAMESPACE");
+void node_woof_namespace(char* woof_namespace) {
+    char* str = getenv("WOOFC_NAMESPACE");
+    char namespace[RAFT_NAME_LENGTH];
     if (str == NULL) {
         getcwd(namespace, sizeof(namespace));
     } else {
         strncpy(namespace, str, sizeof(namespace));
     }
-    err = WooFLocalIP(local_ip, sizeof(local_ip));
-    if (err < 0) {
-        sprintf(raft_error_msg, "no local IP\n");
-        return -1;
-    }
-    sprintf(node_woof, "woof://%s%s", local_ip, namespace);
-    return 0;
+    strcpy(woof_namespace, namespace);
 }
 
 void log_set_tag(const char* tag) {

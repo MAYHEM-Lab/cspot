@@ -40,11 +40,10 @@
 #define DHT_MAX_SUBSCRIPTIONS 8
 #define DHT_STABILIZE_FREQUENCY 1000
 #define DHT_CHECK_PREDECESSOR_FREQUENCY 1000
-#define DHT_FIX_FINGER_FREQUENCY 200
-#define DHT_DAEMON_WAKEUP_FREQUENCY 200
+#define DHT_FIX_FINGER_FREQUENCY 1000
+#define DHT_DAEMON_WAKEUP_FREQUENCY 100
 #define DHT_SUCCESSOR_LIST_R 3
 #define DHT_REPLICA_NUMBER 3
-#define DHT_REPLICATE_STATE_FREQUENCY 5000
 #define DHT_UPDATE_LEADER_ID_FREQUENCY 1000
 
 #define DHT_ACTION_NONE 0
@@ -117,7 +116,7 @@ typedef struct dht_join_arg {
 } DHT_JOIN_ARG;
 
 typedef struct dht_fix_finger_arg {
-    int finger_index;
+
 } DHT_FIX_FINGER_ARG;
 
 typedef struct dht_fix_finger_callback_arg {
@@ -199,7 +198,6 @@ typedef struct dht_daemon_arg {
     unsigned long last_update_leader_id;
     unsigned long last_replicate_state;
 #endif
-    int last_fixed_finger_index;
 } DHT_DAEMON_ARG;
 
 typedef struct dht_stabilize_arg {

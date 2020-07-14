@@ -1,5 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
+#include "woofc-access.h"
 #include "woofc-host.h"
 #include "woofc.h"
 #ifdef USE_RAFT
@@ -11,13 +12,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "w:f:"
-char* Usage = "s_join_cluster -w node_woof -f config\n";
+#define ARGS "w:f:i:"
+char* Usage = "s_join_cluster -w node_woof -f config\n\
+\t-i to bind a certain IP\n";
 
 char node_woof[DHT_NAME_LENGTH];
 
 int main(int argc, char** argv) {
+    char ip[256];
     char config[256];
+    memset(ip, 0, sizeof(ip));
+    memset(config, 0, sizeof(config));
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -28,6 +33,10 @@ int main(int argc, char** argv) {
         }
         case 'f': {
             strncpy(config, optarg, sizeof(config));
+            break;
+        }
+        case 'i': {
+            strncpy(ip, optarg, sizeof(ip));
             break;
         }
         default: {
@@ -59,11 +68,16 @@ int main(int argc, char** argv) {
     }
     fclose(fp);
 
-    char woof_name[DHT_NAME_LENGTH];
-    if (node_woof_name(woof_name) < 0) {
-        fprintf(stderr, "failed to get local node's woof name: %s\n", dht_error_msg);
-        exit(1);
+    char woof_namespace[DHT_NAME_LENGTH] = {0};
+    node_woof_namespace(woof_namespace);
+    if (ip[0] == 0) {
+        if (WooFLocalIP(ip, sizeof(ip)) < 0) {
+            fprintf(stderr, "didn't specify IP to bind and couldn't find local IP\n");
+            exit(1);
+        }
     }
+    char woof_name[DHT_NAME_LENGTH] = {0};
+    sprintf(woof_name, "woof://%s%s", ip, woof_namespace);
 
 #ifdef USE_RAFT
     if (raft_is_leader()) {
@@ -79,10 +93,10 @@ int main(int argc, char** argv) {
             fprintf(stderr, "failed to initialize DHT: %s\n", dht_error_msg);
             exit(1);
         }
-		if (monitor_create(DHT_MONITOR_NAME) < 0) {
-			fprintf(stderr, "failed to create and start the handler monitor\n");
-			return -1;
-		}
+        if (monitor_create(DHT_MONITOR_NAME) < 0) {
+            fprintf(stderr, "failed to create and start the handler monitor\n");
+            return -1;
+        }
         if (dht_start_daemon() < 0) {
             fprintf(stderr, "failed to start the daemon\n");
             exit(1);

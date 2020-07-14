@@ -180,6 +180,7 @@ int raft_create_woofs() {
 }
 
 int raft_start_server(int members,
+                      char woof_name[RAFT_NAME_LENGTH],
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer) {
     RAFT_SERVER_STATE server_state = {0};
@@ -193,9 +194,7 @@ int raft_start_server(int members,
     memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
     server_state.commit_index = 0;
     server_state.current_config = RAFT_CONFIG_STATUS_STABLE;
-    if (node_woof_name(server_state.woof_name) < 0) {
-        fprintf(stderr, "Couldn't get woof name\n");
-    }
+    memcpy(server_state.woof_name, woof_name, sizeof(server_state.woof_name));
     memcpy(server_state.current_leader, server_state.woof_name, RAFT_NAME_LENGTH);
     server_state.observers = 0;
 

@@ -11,7 +11,7 @@
 #define DHT_LOG_ERROR 3
 
 unsigned long get_milliseconds();
-int node_woof_name(char* woof_name);
+void node_woof_namespace(char* woof_namespace);
 void log_set_level(int level);
 void log_set_output(FILE* file);
 void log_set_tag(const char* tag);

@@ -3,6 +3,8 @@
 
 #include "raft.h"
 
+#define DHT_CLIENT_DEFAULT_RESULT_DELAY 50
+
 #define RAFT_SUCCESS 0
 #define RAFT_ERROR -1
 #define RAFT_TIMEOUT -2
@@ -28,7 +30,7 @@ int raft_client_put_result(unsigned long* index, unsigned long* term, unsigned l
 int raft_config_change(int members,
                        char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                        int timeout);
-int raft_observe(int timeout);
+int raft_observe(char oberver_woof_name[RAFT_NAME_LENGTH], int timeout);
 int raft_current_leader(char* woof_name, char* current_leader);
 int raft_is_error(unsigned long code);
 int raft_is_leader();

@@ -1,6 +1,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc-host.h"
 #include "woofc.h"
 
@@ -10,13 +11,15 @@
 #include <time.h>
 #include <unistd.h>
 
-#define ARGS "f:o"
+#define ARGS "f:oi:"
 char* Usage = "s_start_server -f config_file\n\
--o as observer\n";
+\t-o as observer\n\
+\t-i to bind a certain IP\n";
 
 int main(int argc, char** argv) {
-    char config_file[256];
+    char config_file[256] = {0};
     int observer = 0;
+    char host_ip[256] = {0};
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -27,6 +30,10 @@ int main(int argc, char** argv) {
         }
         case 'o': {
             observer = 1;
+            break;
+        }
+        case 'i': {
+            strncpy(host_ip, optarg, sizeof(host_ip));
             break;
         }
         default: {
@@ -58,7 +65,19 @@ int main(int argc, char** argv) {
     fclose(fp);
 
     WooFInit();
-    if (raft_start_server(members, member_woofs, observer) < 0) {
+
+    if (host_ip[0] == 0) {
+        if (WooFLocalIP(host_ip, sizeof(host_ip)) < 0) {
+            fprintf(stderr, "didn't specify IP to bind and couldn't get local IP\n");
+            exit(1);
+        }
+    }
+    char woof_namespace[RAFT_NAME_LENGTH] = {0};
+    node_woof_namespace(woof_namespace);
+    char woof_name[RAFT_NAME_LENGTH] = {0};
+    sprintf(woof_name, "woof://%s%s", host_ip, woof_namespace);
+
+    if (raft_start_server(members, woof_name, member_woofs, observer) < 0) {
         fprintf(stderr, "Can't start server\n");
         exit(1);
     }

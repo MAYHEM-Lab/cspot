@@ -1,5 +1,6 @@
 #include "raft.h"
 #include "raft_client.h"
+#include "raft_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,13 +8,14 @@
 #include <time.h>
 #include <unistd.h>
 
-#define ARGS "f:t:"
-char* Usage = "client_observe -f config -t timeout\n";
+#define ARGS "f:t:i:"
+char* Usage = "client_observe -f config -t timeout -i client_ip\n";
 
 int get_result_delay = 20;
 
 int main(int argc, char** argv) {
-    char config[256];
+    char config[256] = {0};
+    char client_ip[RAFT_NAME_LENGTH] = {0};
     int timeout = 0;
 
     int c;
@@ -25,6 +27,10 @@ int main(int argc, char** argv) {
         }
         case 't': {
             timeout = (int)strtoul(optarg, NULL, 0);
+            break;
+        }
+        case 'i': {
+            strncpy(client_ip, optarg, sizeof(client_ip));
             break;
         }
         default: {
@@ -45,9 +51,10 @@ int main(int argc, char** argv) {
         fprintf(stderr, "can't read config file\n");
         exit(1);
     }
+    char cluster_name[RAFT_NAME_LENGTH] = {0};
     int members;
-    char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-    if (read_config(fp, &members, member_woofs) < 0) {
+    char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH] = {0};
+    if (read_config(fp, cluster_name, &members, member_woofs) < 0) {
         fprintf(stderr, "failed to read the config file\n");
         fclose(fp);
         exit(1);
@@ -66,9 +73,20 @@ int main(int argc, char** argv) {
     }
     fclose(fp);
 
-    int err = raft_observe(timeout);
+    if (client_ip[0] != 0) {
+        if (WooFLocalIP(client_ip, sizeof(client_ip)) < 0) {
+            fprintf(stderr, "didn't specify client IP and couldn't get local IP\n");
+            exit(1);
+        }
+    }
+    char observer_namespace[RAFT_NAME_LENGTH] = {0};
+    node_woof_namespace(observer_namespace);
+    char observer_woof[RAFT_NAME_LENGTH] = {0};
+    sprintf(observer_woof, "woof://%s%s", client_ip, observer_namespace);
+
+    int err = raft_observe(observer_woof, timeout);
     while (err == RAFT_REDIRECTED) {
-        err = raft_observe(timeout);
+        err = raft_observe(observer_woof, timeout);
     }
 
     return err;

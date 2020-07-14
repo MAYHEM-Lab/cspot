@@ -119,7 +119,6 @@ int dht_start_daemon() {
     arg.last_update_leader_id = 0;
     arg.last_replicate_state = 0;
 #endif
-    arg.last_fixed_finger_index = 1;
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", &arg);
     if (WooFInvalid(seq)) {
         return -1;

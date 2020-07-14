@@ -11,6 +11,16 @@
 #include "raft_client.h"
 #endif
 
+int put_fail_rate = 1;
+
+unsigned long lucky_woof_put(char* woof, void* arg, int fail_rate) {
+    int r = rand() % 100;
+    if (r < fail_rate) {
+        return -1;
+    }
+    return WooFPut(woof, "h_find_successor", arg);
+}
+
 int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_FIND_SUCCESSOR_ARG* arg = (DHT_FIND_SUCCESSOR_ARG*)ptr;
 
@@ -18,6 +28,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    srand(get_milliseconds());
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
@@ -183,9 +194,10 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (in_range(finger.hash, node.hash, arg->hashed_key)) {
             char* finger_replicas_leader = finger_addr(&finger);
             sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
-            unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+            // unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+            unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
             if (WooFInvalid(seq)) {
-                log_warn("failed to forward find_successor request to %s", req_forward_woof);
+                log_warn("failed to forward find_successor request to %s, ACTION: %d", req_forward_woof);
                 DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
                 memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
                 seq = monitor_put(
@@ -206,7 +218,8 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     // TODO: also check the other successors
     if (in_range(successor.hash[0], node.hash, arg->hashed_key)) {
         sprintf(req_forward_woof, "%s/%s", successor_addr(&successor, 0), DHT_FIND_SUCCESSOR_WOOF);
-        unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+        // unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+        unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
         if (WooFInvalid(seq)) {
             log_warn("failed to forward find_successor request to %s", req_forward_woof);
 #ifdef USE_RAFT
@@ -236,6 +249,8 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
+    // forwarding to self doesn't count as an extra hop
+    arg->hops--;
     // return n.find_succesor(id)
     log_debug("closest_preceding_node not found in finger table");
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", arg);

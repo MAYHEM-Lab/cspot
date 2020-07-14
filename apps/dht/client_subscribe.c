@@ -8,12 +8,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "t:h:"
-char* Usage = "client_subscribe -t topic -h handler\n";
+#define ARGS "t:h:i:"
+char* Usage = "client_subscribe -t topic -h handler -i client_ip\n";
 
 int main(int argc, char** argv) {
-    char topic[DHT_NAME_LENGTH];
-    char handler[DHT_NAME_LENGTH];
+    char topic[DHT_NAME_LENGTH] = {0};
+    char handler[DHT_NAME_LENGTH] = {0};
+    char client_ip[DHT_NAME_LENGTH] = {0};
+
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
         switch (c) {
@@ -23,6 +25,10 @@ int main(int argc, char** argv) {
         }
         case 'h': {
             strncpy(handler, optarg, sizeof(handler));
+            break;
+        }
+        case 'i': {
+            strncpy(client_ip, optarg, sizeof(client_ip));
             break;
         }
         default: {
@@ -40,6 +46,10 @@ int main(int argc, char** argv) {
 
     WooFInit();
 
+    if (client_ip[0] != 0) {
+        dht_set_client_ip(client_ip);
+    }
+    
     if (dht_subscribe(topic, handler) < 0) {
         fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
         exit(1);
