@@ -1,6 +1,7 @@
 #ifndef DHT_H
 #define DHT_H
 
+#include "raft.h"
 #include "woofc.h"
 
 #include <openssl/sha.h>
@@ -32,6 +33,7 @@
 #define DHT_TRY_REPLICAS_WOOF "dht_try_replicas.woof"
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
+#define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
@@ -106,6 +108,7 @@ typedef struct dht_find_node_result {
 
 typedef struct dht_invocation_arg {
     char woof_name[DHT_NAME_LENGTH];
+    char topic_name[DHT_NAME_LENGTH];
     unsigned long seq_no;
 } DHT_INVOCATION_ARG;
 
@@ -234,6 +237,13 @@ typedef struct dht_try_replicas_arg {
 typedef struct dht_invalidate_fingers_arg {
     unsigned char finger_hash[SHA_DIGEST_LENGTH];
 } DHT_INVALIDATE_FINGERS_ARG;
+
+// for raft
+typedef struct dht_map_raft_index_arg {
+    char topic_name[DHT_NAME_LENGTH];
+    unsigned long raft_index;
+    unsigned long timestamp;
+} DHT_MAP_RAFT_INDEX_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon();

@@ -19,12 +19,6 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_INFO);
     log_set_output(stdout);
 
-    char topic_name[DHT_NAME_LENGTH];
-    if (WooFNameFromURI(arg->woof_name, topic_name, DHT_NAME_LENGTH) < 0) {
-        log_error("failed to get topic name from URI");
-        exit(1);
-    }
-
 #ifdef USE_RAFT
     log_debug("using raft, getting index %lu from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
@@ -34,7 +28,7 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get raft data from %s at %lu: %s", arg->woof_name, arg->seq_no, raft_error_msg);
         exit(1);
     }
-    int err = PUT_HANDLER_NAME(topic_name, arg->seq_no, raft_data.val);
+    int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, raft_data.val);
 #else
     log_debug("using woof, getting seqno %lu from %s", arg->seq_no, arg->woof_name);
     unsigned long element_size = WooFMsgGetElSize(arg->woof_name);
@@ -53,7 +47,7 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
         free(element);
         exit(1);
     }
-    int err = PUT_HANDLER_NAME(topic_name, arg->seq_no, element);
+    int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, element);
     free(element);
 #endif
 

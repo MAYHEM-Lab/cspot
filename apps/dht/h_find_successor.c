@@ -11,7 +11,7 @@
 #include "raft_client.h"
 #endif
 
-int put_fail_rate = 1;
+int put_fail_rate = 0;
 
 unsigned long lucky_woof_put(char* woof, void* arg, int fail_rate) {
     int r = rand() % 100;
@@ -197,7 +197,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             // unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
             unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
             if (WooFInvalid(seq)) {
-                log_warn("failed to forward find_successor request to %s, ACTION: %d", req_forward_woof);
+                log_warn("failed to forward find_successor request to %s, ACTION: %d", req_forward_woof, arg->action);
                 DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
                 memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
                 seq = monitor_put(

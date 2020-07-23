@@ -30,7 +30,9 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     for (i = 0; i < list.size; ++i) {
         DHT_INVOCATION_ARG invocation_arg = {0};
         strcpy(invocation_arg.woof_name, arg->element_woof);
+        strcpy(invocation_arg.topic_name, arg->topic_name);
         invocation_arg.seq_no = arg->element_seqno;
+        log_debug("woof_name: %s, topic_name: %s, seq_no: %lu", invocation_arg.woof_name, invocation_arg.topic_name, invocation_arg.seq_no);
 
         char invocation_woof[DHT_NAME_LENGTH];
         sprintf(invocation_woof, "%s/%s", list.namespace[i], DHT_INVOCATION_WOOF);

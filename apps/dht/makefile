@@ -50,6 +50,7 @@ copy: handlers clients test
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
 	cp s_join_cluster ./cspot;
+	cp r_map_raft_index ./cspot;
 	cp r_set_successor ./cspot;
 	cp r_try_replicas ./cspot;
 	cp client_find_node ./cspot;
@@ -69,7 +70,7 @@ copy: handlers clients test
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 	h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
-	r_set_successor r_try_replicas
+	r_map_raft_index r_set_successor r_try_replicas
 
 clients: s_create_cluster s_create_woofs s_join_cluster \
 	client_find_node client_init_topic client_node_info client_publish client_subscribe
@@ -185,6 +186,11 @@ h_trigger: h_trigger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${
 	${CC} ${CFLAGS} -c h_trigger_shepherd.c -o h_trigger_shepherd.o
 	${CC} ${CFLAGS} -o h_trigger h_trigger.c h_trigger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+r_map_raft_index: r_map_raft_index.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_map_raft_index/g' ${SHEP_SRC} > r_map_raft_index_shepherd.c
+	${CC} ${CFLAGS} -c r_map_raft_index_shepherd.c -o r_map_raft_index_shepherd.o
+	${CC} ${CFLAGS} -o r_map_raft_index r_map_raft_index.c r_map_raft_index_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 r_set_successor: r_set_successor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_set_successor/g' ${SHEP_SRC} > r_set_successor_shepherd.c
 	${CC} ${CFLAGS} -c r_set_successor_shepherd.c -o r_set_successor_shepherd.o
@@ -238,6 +244,6 @@ clean:
 	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
 	rm -f h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
-	rm -f r_set_successor r_try_replicas
+	rm -f r_map_raft_index r_set_successor r_try_replicas
 	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish
 
