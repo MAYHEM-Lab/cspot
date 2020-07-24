@@ -16,6 +16,7 @@
 #define RAFT_CONFIG_ENTRY_NOT 0
 #define RAFT_CONFIG_ENTRY_JOINT 1
 #define RAFT_CONFIG_ENTRY_NEW 2
+#define RAFT_DEBUG_INTERRUPT_WOOF "raft_debug_interrupt.woof"
 #define RAFT_LOG_ENTRIES_WOOF "raft_log_entries.woof"
 #define RAFT_LOG_HANDLER_ENTRIES_WOOF "raft_log_entries_handler.woof"
 #define RAFT_SERVER_STATE_WOOF "raft_server_state.woof"
@@ -33,7 +34,8 @@
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
 #define RAFT_MONITOR_NAME "raft"
 
-#define RAFT_WOOF_HISTORY_SIZE 32768
+#define RAFT_WOOF_HISTORY_SIZE_SHORT 256
+#define RAFT_WOOF_HISTORY_SIZE_LONG 32768
 #define RAFT_NAME_LENGTH WOOFNAMESIZE
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
@@ -51,6 +53,10 @@
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
 
 char raft_error_msg[256];
+
+typedef struct raft_debug_interrupt_arg {
+    unsigned long microsecond;
+} RAFT_DEBUG_INTERRUPT_ARG;
 
 typedef struct data_type {
     char val[RAFT_DATA_TYPE_SIZE];

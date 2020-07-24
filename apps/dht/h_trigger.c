@@ -9,7 +9,7 @@
 int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_TRIGGER_ARG* arg = (DHT_TRIGGER_ARG*)ptr;
 
-    log_set_tag("trigger");
+    log_set_tag("h_trigger");
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);

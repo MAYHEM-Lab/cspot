@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
     }
 
     TEMP_EL temp_el = {0};
-    int err = dht_topic_get_range(AVG_TEMP_TOPIC, &temp_el, sizeof(temp_el), seqno, 0, 0);
+    int err = dht_topic_get_range(AVG_TEMP_TOPIC, &temp_el, sizeof(TEMP_EL), seqno, 0, 0);
     if (err < 0) {
-        fprintf(stderr, "failed to get topic data[%d]\n", seqno);
+        fprintf(stderr, "failed to get topic data[%lu]\n", seqno);
         exit(1);
     }
     printf("[%lu]: %f\n", seqno, temp_el.value);

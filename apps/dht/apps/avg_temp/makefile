@@ -22,14 +22,14 @@ MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC} -DUSE_RAFT
 
-all: h_avg_temp init_avg_topic init_room_topic latest_avg_temp publish_temp
+all: avg_temp init_avg_topic init_room_topic latest_avg_temp list_topic_data publish_temp
 
-h_avg_temp: h_avg_temp.c avg_temp.h
-	sed 's/PUT_HANDLER_NAME/h_avg_temp/g' ${DHTDIR}/handler_wrapper.c > h_avg_temp_wrapped.c
-	sed 's/WOOF_HANDLER_NAME/handler_wrapper/g' ${SHEP_SRC} > h_avg_temp_shepherd.c
-	${CC} ${CFLAGS} -c h_avg_temp_shepherd.c -o h_avg_temp_shepherd.o
-	${CC} ${CFLAGS} -c h_avg_temp.c -o h_avg_temp.o
-	${CC} ${CFLAGS} -o h_avg_temp h_avg_temp_wrapped.c h_avg_temp.o h_avg_temp_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+avg_temp: avg_temp.c avg_temp.h
+	sed 's/PUT_HANDLER_NAME/avg_temp/g' ${DHTDIR}/handler_wrapper.c > avg_temp_wrapped.c
+	sed 's/WOOF_HANDLER_NAME/handler_wrapper/g' ${SHEP_SRC} > avg_temp_shepherd.c
+	${CC} ${CFLAGS} -c avg_temp_shepherd.c -o avg_temp_shepherd.o
+	${CC} ${CFLAGS} -c avg_temp.c -o avg_temp.o
+	${CC} ${CFLAGS} -o avg_temp avg_temp_wrapped.c avg_temp.o avg_temp_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 init_avg_topic: init_avg_topic.c avg_temp.h
 	${CC} ${CFLAGS} -o init_avg_topic init_avg_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -40,8 +40,11 @@ init_room_topic: init_room_topic.c avg_temp.h
 latest_avg_temp: latest_avg_temp.c avg_temp.h
 	${CC} ${CFLAGS} -o latest_avg_temp latest_avg_temp.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+list_topic_data: list_topic_data.c avg_temp.h
+	${CC} ${CFLAGS} -o list_topic_data list_topic_data.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 publish_temp: publish_temp.c avg_temp.h
 	${CC} ${CFLAGS} -o publish_temp publish_temp.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf *.o *_wrapped.c *_shepherd.c h_avg_temp init_avg_topic init_room_topic latest_avg_temp publish_temp
+	rm -rf *.o *_wrapped.c *_shepherd.c avg_temp init_avg_topic init_room_topic latest_avg_temp list_topic_data publish_temp

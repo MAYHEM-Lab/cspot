@@ -9,7 +9,8 @@
 #include <string.h>
 #include <time.h>
 
-char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_LOG_ENTRIES_WOOF,
+char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_DEBUG_INTERRUPT_WOOF,
+                                                RAFT_LOG_ENTRIES_WOOF,
                                                 RAFT_SERVER_STATE_WOOF,
                                                 RAFT_HEARTBEAT_WOOF,
                                                 RAFT_TIMEOUT_CHECKER_WOOF,
@@ -25,7 +26,8 @@ char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_LOG_ENTRIES_WOOF,
                                                 RAFT_REQUEST_VOTE_ARG_WOOF,
                                                 RAFT_REQUEST_VOTE_RESULT_WOOF};
 
-unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_LOG_ENTRY),
+unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
+                                          sizeof(RAFT_LOG_ENTRY),
                                           sizeof(RAFT_SERVER_STATE),
                                           sizeof(RAFT_HEARTBEAT),
                                           sizeof(RAFT_TIMEOUT_CHECKER_ARG),
@@ -40,6 +42,23 @@ unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_LOG_ENTRY),
                                           sizeof(RAFT_REPLICATE_ENTRIES_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_RESULT)};
+
+unsigned long RAFT_WOOF_HISTORY_SIZE[] = {RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_LONG,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
+                                          RAFT_WOOF_HISTORY_SIZE_SHORT};
 
 int get_server_state(RAFT_SERVER_STATE* server_state) {
     unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
@@ -171,7 +190,7 @@ int raft_create_woofs() {
     int num_woofs = sizeof(RAFT_WOOF_TO_CREATE) / RAFT_NAME_LENGTH;
     int i;
     for (i = 0; i < num_woofs; i++) {
-        if (WooFCreate(RAFT_WOOF_TO_CREATE[i], RAFT_WOOF_ELEMENT_SIZE[i], RAFT_WOOF_HISTORY_SIZE) < 0) {
+        if (WooFCreate(RAFT_WOOF_TO_CREATE[i], RAFT_WOOF_ELEMENT_SIZE[i], RAFT_WOOF_HISTORY_SIZE[i]) < 0) {
             fprintf(stderr, "failed to create woof %s\n", RAFT_WOOF_ELEMENT_SIZE[i]);
             return -1;
         }

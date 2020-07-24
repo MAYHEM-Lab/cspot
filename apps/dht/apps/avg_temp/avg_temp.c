@@ -4,10 +4,10 @@
 
 #include <stdio.h>
 
-int h_avg_temp(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr) {
+int avg_temp(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr) {
     unsigned long now = get_milliseconds();
     printf("received new temperature at %lu\n", now);
-    printf("pulling previous temperature\n");
+    printf("pulling previous temperature from %s\n", woof_name);
 
     unsigned long latest_topic_seqno = dht_remote_topic_latest_seqno(woof_name, topic_name);
     if (WooFInvalid(latest_topic_seqno)) {
@@ -21,7 +21,7 @@ int h_avg_temp(char* woof_name, char* topic_name, unsigned long seq_no, void* pt
     unsigned long i;
     for (i = latest_topic_seqno; i != 0; --i) {
         TEMP_EL prev = {0};
-        int err = dht_remote_topic_get_range(woof_name, topic_name, &prev, sizeof(prev), i, one_hour_earlier, 0);
+        int err = dht_remote_topic_get_range(woof_name, topic_name, &prev, sizeof(TEMP_EL), i, one_hour_earlier, 0);
         if (err == -2) {
             break;
         } else if (err == -1) {
