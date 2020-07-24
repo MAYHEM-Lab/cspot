@@ -1,4 +1,4 @@
-#include "dht.h"
+#include "avg_temp.h"
 #include "dht_client.h"
 #include "woofc-host.h"
 #include "woofc.h"
@@ -8,25 +8,15 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "t:d:i:"
-char* Usage = "client_publish -t topic -d data -i client_ip\n";
+#define ARGS "i:"
+char* Usage = "init_avg_topic -i client_ip\n";
 
 int main(int argc, char** argv) {
-    char topic[DHT_NAME_LENGTH] = {0};
-    char data[4096] = {0};
     char client_ip[DHT_NAME_LENGTH] = {0};
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
         switch (c) {
-        case 't': {
-            strncpy(topic, optarg, sizeof(topic));
-            break;
-        }
-        case 'd': {
-            strncpy(data, optarg, sizeof(data));
-            break;
-        }
         case 'i': {
             strncpy(client_ip, optarg, sizeof(client_ip));
             break;
@@ -38,21 +28,25 @@ int main(int argc, char** argv) {
         }
         }
     }
-
-    if (topic[0] == 0 || data[0] == 0) {
-        fprintf(stderr, "%s", Usage);
-        exit(1);
-    }
-
     WooFInit();
 
     if (client_ip[0] != 0) {
         dht_set_client_ip(client_ip);
     }
 
-    unsigned long seq = dht_publish(topic, data, sizeof(data));
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "failed to publish data: %s\n", dht_error_msg);
+    if (dht_create_topic(AVG_TEMP_TOPIC, sizeof(TEMP_EL), AVG_TEMP_HISTORY_LENGTH) < 0) {
+        fprintf(stderr, "failed to create topic woof: %s\n", dht_error_msg);
+        exit(1);
+    }
+
+    if (dht_register_topic(AVG_TEMP_TOPIC) < 0) {
+        fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
+        exit(1);
+    }
+
+    sleep(2);
+    if (dht_subscribe(ROOM_TEMP_TOPIC, AVG_TEMP_HANDLER) < 0) {
+        fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
         exit(1);
     }
 

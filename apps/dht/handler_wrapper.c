@@ -15,8 +15,8 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_INVOCATION_ARG* arg = (DHT_INVOCATION_ARG*)ptr;
 
     log_set_tag("PUT_HANDLER_NAME");
-    log_set_level(DHT_LOG_DEBUG);
-    // log_set_level(DHT_LOG_INFO);
+    log_set_level(DHT_LOG_INFO);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
 #ifdef USE_RAFT

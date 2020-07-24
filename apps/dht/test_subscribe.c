@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
         TEST_EL el = {0};
         sprintf(el.msg, "%s", TEST_MESSAGE);
         el.sent = get_milliseconds();
-        unsigned long seq = dht_publish(TEST_TOPIC, &el);
+        unsigned long seq = dht_publish(TEST_TOPIC, &el, sizeof(TEST_EL));
         if (WooFInvalid(seq)) {
             fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
             exit(1);

@@ -87,11 +87,13 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
         return RAFT_ERROR;
     }
     if (entry.term == result.term) {
+#ifdef DEBUG
         printf("entry %lu committed at term %lu, val: %s, took %lums\n",
                result.index,
                entry.term,
                entry.data.val,
                get_milliseconds() - begin);
+#endif
         return result.index;
     } else {
         sprintf(raft_error_msg,

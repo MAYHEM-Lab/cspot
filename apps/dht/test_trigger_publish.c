@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
         dht_set_client_ip(argv[2]);
     }
 
-    unsigned long seq = dht_publish(argv[1], &el);
+    unsigned long seq = dht_publish(argv[1], &el, sizeof(TEST_EL));
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
         exit(1);

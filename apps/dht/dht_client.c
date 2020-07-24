@@ -184,7 +184,13 @@ int dht_subscribe(char* topic_name, char* handler) {
     return 0;
 }
 
-unsigned long dht_publish(char* topic_name, void* element) {
+unsigned long dht_publish(char* topic_name, void* element, unsigned long element_size) {
+#ifdef USE_RAFT
+    if (element_size > RAFT_DATA_TYPE_SIZE) {
+        sprintf(dht_error_msg, "element size %lu exceeds RAFT_DATA_TYPE_SIZE %lu", element_size, RAFT_DATA_TYPE_SIZE);
+        return -1;
+    }
+#endif
     unsigned long called = get_milliseconds();
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
@@ -212,15 +218,19 @@ unsigned long dht_publish(char* topic_name, void* element) {
     char trigger_woof[DHT_NAME_LENGTH] = {0};
     // TODO: use other replicas if the first one failed
 #ifdef USE_RAFT
+#ifdef DEBUG
     printf("using raft, leader: %s\n", topic_entry.topic_replicas[0]);
+#endif
     raft_set_client_leader(topic_entry.topic_replicas[0]);
     raft_set_client_result_delay(0);
     RAFT_DATA_TYPE raft_data = {0};
-    memcpy(raft_data.val, element, sizeof(raft_data.val));
+    memcpy(raft_data.val, element, element_size);
     sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_replicas[0]);
     unsigned long index = raft_sync_put(&raft_data, 0);
     while (index == RAFT_REDIRECTED) {
+#ifdef DEBUG
         printf("redirected to %s\n", raft_client_leader);
+#endif
         index = raft_sync_put(&raft_data, 0);
     }
     if (raft_is_error(index)) {
@@ -231,12 +241,16 @@ unsigned long dht_publish(char* topic_name, void* element) {
     DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
     strcpy(map_raft_index_arg.topic_name, topic_name);
     map_raft_index_arg.raft_index = index;
+#ifdef DEBUG
     printf("map_raft_index_arg.raft_index: %lu\n", map_raft_index_arg.raft_index);
+#endif
     map_raft_index_arg.timestamp = get_milliseconds();
     unsigned long mapping_index =
         raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 0);
     while (mapping_index == RAFT_REDIRECTED) {
+#ifdef DEBUG
         printf("redirected to %s\n", raft_client_leader);
+#endif
         mapping_index = raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 0);
     }
     if (raft_is_error(mapping_index)) {
@@ -249,7 +263,9 @@ unsigned long dht_publish(char* topic_name, void* element) {
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_replicas[0], DHT_TRIGGER_WOOF);
 #else
     sprintf(trigger_arg.element_woof, "%s/%s", topic_entry.topic_namespace, topic_name);
+#ifdef DEBUG
     printf("using woof: %s\n", trigger_arg.element_woof);
+#endif
     trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
     if (WooFInvalid(trigger_arg.element_seqno)) {
         sprintf(dht_error_msg, "failed to put element to woof");
@@ -264,10 +280,12 @@ unsigned long dht_publish(char* topic_name, void* element) {
         return -1;
     }
     unsigned long triggered = get_milliseconds();
+#ifdef DEBUG
     printf("called: %lu\n", called);
     printf("found: %lu %lu\n", found, found - called);
     printf("committed: %lu %lu %lu\n", committed, committed - called, committed - found);
     fflush(stdout);
+#endif
     return trigger_arg.element_seqno;
 }
 

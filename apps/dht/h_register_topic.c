@@ -11,7 +11,7 @@ extern char WooF_dir[2048];
 int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_REGISTER_TOPIC_ARG* arg = (DHT_REGISTER_TOPIC_ARG*)ptr;
 
-    log_set_tag("register_topic");
+    log_set_tag("h_register_topic");
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
