@@ -15,11 +15,19 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 
 #ifdef USE_RAFT
 unsigned long dht_topic_latest_seqno(char* topic_name);
+unsigned long dht_local_topic_latest_seqno(char* topic_name);
 unsigned long dht_remote_topic_latest_seqno(char* remote_woof, char* topic_name);
 int dht_topic_get(char* topic_name, void* element, unsigned long element_size, unsigned long seqno);
+int dht_local_topic_get(char* topic_name, void* element, unsigned long element_size, unsigned long seqno);
 int dht_remote_topic_get(
     char* remote_woof, char* topic_name, void* element, unsigned long element_size, unsigned long seqno);
 int dht_topic_get_range(char* topic_name,
+                        void* element,
+                        unsigned long element_size,
+                        unsigned long seqno,
+                        unsigned long lower_ts,
+                        unsigned long upper_ts);
+int dht_local_topic_get_range(char* topic_name,
                         void* element,
                         unsigned long element_size,
                         unsigned long seqno,

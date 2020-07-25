@@ -81,7 +81,8 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
         sprintf(dht_error_msg, "element_size exceeds RAFT_DATA_TYPE_SIZE");
         return -1;
     }
-    return 1;
+
+    return 0;
     // when using raft, there's no need to create topic woof since the data is stored in raft log
 #else
     return WooFCreate(topic_name, element_size, history_size);
@@ -112,6 +113,23 @@ int dht_register_topic(char* topic_name) {
         return -1;
     }
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
+
+    // initial raft index mapping woof
+    raft_set_client_leader(node_info.replicas[node_info.leader_id]);
+    DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
+    strcpy(map_raft_index_arg.topic_name, topic_name);
+    unsigned long mapping_index =
+        raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 0);
+    while (mapping_index == RAFT_REDIRECTED) {
+#ifdef DEBUG
+        printf("redirected to %s\n", raft_client_leader);
+#endif
+        mapping_index = raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 0);
+    }
+    if (raft_is_error(mapping_index)) {
+        sprintf(dht_error_msg, "failed to put to raft: %s", raft_error_msg);
+        return -1;
+    }
 #else
     strcpy(register_topic_arg.topic_namespace, local_namespace);
 #endif
@@ -291,6 +309,26 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 
 #ifdef USE_RAFT
 unsigned long dht_topic_latest_seqno(char* topic_name) {
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
+    int node_leader;
+    int hops;
+    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops) < 0) {
+        sprintf(dht_error_msg, "failed to find node hosting the topic");
+        return -1;
+    }
+    char* node_addr = node_replicas[node_leader];
+    char registration_woof[DHT_NAME_LENGTH] = {0};
+    sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+    DHT_TOPIC_REGISTRY topic_entry = {0};
+    if (get_latest_element(registration_woof, &topic_entry) < 0) {
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+        return -1;
+    }
+
+    return dht_remote_topic_latest_seqno(topic_entry.topic_replicas[0], topic_name);
+}
+
+unsigned long dht_local_topic_latest_seqno(char* topic_name) {
     return dht_remote_topic_latest_seqno(NULL, topic_name);
 }
 
@@ -305,6 +343,25 @@ unsigned long dht_remote_topic_latest_seqno(char* remote_woof, char* topic_name)
 }
 
 int dht_topic_get(char* topic_name, void* element, unsigned long element_size, unsigned long seqno) {
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
+    int node_leader;
+    int hops;
+    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops) < 0) {
+        sprintf(dht_error_msg, "failed to find node hosting the topic");
+        return -1;
+    }
+    char* node_addr = node_replicas[node_leader];
+    char registration_woof[DHT_NAME_LENGTH] = {0};
+    sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+    DHT_TOPIC_REGISTRY topic_entry = {0};
+    if (get_latest_element(registration_woof, &topic_entry) < 0) {
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+        return -1;
+    }
+    return dht_remote_topic_get(topic_entry.topic_replicas[0], topic_name, element, element_size, seqno);
+}
+
+int dht_local_topic_get(char* topic_name, void* element, unsigned long element_size, unsigned long seqno) {
     return dht_remote_topic_get(NULL, topic_name, element, element_size, seqno);
 }
 
@@ -319,8 +376,37 @@ int dht_topic_get_range(char* topic_name,
                         unsigned long seqno,
                         unsigned long lower_ts,
                         unsigned long upper_ts) {
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
+    int node_leader;
+    int hops;
+    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops) < 0) {
+        sprintf(dht_error_msg, "failed to find node hosting the topic");
+        return -1;
+    }
+    char* node_addr = node_replicas[node_leader];
+    char registration_woof[DHT_NAME_LENGTH] = {0};
+    sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+    DHT_TOPIC_REGISTRY topic_entry = {0};
+    if (get_latest_element(registration_woof, &topic_entry) < 0) {
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+        return -1;
+    }
+    return dht_remote_topic_get_range(
+        topic_entry.topic_replicas[0], topic_name, element, element_size, seqno, lower_ts, upper_ts);
+}
+
+int dht_local_topic_get_range(char* topic_name,
+                              void* element,
+                              unsigned long element_size,
+                              unsigned long seqno,
+                              unsigned long lower_ts,
+                              unsigned long upper_ts) {
     return dht_remote_topic_get_range(NULL, topic_name, element, element_size, seqno, lower_ts, upper_ts);
 }
+
+typedef struct count_el {
+    int count;
+} COUNT_EL;
 
 int dht_remote_topic_get_range(char* remote_woof,
                                char* topic_name,
@@ -344,15 +430,15 @@ int dht_remote_topic_get_range(char* remote_woof,
         sprintf(dht_error_msg, "mapping not in the time range");
         return -2;
     }
-
+    raft_set_client_leader(remote_woof);
     RAFT_DATA_TYPE raft_data = {0};
     unsigned long result = raft_sync_get(&raft_data, map_raft_index.raft_index, 1);
     if (result == RAFT_ERROR) {
         sprintf(dht_error_msg, "failed to read element from raft: %s", raft_error_msg);
         return -1;
     }
-
-    memcpy(element, &raft_data, element_size);
+    COUNT_EL* c = (COUNT_EL*)&raft_data;
+    memcpy(element, raft_data.val, element_size);
     return 0;
 }
 

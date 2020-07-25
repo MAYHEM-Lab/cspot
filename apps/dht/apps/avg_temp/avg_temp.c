@@ -25,7 +25,7 @@ int avg_temp(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr)
         if (err == -2) {
             break;
         } else if (err == -1) {
-            fprintf(stderr, "failed to get topic data[%d]\n", i);
+            fprintf(stderr, "failed to get topic data[%lu]\n", i);
             exit(1);
         }
         printf("[%lu]: %f\n", i, prev.value);
