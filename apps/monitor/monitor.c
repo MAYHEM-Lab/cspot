@@ -1,5 +1,6 @@
 #include "monitor.h"
 
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <stdio.h>

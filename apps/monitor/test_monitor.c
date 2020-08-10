@@ -1,6 +1,7 @@
 #include "test_monitor.h"
 
 #include "monitor.h"
+#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>
@@ -69,21 +70,22 @@ int main(int argc, char** argv) {
     for (i = 0; i < count; ++i) {
         TEST_MONITOR_ARG arg;
         if (idempotent) {
-			if (i % 2 == 0) {
-				sprintf(arg.msg, "monitored %d", i);
-				unsigned long seq = monitor_put(MONITOR_NAME, TEST_MONITOR_ARG_WOOF, "test_handler_monitored", &arg, 0);
-				if (WooFInvalid(seq)) {
-					fprintf(stderr, "can't invoke test_handler_monitored\n");
-					exit(1);
-				}
-			} else {
-				sprintf(arg.msg, "idempotent %d", i);
-				unsigned long seq = monitor_put(MONITOR_NAME, TEST_MONITOR_ARG_WOOF, "test_handler_idempotent", &arg, 1);
-				if (WooFInvalid(seq)) {
-					fprintf(stderr, "can't invoke test_handler_monitored\n");
-					exit(1);
-				}
-			}
+            if (i % 2 == 0) {
+                sprintf(arg.msg, "monitored %d", i);
+                unsigned long seq = monitor_put(MONITOR_NAME, TEST_MONITOR_ARG_WOOF, "test_handler_monitored", &arg, 0);
+                if (WooFInvalid(seq)) {
+                    fprintf(stderr, "can't invoke test_handler_monitored\n");
+                    exit(1);
+                }
+            } else {
+                sprintf(arg.msg, "idempotent %d", i);
+                unsigned long seq =
+                    monitor_put(MONITOR_NAME, TEST_MONITOR_ARG_WOOF, "test_handler_idempotent", &arg, 1);
+                if (WooFInvalid(seq)) {
+                    fprintf(stderr, "can't invoke test_handler_monitored\n");
+                    exit(1);
+                }
+            }
         } else if (monitored) {
             sprintf(arg.msg, "monitored %d", i);
             unsigned long seq = monitor_put(MONITOR_NAME, TEST_MONITOR_ARG_WOOF, "test_handler_monitored", &arg, 0);

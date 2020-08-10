@@ -1,6 +1,7 @@
 #ifndef MONITOR_H
 #define MONITOR_H
 
+#include <stdint.h>
 #define MONITOR_POOL_WOOF "monitor_pool.woof"
 #define MONITOR_DONE_WOOF "monitor_done.woof"
 #define MONITOR_HANDLER_WOOF "monitor_handler.woof"
@@ -8,16 +9,16 @@
 #define MONITOR_WOOF_NAME_LENGTH 256
 #define MONITOR_HISTORY_LENGTH 1024
 #define MONITOR_SPINLOCK_DELAY 20
-#define MONITOR_WARNING_QUEUED_HANDLERS 10
+#define MONITOR_WARNING_QUEUED_HANDLERS 0
 
 typedef struct monitor_pool_item {
     char woof_name[MONITOR_WOOF_NAME_LENGTH];
     char handler[MONITOR_WOOF_NAME_LENGTH];
-    unsigned long seq_no;
-    unsigned long element_size;
+    uint64_t seq_no;
+    uint64_t element_size;
     char monitor_name[MONITOR_WOOF_NAME_LENGTH];
-    unsigned long queued_ts;
-    int idempotent;
+    uint64_t queued_ts;
+    int32_t idempotent;
 } MONITOR_POOL_ITEM;
 
 typedef struct monitor_done_item {
@@ -28,8 +29,8 @@ typedef struct monitor_invoker_arg {
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
     char done_woof[MONITOR_WOOF_NAME_LENGTH];
     char handler_woof[MONITOR_WOOF_NAME_LENGTH];
-    int spinlock_delay;
-    int wasted_cycle;
+    int32_t spinlock_delay;
+    int32_t wasted_cycle;
 } MONITOR_INVOKER_ARG;
 
 int monitor_create(char* monitor_name);
