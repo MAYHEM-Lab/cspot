@@ -1,3 +1,4 @@
+#include "czmq.h"
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
@@ -80,6 +81,8 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the server state");
         exit(1);
     }
+    int heartbeat_rate = server_state.timeout_min / 2;
+    int replicate_delay = heartbeat_rate / 5;
 
     if (server_state.current_term != arg.term || server_state.role != RAFT_LEADER) {
         log_debug("not a leader at term %lu anymore, current term: %lu", arg.term, server_state.current_term);
@@ -148,7 +151,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
-            timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+            timeout_checker_arg.timeout_value = random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
             seq =
                 monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
@@ -278,7 +281,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
         }
         if ((num_entries > 0 && server_state.last_sent_index[m] != server_state.next_index[m]) ||
-            (get_milliseconds() - server_state.last_sent_timestamp[m] > RAFT_HEARTBEAT_RATE)) {
+            (get_milliseconds() - server_state.last_sent_timestamp[m] > heartbeat_rate)) {
             thread_arg[m].member_id = m;
             thread_arg[m].num_entries = num_entries;
             strcpy(thread_arg[m].member_woof, server_state.member_woofs[m]);
@@ -319,7 +322,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
+    usleep(replicate_delay * 1000);
     arg.last_ts = get_milliseconds();
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &arg, 1);
     if (WooFInvalid(seq)) {

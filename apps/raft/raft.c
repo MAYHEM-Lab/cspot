@@ -77,9 +77,9 @@ int get_server_state(RAFT_SERVER_STATE* server_state) {
     return 0;
 }
 
-int random_timeout(unsigned long seed) {
+int random_timeout(unsigned long seed, int min, int max) {
     srand(seed);
-    return RAFT_TIMEOUT_MIN + (rand() % (RAFT_TIMEOUT_MAX - RAFT_TIMEOUT_MIN));
+    return min + (rand() % (max - min));
 }
 
 int member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
@@ -201,7 +201,9 @@ int raft_create_woofs() {
 int raft_start_server(int members,
                       char woof_name[RAFT_NAME_LENGTH],
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
-                      int observer) {
+                      int observer,
+                      int timeout_min,
+                      int timeout_max) {
     RAFT_SERVER_STATE server_state = {0};
     server_state.members = members;
     memcpy(server_state.member_woofs, member_woofs, sizeof(server_state.member_woofs));
@@ -216,6 +218,8 @@ int raft_start_server(int members,
     memcpy(server_state.woof_name, woof_name, sizeof(server_state.woof_name));
     memcpy(server_state.current_leader, server_state.woof_name, RAFT_NAME_LENGTH);
     server_state.observers = 0;
+    server_state.timeout_min = timeout_min;
+    server_state.timeout_max = timeout_max;
 
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     if (WooFInvalid(seq)) {
@@ -255,7 +259,7 @@ int raft_start_server(int members,
     }
     if (!observer) {
         RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
-        timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+        timeout_checker_arg.timeout_value = random_timeout(get_milliseconds(), timeout_min, timeout_max);
         seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
         if (WooFInvalid(seq)) {
             fprintf(stderr, "Couldn't start h_timeout_checker\n");

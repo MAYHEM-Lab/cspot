@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 int raft_init_client(int members, char replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
     raft_client_members = members;

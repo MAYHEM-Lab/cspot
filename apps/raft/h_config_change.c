@@ -27,6 +27,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the latest server state");
         exit(1);
     }
+    int client_put_delay = server_state.timeout_min / 10;
 
     RAFT_CONFIG_CHANGE_RESULT result = {0};
     if (arg.observe) {
@@ -146,14 +147,14 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CONFIG_CHANGE_RESULT_WOOF);
     while (latest_result_seqno != seq_no - 1) {
         log_warn("config_change result seqno not matching, waiting %lu", seq_no);
-        usleep(RAFT_CLIENT_PUT_DELAY * 1000);
+        usleep(client_put_delay * 1000);
         latest_result_seqno = WooFGetLatestSeqno(RAFT_CONFIG_CHANGE_RESULT_WOOF);
     }
 
     unsigned long result_seq = WooFPut(RAFT_CONFIG_CHANGE_RESULT_WOOF, NULL, &result);
     while (WooFInvalid(result_seq)) {
         log_warn("failed to write reconfig result, try again");
-        usleep(RAFT_CLIENT_PUT_DELAY * 1000);
+        usleep(client_put_delay * 1000);
         result_seq = WooFPut(RAFT_CONFIG_CHANGE_RESULT_WOOF, NULL, &result);
     }
 

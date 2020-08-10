@@ -11,7 +11,7 @@
 int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("count_vote");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     RAFT_REQUEST_VOTE_RESULT result = {0};

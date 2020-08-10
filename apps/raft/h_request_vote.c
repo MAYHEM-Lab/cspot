@@ -12,7 +12,7 @@
 int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("request_vote");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     RAFT_REQUEST_VOTE_ARG request = {0};
@@ -75,7 +75,8 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
-            timeout_checker_arg.timeout_value = random_timeout(get_milliseconds());
+            timeout_checker_arg.timeout_value =
+                random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
             seq =
                 monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {

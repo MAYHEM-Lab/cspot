@@ -1,6 +1,7 @@
 #include "raft_utils.h"
 
 #include "raft.h"
+#include "unistd.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -102,6 +103,8 @@ void log_error(const char* message, ...) {
 }
 
 int read_config(FILE* fp,
+                int* timeout_min,
+                int* timeout_max,
                 char* name,
                 int* members,
                 char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
@@ -111,6 +114,16 @@ int read_config(FILE* fp,
         return -1;
     }
     strcpy(name, buffer);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(raft_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *timeout_min = (int)strtol(buffer, (char**)NULL, 10);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(raft_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *timeout_max = (int)strtol(buffer, (char**)NULL, 10);
     if (fgets(buffer, sizeof(buffer), fp) == NULL) {
         sprintf(raft_error_msg, "wrong format of config file\n");
         return -1;

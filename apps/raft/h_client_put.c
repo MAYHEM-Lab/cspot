@@ -28,6 +28,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the server state");
         exit(1);
     }
+    int client_put_delay = server_state.timeout_min / 10;
 
     unsigned long last_request = WooFGetLatestSeqno(RAFT_CLIENT_PUT_REQUEST_WOOF);
     if (WooFInvalid(last_request)) {
@@ -110,7 +111,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    usleep(RAFT_CLIENT_PUT_DELAY * 1000);
+    usleep(client_put_delay * 1000);
     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &arg, 0);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_client_put handler");

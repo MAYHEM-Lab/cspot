@@ -41,14 +41,12 @@
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST 8
 #define RAFT_DATA_TYPE_SIZE 4096
-#define RAFT_TIMEOUT_MIN 500 // better to be greater than zeromq timeout to avoid unnecessary election
-#define RAFT_TIMEOUT_MAX 1000
-#define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
-#define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
+// #define RAFT_TIMEOUT_MIN 5000 // better to be greater than zeromq timeout to avoid unnecessary election
+// #define RAFT_TIMEOUT_MAX 10000
+// #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
+// #define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
 // #define RAFT_REPLICATE_ENTRIES_DELAY 20
-#define RAFT_REPLICATE_ENTRIES_DELAY (RAFT_HEARTBEAT_RATE / 5) // needs to be smaller than RAFT_HEARTBEAT_RATE
-#define RAFT_CLIENT_PUT_DELAY (RAFT_HEARTBEAT_RATE / 5)
-#define RAFT_WARNING_LATENCY RAFT_HEARTBEAT_RATE
+// #define RAFT_REPLICATE_ENTRIES_DELAY (RAFT_HEARTBEAT_RATE / 5) // needs to be smaller than RAFT_HEARTBEAT_RATE
 
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
 
@@ -80,6 +78,8 @@ typedef struct raft_server_state {
     unsigned long current_term;
     char voted_for[RAFT_NAME_LENGTH];
     char current_leader[RAFT_NAME_LENGTH];
+    int timeout_min;
+    int timeout_max;
 
     int members;
     int observers;
@@ -177,7 +177,7 @@ typedef struct raft_request_vote_result {
 } RAFT_REQUEST_VOTE_RESULT;
 
 int get_server_state(RAFT_SERVER_STATE* server_state);
-int random_timeout(unsigned long seed);
+int random_timeout(unsigned long seed, int min, int max);
 int member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int encode_config(char* dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int decode_config(char* src, int* members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
@@ -194,6 +194,8 @@ int raft_create_woofs();
 int raft_start_server(int members,
                       char woof_name[RAFT_NAME_LENGTH],
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
-                      int observer);
+                      int observer,
+                      int timeout_min,
+                      int timeout_max);
 
 #endif

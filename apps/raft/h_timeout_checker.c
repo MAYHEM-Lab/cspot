@@ -1,3 +1,4 @@
+#include "czmq.h"
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
@@ -34,7 +35,7 @@ void* request_vote(void* arg) {
 int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("timeout_checker");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     RAFT_TIMEOUT_CHECKER_ARG arg = {0};
@@ -58,6 +59,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         return 1;
     }
+    int checker_delay = server_state.timeout_min / 5;
 
     // check if there's new heartbeat since went into sleep
     unsigned long latest_heartbeat_seqno = WooFGetLatestSeqno(RAFT_HEARTBEAT_WOOF);
@@ -75,7 +77,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_MEMBERS);
     memset(thread_arg, 0, sizeof(REQUEST_VOTE_THREAD_ARG) * RAFT_MAX_MEMBERS);
     if (get_milliseconds() - heartbeat.timestamp > arg.timeout_value) {
-        arg.timeout_value = random_timeout(get_milliseconds());
+        arg.timeout_value = random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
         log_warn(
             "timeout after %lums at term %lu", get_milliseconds() - heartbeat.timestamp, server_state.current_term);
 
@@ -141,7 +143,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     monitor_exit(ptr);
 
-    usleep(RAFT_TIMEOUT_CHECKER_DELAY * 1000);
+    usleep(checker_delay * 1000);
     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_timeout_checker handler");

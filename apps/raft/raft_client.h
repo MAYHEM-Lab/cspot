@@ -13,7 +13,6 @@
 #define RAFT_NOT_COMMITTED -5
 #define RAFT_OVERRIDEN -6
 
-char raft_error_msg[256];
 int raft_client_members;
 char raft_client_replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 char raft_client_leader[RAFT_NAME_LENGTH];
