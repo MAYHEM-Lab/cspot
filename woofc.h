@@ -51,11 +51,15 @@ typedef struct element_stc ELID;
 int WooFCreate(char* name, unsigned long element_size, unsigned long history_size);
 WOOF* WooFOpen(char* name);
 unsigned long WooFPut(char* wf_name, char* wf_handler, void* element);
+unsigned long WooFPutWithCause(
+    char* wf_name, char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no);
 int WooFGet(char* wf_name, void* element, unsigned long seq_no);
 unsigned long WooFAppendWithCause(
     WOOF* wf, char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no);
 unsigned long WooFAppend(WOOF* wf, char* hand_name, void* element);
 int WooFRead(WOOF* wf, void* element, unsigned long seq_no);
+int WooFReadWithCause(
+    WOOF* wf, void* element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no);
 int WooFReadTail(WOOF* wf, void* elements, int element_count);
 unsigned long WooFGetLatestSeqno(char* wf_name);
 unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,

@@ -355,7 +355,7 @@ void* WooFForker(void* arg) {
              * is this trigger in my namespace and unclaimed?
              */
             if ((ev[first].type == TRIGGER) &&
-                (strncmp(ev[first].namespace, WooF_namespace, sizeof(ev[first].namespace)) == 0) &&
+                (strncmp(ev[first].woofc_namespace, WooF_namespace, sizeof(ev[first].woofc_namespace)) == 0) &&
                 (ev[first].seq_no > (unsigned long long)last_seq_no)) {
                 /* now walk forward looking for FIRING */
 #ifdef DEBUG
@@ -370,7 +370,7 @@ void* WooFForker(void* arg) {
                 firing_found = 0;
                 while (firing != log_tail->tail) {
                     if ((ev[firing].type == TRIGGER_FIRING) &&
-                        (strncmp(ev[firing].namespace, WooF_namespace, sizeof(ev[firing].namespace)) == 0) &&
+                        (strncmp(ev[firing].woofc_namespace, WooF_namespace, sizeof(ev[firing].woofc_namespace)) == 0) &&
                         (ev[firing].cause_seq_no == (unsigned long long)trigger_seq_no)) {
                         /* found FIRING */
                         firing_found = 1;
@@ -404,7 +404,7 @@ void* WooFForker(void* arg) {
              * can't tell if the others have seen this trigger yet
              */
             if ((ev[first].type == TRIGGER) && (memcmp(&last_event, &ev[first], sizeof(last_event)) != 0) &&
-                (strncmp(ev[first].namespace, WooF_namespace, sizeof(ev[first].namespace)) != 0)) {
+                (strncmp(ev[first].woofc_namespace, WooF_namespace, sizeof(ev[first].woofc_namespace)) != 0)) {
 #ifdef DEBUG
                 printf("WooFForker: namespace: %s found trigger for evns: %s, name: %s, "
                        "first: %lu, head: %lu, tail: %lu\n",
@@ -472,8 +472,8 @@ void* WooFForker(void* arg) {
         }
         fev->cause_host = Name_id;
         fev->cause_seq_no = (unsigned long long)trigger_seq_no;
-        memset(fev->namespace, 0, sizeof(fev->namespace));
-        strncpy(fev->namespace, WooF_namespace, sizeof(fev->namespace));
+        memset(fev->woofc_namespace, 0, sizeof(fev->woofc_namespace));
+        strncpy(fev->woofc_namespace, WooF_namespace, sizeof(fev->woofc_namespace));
 #ifdef DEBUG
         printf("WooFForker: logging TRIGGER_FIRING for %s %llu\n", ev[first].namespace, ev[first].seq_no);
         fflush(stdout);

@@ -1,7 +1,9 @@
 #!/bin/bash
 
 HERE=`pwd`
-yum -y install docker gcc-gfortran python-devel python34-devel
+yum -y update
+yum -y install git gcc-gfortran python-devel python34-devel
+yum -y install docker
 cd ..
 git clone https://github.com/richwolski/euca-cutils.git
 git clone https://github.com/MAYHEM-Lab/mio.git
@@ -23,6 +25,8 @@ cd $HERE
 systemctl start docker
 systemctl enable docker
 
+cd uriparser2; make
+cd ..
 cd zmq
 ./install-zmq.sh
 cd ..

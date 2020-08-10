@@ -89,7 +89,7 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
             memset(local_name, 0, sizeof(local_name));
             strncpy(local_name, WooF_dir, sizeof(local_name));
             if (local_name[strlen(local_name) - 1] != '/') {
-                strncat(local_name, "/", 1);
+                strncat(local_name, "/", 2);
             }
             err = WooFNameFromURI(name, fname, sizeof(fname));
             if (err < 0) {
@@ -103,7 +103,7 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
         is_local = 1;
         strncpy(local_name, WooF_dir, sizeof(local_name));
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         strncat(local_name, name, sizeof(local_name));
     }
@@ -126,7 +126,7 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
             return (-1);
         }
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         err = WooFNameFromURI(name, fname, sizeof(fname));
         if (err < 0) {
@@ -138,7 +138,7 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
     } else { /* assume this is WooF_dir local */
         strncpy(local_name, WooF_dir, sizeof(local_name));
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         strncat(local_name, name, sizeof(local_name));
     }
@@ -241,7 +241,7 @@ WOOF* WooFOpen(char* name) {
     memset(local_name, 0, sizeof(local_name));
     strncpy(local_name, WooF_dir, sizeof(local_name));
     if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 1);
+        strncat(local_name, "/", 2);
     }
     if (WooFValidURI(name)) {
         err = WooFNameFromURI(name, fname, sizeof(fname));
@@ -367,7 +367,7 @@ int WooFExist(char* name) {
     memset(local_name, 0, sizeof(local_name));
     strncpy(local_name, WooF_dir, sizeof(local_name));
     if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 1);
+        strncat(local_name, "/", 2);
     }
     if (WooFValidURI(name)) {
         if (WooFNameFromURI(name, fname, sizeof(fname)) < 0) {
@@ -566,10 +566,10 @@ fflush(stdout);
         return (seq_no);
     }
 
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFAppend: namespace: %s\n", ev->namespace);
+    printf("WooFAppend: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
 
@@ -806,10 +806,10 @@ unsigned long WooFAppendWithCause(
     fflush(stdout);
 #endif
 
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFAppendWithCause: namespace: %s\n", ev->namespace);
+    printf("WooFAppendWithCause: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
 
@@ -996,7 +996,7 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
         memset(shadow_name, 0, sizeof(shadow_name));
         strncpy(shadow_name, WooF_dir, sizeof(shadow_name));
         if (shadow_name[strlen(shadow_name) - 1] != '/') {
-            strncat(shadow_name, "/", 1);
+            strncat(shadow_name, "/", 2);
         }
         strncat(shadow_name, wf_name, sizeof(shadow_name));
         strncat(shadow_name, "_shadow", 7);
@@ -1104,7 +1104,7 @@ unsigned long WooFPutWithCause(
         memset(shadow_name, 0, sizeof(shadow_name));
         strncpy(shadow_name, WooF_dir, sizeof(shadow_name));
         if (shadow_name[strlen(shadow_name) - 1] != '/') {
-            strncat(shadow_name, "/", 1);
+            strncat(shadow_name, "/", 2);
         }
         strncat(shadow_name, wf_name, sizeof(shadow_name));
         strncat(shadow_name, "_shadow", 7);
@@ -1699,10 +1699,10 @@ int WooFReadWithCause(
     ev = EventCreate(READ, Name_id);
     EventSetCause(ev, cause_host, cause_seq_no);
 
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFReadWithCause: namespace: %s\n", ev->namespace);
+    printf("WooFReadWithCause: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
 
@@ -1854,7 +1854,7 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
     memset(local_name, 0, sizeof(local_name));
     strncpy(local_name, WooF_dir, sizeof(local_name));
     if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 1);
+        strncat(local_name, "/", 2);
     }
     strncat(local_name, fname, sizeof(fname));
 #ifdef DEBUG
@@ -1914,10 +1914,10 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
 
     ev = EventCreate(LATEST_SEQNO, Name_id);
     EventSetCause(ev, cause_host, cause_seq_no);
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFLatestSeqnoWithCause: namespace: %s\n", ev->namespace);
+    printf("WooFLatestSeqnoWithCause: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
     ev->woofc_seq_no = latest_seq_no;
@@ -2013,7 +2013,7 @@ WOOF* WooFOpenOriginal(char* name) {
     memset(local_name, 0, sizeof(local_name));
     strncpy(local_name, WooF_dir, sizeof(local_name));
     if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 1);
+        strncat(local_name, "/", 2);
     }
     if (WooFValidURI(name)) {
         err = WooFNameFromURI(name, fname, sizeof(fname));
@@ -2377,7 +2377,7 @@ int WooFShadowCreate(
             memset(local_name, 0, sizeof(local_name));
             strncpy(local_name, WooF_dir, sizeof(local_name));
             if (local_name[strlen(local_name) - 1] != '/') {
-                strncat(local_name, "/", 1);
+                strncat(local_name, "/", 2);
             }
             err = WooFNameFromURI(name, fname, sizeof(fname));
             if (err < 0) {
@@ -2391,7 +2391,7 @@ int WooFShadowCreate(
         is_local = 1;
         strncpy(local_name, WooF_dir, sizeof(local_name));
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         strncat(local_name, name, sizeof(local_name));
     }
@@ -2414,7 +2414,7 @@ int WooFShadowCreate(
             return (-1);
         }
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         err = WooFNameFromURI(name, fname, sizeof(fname));
         if (err < 0) {
@@ -2426,7 +2426,7 @@ int WooFShadowCreate(
     } else { /* assume this is WooF_dir local */
         strncpy(local_name, WooF_dir, sizeof(local_name));
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         strncat(local_name, name, sizeof(local_name));
     }
@@ -2772,7 +2772,7 @@ int WooFShadowMappingCreate(
             memset(local_name, 0, sizeof(local_name));
             strncpy(local_name, WooF_dir, sizeof(local_name));
             if (local_name[strlen(local_name) - 1] != '/') {
-                strncat(local_name, "/", 1);
+                strncat(local_name, "/", 2);
             }
             err = WooFNameFromURI(name, fname, sizeof(fname));
             if (err < 0) {
@@ -2786,7 +2786,7 @@ int WooFShadowMappingCreate(
         is_local = 1;
         strncpy(local_name, WooF_dir, sizeof(local_name));
         if (local_name[strlen(local_name) - 1] != '/') {
-            strncat(local_name, "/", 1);
+            strncat(local_name, "/", 2);
         }
         strncat(local_name, name, sizeof(local_name));
     }
