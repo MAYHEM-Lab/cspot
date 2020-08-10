@@ -13,17 +13,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "w:f:i:"
-char* Usage = "s_join_cluster -w node_woof -f config\n\
+#define ARGS "w:r:d:i:"
+char* Usage = "s_join_cluster -w node_woof -r raft_config -d dht_config\n\
 \t-i to bind a certain IP\n";
 
 char node_woof[DHT_NAME_LENGTH];
 
 int main(int argc, char** argv) {
-    char ip[256];
-    char config[256];
-    memset(ip, 0, sizeof(ip));
-    memset(config, 0, sizeof(config));
+    char ip[256] = {0};
+    char dht_config[256] = {0};
+    char raft_config[256] = {0};
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -32,8 +31,12 @@ int main(int argc, char** argv) {
             strncpy(node_woof, optarg, sizeof(node_woof));
             break;
         }
-        case 'f': {
-            strncpy(config, optarg, sizeof(config));
+        case 'd': {
+            strncpy(dht_config, optarg, sizeof(dht_config));
+            break;
+        }
+        case 'r': {
+            strncpy(raft_config, optarg, sizeof(raft_config));
             break;
         }
         case 'i': {
@@ -48,22 +51,40 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (node_woof[0] == 0 || config[0] == 0) {
+    if (node_woof[0] == 0 || dht_config[0] == 0 || raft_config[0] == 0) {
         fprintf(stderr, "%s", Usage);
         exit(1);
     }
     WooFInit();
 
-    FILE* fp = fopen(config, "r");
+    FILE* fp = fopen(dht_config, "r");
     if (fp == NULL) {
-        fprintf(stderr, "failed to open config file\n");
+        fprintf(stderr, "failed to open dht_config file\n");
+        exit(1);
+    }
+    int stabilize_freq = 0;
+    int chk_predecessor_freq = 0;
+    int fix_finger_freq = 0;
+    int update_leader_freq = 0;
+    int daemon_wakeup_freq = 0;
+    if (read_dht_config(
+            fp, &stabilize_freq, &chk_predecessor_freq, &fix_finger_freq, &update_leader_freq, &daemon_wakeup_freq) <
+        0) {
+        fprintf(stderr, "failed to read dht_config file\n");
+        fclose(fp);
+        exit(1);
+    }
+    fclose(fp);
+    fp = fopen(raft_config, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "failed to open raft_config file\n");
         exit(1);
     }
     char name[DHT_NAME_LENGTH];
     int num_replica;
     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-    if (read_config(fp, name, &num_replica, replicas) < 0) {
-        fprintf(stderr, "failed to read config file\n");
+    if (read_raft_config(fp, name, &num_replica, replicas) < 0) {
+        fprintf(stderr, "failed to read raft_config file\n");
         fclose(fp);
         exit(1);
     }
@@ -82,7 +103,15 @@ int main(int argc, char** argv) {
 
 #ifdef USE_RAFT
     if (raft_is_leader()) {
-        if (dht_join_cluster(node_woof, woof_name, name, replicas) < 0) {
+        if (dht_join_cluster(node_woof,
+                             woof_name,
+                             name,
+                             replicas,
+                             stabilize_freq,
+                             chk_predecessor_freq,
+                             fix_finger_freq,
+                             update_leader_freq,
+                             daemon_wakeup_freq) < 0) {
             fprintf(stderr, "failed to join cluster: %s\n", dht_error_msg);
             exit(1);
         }
@@ -98,13 +127,22 @@ int main(int argc, char** argv) {
             fprintf(stderr, "failed to create and start the handler monitor\n");
             return -1;
         }
-        if (dht_start_daemon() < 0) {
+        if (dht_start_daemon(
+                stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) < 0) {
             fprintf(stderr, "failed to start the daemon\n");
             exit(1);
         }
     }
 #else
-    if (dht_join_cluster(node_woof, woof_name, name, replicas) < 0) {
+    if (dht_join_cluster(node_woof,
+                         woof_name,
+                         name,
+                         replicas,
+                         stabilize_freq,
+                         chk_predecessor_freq,
+                         fix_finger_freq,
+                         update_leader_freq,
+                         daemon_wakeup_freq) < 0) {
         fprintf(stderr, "failed to join cluster: %s\n", dht_error_msg);
         exit(1);
     }

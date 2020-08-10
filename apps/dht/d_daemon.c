@@ -22,7 +22,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     uint64_t now = get_milliseconds();
 
 #ifdef USE_RAFT
-    if (now - arg->last_update_leader_id > DHT_UPDATE_LEADER_ID_FREQUENCY) {
+    if (now - arg->last_update_leader_id > arg->update_leader_freq) {
         int leader_id = raft_leader_id();
         if (leader_id < 0) {
             log_error("failed to get replica's current leader_id: %s", dht_error_msg);
@@ -57,7 +57,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_debug("since last check_predecessor: %lums", (unsigned long)(now - arg->last_check_predecessor));
     // log_debug("since last fix_finger: %lums", (unsigned long)(now - arg->last_fix_finger));
 
-    if (now - arg->last_stabilize > DHT_STABILIZE_FREQUENCY) {
+    if (now - arg->last_stabilize > arg->stabilize_freq) {
         DHT_STABILIZE_ARG stabilize_arg;
         unsigned long seq = monitor_put(DHT_MONITOR_NAME, DHT_STABILIZE_WOOF, "d_stabilize", &stabilize_arg, 1);
         if (WooFInvalid(seq)) {
@@ -66,7 +66,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         arg->last_stabilize = now;
     }
 
-    if (now - arg->last_check_predecessor > DHT_CHECK_PREDECESSOR_FREQUENCY) {
+    if (now - arg->last_check_predecessor > arg->chk_predecessor_freq) {
         DHT_CHECK_PREDECESSOR_ARG check_predecessor_arg;
         unsigned long seq = WooFPut(DHT_CHECK_PREDECESSOR_WOOF, "d_check_predecessor", &check_predecessor_arg);
         if (WooFInvalid(seq)) {
@@ -75,7 +75,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         arg->last_check_predecessor = now;
     }
 
-    if (now - arg->last_fix_finger > DHT_FIX_FINGER_FREQUENCY) {
+    if (now - arg->last_fix_finger > arg->chk_predecessor_freq) {
         DHT_FIX_FINGER_ARG fix_finger_arg;
         unsigned long seq = monitor_put(DHT_MONITOR_NAME, DHT_FIX_FINGER_WOOF, "d_fix_finger", &fix_finger_arg, 1);
         if (WooFInvalid(seq)) {
@@ -84,7 +84,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         arg->last_fix_finger = now;
     }
 
-    usleep(DHT_DAEMON_WAKEUP_FREQUENCY * 1000);
+    usleep(arg->daemon_wakeup_freq * 1000);
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next d_daemon");

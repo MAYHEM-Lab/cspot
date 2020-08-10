@@ -40,13 +40,13 @@
 #define DHT_HISTORY_LENGTH_LONG 256
 #define DHT_HISTORY_LENGTH_SHORT 4
 #define DHT_MAX_SUBSCRIPTIONS 8
-#define DHT_STABILIZE_FREQUENCY 1000
-#define DHT_CHECK_PREDECESSOR_FREQUENCY 1000
-#define DHT_FIX_FINGER_FREQUENCY 1000
-#define DHT_DAEMON_WAKEUP_FREQUENCY 100
+// #define DHT_STABILIZE_FREQUENCY 1000
+// #define DHT_CHECK_PREDECESSOR_FREQUENCY 1000
+// #define DHT_FIX_FINGER_FREQUENCY 1000
+// #define DHT_UPDATE_LEADER_ID_FREQUENCY 1000
+// #define DHT_DAEMON_WAKEUP_FREQUENCY 100
 #define DHT_SUCCESSOR_LIST_R 3
 #define DHT_REPLICA_NUMBER 3
-#define DHT_UPDATE_LEADER_ID_FREQUENCY 1000
 
 #define DHT_ACTION_NONE 0
 #define DHT_ACTION_FIND_NODE 1
@@ -93,8 +93,8 @@ typedef struct dht_find_successor_arg {
     char key[DHT_NAME_LENGTH];
     unsigned char hashed_key[SHA_DIGEST_LENGTH];
     int32_t action;
-    char action_namespace[DHT_NAME_LENGTH];
-    uint64_t action_seqno; // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
+    char action_namespace[DHT_NAME_LENGTH]; // if action == DHT_ACTION_JOIN, this serves as serialized dht_config
+    uint64_t action_seqno;                  // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
     char callback_namespace[DHT_NAME_LENGTH];
 } DHT_FIND_SUCCESSOR_ARG;
 
@@ -116,6 +116,7 @@ typedef struct dht_join_arg {
     unsigned char node_hash[SHA_DIGEST_LENGTH];
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
+    char serialized_config[DHT_NAME_LENGTH];
 } DHT_JOIN_ARG;
 
 typedef struct dht_fix_finger_arg {
@@ -201,6 +202,11 @@ typedef struct dht_daemon_arg {
     uint64_t last_update_leader_id;
     uint64_t last_replicate_state;
 #endif
+    int32_t stabilize_freq;
+    int32_t chk_predecessor_freq;
+    int32_t fix_finger_freq;
+    int32_t update_leader_freq;
+    int32_t daemon_wakeup_freq;
 } DHT_DAEMON_ARG;
 
 typedef struct dht_stabilize_arg {
@@ -246,11 +252,24 @@ typedef struct dht_map_raft_index_arg {
 } DHT_MAP_RAFT_INDEX_ARG;
 
 int dht_create_woofs();
-int dht_start_daemon();
-int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_start_daemon(
+    int stabilize_freq, int chk_predecessor_freq, int fix_finger_freq, int update_leader_freq, int daemon_wakeup_freq);
+int dht_create_cluster(char* woof_name,
+                       char* node_name,
+                       char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                       int stabilize_freq,
+                       int chk_predecessor_freq,
+                       int fix_finger_freq,
+                       int update_leader_freq,
+                       int daemon_wakeup_freq);
 int dht_join_cluster(char* node_woof,
                      char* woof_name,
                      char* node_name,
-                     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+                     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                     int stabilize_freq,
+                     int chk_predecessor_freq,
+                     int fix_finger_freq,
+                     int update_leader_freq,
+                     int daemon_wakeup_freq);
 
 #endif

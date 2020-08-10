@@ -75,6 +75,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(action_arg.node_hash, successor.hash[0], sizeof(action_arg.node_hash));
             memcpy(action_arg.node_replicas, successor.replicas[0], sizeof(action_arg.node_replicas));
             action_arg.node_leader = successor.leader[0];
+            strcpy(action_arg.serialized_config, arg->action_namespace);
 
             char callback_monitor[DHT_NAME_LENGTH] = {0};
             sprintf(callback_monitor, "%s/%s", arg->callback_namespace, DHT_MONITOR_NAME);

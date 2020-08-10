@@ -121,7 +121,7 @@ int get_latest_element(char* woof_name, void* element) {
     return 0;
 }
 
-int read_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+int read_raft_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
     char buffer[256];
     if (fgets(buffer, sizeof(buffer), fp) == NULL) {
         sprintf(dht_error_msg, "wrong format of config file\n");
@@ -166,6 +166,70 @@ int read_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER
         strcpy(replicas[i], buffer);
     }
     return 0;
+}
+
+int read_dht_config(FILE* fp,
+                    int* stabilize_freq,
+                    int* chk_predecessor_freq,
+                    int* fix_finger_freq,
+                    int* update_leader_freq,
+                    int* daemon_wakeup_freq) {
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *stabilize_freq = (int)strtol(buffer, (char**)NULL, 10);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *chk_predecessor_freq = (int)strtol(buffer, (char**)NULL, 10);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *fix_finger_freq = (int)strtol(buffer, (char**)NULL, 10);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *update_leader_freq = (int)strtol(buffer, (char**)NULL, 10);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *daemon_wakeup_freq = (int)strtol(buffer, (char**)NULL, 10);
+    return 0;
+}
+
+void serialize_dht_config(char* dst,
+                          int stabilize_freq,
+                          int chk_predecessor_freq,
+                          int fix_finger_freq,
+                          int update_leader_freq,
+                          int daemon_wakeup_freq) {
+    sprintf(dst,
+            "%d %d %d %d %d",
+            stabilize_freq,
+            chk_predecessor_freq,
+            fix_finger_freq,
+            update_leader_freq,
+            daemon_wakeup_freq);
+}
+void deserialize_dht_config(char* src,
+                            int* stabilize_freq,
+                            int* chk_predecessor_freq,
+                            int* fix_finger_freq,
+                            int* update_leader_freq,
+                            int* daemon_wakeup_freq) {
+    sscanf(src,
+           "%d %d %d %d %d",
+           stabilize_freq,
+           chk_predecessor_freq,
+           fix_finger_freq,
+           update_leader_freq,
+           daemon_wakeup_freq);
 }
 
 int dht_init(unsigned char* node_hash,
@@ -311,7 +375,7 @@ int raft_leader_id() {
 
     RAFT_SERVER_STATE raft_state = {0};
     if (get_server_state(&raft_state) < 0) {
-        sprintf(dht_error_msg, "failed to get RAFT's server_state");
+        sprintf(dht_error_msg, "failed to get RAFT's server_state: %s", raft_error_msg);
         return -1;
     }
     int i;

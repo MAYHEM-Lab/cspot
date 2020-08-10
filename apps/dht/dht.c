@@ -110,7 +110,8 @@ int dht_create_woofs() {
     return 0;
 }
 
-int dht_start_daemon() {
+int dht_start_daemon(
+    int stabilize_freq, int chk_predecessor_freq, int fix_finger_freq, int update_leader_freq, int daemon_wakeup_freq) {
     DHT_DAEMON_ARG arg = {0};
     arg.last_stabilize = 0;
     arg.last_check_predecessor = 0;
@@ -119,6 +120,11 @@ int dht_start_daemon() {
     arg.last_update_leader_id = 0;
     arg.last_replicate_state = 0;
 #endif
+    arg.stabilize_freq = stabilize_freq;
+    arg.chk_predecessor_freq = chk_predecessor_freq;
+    arg.fix_finger_freq = fix_finger_freq;
+    arg.update_leader_freq = update_leader_freq;
+    arg.daemon_wakeup_freq = daemon_wakeup_freq;
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", &arg);
     if (WooFInvalid(seq)) {
         return -1;
@@ -126,7 +132,14 @@ int dht_start_daemon() {
     return 0;
 }
 
-int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+int dht_create_cluster(char* woof_name,
+                       char* node_name,
+                       char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                       int stabilize_freq,
+                       int chk_predecessor_freq,
+                       int fix_finger_freq,
+                       int update_leader_freq,
+                       int daemon_wakeup_freq) {
     int replica_id;
     for (replica_id = 0; replica_id < DHT_REPLICA_NUMBER; ++replica_id) {
         if (strcmp(woof_name, replicas[replica_id]) == 0) {
@@ -151,10 +164,16 @@ int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLI
         return -1;
     }
 
-    if (dht_start_daemon() < 0) {
+    if (dht_start_daemon(
+            stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) < 0) {
         sprintf(dht_error_msg, "failed to start daemon");
         return -1;
     }
+    printf("stabilize_freq: %d\n", stabilize_freq);
+    printf("chk_predecessor_freq: %d\n", chk_predecessor_freq);
+    printf("fix_finger_freq: %d\n", fix_finger_freq);
+    printf("update_leader_freq: %d\n", update_leader_freq);
+    printf("daemon_wakeup_freq: %d\n", daemon_wakeup_freq);
     char hash_str[DHT_NAME_LENGTH] = {0};
     print_node_hash(hash_str, node_hash);
     printf("node_name: %s\nnode_hash: %s\nnode_addr: %s\nid: %d\n", node_name, hash_str, woof_name, replica_id);
@@ -171,7 +190,12 @@ int dht_create_cluster(char* woof_name, char* node_name, char replicas[DHT_REPLI
 int dht_join_cluster(char* node_woof,
                      char* woof_name,
                      char* node_name,
-                     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+                     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                     int stabilize_freq,
+                     int chk_predecessor_freq,
+                     int fix_finger_freq,
+                     int update_leader_freq,
+                     int daemon_wakeup_freq) {
     int replica_id;
     for (replica_id = 0; replica_id < DHT_REPLICA_NUMBER; ++replica_id) {
         if (strcmp(woof_name, replicas[replica_id]) == 0) {
@@ -197,6 +221,12 @@ int dht_join_cluster(char* node_woof,
     }
 
     DHT_FIND_SUCCESSOR_ARG arg;
+    serialize_dht_config(arg.action_namespace,
+                         stabilize_freq,
+                         chk_predecessor_freq,
+                         fix_finger_freq,
+                         update_leader_freq,
+                         daemon_wakeup_freq);
     dht_init_find_arg(&arg, woof_name, node_hash, woof_name);
     arg.action = DHT_ACTION_JOIN;
     if (node_woof[strlen(node_woof) - 1] == '/') {

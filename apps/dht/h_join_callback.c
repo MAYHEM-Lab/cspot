@@ -73,7 +73,24 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 #endif
 
-    if (dht_start_daemon() < 0) {
+    int stabilize_freq;
+    int chk_predecessor_freq;
+    int fix_finger_freq;
+    int update_leader_freq;
+    int daemon_wakeup_freq;
+    deserialize_dht_config(arg.serialized_config,
+                           &stabilize_freq,
+                           &chk_predecessor_freq,
+                           &fix_finger_freq,
+                           &update_leader_freq,
+                           &daemon_wakeup_freq);
+    log_debug("stabilize_freq: %d", stabilize_freq);
+    log_debug("chk_predecessor_freq: %d", chk_predecessor_freq);
+    log_debug("fix_finger_freq: %d", fix_finger_freq);
+    log_debug("update_leader_freq: %d", update_leader_freq);
+    log_debug("daemon_wakeup_freq: %d", daemon_wakeup_freq);
+    if (dht_start_daemon(
+            stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) < 0) {
         log_error("failed to start daemon");
         monitor_exit(ptr);
         exit(1);
