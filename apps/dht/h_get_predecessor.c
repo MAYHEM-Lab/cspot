@@ -36,21 +36,32 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
         result.predecessor_leader = predecessor.leader;
     }
 
-	char callback_ipaddr[DHT_NAME_LENGTH] = {0};
-	if (WooFIPAddrFromURI(arg->callback_woof, callback_ipaddr, DHT_NAME_LENGTH) < 0) {
+    char callback_ipaddr[DHT_NAME_LENGTH] = {0};
+    if (WooFIPAddrFromURI(arg->callback_woof, callback_ipaddr, DHT_NAME_LENGTH) < 0) {
         log_error("failed to extract woof ip address from callback woof %s", arg->callback_woof);
         exit(1);
     }
+    int callback_port = 0;
+    WooFPortFromURI(arg->callback_woof, &callback_port);
     char callback_namespace[DHT_NAME_LENGTH] = {0};
     if (WooFNameSpaceFromURI(arg->callback_woof, callback_namespace, DHT_NAME_LENGTH) < 0) {
         log_error("failed to extract woof namespace from callback woof %s", arg->callback_woof);
         exit(1);
     }
     char callback_monitor[DHT_NAME_LENGTH] = {0};
-    sprintf(callback_monitor, "woof://%s%s/%s", callback_ipaddr, callback_namespace, DHT_MONITOR_NAME);
-	unsigned long seq = monitor_remote_put(callback_monitor, arg->callback_woof, arg->callback_handler, &result, 1);
+    if (callback_port > 0) {
+        sprintf(callback_monitor,
+                "woof://%s:%d%s/%s",
+                callback_ipaddr,
+                callback_port,
+                callback_namespace,
+                DHT_MONITOR_NAME);
+    } else {
+        sprintf(callback_monitor, "woof://%s%s/%s", callback_ipaddr, callback_namespace, DHT_MONITOR_NAME);
+    }
+    unsigned long seq = monitor_remote_put(callback_monitor, arg->callback_woof, arg->callback_handler, &result, 1);
     if (WooFInvalid(seq)) {
-        log_error("failed to put get_predecessor: result to woof %s", arg->callback_woof);
+        log_error("failed to put get_predecessor result to %s, monitor: %s", arg->callback_woof, callback_monitor);
         exit(1);
     }
     char hash_str[2 * SHA_DIGEST_LENGTH + 1];

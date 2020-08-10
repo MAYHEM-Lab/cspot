@@ -9,7 +9,7 @@
 int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("shift_successor");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_SUCCESSOR_INFO successor = {0};

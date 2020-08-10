@@ -1,0 +1,116 @@
+#ifndef USE_RAFT
+#define USE_RAFT
+#endif
+
+#include "dht_client.h"
+#include "multi_regression.h"
+
+#include <iostream>
+#include <mlpack/core.hpp>
+#include <mlpack/methods/linear_regression/linear_regression.hpp>
+
+using namespace std;
+
+void restore_model(const REGRESSOR_MODEL model, mlpack::regression::LinearRegression* regressor) {
+    arma::vec& p = regressor->Parameters();
+    p.set_size(model.n_elem);
+    for (int i = 0; i < model.n_elem; ++i) {
+        p(i) = model.p_vec[i];
+    }
+    double& l = regressor->Lambda();
+    l = model.lambda;
+}
+
+// return -1 if all are within 1 minute, or return the index of largerst timestamp
+int align(TEMPERATURE_ELEMENT temp[6]) {
+    unsigned long diff = 60 * 1000;
+    unsigned long min_ts = ULONG_MAX, max_ts = 0;
+    int max_index = -1;
+    for (int i = 0; i < 6; ++i) {
+        min_ts = min(min_ts, temp[i].timestamp);
+        if (temp[i].timestamp > max_ts) {
+            max_ts = temp[i].timestamp;
+            max_index = i;
+        }
+    }
+    if (max_ts - min_ts < diff) {
+        return -1;
+    }
+    return max_index;
+}
+
+extern "C" int h_regress(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr) {
+    TEMPERATURE_ELEMENT* el = (TEMPERATURE_ELEMENT*)ptr;
+
+    cout << "h_regress triggered by " << topic_name << endl;
+
+    char temp_topics[5][13] = {
+        TOPIC_PIZERO02_CPU, TOPIC_PIZERO04_CPU, TOPIC_PIZERO05_CPU, TOPIC_PIZERO06_CPU, TOPIC_WU_STATION};
+
+    unsigned long latest_model = dht_topic_latest_seqno((char*)TOPIC_REGRESSOR_MODEL);
+    if (dht_topic_is_empty(latest_model)) {
+        cout << "no model has been trained yet" << endl;
+        return 1;
+    }
+
+    REGRESSOR_MODEL model = {0};
+    if (dht_topic_get((char*)TOPIC_REGRESSOR_MODEL, &model, sizeof(REGRESSOR_MODEL), latest_model) < 0) {
+        cerr << latest_model << " failed to get the latest model: " << dht_error_msg << endl;
+        exit(1);
+    }
+    mlpack::regression::LinearRegression regressor;
+    restore_model(model, &regressor);
+
+    arma::mat p(5, 1);
+    TEMPERATURE_ELEMENT temp[5] = {0};
+    unsigned long seqno[5] = {0};
+    for (int i = 0; i < 5; ++i) {
+        seqno[i] = dht_topic_latest_seqno((char*)temp_topics[i]);
+        if (dht_topic_is_empty(seqno[i])) {
+            cout << "no data in " << temp_topics[i] << endl;
+            return 1;
+        }
+        if (dht_topic_get((char*)temp_topics[i], &temp[i], sizeof(TEMPERATURE_ELEMENT), seqno[i]) < 0) {
+            cerr << "failed to get the temperature from " << temp_topics[i] << ": " << dht_error_msg << endl;
+            exit(1);
+        }
+        p(i, 0) = temp[i].temp;
+    }
+
+    arma::rowvec res;
+    regressor.Predict(p, res);
+    cout << "predict: " << res;
+
+    unsigned long dht_seqno = dht_topic_latest_seqno((char*)TOPIC_PIZERO02_DHT);
+    if (dht_topic_is_empty(dht_seqno)) {
+        cout << "no data in " << TOPIC_PIZERO02_DHT << endl;
+        return 1;
+    }
+    TEMPERATURE_ELEMENT dht_reading = {0};
+    while (dht_seqno > 1) {
+        if (dht_topic_get((char*)TOPIC_PIZERO02_DHT, &dht_reading, sizeof(TEMPERATURE_ELEMENT), dht_seqno) < 0) {
+            cerr << "failed to get the temperature from " << TOPIC_PIZERO02_DHT << ": " << dht_error_msg << endl;
+            exit(1);
+        }
+        unsigned long pred_ts = el->timestamp / (300 * 1000);
+        unsigned long dht_ts = dht_reading.timestamp / (300 * 1000);
+        if (dht_ts == pred_ts) {
+            cout << "error: " << abs(res(0) - dht_reading.temp) << endl;
+            break;
+        } else if (dht_ts > pred_ts) {
+            --dht_seqno;
+        } else {
+            break;
+        }
+    }
+
+    TEMPERATURE_ELEMENT predict = {0};
+    predict.temp = res(0);
+    predict.timestamp = el->timestamp;
+    if (dht_publish((char*)TOPIC_PIZERO02_PREDICT, &predict, sizeof(TEMPERATURE_ELEMENT)) < 0) {
+        cerr << "failed to publish the predict temperature: " << dht_error_msg << endl;
+        exit(1);
+    }
+
+    return 1;
+}

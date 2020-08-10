@@ -8,17 +8,18 @@
 #include <unistd.h>
 #ifdef USE_RAFT
 #include "raft.h"
+#include "raft_client.h"
 #endif
 
 int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_DAEMON_ARG* arg = (DHT_DAEMON_ARG*)ptr;
 
     log_set_tag("daemon");
-    log_set_level(DHT_LOG_DEBUG);
     log_set_level(DHT_LOG_INFO);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
-    unsigned long now = get_milliseconds();
+    uint64_t now = get_milliseconds();
 
 #ifdef USE_RAFT
     if (now - arg->last_update_leader_id > DHT_UPDATE_LEADER_ID_FREQUENCY) {
@@ -52,9 +53,9 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 #endif
 
-    // log_debug("since last stabilize: %lums", now - arg->last_stabilize);
-    // log_debug("since last check_predecessor: %lums", now - arg->last_check_predecessor);
-    // log_debug("since last fix_finger: %lums", now - arg->last_fix_finger);
+    // log_debug("since last stabilize: %lums", (unsigned long)(now - arg->last_stabilize));
+    // log_debug("since last check_predecessor: %lums", (unsigned long)(now - arg->last_check_predecessor));
+    // log_debug("since last fix_finger: %lums", (unsigned long)(now - arg->last_fix_finger));
 
     if (now - arg->last_stabilize > DHT_STABILIZE_FREQUENCY) {
         DHT_STABILIZE_ARG stabilize_arg;

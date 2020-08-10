@@ -12,27 +12,28 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 char log_tag[DHT_NAME_LENGTH];
 FILE* log_output;
 int log_level;
 extern char WooF_dir[2048];
 
-unsigned long get_milliseconds() {
+uint64_t get_milliseconds() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
+    return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 }
 
 void node_woof_namespace(char* woof_namespace) {
     char* str = getenv("WOOFC_NAMESPACE");
-    char namespace[DHT_NAME_LENGTH];
+    char ns[DHT_NAME_LENGTH];
     if (str == NULL) {
-        getcwd(namespace, sizeof(namespace));
+        getcwd(ns, sizeof(ns));
     } else {
-        strncpy(namespace, str, sizeof(namespace));
+        strncpy(ns, str, sizeof(ns));
     }
-    strcpy(woof_namespace, namespace);
+    strcpy(woof_namespace, ns);
 }
 
 void log_set_tag(const char* tag) {
@@ -56,7 +57,7 @@ void log_debug(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;34m");
-    fprintf(log_output, "DEBUG| %.19s:%.3d [dht:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "DEBUG| %.19s:%.3d [dht:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -71,7 +72,7 @@ void log_info(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;32m");
-    fprintf(log_output, "INFO | %.19s:%.3d [dht:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "INFO | %.19s:%.3d [dht:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -86,7 +87,7 @@ void log_warn(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;33m");
-    fprintf(log_output, "WARN | %.19s:%.3d [dht:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "WARN | %.19s:%.3d [dht:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -101,7 +102,7 @@ void log_error(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;31m");
-    fprintf(log_output, "ERROR| %.19s:%.3d [dht:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "ERROR| %.19s:%.3d [dht:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -129,6 +130,14 @@ int read_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER
     strcpy(name, buffer);
     if (name[strlen(name) - 1] == '\n') {
         name[strlen(name)] = 0;
+    }
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
     }
     if (fgets(buffer, sizeof(buffer), fp) == NULL) {
         sprintf(dht_error_msg, "wrong format of config file\n");
@@ -213,6 +222,7 @@ int dht_init(unsigned char* node_hash,
 }
 
 void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG* arg, char* key, char* hashed_key, char* callback_namespace) {
+    memset(arg, 0, sizeof(DHT_FIND_SUCCESSOR_ARG));
     arg->hops = 0;
     memcpy(arg->key, key, sizeof(arg->key));
     memcpy(arg->hashed_key, hashed_key, sizeof(arg->hashed_key));

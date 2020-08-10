@@ -1,4 +1,5 @@
 #ifndef BLDG_CONTROL_H
+#define BLDG_CONTROL_H
 
 #define TOPIC_BUILDING_GATE_TRAFFIC "gate"
 #define TOPIC_ROOM_101_TRAFFIC "room_101"

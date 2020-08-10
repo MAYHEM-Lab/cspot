@@ -1,4 +1,5 @@
 #ifndef AVG_TEMP_H
+#define AVG_TEMP_H
 
 #define ROOM_TEMP_TOPIC "room_temp"
 #define AVG_TEMP_TOPIC "avg_temp"

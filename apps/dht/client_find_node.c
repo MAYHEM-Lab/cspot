@@ -4,6 +4,7 @@
 #include "woofc-host.h"
 #include "woofc.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,12 +51,12 @@ int main(int argc, char** argv) {
     char result_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int result_leader;
     int hops;
-    unsigned long begin = get_milliseconds();
+    uint64_t begin = get_milliseconds();
     if (dht_find_node(topic, result_replicas, &result_leader, &hops) < 0) {
         fprintf(stderr, "failed to find the topic\n");
         exit(1);
     }
-    printf("latency: %lu ms\n", get_milliseconds() - begin);
+    printf("latency: %lu ms\n", (unsigned long)(get_milliseconds() - begin));
     printf("hops: %d\n", hops);
     printf("replicas:\n");
     int i;

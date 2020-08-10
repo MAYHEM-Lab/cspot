@@ -10,6 +10,7 @@
 #include "raft_client.h"
 #endif
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -209,7 +210,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         return -1;
     }
 #endif
-    unsigned long called = get_milliseconds();
+    uint64_t called = get_milliseconds();
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
     int hops;
@@ -218,7 +219,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         return -1;
     }
     char* node_addr = node_replicas[node_leader];
-    unsigned long found = get_milliseconds();
+    uint64_t found = get_milliseconds();
     // TODO: if failed use the next replica
     // get the topic namespace
     char registration_woof[DHT_NAME_LENGTH] = {0};
@@ -276,7 +277,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         return -1;
     }
 
-    unsigned long committed = get_milliseconds();
+    uint64_t committed = get_milliseconds();
     trigger_arg.element_seqno = index;
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_replicas[0], DHT_TRIGGER_WOOF);
 #else
@@ -289,7 +290,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to put element to woof");
         return -1;
     }
-    unsigned long committed = get_milliseconds();
+    uint64_t committed = get_milliseconds();
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_namespace, DHT_TRIGGER_WOOF);
 #endif
     unsigned long seq = WooFPut(trigger_woof, "h_trigger", &trigger_arg);
@@ -297,17 +298,24 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to invoke h_trigger");
         return -1;
     }
-    unsigned long triggered = get_milliseconds();
+    uint64_t triggered = get_milliseconds();
 #ifdef DEBUG
-    printf("called: %lu\n", called);
-    printf("found: %lu %lu\n", found, found - called);
-    printf("committed: %lu %lu %lu\n", committed, committed - called, committed - found);
+    printf("called: %lu\n", (unsigned long)called);
+    printf("found: %lu %lu\n", (unsigned long)found, (unsigned long)(found - called));
+    printf("committed: %lu %lu %lu\n",
+           (unsigned long)committed,
+           (unsigned long)(committed - called),
+           (unsigned long)(committed - found));
     fflush(stdout);
 #endif
     return trigger_arg.element_seqno;
 }
 
 #ifdef USE_RAFT
+int dht_topic_is_empty(unsigned long seqno) {
+    return seqno <= 1;
+}
+
 unsigned long dht_topic_latest_seqno(char* topic_name) {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
@@ -374,8 +382,8 @@ int dht_topic_get_range(char* topic_name,
                         void* element,
                         unsigned long element_size,
                         unsigned long seqno,
-                        unsigned long lower_ts,
-                        unsigned long upper_ts) {
+                        uint64_t lower_ts,
+                        uint64_t upper_ts) {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
     int hops;
@@ -399,8 +407,8 @@ int dht_local_topic_get_range(char* topic_name,
                               void* element,
                               unsigned long element_size,
                               unsigned long seqno,
-                              unsigned long lower_ts,
-                              unsigned long upper_ts) {
+                              uint64_t lower_ts,
+                              uint64_t upper_ts) {
     return dht_remote_topic_get_range(NULL, topic_name, element, element_size, seqno, lower_ts, upper_ts);
 }
 
@@ -413,8 +421,8 @@ int dht_remote_topic_get_range(char* remote_woof,
                                void* element,
                                unsigned long element_size,
                                unsigned long seqno,
-                               unsigned long lower_ts,
-                               unsigned long upper_ts) {
+                               uint64_t lower_ts,
+                               uint64_t upper_ts) {
     char index_woof[DHT_NAME_LENGTH] = {0};
     if (remote_woof != NULL) {
         sprintf(index_woof, "%s/%s_%s", remote_woof, topic_name, DHT_MAP_RAFT_INDEX_WOOF_SUFFIX);

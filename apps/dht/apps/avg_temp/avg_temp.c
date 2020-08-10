@@ -1,12 +1,14 @@
 #include "avg_temp.h"
+
 #include "dht_client.h"
 #include "dht_utils.h"
 
+#include <stdint.h>
 #include <stdio.h>
 
 int avg_temp(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr) {
-    unsigned long now = get_milliseconds();
-    printf("received new temperature at %lu\n", now);
+    uint64_t now = get_milliseconds();
+    printf("received new temperature at %lu\n", (unsigned long)now);
     printf("pulling previous temperature from %s\n", woof_name);
 
     unsigned long latest_topic_seqno = dht_remote_topic_latest_seqno(woof_name, topic_name);
@@ -15,7 +17,7 @@ int avg_temp(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr)
         exit(1);
     }
 
-    unsigned long one_hour_earlier = get_milliseconds() - (60 * 60 * 1000);
+    uint64_t one_hour_earlier = get_milliseconds() - (60 * 60 * 1000);
     double sum = 0;
     int cnt = 0;
     unsigned long i;

@@ -31,12 +31,12 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     memcpy(list.handlers[list.size], arg->handler, sizeof(list.handlers[list.size]));
-    memcpy(list.namespace[list.size], arg -> handler_namespace, sizeof(list.namespace[list.size]));
+    memcpy(list.handler_namespace[list.size], arg->handler_namespace, sizeof(list.handler_namespace[list.size]));
     list.size += 1;
     log_debug("number of subscription: %d", list.size);
     int i;
     for (i = 0; i < list.size; ++i) {
-        log_debug("[%d] %s/%s", i, list.namespace[i], list.handlers[i]);
+        log_debug("[%d] %s/%s", i, list.handler_namespace[i], list.handlers[i]);
     }
 
     unsigned long seq = WooFPut(subscription_woof, NULL, &list);

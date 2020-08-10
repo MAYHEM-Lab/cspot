@@ -32,15 +32,18 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         strcpy(invocation_arg.woof_name, arg->element_woof);
         strcpy(invocation_arg.topic_name, arg->topic_name);
         invocation_arg.seq_no = arg->element_seqno;
-        log_debug("woof_name: %s, topic_name: %s, seq_no: %lu", invocation_arg.woof_name, invocation_arg.topic_name, invocation_arg.seq_no);
+        log_debug("woof_name: %s, topic_name: %s, seq_no: %lu",
+                  invocation_arg.woof_name,
+                  invocation_arg.topic_name,
+                  invocation_arg.seq_no);
 
         char invocation_woof[DHT_NAME_LENGTH];
-        sprintf(invocation_woof, "%s/%s", list.namespace[i], DHT_INVOCATION_WOOF);
+        sprintf(invocation_woof, "%s/%s", list.handler_namespace[i], DHT_INVOCATION_WOOF);
         unsigned long seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
         if (WooFInvalid(seq)) {
-            log_error("failed to trigger handler %s in %s", list.handlers[i], list.namespace[i]);
+            log_error("failed to trigger handler %s in %s", list.handlers[i], list.handler_namespace[i]);
         } else {
-            log_debug("triggered handler %s/%s", list.namespace[i], list.handlers[i]);
+            log_debug("triggered handler %s/%s", list.handler_namespace[i], list.handlers[i]);
         }
     }
 
