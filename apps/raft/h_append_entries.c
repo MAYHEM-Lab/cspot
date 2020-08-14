@@ -3,6 +3,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     result.seqno = seq_no;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
     if (get_milliseconds() - request.created_ts > warning_latency) {
-        log_warn("request %lu took %lums to receive", seq_no, get_milliseconds() - request.created_ts);
+        log_warn("request %lu took %" PRIu64 "ms to receive", seq_no, get_milliseconds() - request.created_ts);
     }
     int m_id = member_id(request.leader_woof, server_state.member_woofs);
     if (m_id == -1 || m_id >= server_state.members) {
@@ -51,25 +52,25 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("received a previous request [%lu]", seq_no);
     } else {
         if (request.term == server_state.current_term && server_state.role == RAFT_LEADER) {
-            log_error("fatal error: receiving append_entries request at term %lu while being a leader",
+            log_error("fatal error: receiving append_entries request at term %" PRIu64 " while being a leader",
                       server_state.current_term);
             exit(1);
         }
         if (server_state.role == RAFT_OBSERVER) {
             if (request.term > server_state.current_term) {
-                log_debug("observer enters term %lu", request.term);
+                log_debug("observer enters term %" PRIu64 "", request.term);
                 server_state.current_term = request.term;
                 strcpy(server_state.current_leader, request.leader_woof);
                 unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                 if (WooFInvalid(seq)) {
-                    log_error("failed to enter term %lu", request.term);
+                    log_error("failed to enter term %" PRIu64 "", request.term);
                     exit(1);
                 }
             }
         } else if (request.term > server_state.current_term ||
                    (request.term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
             // fall back to follower
-            log_debug("request term %lu is higher, fall back to follower", request.term);
+            log_debug("request term %" PRIu64 " is higher, fall back to follower", request.term);
             if (request.term > server_state.current_term) {
                 server_state.current_term = request.term;
                 memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
@@ -78,10 +79,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             strcpy(server_state.current_leader, request.leader_woof);
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to fall back to follower at term %lu", request.term);
+                log_error("failed to fall back to follower at term %" PRIu64 "", request.term);
                 exit(1);
             }
-            log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+            log_info("state changed at term %" PRIu64 ": FOLLOWER", server_state.current_term);
             RAFT_HEARTBEAT heartbeat = {0};
             heartbeat.term = server_state.current_term;
             heartbeat.timestamp = get_milliseconds();
@@ -106,7 +107,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         heartbeat.timestamp = get_milliseconds();
         unsigned long seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
         if (WooFInvalid(seq)) {
-            log_error("failed to put a new heartbeat from term %lu", request.term);
+            log_error("failed to put a new heartbeat from term %" PRIu64 "", request.term);
             exit(1);
         }
         // log_debug("received a heartbeat [%lu]", seq_no);
@@ -114,8 +115,9 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         // check if the previous log matches with the leader
         unsigned long last_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
         if (last_entry_seqno < request.prev_log_index) {
-            log_debug(
-                "no log entry exists at prev_log_index %lu, latest: %lu", request.prev_log_index, last_entry_seqno);
+            log_debug("no log entry exists at prev_log_index %" PRIu64 ", latest: %lu",
+                      request.prev_log_index,
+                      last_entry_seqno);
             result.term = request.term;
             result.success = 0;
             result.last_entry_seq = last_entry_seqno;
@@ -124,13 +126,14 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             RAFT_LOG_ENTRY previous_entry = {0};
             if (request.prev_log_index > 0) {
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &previous_entry, request.prev_log_index) < 0) {
-                    log_error("failed to get log entry at prev_log_index %lu", request.prev_log_index);
+                    log_error("failed to get log entry at prev_log_index %" PRIu64 "", request.prev_log_index);
                     exit(1);
                 }
             }
             // term doesn't match
             if (request.prev_log_index > 0 && previous_entry.term != request.prev_log_term) {
-                log_debug("previous log entry at prev_log_index %lu doesn't match request.prev_log_term %lu: %lu [%lu]",
+                log_debug("previous log entry at prev_log_index %lu doesn't match request.prev_log_term %" PRIu64
+                          ": %" PRIu64 " [%" PRIu64 "]",
                           request.prev_log_index,
                           request.prev_log_term,
                           previous_entry.term,
@@ -147,7 +150,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         log_error("failed to truncate log entries woof");
                         exit(1);
                     }
-                    log_debug("log truncated to %lu", request.prev_log_index);
+                    log_debug("log truncated to %" PRIu64 "", request.prev_log_index);
                 }
                 // appending entries
                 int i;
@@ -165,7 +168,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         int new_members;
                         char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
                         if (decode_config(request.entries[i].data.val, &new_members, new_member_woofs) < 0) {
-                            log_error("failed to decode config from entry[%lu]", i);
+                            log_error("failed to decode config from entry[%d]", i);
                             exit(1);
                         }
                         server_state.members = new_members;
@@ -206,15 +209,15 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         }
                         unsigned long server_state_seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                         if (WooFInvalid(server_state_seq)) {
-                            log_error("failed to update server config at term %lu", server_state.current_term);
+                            log_error("failed to update server config at term %" PRIu64 "", server_state.current_term);
                             exit(1);
                         }
                         if (request.entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
-                            log_info("start using joint config with %d members at term %lu",
+                            log_info("start using joint config with %d members at term %" PRIu64 "",
                                      server_state.members,
                                      server_state.current_term);
                         } else if (request.entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
-                            log_info("start using new config with %d members at term %lu",
+                            log_info("start using new config with %d members at term %" PRIu64 "",
                                      server_state.members,
                                      server_state.current_term);
                         }
@@ -252,12 +255,12 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     }
                     unsigned long server_state_seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                     if (WooFInvalid(server_state_seq)) {
-                        log_error("failed to update commit_index to %lu at term %lu",
+                        log_error("failed to update commit_index to %" PRIu64 " at term %" PRIu64 "",
                                   server_state.commit_index,
                                   server_state.current_term);
                         exit(1);
                     }
-                    log_debug("updated commit_index to %lu at term %lu",
+                    log_debug("updated commit_index to %" PRIu64 " at term %" PRIu64 "",
                               server_state.commit_index,
                               server_state.current_term);
                 }

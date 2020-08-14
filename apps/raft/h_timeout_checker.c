@@ -4,6 +4,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,8 +79,9 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     memset(thread_arg, 0, sizeof(REQUEST_VOTE_THREAD_ARG) * RAFT_MAX_MEMBERS);
     if (get_milliseconds() - heartbeat.timestamp > arg.timeout_value) {
         arg.timeout_value = random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
-        log_warn(
-            "timeout after %lums at term %lu", get_milliseconds() - heartbeat.timestamp, server_state.current_term);
+        log_warn("timeout after %" PRIu64 "ms at term %" PRIu64 "",
+                 get_milliseconds() - heartbeat.timestamp,
+                 server_state.current_term);
 
         // increment the term and become candidate
         server_state.current_term += 1;
@@ -88,11 +90,12 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
         unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
         if (WooFInvalid(seq)) {
-            log_error("failed to increment the server's term to %lu and initialize an election");
+            log_error("failed to increment the server's term to %" PRIu64 " and initialize an election",
+                      server_state.current_term);
             exit(1);
         }
-        log_info("state changed at term %lu: CANDIDATE", server_state.current_term);
-        log_info("started an election for term %lu", server_state.current_term);
+        log_info("state changed at term %" PRIu64 ": CANDIDATE", server_state.current_term);
+        log_info("started an election for term %" PRIu64 "", server_state.current_term);
 
         // put a heartbeat to avoid another timeout
         RAFT_HEARTBEAT heartbeat = {0};

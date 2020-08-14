@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef DHT_UTILS_H
 #define DHT_UTILS_H
 
@@ -22,9 +26,24 @@ void log_error(const char* message, ...);
 
 int get_latest_element(char* woof_name, void* element);
 int read_raft_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
-int read_dht_config(FILE* fp, int* stabilize_freq, int* chk_predecessor_freq, int* fix_finger_freq, int* update_leader_freq, int* daemon_wakeup_freq);
-void serialize_dht_config(char *dst, int stabilize_freq, int chk_predecessor_freq, int fix_finger_freq, int update_leader_freq, int daemon_wakeup_freq);
-void deserialize_dht_config(char *src, int* stabilize_freq, int* chk_predecessor_freq, int* fix_finger_freq, int* update_leader_freq, int* daemon_wakeup_freq);
+int read_dht_config(FILE* fp,
+                    int* stabilize_freq,
+                    int* chk_predecessor_freq,
+                    int* fix_finger_freq,
+                    int* update_leader_freq,
+                    int* daemon_wakeup_freq);
+void serialize_dht_config(char* dst,
+                          int stabilize_freq,
+                          int chk_predecessor_freq,
+                          int fix_finger_freq,
+                          int update_leader_freq,
+                          int daemon_wakeup_freq);
+void deserialize_dht_config(char* src,
+                            int* stabilize_freq,
+                            int* chk_predecessor_freq,
+                            int* fix_finger_freq,
+                            int* update_leader_freq,
+                            int* daemon_wakeup_freq);
 int dht_init(unsigned char* node_hash,
              char* node_name,
              char* node_addr,
@@ -46,4 +65,8 @@ char* finger_addr(DHT_FINGER_INFO* info);
 int raft_leader_id();
 #endif
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

@@ -4,6 +4,7 @@
 #include "woofc.h"
 
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #define RAFT_LEADER 0
@@ -53,7 +54,7 @@
 char raft_error_msg[256];
 
 typedef struct raft_debug_interrupt_arg {
-    unsigned long microsecond;
+    uint64_t microsecond;
 } RAFT_DEBUG_INTERRUPT_ARG;
 
 typedef struct data_type {
@@ -61,10 +62,10 @@ typedef struct data_type {
 } RAFT_DATA_TYPE;
 
 typedef struct raft_log_entry {
-    unsigned long term;
+    uint64_t term;
     RAFT_DATA_TYPE data;
-    int is_config;
-    int is_handler;
+    int32_t is_config;
+    int32_t is_handler;
 } RAFT_LOG_ENTRY;
 
 typedef struct raft_log_handler_entry {
@@ -74,111 +75,111 @@ typedef struct raft_log_handler_entry {
 
 typedef struct raft_server_state {
     char woof_name[RAFT_NAME_LENGTH];
-    int role;
-    unsigned long current_term;
+    int32_t role;
+    uint64_t current_term;
     char voted_for[RAFT_NAME_LENGTH];
     char current_leader[RAFT_NAME_LENGTH];
-    int timeout_min;
-    int timeout_max;
+    int32_t timeout_min;
+    int32_t timeout_max;
 
-    int members;
-    int observers;
+    int32_t members;
+    int32_t observers;
     char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-    int current_config;
-    unsigned long last_config_seqno;
+    int32_t current_config;
+    uint64_t last_config_seqno;
 
-    unsigned long commit_index;
-    unsigned long next_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-    unsigned long match_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-    unsigned long last_sent_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-    unsigned long last_sent_timestamp[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t commit_index;
+    uint64_t next_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t match_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t last_sent_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t last_sent_timestamp[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 } RAFT_SERVER_STATE;
 
 typedef struct raft_heartbeat {
-    unsigned long term;
-    unsigned long timestamp;
+    uint64_t term;
+    uint64_t timestamp;
 } RAFT_HEARTBEAT;
 
 typedef struct raft_timeout_checker_arg {
-    unsigned long timeout_value;
+    uint64_t timeout_value;
 } RAFT_TIMEOUT_CHECKER_ARG;
 
 typedef struct raft_append_entries_arg {
-    unsigned long term;
+    uint64_t term;
     char leader_woof[RAFT_NAME_LENGTH];
-    unsigned long prev_log_index;
-    unsigned long prev_log_term;
+    uint64_t prev_log_index;
+    uint64_t prev_log_term;
     RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
-    unsigned long leader_commit;
-    unsigned long created_ts;
+    uint64_t leader_commit;
+    uint64_t created_ts;
 } RAFT_APPEND_ENTRIES_ARG;
 
 typedef struct raft_append_entries_result {
     char server_woof[RAFT_NAME_LENGTH];
-    unsigned long term;
-    int success;
-    unsigned long last_entry_seq;
-    unsigned long seqno;
-    unsigned long request_created_ts;
+    uint64_t term;
+    int32_t success;
+    uint64_t last_entry_seq;
+    uint64_t seqno;
+    uint64_t request_created_ts;
 } RAFT_APPEND_ENTRIES_RESULT;
 
 typedef struct raft_client_put_request {
     RAFT_DATA_TYPE data;
-    unsigned long created_ts;
-    int is_handler;
+    uint64_t created_ts;
+    int32_t is_handler;
 } RAFT_CLIENT_PUT_REQUEST;
 
 typedef struct raft_client_put_arg {
-    unsigned long last_seqno;
+    uint64_t last_seqno;
 } RAFT_CLIENT_PUT_ARG;
 
 typedef struct raft_client_put_result {
-    int redirected;
-    unsigned long index;
-    unsigned long term;
+    int32_t redirected;
+    uint64_t index;
+    uint64_t term;
     char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CLIENT_PUT_RESULT;
 
 typedef struct raft_config_change_arg {
-    int members;
+    int32_t members;
     char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 
-    int observe;
+    int32_t observe;
     char observer_woof[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_ARG;
 
 typedef struct raft_config_change_result {
-    int redirected;
-    int success;
+    int32_t redirected;
+    int32_t success;
     char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_RESULT;
 
 typedef struct raft_replicate_entries {
-    unsigned long term;
-    unsigned long last_seen_result_seqno;
-    unsigned long last_ts;
+    uint64_t term;
+    uint64_t last_seen_result_seqno;
+    uint64_t last_ts;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {
-    unsigned long term;
+    uint64_t term;
     char candidate_woof[RAFT_NAME_LENGTH];
-    unsigned long candidate_vote_pool_seqno;
-    unsigned long last_log_index;
-    unsigned long last_log_term;
-    unsigned long created_ts;
+    uint64_t candidate_vote_pool_seqno;
+    uint64_t last_log_index;
+    uint64_t last_log_term;
+    uint64_t created_ts;
 } RAFT_REQUEST_VOTE_ARG;
 
 typedef struct raft_request_vote_result {
-    unsigned long term;
-    int granted;
-    unsigned long candidate_vote_pool_seqno;
-    unsigned long request_created_ts;
+    uint64_t term;
+    int32_t granted;
+    uint64_t candidate_vote_pool_seqno;
+    uint64_t request_created_ts;
     char granter[RAFT_NAME_LENGTH];
 } RAFT_REQUEST_VOTE_RESULT;
 
 int get_server_state(RAFT_SERVER_STATE* server_state);
-int random_timeout(unsigned long seed, int min, int max);
-int member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
+uint64_t random_timeout(unsigned long seed, int min, int max);
+int32_t member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int encode_config(char* dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int decode_config(char* src, int* members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int compute_joint_config(int old_members,

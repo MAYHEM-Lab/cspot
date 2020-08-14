@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef DHT_H
 #define DHT_H
 
@@ -37,8 +41,8 @@
 #define DHT_MONITOR_NAME "dht"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
-#define DHT_HISTORY_LENGTH_LONG 256
-#define DHT_HISTORY_LENGTH_SHORT 4
+#define DHT_HISTORY_LENGTH_LONG 512
+#define DHT_HISTORY_LENGTH_SHORT 32
 #define DHT_MAX_SUBSCRIPTIONS 8
 // #define DHT_STABILIZE_FREQUENCY 1000
 // #define DHT_CHECK_PREDECESSOR_FREQUENCY 1000
@@ -272,4 +276,8 @@ int dht_join_cluster(char* node_woof,
                      int update_leader_freq,
                      int daemon_wakeup_freq);
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

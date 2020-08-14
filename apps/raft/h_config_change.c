@@ -3,6 +3,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,7 +42,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             server_state.observers += 1;
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to add observer to server at term %lu", server_state.current_term);
+                log_error("failed to add observer to server at term %" PRIu64 "", server_state.current_term);
                 exit(1);
             }
             log_info("%s starts observing", arg.observer_woof);
@@ -128,10 +129,10 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to update server config at term %lu", server_state.current_term);
+                log_error("failed to update server config at term %" PRIu64 "", server_state.current_term);
                 exit(1);
             }
-            log_info("start using joint config with %d members at term %lu",
+            log_info("start using joint config with %d members at term %" PRIu64 "",
                      server_state.members,
                      server_state.current_term);
             result.redirected = 0;

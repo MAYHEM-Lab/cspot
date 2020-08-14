@@ -115,7 +115,7 @@ int get_latest_element(char* woof_name, void* element) {
         return -1;
     }
     if (WooFGet(woof_name, element, latest_seq) < 0) {
-        sprintf(dht_error_msg, "failed to get the latest woof element");
+        sprintf(dht_error_msg, "failed to get the latest woof element from %s", woof_name);
         return -1;
     }
     return 0;
@@ -267,6 +267,9 @@ int dht_init(unsigned char* node_hash,
     }
 
     DHT_SUCCESSOR_INFO successor_info = {0};
+    // initialize successor to itself
+    memcpy(successor_info.hash, node_hash, sizeof(node_info.hash));
+    memcpy(successor_info.replicas, node_replicas, sizeof(successor_info.replicas));
     seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor_info);
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed to initialize %s", DHT_SUCCESSOR_INFO_WOOF);

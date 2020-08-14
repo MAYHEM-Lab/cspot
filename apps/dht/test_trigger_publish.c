@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define TEST_HANDLER "test_dht_handler"
+#define TEST_TIMEOUT 5000
 
 typedef struct test_stc {
     char msg[256 - 8];
@@ -30,7 +31,7 @@ int main(int argc, char** argv) {
         dht_set_client_ip(argv[2]);
     }
 
-    unsigned long seq = dht_publish(argv[1], &el, sizeof(TEST_EL));
+    unsigned long seq = dht_publish(argv[1], &el, sizeof(TEST_EL), TEST_TIMEOUT);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
         exit(1);

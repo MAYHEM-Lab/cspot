@@ -11,9 +11,10 @@
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
     char client_ip[DHT_NAME_LENGTH] = {0};
+    int timeout = 0;
 
     int c;
-    while ((c = getopt(argc, argv, "t:i:")) != EOF) {
+    while ((c = getopt(argc, argv, "t:i:d:")) != EOF) {
         switch (c) {
         case 't': {
             strncpy(topic, optarg, sizeof(topic));
@@ -23,8 +24,12 @@ int main(int argc, char** argv) {
             strncpy(client_ip, optarg, sizeof(client_ip));
             break;
         }
+        case 'd': {
+            timeout = (int)strtoul(optarg, NULL, 0);
+            break;
+        }
         default: {
-            fprintf(stderr, "./init_topic -t topic -i client_ip(optional)s\n");
+            fprintf(stderr, "./init_topic -t topic (-i client_ip -d timeout)\n");
             exit(1);
         }
         }
@@ -45,7 +50,7 @@ int main(int argc, char** argv) {
     }
 
     if (!match || topic[0] == 0) {
-        fprintf(stderr, "./init_topic -t topic -i client_ip(optional)\n");
+        fprintf(stderr, "./init_topic -t topic (-i client_ip -d timeout)\n");
         fprintf(stderr, "topic list:\n");
         for (int i = 0; i < sizeof(reading_topics) / DHT_NAME_LENGTH; ++i) {
             fprintf(stderr, "\t%s\n", reading_topics[i]);
@@ -62,18 +67,21 @@ int main(int argc, char** argv) {
         dht_set_client_ip(client_ip);
     }
 
+    printf("creating topic %s\n", topic);
     if (dht_create_topic(topic, sizeof(TEMPERATURE_ELEMENT), MULTI_REGRESSION_HISTORY_LENGTH) < 0) {
         fprintf(stderr, "failed to create topic %s: %s\n", topic, dht_error_msg);
         exit(1);
     }
 
-    if (dht_register_topic(topic) < 0) {
+    printf("registering topic %s\n", topic);
+    if (dht_register_topic(topic, timeout) < 0) {
         fprintf(stderr, "failed to register topic %s: %s\n", topic, dht_error_msg);
         exit(1);
     }
 
     if (strcmp(topic, TOPIC_PIZERO02_PREDICT) == 0) {
         sleep(2);
+        printf("subscribing topic %s\n", topic);
         if (dht_subscribe(TOPIC_PIZERO02_CPU, HANDLER_REGRESS) < 0) {
             fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
             exit(1);
@@ -81,6 +89,7 @@ int main(int argc, char** argv) {
     }
     if (strcmp(topic, TOPIC_PIZERO02_CPU) == 0) {
         sleep(2);
+        printf("subscribing topic %s\n", topic);
         if (dht_subscribe(TOPIC_PIZERO02_CPU, HANDLER_TRAIN) < 0) {
             fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
             exit(1);

@@ -39,16 +39,16 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    if (dht_register_topic(TOPIC_BUILDING_TOTAL) < 0) {
+    if (dht_register_topic(TOPIC_BUILDING_TOTAL, 5000) < 0) {
         fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
         exit(1);
     }
 
     sleep(2);
-    
+
     COUNT_EL count = {0};
     count.count = 0;
-    unsigned long seq = dht_publish(TOPIC_BUILDING_TOTAL, &count, sizeof(COUNT_EL));
+    unsigned long seq = dht_publish(TOPIC_BUILDING_TOTAL, &count, sizeof(COUNT_EL), 5000);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to initialize %s\n", TOPIC_BUILDING_TOTAL);
     }

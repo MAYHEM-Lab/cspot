@@ -7,6 +7,7 @@
 #include "raft_client.h"
 #endif
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -22,17 +23,17 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
 #ifdef USE_RAFT
-    log_debug("using raft, getting index %lu from %s", arg->seq_no, arg->woof_name);
+    log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
     raft_set_client_leader(arg->woof_name);
     unsigned long term = raft_sync_get(&raft_data, arg->seq_no, 0);
     if (raft_is_error(term)) {
-        log_error("failed to get raft data from %s at %lu: %s", arg->woof_name, arg->seq_no, raft_error_msg);
+        log_error("failed to get raft data from %s at %" PRIu64 ": %s", arg->woof_name, arg->seq_no, raft_error_msg);
         exit(1);
     }
     int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, raft_data.val);
 #else
-    log_debug("using woof, getting seqno %lu from %s", arg->seq_no, arg->woof_name);
+    log_debug("using woof, getting seqno %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     unsigned long element_size = WooFMsgGetElSize(arg->woof_name);
     if (WooFInvalid(element_size)) {
         log_error("failed to get element size of %s", arg->woof_name);
@@ -45,7 +46,7 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     if (WooFGet(arg->woof_name, element, arg->seq_no) < 0) {
-        log_error("failed to read element from %s at %lu", arg->woof_name, arg->seq_no);
+        log_error("failed to read element from %s at %" PRIu64 "", arg->woof_name, arg->seq_no);
         free(element);
         exit(1);
     }

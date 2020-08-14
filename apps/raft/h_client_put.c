@@ -3,6 +3,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,7 +66,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             result.index = entry_seqno;
             result.term = server_state.current_term;
             if (RAFT_SAMPLING_RATE > 0 && (entry_seqno % RAFT_SAMPLING_RATE == 0)) {
-                log_debug("entry %lu was created at %lu", entry_seqno, request.created_ts);
+                log_debug("entry %lu was created at %" PRIu64 "", entry_seqno, request.created_ts);
             }
             // if it's a handler entry, invoke the handler
             if (request.is_handler) {

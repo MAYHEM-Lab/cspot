@@ -18,6 +18,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_NOTIFY_CALLBACK_ARG result = {0};
     if (monitor_cast(ptr, &result) < 0) {
         log_error("failed to call monitor_cast");
+        monitor_exit(ptr);
         exit(1);
     }
 

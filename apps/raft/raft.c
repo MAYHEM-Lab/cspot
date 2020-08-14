@@ -3,6 +3,7 @@
 #include "monitor.h"
 #include "raft_utils.h"
 
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,13 +78,13 @@ int get_server_state(RAFT_SERVER_STATE* server_state) {
     return 0;
 }
 
-int random_timeout(unsigned long seed, int min, int max) {
+uint64_t random_timeout(unsigned long seed, int min, int max) {
     srand(seed);
-    return min + (rand() % (max - min));
+    return (uint64_t)(min + (rand() % (max - min)));
 }
 
-int member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
-    int i;
+int32_t member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
+    int32_t i;
     for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
         if (strcmp(woof_name, member_woofs[i]) == 0) {
             return i;
@@ -248,7 +249,7 @@ int raft_start_server(int members,
         fprintf(stderr, "Couldn't put the first heartbeat\n");
         return -1;
     }
-    printf("Put a heartbeat[%lu] %lu\n", seq, heartbeat.timestamp);
+    printf("Put a heartbeat[%lu] %" PRIu64 "\n", seq, heartbeat.timestamp);
 
     RAFT_CLIENT_PUT_ARG client_put_arg = {0};
     client_put_arg.last_seqno = 0;

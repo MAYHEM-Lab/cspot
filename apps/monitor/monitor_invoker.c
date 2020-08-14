@@ -1,6 +1,7 @@
 #include "monitor.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,8 +68,8 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
 #ifdef PROCESS_TIME
                 struct timeval tv;
                 gettimeofday(&tv, NULL);
-                printf("took %lums to invoke %s\n",
-                       ((unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000) - pool_item[next].queued_ts,
+                printf("took %" PRIu64 "ms to invoke %s\n",
+                       ((uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000) - pool_item[next].queued_ts,
                        pool_item[next].handler);
 #endif
                 return 0;

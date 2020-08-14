@@ -4,6 +4,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,14 +34,14 @@ void* replicate_thread(void* arg) {
     } else {
         if (replicate_thread_arg->num_entries > 0) {
             if (replicate_thread_arg->member_id < RAFT_MAX_MEMBERS) {
-                log_debug("sent %d entries to member %d [%lu], prev_index: %lu, %s",
+                log_debug("sent %d entries to member %d [%lu], prev_index: %" PRIu64 ", %s",
                           replicate_thread_arg->num_entries,
                           replicate_thread_arg->member_id,
                           seq,
                           replicate_thread_arg->arg.prev_log_index,
                           woof_name);
             } else {
-                log_debug("sent %d entries to observer %d [%lu], prev_index: %lu, %s",
+                log_debug("sent %d entries to observer %d [%lu], prev_index: %" PRIu64 ", %s",
                           replicate_thread_arg->num_entries,
                           replicate_thread_arg->member_id,
                           seq,
@@ -85,7 +86,8 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     int replicate_delay = heartbeat_rate / 5;
 
     if (server_state.current_term != arg.term || server_state.role != RAFT_LEADER) {
-        log_debug("not a leader at term %lu anymore, current term: %lu", arg.term, server_state.current_term);
+        log_debug(
+            "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
         monitor_exit(ptr);
         return 1;
     }
@@ -115,11 +117,12 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
         // if (get_milliseconds() - result.request_created_ts > RAFT_TIMEOUT_MIN) {
-        // 	log_warn("request %lu took %lums to receive response", result_seq, get_milliseconds() -
-        // result.request_created_ts);
+        //     log_warn("request %lu took %" PRIu64 "ms to receive response",
+        //              result_seq,
+        //              get_milliseconds() - result.request_created_ts);
         // }
         if (RAFT_SAMPLING_RATE > 0 && (result_seq % RAFT_SAMPLING_RATE == 0)) {
-            log_debug("request %lu took %lums to receive response",
+            log_debug("request %lu took %" PRIu64 "ms to receive response",
                       result_seq,
                       get_milliseconds() - result.request_created_ts);
         }
@@ -131,17 +134,17 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         if (result_member_id < server_state.members && result.term > server_state.current_term) {
             // fall back to follower
-            log_debug("request term %lu is higher, fall back to follower", result.term);
+            log_debug("request term %" PRIu64 " is higher, fall back to follower", result.term);
             server_state.current_term = result.term;
             server_state.role = RAFT_FOLLOWER;
             strcpy(server_state.current_leader, result.server_woof);
             memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to fall back to follower at term %lu", result.term);
+                log_error("failed to fall back to follower at term %" PRIu64 "", result.term);
                 exit(1);
             }
-            log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+            log_info("state changed at term %" PRIu64 ": FOLLOWER", server_state.current_term);
             RAFT_HEARTBEAT heartbeat = {0};
             heartbeat.term = server_state.current_term;
             heartbeat.timestamp = get_milliseconds();
@@ -151,7 +154,8 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
-            timeout_checker_arg.timeout_value = random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
+            timeout_checker_arg.timeout_value =
+                random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
             seq =
                 monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
@@ -165,11 +169,17 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             server_state.next_index[result_member_id] = result.last_entry_seq + 1;
             if (result.success) {
                 server_state.match_index[result_member_id] = result.last_entry_seq;
-                // log_debug("[%lu] success[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno,
-                // result_member_id, server_state.next_index[result_member_id]);
+                // log_debug("[%lu] success[%" PRIu64 "], server_state.next_index[%d]: %" PRIu64 "",
+                //           seq_no,
+                //           result.seqno,
+                //           result_member_id,
+                //           server_state.next_index[result_member_id]);
             } else {
-                // log_debug("[%lu] failed[%lu], server_state.next_index[%d]: %lu", seq_no, result.seqno,
-                // result_member_id, server_state.next_index[result_member_id]);
+                // log_debug("[%lu] failed[%" PRIu64 "], server_state.next_index[%d]: %" PRIu64 "",
+                //           seq_no,
+                //           result.seqno,
+                //           result_member_id,
+                //           server_state.next_index[result_member_id]);
             }
         }
         arg.last_seen_result_seqno = result_seq;
@@ -193,10 +203,11 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             server_state.commit_index = sorted_match_index[i];
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to update commit_index at term %lu", server_state.current_term);
+                log_error("failed to update commit_index at term %" PRIu64 "", server_state.current_term);
                 exit(1);
             }
-            log_debug("updated commit_index to %lu at %lu", server_state.commit_index, get_milliseconds());
+            log_debug(
+                "updated commit_index to %" PRIu64 " at %" PRIu64 "", server_state.commit_index, get_milliseconds());
 
             // check if joint config is commited
             if (server_state.current_config == RAFT_CONFIG_STATUS_JOINT &&
@@ -205,7 +216,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 // append the new config
                 RAFT_LOG_ENTRY config_entry = {0};
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &config_entry, server_state.last_config_seqno) < 0) {
-                    log_error("failed to get the commited config %lu", server_state.last_config_seqno);
+                    log_error("failed to get the commited config %" PRIu64 "", server_state.last_config_seqno);
                     exit(1);
                 }
                 int new_members;
@@ -247,7 +258,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 }
                 unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                 if (WooFInvalid(seq)) {
-                    log_error("failed to update server config at term %lu", server_state.current_term);
+                    log_error("failed to update server config at term %" PRIu64 "", server_state.current_term);
                     exit(1);
                 }
                 log_info("start using new config with %d members", server_state.members);
@@ -301,7 +312,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             int i;
             for (i = 0; i < num_entries; ++i) {
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &thread_arg[m].arg.entries[i], server_state.next_index[m] + i) < 0) {
-                    log_error("failed to get the log entries at %lu", server_state.next_index[m] + i);
+                    log_error("failed to get the log entries at %" PRIu64 "", server_state.next_index[m] + i);
                     exit(1);
                 }
             }

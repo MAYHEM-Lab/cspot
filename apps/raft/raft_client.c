@@ -4,6 +4,7 @@
 #include "raft.h"
 #include "raft_utils.h"
 
+#include <inttypes.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -25,8 +26,8 @@ void raft_set_client_result_delay(int delay) {
 }
 
 // return log index
-unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
-    unsigned long begin = get_milliseconds();
+uint64_t raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
+    uint64_t begin = get_milliseconds();
 
     RAFT_CLIENT_PUT_REQUEST request = {0};
     request.is_handler = 0;
@@ -44,7 +45,7 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     unsigned long latest_result = 0;
     while (latest_result < seq) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
-            sprintf(raft_error_msg, "timeout after %lums\n", timeout);
+            sprintf(raft_error_msg, "timeout after %dms\n", timeout);
             return RAFT_TIMEOUT;
         }
         usleep(raft_client_result_delay * 1000);
@@ -62,10 +63,10 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
 
     RAFT_SERVER_STATE server_state = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_SERVER_STATE_WOOF);
-    unsigned long commit_index = 0;
+    uint64_t commit_index = 0;
     while (commit_index < result.index) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
-            sprintf(raft_error_msg, "timeout after %lums\n", timeout);
+            sprintf(raft_error_msg, "timeout after %dms\n", timeout);
             return RAFT_TIMEOUT;
         }
         unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
@@ -89,7 +90,7 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
     }
     if (entry.term == result.term) {
 #ifdef DEBUG
-        printf("entry %lu committed at term %lu, val: %s, took %lums\n",
+        printf("entry %" PRIu64 " committed at term %" PRIu64 ", val: %s, took %" PRIu64 "ms\n",
                result.index,
                entry.term,
                entry.data.val,
@@ -98,7 +99,7 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
         return result.index;
     } else {
         sprintf(raft_error_msg,
-                "entry %lu appended but got overriden at term %lu, val: %s\n",
+                "entry %" PRIu64 " appended but got overriden at term %" PRIu64 ", val: %s\n",
                 result.index,
                 entry.term,
                 entry.data.val);
@@ -108,7 +109,7 @@ unsigned long raft_sync_put(RAFT_DATA_TYPE* data, int timeout) {
 
 // return client_put request seqno
 unsigned long raft_async_put(RAFT_DATA_TYPE* data) {
-    unsigned long begin = get_milliseconds();
+    uint64_t begin = get_milliseconds();
 
     RAFT_CLIENT_PUT_REQUEST request = {0};
     request.is_handler = 0;
@@ -125,7 +126,7 @@ unsigned long raft_async_put(RAFT_DATA_TYPE* data) {
 }
 
 // return term or ERROR
-unsigned long raft_sync_get(RAFT_DATA_TYPE* data, unsigned long index, int committed_only) {
+uint64_t raft_sync_get(RAFT_DATA_TYPE* data, uint64_t index, int committed_only) {
     char woof_name[RAFT_NAME_LENGTH] = {0};
     // check if it's committed
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_SERVER_STATE_WOOF);
@@ -147,8 +148,8 @@ unsigned long raft_sync_get(RAFT_DATA_TYPE* data, unsigned long index, int commi
     // check log entry term
     RAFT_LOG_ENTRY entry = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_LOG_ENTRIES_WOOF);
-    if (WooFGet(woof_name, &entry, index) < 0) {
-        sprintf(raft_error_msg, "can't get log entry at %lu", index);
+    if (WooFGet(woof_name, &entry, (unsigned long)index) < 0) {
+        sprintf(raft_error_msg, "can't get log entry at %lu", (unsigned long)index);
         return RAFT_ERROR;
     }
     memcpy(data, &entry.data, sizeof(RAFT_DATA_TYPE));
@@ -156,16 +157,16 @@ unsigned long raft_sync_get(RAFT_DATA_TYPE* data, unsigned long index, int commi
 }
 
 // return term or ERROR
-unsigned long raft_async_get(RAFT_DATA_TYPE* data, unsigned long client_put_seqno) {
-    unsigned long begin = get_milliseconds();
+uint64_t raft_async_get(RAFT_DATA_TYPE* data, unsigned long client_put_seqno) {
+    uint64_t begin = get_milliseconds();
 
-    unsigned long index, term;
+    uint64_t index, term;
     if (raft_client_put_result(&index, &term, client_put_seqno) < 0) {
         sprintf(raft_error_msg, "can't get index and term from client_put request");
         return RAFT_ERROR;
     }
 
-    unsigned long committed_term = raft_sync_get(data, index, 1);
+    uint64_t committed_term = raft_sync_get(data, index, 1);
     if (raft_is_error(committed_term)) {
         return committed_term;
     }
@@ -176,7 +177,7 @@ unsigned long raft_async_get(RAFT_DATA_TYPE* data, unsigned long client_put_seqn
     return committed_term;
 }
 
-unsigned long raft_put_handler(char* handler, void* data, unsigned long size, int timeout) {
+uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int timeout) {
     if (size > sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH) {
         sprintf(raft_error_msg,
                 "size %lu is greater than the maximum a log entry can support(%lu)",
@@ -184,7 +185,7 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
                 sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH);
         return -1;
     }
-    unsigned long begin = get_milliseconds();
+    uint64_t begin = get_milliseconds();
     RAFT_CLIENT_PUT_REQUEST request = {0};
     request.is_handler = 1;
     request.created_ts = get_milliseconds();
@@ -203,7 +204,7 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
     unsigned long latest_result = 0;
     while (latest_result < seq) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
-            sprintf(raft_error_msg, "timeout after %lums\n", timeout);
+            sprintf(raft_error_msg, "timeout after %dms\n", timeout);
             return RAFT_TIMEOUT;
         }
         usleep(raft_client_result_delay * 1000);
@@ -221,10 +222,10 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
 
     RAFT_SERVER_STATE server_state = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_SERVER_STATE_WOOF);
-    unsigned long commit_index = 0;
+    uint64_t commit_index = 0;
     while (commit_index < result.index) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
-            sprintf(raft_error_msg, "timeout after %lums\n", timeout);
+            sprintf(raft_error_msg, "timeout after %dms\n", timeout);
             return RAFT_TIMEOUT;
         }
         unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
@@ -246,7 +247,7 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
         return result.index;
     } else {
         sprintf(raft_error_msg,
-                "entry %lu appended but got overriden at term %lu, val: %s\n",
+                "entry %" PRIu64 " appended but got overriden at term %" PRIu64 ", val: %s\n",
                 result.index,
                 entry.term,
                 entry.data.val);
@@ -254,7 +255,91 @@ unsigned long raft_put_handler(char* handler, void* data, unsigned long size, in
     }
 }
 
-int raft_client_put_result(unsigned long* index, unsigned long* term, unsigned long seq_no) {
+uint64_t
+raft_sessionless_put_handler(char* raft_leader, char* handler, void* data, unsigned long size, int timeout) {
+    if (size > sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH) {
+        sprintf(raft_error_msg,
+                "size %lu is greater than the maximum a log entry can support(%lu)",
+                size,
+                sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH);
+        return -1;
+    }
+    char leader[RAFT_NAME_LENGTH] = {0};
+    strcpy(leader, raft_leader);
+    char woof_name[RAFT_NAME_LENGTH] = {0};
+
+    uint64_t begin = get_milliseconds();
+    while (1) {
+        RAFT_CLIENT_PUT_REQUEST request = {0};
+        request.is_handler = 1;
+        request.created_ts = get_milliseconds();
+        RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
+        strcpy(handler_entry->handler, handler);
+        memcpy(handler_entry->ptr, data, sizeof(handler_entry->ptr));
+        sprintf(woof_name, "%s/%s", leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
+        unsigned long seq = WooFPut(woof_name, NULL, &request);
+        if (WooFInvalid(seq)) {
+            sprintf(raft_error_msg, "failed to send put request\n");
+            return RAFT_ERROR;
+        }
+        RAFT_CLIENT_PUT_RESULT result = {0};
+        sprintf(woof_name, "%s/%s", leader, RAFT_CLIENT_PUT_RESULT_WOOF);
+        unsigned long latest_result = 0;
+        while (latest_result < seq) {
+            if (timeout > 0 && get_milliseconds() - begin > timeout) {
+                sprintf(raft_error_msg, "timeout after %dms\n", timeout);
+                return RAFT_TIMEOUT;
+            }
+            usleep(raft_client_result_delay * 1000);
+            latest_result = WooFGetLatestSeqno(woof_name);
+        }
+        if (WooFGet(woof_name, &result, seq) < 0) {
+            sprintf(raft_error_msg, "failed to get put result for put request %lu\n", seq);
+            return RAFT_ERROR;
+        }
+        if (result.redirected == 1) {
+            sprintf(raft_error_msg, "not a leader, redirect to %s\n", result.current_leader);
+            strcpy(leader, result.current_leader);
+            continue;
+        }
+
+        RAFT_SERVER_STATE server_state = {0};
+        sprintf(woof_name, "%s/%s", leader, RAFT_SERVER_STATE_WOOF);
+        uint64_t commit_index = 0;
+        while (commit_index < result.index) {
+            if (timeout > 0 && get_milliseconds() - begin > timeout) {
+                sprintf(raft_error_msg, "timeout after %dms\n", timeout);
+                return RAFT_TIMEOUT;
+            }
+            unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+            if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
+                sprintf(raft_error_msg, "appended but can't get leader's commit index\n");
+                return RAFT_ERROR;
+            }
+            usleep(raft_client_result_delay * 1000);
+            commit_index = server_state.commit_index;
+        }
+
+        RAFT_LOG_ENTRY entry = {0};
+        sprintf(woof_name, "%s/%s", leader, RAFT_LOG_ENTRIES_WOOF);
+        if (WooFGet(woof_name, &entry, result.index) < 0) {
+            sprintf(raft_error_msg, "appended but can't check committed entry term\n");
+            return RAFT_ERROR;
+        }
+        if (entry.term == result.term) {
+            return result.index;
+        } else {
+            sprintf(raft_error_msg,
+                    "entry %" PRIu64 " appended but got overriden at term %" PRIu64 ", val: %s\n",
+                    result.index,
+                    entry.term,
+                    entry.data.val);
+            return RAFT_ERROR;
+        }
+    }
+}
+
+int raft_client_put_result(uint64_t* index, uint64_t* term, unsigned long seq_no) {
     char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_RESULT_WOOF);
     if (WooFGetLatestSeqno(woof_name) < seq_no) {
@@ -272,7 +357,7 @@ int raft_client_put_result(unsigned long* index, unsigned long* term, unsigned l
 int raft_config_change(int members,
                        char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                        int timeout) {
-    unsigned long begin = get_milliseconds();
+    uint64_t begin = get_milliseconds();
 
     RAFT_CONFIG_CHANGE_ARG arg = {0};
     arg.observe = 0;
@@ -293,7 +378,7 @@ int raft_config_change(int members,
     unsigned long latest_reconfig_result = 0;
     while (latest_reconfig_result < seq) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
-            sprintf(raft_error_msg, "timeout after %lums", get_milliseconds() - begin);
+            sprintf(raft_error_msg, "timeout after %" PRIu64 "ms", get_milliseconds() - begin);
             return RAFT_TIMEOUT;
         }
         usleep(raft_client_result_delay * 1000);
@@ -318,7 +403,7 @@ int raft_config_change(int members,
 }
 
 int raft_observe(char oberver_woof_name[RAFT_NAME_LENGTH], int timeout) {
-    unsigned long begin = get_milliseconds();
+    uint64_t begin = get_milliseconds();
 
     RAFT_CONFIG_CHANGE_ARG arg = {0};
     arg.observe = 1;
@@ -340,7 +425,7 @@ int raft_observe(char oberver_woof_name[RAFT_NAME_LENGTH], int timeout) {
         unsigned long latest_reconfig_result = 0;
         while (latest_reconfig_result < seq) {
             if (timeout > 0 && get_milliseconds() - begin > timeout) {
-                sprintf(raft_error_msg, "timeout after %lums", get_milliseconds() - begin);
+                sprintf(raft_error_msg, "timeout after %" PRIu64 "ms", get_milliseconds() - begin);
                 return RAFT_TIMEOUT;
             }
             usleep(raft_client_result_delay * 1000);
@@ -377,7 +462,7 @@ int raft_current_leader(char* member_woof, char* current_leader) {
     return 0;
 }
 
-int raft_is_error(unsigned long code) {
+int raft_is_error(uint64_t code) {
     return code >= RAFT_OVERRIDEN && code <= RAFT_ERROR;
 }
 

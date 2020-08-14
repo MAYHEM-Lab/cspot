@@ -4,6 +4,7 @@
 #include "unistd.h"
 
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -13,10 +14,10 @@ char log_tag[1024];
 int log_level;
 FILE* log_output;
 
-unsigned long get_milliseconds() {
+uint64_t get_milliseconds() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
+    return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 }
 
 void node_woof_namespace(char* woof_namespace) {
@@ -51,7 +52,7 @@ void log_debug(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;34m");
-    fprintf(log_output, "DEBUG| %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "DEBUG| %.19s:%.3d [raft:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -66,7 +67,7 @@ void log_info(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;32m");
-    fprintf(log_output, "INFO | %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "INFO | %.19s:%.3d [raft:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -81,7 +82,7 @@ void log_warn(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;33m");
-    fprintf(log_output, "WARN | %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "WARN | %.19s:%.3d [raft:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
@@ -96,7 +97,7 @@ void log_error(const char* message, ...) {
     va_list argptr;
     va_start(argptr, message);
     fprintf(log_output, "\033[0;31m");
-    fprintf(log_output, "ERROR| %.19s:%.3d [raft:%s]: ", ctime(&now), get_milliseconds() % 1000, log_tag);
+    fprintf(log_output, "ERROR| %.19s:%.3d [raft:%s]: ", ctime(&now), (int)(get_milliseconds() % 1000), log_tag);
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);

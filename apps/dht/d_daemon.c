@@ -53,9 +53,9 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 #endif
 
-    // log_debug("since last stabilize: %lums", (unsigned long)(now - arg->last_stabilize));
-    // log_debug("since last check_predecessor: %lums", (unsigned long)(now - arg->last_check_predecessor));
-    // log_debug("since last fix_finger: %lums", (unsigned long)(now - arg->last_fix_finger));
+    // log_debug("since last stabilize: %"PRIu64" ms", now - arg->last_stabilize);
+    // log_debug("since last check_predecessor: %"PRIu64" ms", now - arg->last_check_predecessor);
+    // log_debug("since last fix_finger: %"PRIu64" ms", now - arg->last_fix_finger);
 
     if (now - arg->last_stabilize > arg->stabilize_freq) {
         DHT_STABILIZE_ARG stabilize_arg;

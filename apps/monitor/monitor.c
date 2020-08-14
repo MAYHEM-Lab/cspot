@@ -59,15 +59,15 @@ unsigned long monitor_put(char* monitor_name, char* woof_name, char* handler, vo
     MONITOR_POOL_ITEM pool_item = {0};
     strcpy(pool_item.woof_name, woof_name);
     strcpy(pool_item.handler, handler);
-    pool_item.seq_no = woof_seq;
-    pool_item.element_size = wf->shared->element_size;
+    pool_item.seq_no = (uint64_t)woof_seq;
+    pool_item.element_size = (uint64_t)wf->shared->element_size;
     strcpy(pool_item.monitor_name, monitor_name);
-    pool_item.idempotent = idempotent;
+    pool_item.idempotent = (int32_t)idempotent;
     WooFDrop(wf);
 #ifdef PROCESS_TIME
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    pool_item.queued_ts = (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
+    pool_item.queued_ts = (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 #endif
 
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
@@ -88,14 +88,14 @@ unsigned long monitor_queue(char* monitor_name, char* woof_name, char* handler, 
     MONITOR_POOL_ITEM pool_item;
     strcpy(pool_item.woof_name, woof_name);
     strcpy(pool_item.handler, handler);
-    pool_item.seq_no = seq_no;
-    pool_item.element_size = wf->shared->element_size;
+    pool_item.seq_no = (uint64_t)seq_no;
+    pool_item.element_size = (uint64_t)wf->shared->element_size;
     strcpy(pool_item.monitor_name, monitor_name);
     WooFDrop(wf);
 #ifdef PROCESS_TIME
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    pool_item.queued_ts = (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
+    pool_item.queued_ts = (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 #endif
 
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
@@ -127,14 +127,14 @@ unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handle
     MONITOR_POOL_ITEM pool_item = {0};
     strcpy(pool_item.woof_name, woof_name);
     strcpy(pool_item.handler, handler);
-    pool_item.seq_no = woof_seq;
-    pool_item.element_size = element_size;
+    pool_item.seq_no = (uint64_t)woof_seq;
+    pool_item.element_size = (uint64_t)element_size;
     strcpy(pool_item.monitor_name, monitor_name);
     pool_item.idempotent = idempotent;
 #ifdef PROCESS_TIME
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    pool_item.queued_ts = (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
+    pool_item.queued_ts = (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 #endif
 
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
@@ -167,14 +167,14 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
     MONITOR_POOL_ITEM pool_item = {0};
     strcpy(pool_item.woof_name, woof_name);
     strcpy(pool_item.handler, handler);
-    pool_item.seq_no = seq_no;
-    pool_item.element_size = element_size;
+    pool_item.seq_no = (uint64_t)seq_no;
+    pool_item.element_size = (uint64_t)element_size;
     strcpy(pool_item.monitor_name, monitor_name);
     pool_item.idempotent = idempotent;
 #ifdef PROCESS_TIME
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    pool_item.queued_ts = (unsigned long)tv.tv_sec * 1000 + (unsigned long)tv.tv_usec / 1000;
+    pool_item.queued_ts = (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
 #endif
 
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
@@ -185,7 +185,7 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
 
 int monitor_cast(void* ptr, void* element) {
     MONITOR_POOL_ITEM* pool_item = (MONITOR_POOL_ITEM*)ptr;
-    if (WooFGet(pool_item->woof_name, element, pool_item->seq_no) < 0) {
+    if (WooFGet(pool_item->woof_name, element, (unsigned long)pool_item->seq_no) < 0) {
         return -1;
     }
     return 0;
@@ -193,7 +193,7 @@ int monitor_cast(void* ptr, void* element) {
 
 unsigned long monitor_seqno(void* ptr) {
     MONITOR_POOL_ITEM* pool_item = (MONITOR_POOL_ITEM*)ptr;
-    return pool_item->seq_no;
+    return (unsigned long)pool_item->seq_no;
 }
 
 int monitor_exit(void* ptr) {

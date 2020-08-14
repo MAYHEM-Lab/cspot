@@ -2,6 +2,7 @@
 #include "dht_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
@@ -37,7 +38,7 @@ int r_map_raft_index(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to store raft indext");
         exit(1);
     }
-    log_debug("map raft_index %lu to topic %s seq_no %lu", arg->raft_index, arg->topic_name, seq);
+    log_debug("map raft_index %" PRIu64 " to topic %s seq_no %lu", arg->raft_index, arg->topic_name, seq);
 
     return 1;
 }

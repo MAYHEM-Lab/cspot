@@ -9,7 +9,7 @@
 #define RAFT_LOG_WARN 2
 #define RAFT_LOG_ERROR 3
 
-unsigned long get_milliseconds();
+uint64_t get_milliseconds();
 void node_woof_namespace(char* woof_namespace);
 void log_set_tag(const char* tag);
 void log_set_level(int level);

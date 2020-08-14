@@ -21,7 +21,7 @@ MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${MONITORINC}
 
-all: test handlers copy clients
+all: handlers copy clients
 
 copy: handlers clients test
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot

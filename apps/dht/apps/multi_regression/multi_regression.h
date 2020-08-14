@@ -18,7 +18,6 @@
 #define HANDLER_TRAIN "h_train"
 
 #define MULTI_REGRESSION_HISTORY_LENGTH 256
-#define TRAINING_WINDOW 5
 
 char reading_topics[][DHT_NAME_LENGTH] = {TOPIC_PIZERO02_CPU,
                                           TOPIC_PIZERO02_DHT,

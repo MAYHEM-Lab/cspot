@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
         sprintf(topic, TOPIC_BUILDING_GATE_TRAFFIC);
     }
 
-    unsigned long index = dht_publish(topic, &traffic, sizeof(TRAFFIC_EL));
+    unsigned long index = dht_publish(topic, &traffic, sizeof(TRAFFIC_EL), 5000);
     if (WooFInvalid(index)) {
         fprintf(stderr, "failed to publish to topic %s\n", topic);
         exit(1);

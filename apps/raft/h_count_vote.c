@@ -3,6 +3,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,7 +42,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     // server's term is higher than the vote's term, ignore it
     if (result.term < server_state.current_term) {
-        log_debug("current term %lu is higher than vote's term %lu, ignore the election",
+        log_debug("current term %" PRIu64 " is higher than vote's term %" PRIu64 ", ignore the election",
                   server_state.current_term,
                   result.term);
         monitor_exit(ptr);
@@ -49,16 +50,16 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     // the server is already a leader at vote's term, ifnore the vote
     if (result.term == server_state.current_term && server_state.role == RAFT_LEADER) {
-        log_debug("already a leader at term %lu, ignore the election", server_state.current_term);
+        log_debug("already a leader at term %" PRIu64 ", ignore the election", server_state.current_term);
         monitor_exit(ptr);
         return 1;
     }
 
-    log_debug("counting from seqno %lu to %lu", result.candidate_vote_pool_seqno + 1, seq_no);
+    log_debug("counting from seqno %" PRIu64 " to %lu", result.candidate_vote_pool_seqno + 1, seq_no);
     // start counting the votes
     int granted_votes = 0;
     if (result.granted == 1) {
-        log_debug("granted by %s at term %lu", result.granter, result.term);
+        log_debug("granted by %s at term %" PRIu64 "", result.granter, result.term);
         ++granted_votes;
     }
     RAFT_REQUEST_VOTE_RESULT vote = {0};
@@ -69,14 +70,14 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
         if (vote.granted == 1 && vote.term == result.term) {
-            log_debug("granted by %s at term %lu", vote.granter, vote.term);
+            log_debug("granted by %s at term %" PRIu64 "", vote.granter, vote.term);
             ++granted_votes;
             if (granted_votes > server_state.members / 2) {
                 break;
             }
         }
     }
-    log_debug("counted %d granted votes for term %lu", granted_votes, result.term);
+    log_debug("counted %d granted votes for term %" PRIu64 "", granted_votes, result.term);
 
     // if the majority granted, promoted to leader
     if (granted_votes > server_state.members / 2) {
@@ -101,8 +102,8 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("failed to promote itself to leader");
             exit(1);
         }
-        log_debug("promoted to leader for term %lu", result.term);
-        log_info("state changed at term %lu: LEADER", server_state.current_term);
+        log_debug("promoted to leader for term %" PRIu64 "", result.term);
+        log_info("state changed at term %" PRIu64 ": LEADER", server_state.current_term);
 
         // start replicate_entries handlers
         unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
@@ -122,7 +123,8 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-    log_debug("request [%lu] took %lums to receive response", seq_no, get_milliseconds() - result.request_created_ts);
+    log_debug(
+        "request [%lu] took %" PRIu64 "ms to receive response", seq_no, get_milliseconds() - result.request_created_ts);
     monitor_exit(ptr);
     return 1;
 }

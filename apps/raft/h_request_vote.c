@@ -3,6 +3,7 @@
 #include "raft_utils.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@
 int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("request_vote");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     RAFT_REQUEST_VOTE_ARG request = {0};
@@ -48,24 +49,24 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     } else if (request.term < server_state.current_term) { // current term is higher than the request
         result.term = server_state.current_term;           // server term will always be greater than reviewing term
         result.granted = 0;
-        log_debug("rejected a vote request [%lu] from lower term %lu at term %lu",
+        log_debug("rejected a vote request [%lu] from lower term %" PRIu64 " at term %" PRIu64 "",
                   seq_no,
                   request.term,
                   server_state.current_term);
     } else {
         if (request.term > server_state.current_term) {
             // fallback to follower
-            log_debug("request [%lu] term %lu is higher, fall back to follower", seq_no, request.term);
+            log_debug("request [%lu] term %" PRIu64 " is higher, fall back to follower", seq_no, request.term);
             server_state.current_term = request.term;
             server_state.role = RAFT_FOLLOWER;
             strcpy(server_state.current_leader, request.candidate_woof);
             memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to fall back to follower at term %lu", request.term);
+                log_error("failed to fall back to follower at term %" PRIu64 "", request.term);
                 exit(1);
             }
-            log_info("state changed at term %lu: FOLLOWER", server_state.current_term);
+            log_info("state changed at term %" PRIu64 ": FOLLOWER", server_state.current_term);
             RAFT_HEARTBEAT heartbeat = {0};
             heartbeat.term = server_state.current_term;
             heartbeat.timestamp = get_milliseconds();
@@ -104,14 +105,14 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (latest_log_entry > 0 && last_log_entry.term > request.last_log_term) {
                 // the server has more up-to-dated entries than the candidate
                 result.granted = 0;
-                log_debug("rejected vote [%lu] from server with outdated log (last entry at term %lu)",
+                log_debug("rejected vote [%lu] from server with outdated log (last entry at term %" PRIu64 ")",
                           seq_no,
                           request.last_log_term);
             } else if (latest_log_entry > 0 && last_log_entry.term == request.last_log_term &&
                        latest_log_entry > request.last_log_index) {
                 // both have same term but the server has more entries
                 result.granted = 0;
-                log_debug("rejected vote [%lu] from server with outdated log (last entry at index %lu)",
+                log_debug("rejected vote [%lu] from server with outdated log (last entry at index %" PRIu64 ")",
                           seq_no,
                           request.last_log_index);
             } else {
@@ -119,17 +120,20 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
                 memcpy(server_state.voted_for, request.candidate_woof, RAFT_NAME_LENGTH);
                 unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                 if (WooFInvalid(seq)) {
-                    log_error("failed to update voted_for at term %lu", server_state.current_term);
+                    log_error("failed to update voted_for at term %" PRIu64 "", server_state.current_term);
                     exit(1);
                 }
                 result.granted = 1;
                 strcpy(result.granter, server_state.woof_name);
-                log_debug(
-                    "granted vote [%lu] at term %lu to %s", seq_no, server_state.current_term, request.candidate_woof);
+                log_debug("granted vote [%lu] at term %" PRIu64 " to %s",
+                          seq_no,
+                          server_state.current_term,
+                          request.candidate_woof);
             }
         } else {
             result.granted = 0;
-            log_debug("rejected vote [%lu] from since already voted at term %lu", seq_no, server_state.current_term);
+            log_debug(
+                "rejected vote [%lu] from since already voted at term %" PRIu64 "", seq_no, server_state.current_term);
         }
     }
     // return the request

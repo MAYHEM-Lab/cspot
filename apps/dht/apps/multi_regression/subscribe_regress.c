@@ -11,9 +11,10 @@
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
     char client_ip[DHT_NAME_LENGTH] = {0};
+    int timeout = 0;
 
     int c;
-    while ((c = getopt(argc, argv, "t:i:")) != EOF) {
+    while ((c = getopt(argc, argv, "t:i:d:")) != EOF) {
         switch (c) {
         case 't': {
             strncpy(topic, optarg, sizeof(topic));
@@ -23,8 +24,12 @@ int main(int argc, char** argv) {
             strncpy(client_ip, optarg, sizeof(client_ip));
             break;
         }
+        case 'd': {
+            timeout = (int)strtoul(optarg, NULL, 0);
+            break;
+        }
         default: {
-            fprintf(stderr, "./init_topic -t topic -i client_ip(optional)s\n");
+            fprintf(stderr, "./init_topic -t topic (-i client_ip -d timeout)\n");
             exit(1);
         }
         }
@@ -67,7 +72,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    if (dht_register_topic(topic) < 0) {
+    if (dht_register_topic(topic, timeout) < 0) {
         fprintf(stderr, "failed to register topic %s: %s\n", topic, dht_error_msg);
         exit(1);
     }

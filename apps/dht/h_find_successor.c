@@ -117,28 +117,30 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to get register_topic_arg from %s", action_arg_woof);
                 exit(1);
             }
-
+            int i;
+            for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+                char* successor_leader = successor_addr(&successor, i);
+                if (successor_leader[0] == 0) {
+                    break;
+                }
 #ifdef USE_RAFT
-            raft_set_client_leader(replicas_leader);
-            unsigned long index = raft_put_handler("h_register_topic", &action_arg, sizeof(DHT_REGISTER_TOPIC_ARG), 0);
-            while (index == RAFT_REDIRECTED) {
-                log_debug("redirected to %s", raft_client_leader);
-                index = raft_put_handler("h_register_topic", &action_arg, sizeof(DHT_REGISTER_TOPIC_ARG), 0);
-            }
-            if (raft_is_error(index)) {
-                log_error("failed to invoke h_register_topic using raft: %s", raft_error_msg);
-                exit(1);
-            }
+                unsigned long index = raft_sessionless_put_handler(
+                    successor_leader, "h_register_topic", &action_arg, sizeof(DHT_REGISTER_TOPIC_ARG), 0);
+                if (raft_is_error(index)) {
+                    log_error("failed to invoke h_register_topic on %s: %s", successor_leader, raft_error_msg);
+                    exit(1);
+                }
 #else
-            char callback_woof[DHT_NAME_LENGTH] = {0};
-            sprintf(callback_woof, "%s/%s", replicas_leader, DHT_REGISTER_TOPIC_WOOF);
-            unsigned long seq = WooFPut(callback_woof, "h_register_topic", &action_arg);
-            if (WooFInvalid(seq)) {
-                log_error("failed to invoke h_register_topic on %s", callback_woof);
-                exit(1);
-            }
+                char callback_woof[DHT_NAME_LENGTH] = {0};
+                sprintf(callback_woof, "%s/%s", successor_leader, DHT_REGISTER_TOPIC_WOOF);
+                unsigned long seq = WooFPut(callback_woof, "h_register_topic", &action_arg);
+                if (WooFInvalid(seq)) {
+                    log_error("failed to invoke h_register_topic on %s", callback_woof);
+                    exit(1);
+                }
 #endif
-            log_debug("found successor_addr %s for action %s", replicas_leader, "REGISTER_TOPIC");
+                log_debug("found successor_addr[%d] %s for action %s", i, successor_leader, "REGISTER_TOPIC");
+            }
             break;
         }
         case DHT_ACTION_SUBSCRIBE: {
@@ -149,27 +151,30 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to get subscribe_arg from %s", action_arg_woof);
                 exit(1);
             }
+            int i;
+            for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+                char* successor_leader = successor_addr(&successor, i);
+                if (successor_leader[0] == 0) {
+                    break;
+                }
 #ifdef USE_RAFT
-            raft_set_client_leader(replicas_leader);
-            unsigned long index = raft_put_handler("h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 0);
-            while (index == RAFT_REDIRECTED) {
-                log_debug("redirected to %s", raft_client_leader);
-                index = raft_put_handler("h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 0);
-            }
-            if (raft_is_error(index)) {
-                log_error("failed to invoke h_subscribe using raft: %s", raft_error_msg);
-                exit(1);
-            }
+                unsigned long index = raft_sessionless_put_handler(
+                    successor_leader, "h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 0);
+                if (raft_is_error(index)) {
+                    log_error("failed to invoke h_subscribe on %s: %s", successor_leader, raft_error_msg);
+                    exit(1);
+                }
 #else
-            char callback_woof[DHT_NAME_LENGTH] = {0};
-            sprintf(callback_woof, "%s/%s", replicas_leader, DHT_SUBSCRIBE_WOOF);
-            unsigned long seq = WooFPut(callback_woof, "h_subscribe", &action_arg);
-            if (WooFInvalid(seq)) {
-                log_error("failed to invoke h_subscribe on %s", callback_woof);
-                exit(1);
-            }
+                char callback_woof[DHT_NAME_LENGTH] = {0};
+                sprintf(callback_woof, "%s/%s", successor_leader, DHT_SUBSCRIBE_WOOF);
+                unsigned long seq = WooFPut(callback_woof, "h_subscribe", &action_arg);
+                if (WooFInvalid(seq)) {
+                    log_error("failed to invoke h_subscribe on %s", callback_woof);
+                    exit(1);
+                }
 #endif
-            log_debug("found successor_addr %s for action %s", replicas_leader, "SUBSCRIBE");
+                log_debug("found successor_addr[%d] %s for action %s", i, successor_leader, "SUBSCRIBE");
+            }
             break;
         }
         default: {

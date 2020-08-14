@@ -24,11 +24,11 @@ MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -I${MONITORINC} ${MAKEOPT}
 
-all: handlers copy clients test
+all: handlers copy clients
 	@echo MAKEOPT=${MAKEOPT}
 	@echo CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} ${MAKEOPT}
 
-copy: handlers clients test
+copy: handlers clients
 	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	cp d_check_predecessor ./cspot;
 	cp d_daemon ./cspot;
@@ -58,13 +58,13 @@ copy: handlers clients test
 	cp client_node_info ./cspot;
 	cp client_publish ./cspot;
 	cp client_subscribe ./cspot;
-	cp test_dht_handler ./cspot;
-	cp test_latency_call ./cspot;
-	cp test_latency_create ./cspot;
-	cp test_latency_handler ./cspot;
-	cp test_publish ./cspot;
-	cp test_subscribe ./cspot;
-	cp test_trigger_publish ./cspot;
+	# cp test_dht_handler ./cspot;
+	# cp test_latency_call ./cspot;
+	# cp test_latency_create ./cspot;
+	# cp test_latency_handler ./cspot;
+	# cp test_publish ./cspot;
+	# cp test_subscribe ./cspot;
+	# cp test_trigger_publish ./cspot;
 	cp ../monitor/monitor_invoker ./cspot
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \

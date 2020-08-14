@@ -13,13 +13,13 @@ int main(int argc, char** argv) {
 
     int i;
     for (i = 0; i < sizeof(topics) / DHT_NAME_LENGTH; ++i) {
-        unsigned long seq = dht_topic_latest_seqno(topics[i]);
+        unsigned long seq = dht_topic_latest_seqno(topics[i], 5000);
         if (seq <= 1 || WooFInvalid(seq)) {
             printf("%s: \n", topics[i]);
             continue;
         }
         COUNT_EL count = {0};
-        if (dht_topic_get(topics[i], &count, sizeof(COUNT_EL), seq) < 0) {
+        if (dht_topic_get(topics[i], &count, sizeof(COUNT_EL), seq, 5000) < 0) {
             printf("%s: \n", topics[i]);
             continue;
         }

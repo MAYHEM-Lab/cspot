@@ -4,18 +4,20 @@
 #include "woofc-host.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "t:i:"
-char* Usage = "client_find -t topic -i client_ip\n";
+#define ARGS "t:i:o:"
+char* Usage = "client_find -t topic -i client_ip (-o timeout)\n";
 
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
     char client_ip[DHT_NAME_LENGTH] = {0};
+    int timeout = 0;
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -26,6 +28,10 @@ int main(int argc, char** argv) {
         }
         case 'i': {
             strncpy(client_ip, optarg, sizeof(client_ip));
+            break;
+        }
+        case 'o': {
+            timeout = (int)strtoul(optarg, NULL, 0);
             break;
         }
         default: {
@@ -52,11 +58,11 @@ int main(int argc, char** argv) {
     int result_leader;
     int hops;
     uint64_t begin = get_milliseconds();
-    if (dht_find_node(topic, result_replicas, &result_leader, &hops) < 0) {
+    if (dht_find_node(topic, result_replicas, &result_leader, &hops, timeout) < 0) {
         fprintf(stderr, "failed to find the topic\n");
         exit(1);
     }
-    printf("latency: %lu ms\n", (unsigned long)(get_milliseconds() - begin));
+    printf("latency: %" PRIu64 " ms\n", get_milliseconds() - begin);
     printf("hops: %d\n", hops);
     printf("replicas:\n");
     int i;

@@ -87,7 +87,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
         DHT_FIND_SUCCESSOR_ARG find_sucessor_arg = {0};
         dht_init_find_arg(&find_sucessor_arg, "", hashed_finger_id, node.addr);
         find_sucessor_arg.action = DHT_ACTION_FIX_FINGER;
-        find_sucessor_arg.action_seqno = (unsigned long)finger_index;
+        find_sucessor_arg.action_seqno = (uint64_t)finger_index;
         log_debug("fixing finger[%d]", finger_index);
 
         unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &find_sucessor_arg);

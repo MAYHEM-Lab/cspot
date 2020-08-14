@@ -19,6 +19,7 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_JOIN_ARG arg = {0};
     if (monitor_cast(ptr, &arg) < 0) {
         log_error("failed to call monitor_cast");
+        monitor_exit(ptr);
         exit(1);
     }
 

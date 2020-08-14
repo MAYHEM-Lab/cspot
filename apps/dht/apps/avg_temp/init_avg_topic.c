@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    if (dht_register_topic(AVG_TEMP_TOPIC) < 0) {
+    if (dht_register_topic(AVG_TEMP_TOPIC, 5000) < 0) {
         fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
         exit(1);
     }
