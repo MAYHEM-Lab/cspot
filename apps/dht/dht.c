@@ -221,13 +221,18 @@ int dht_join_cluster(char* node_woof,
     }
 
     DHT_FIND_SUCCESSOR_ARG arg;
+    dht_init_find_arg(&arg, woof_name, node_hash, woof_name);
     serialize_dht_config(arg.action_namespace,
                          stabilize_freq,
                          chk_predecessor_freq,
                          fix_finger_freq,
                          update_leader_freq,
                          daemon_wakeup_freq);
-    dht_init_find_arg(&arg, woof_name, node_hash, woof_name);
+    printf("stabilize_freq: %d\n", stabilize_freq);
+    printf("chk_predecessor_freq: %d\n", chk_predecessor_freq);
+    printf("fix_finger_freq: %d\n", fix_finger_freq);
+    printf("update_leader_freq: %d\n", update_leader_freq);
+    printf("daemon_wakeup_freq: %d\n", daemon_wakeup_freq);
     arg.action = DHT_ACTION_JOIN;
     if (node_woof[strlen(node_woof) - 1] == '/') {
         sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCCESSOR_WOOF);
