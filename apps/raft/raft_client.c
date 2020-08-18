@@ -177,7 +177,7 @@ uint64_t raft_async_get(RAFT_DATA_TYPE* data, unsigned long client_put_seqno) {
     return committed_term;
 }
 
-uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int timeout) {
+uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int monitored, int timeout) {
     if (size > sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH) {
         sprintf(raft_error_msg,
                 "size %lu is greater than the maximum a log entry can support(%lu)",
@@ -192,6 +192,7 @@ uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int tim
     RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
     strcpy(handler_entry->handler, handler);
     memcpy(handler_entry->ptr, data, sizeof(handler_entry->ptr));
+    handler_entry->monitored = monitored;
     char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
     unsigned long seq = WooFPut(woof_name, NULL, &request);
@@ -255,8 +256,7 @@ uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int tim
     }
 }
 
-uint64_t
-raft_sessionless_put_handler(char* raft_leader, char* handler, void* data, unsigned long size, int timeout) {
+uint64_t raft_sessionless_put_handler(char* raft_leader, char* handler, void* data, unsigned long size, int monitored, int timeout) {
     if (size > sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH) {
         sprintf(raft_error_msg,
                 "size %lu is greater than the maximum a log entry can support(%lu)",
@@ -276,6 +276,7 @@ raft_sessionless_put_handler(char* raft_leader, char* handler, void* data, unsig
         RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
         strcpy(handler_entry->handler, handler);
         memcpy(handler_entry->ptr, data, sizeof(handler_entry->ptr));
+        handler_entry->monitored = monitored;
         sprintf(woof_name, "%s/%s", leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
         unsigned long seq = WooFPut(woof_name, NULL, &request);
         if (WooFInvalid(seq)) {

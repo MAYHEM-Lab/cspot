@@ -315,6 +315,10 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     log_error("failed to get the log entries at %" PRIu64 "", server_state.next_index[m] + i);
                     exit(1);
                 }
+                if (thread_arg[m].arg.entries[i].is_handler) {
+                    RAFT_LOG_HANDLER_ENTRY* handler_entry =
+                        (RAFT_LOG_HANDLER_ENTRY*)(&thread_arg[m].arg.entries[i].data);
+                }
             }
             thread_arg[m].arg.leader_commit = server_state.commit_index;
             thread_arg[m].arg.created_ts = get_milliseconds();

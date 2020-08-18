@@ -45,5 +45,10 @@ for filename in filenames:
             readings.append((dt, float(line[1]), filename))
 
 readings.sort()
-for r in readings:
-    publish(r[1], int(r[0].timestamp() * 1000), r[2])
+avg = 0.0
+for i in range(len(readings)):
+    start_time = time.time()
+    publish(readings[i][1], int(readings[i][0].timestamp() * 1000), readings[i][2])
+    took = time.time() - start_time
+    print('took {}, {} remaining'.format(took, len(readings) * avg))
+    avg = (avg * i + took) / (float(i) + 1)

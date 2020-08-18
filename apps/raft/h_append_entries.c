@@ -224,9 +224,18 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     }
                     // if it's a handler entry, invoke the handler
                     if (request.entries[i].is_handler) {
+                        unsigned long invoked_seq = -1;
                         RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)(&request.entries[i].data);
-                        unsigned long invoked_seq =
-                            WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+                        if (handler_entry->monitored) {
+                            invoked_seq = monitor_put(RAFT_MONITOR_NAME,
+                                                      RAFT_LOG_HANDLER_ENTRIES_WOOF,
+                                                      handler_entry->handler,
+                                                      handler_entry->ptr,
+                                                      0);
+                        } else {
+                            invoked_seq =
+                                WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+                        }
                         if (WooFInvalid(invoked_seq)) {
                             log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
                             exit(1);

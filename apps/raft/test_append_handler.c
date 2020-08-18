@@ -70,9 +70,9 @@ int main(int argc, char** argv) {
 
     TEST_EL test_el = {0};
     sprintf(test_el.msg, "test_append_handler");
-    unsigned long index = raft_put_handler("test_raft_handler", &test_el, sizeof(TEST_EL), 0);
+    unsigned long index = raft_put_handler("test_raft_handler", &test_el, sizeof(TEST_EL), 0, 0);
     while (index == RAFT_REDIRECTED) {
-        index = raft_put_handler("test_raft_handler", &test_el, sizeof(TEST_EL), 0);
+        index = raft_put_handler("test_raft_handler", &test_el, sizeof(TEST_EL), 0, 0);
     }
     if (raft_is_error(index)) {
         fprintf(stderr, "failed to put %s: %s\n", test_el.msg, raft_error_msg);

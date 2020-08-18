@@ -70,7 +70,8 @@ typedef struct raft_log_entry {
 
 typedef struct raft_log_handler_entry {
     char handler[RAFT_NAME_LENGTH];
-    char ptr[RAFT_DATA_TYPE_SIZE - RAFT_NAME_LENGTH];
+    char ptr[RAFT_DATA_TYPE_SIZE - RAFT_NAME_LENGTH - sizeof(int32_t)];
+    int32_t monitored;
 } RAFT_LOG_HANDLER_ENTRY;
 
 typedef struct raft_server_state {

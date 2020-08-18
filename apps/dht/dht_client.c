@@ -125,19 +125,14 @@ int dht_register_topic(char* topic_name, int timeout) {
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
 
     // initial raft index mapping woof
-    raft_set_client_leader(node_info.replicas[node_info.leader_id]);
     DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
     strcpy(map_raft_index_arg.topic_name, topic_name);
-    unsigned long mapping_index =
-        raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), timeout);
-    while (mapping_index == RAFT_REDIRECTED) {
-#ifdef DEBUG
-        printf("redirected to %s\n", raft_client_leader);
-#endif
-        // TODO use remaining timeout
-        mapping_index =
-            raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), timeout);
-    }
+    unsigned long mapping_index = raft_sessionless_put_handler(node_info.replicas[node_info.leader_id],
+                                                               "r_map_raft_index",
+                                                               &map_raft_index_arg,
+                                                               sizeof(DHT_MAP_RAFT_INDEX_ARG),
+                                                               1,
+                                                               timeout);
     if (raft_is_error(mapping_index)) {
         sprintf(dht_error_msg, "failed to put to raft: %s", raft_error_msg);
         return -1;
@@ -225,12 +220,10 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
     int hops;
-    printf("finding node for %s\n", topic_name);
     if (dht_find_node(topic_name, node_replicas, &node_leader, &hops, timeout) < 0) {
         sprintf(dht_error_msg, "failed to find node hosting the topic: %s", dht_error_msg);
         return -1;
     }
-    printf("found node for %s\n", topic_name);
     char* node_addr = node_replicas[node_leader];
     uint64_t found = get_milliseconds();
     // TODO: if failed use the next replica
@@ -280,13 +273,13 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     map_raft_index_arg.timestamp = get_milliseconds();
     unsigned long mapping_index =
         // TODO should use remaining timeout here
-        raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), timeout);
+        raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 1, timeout);
     while (mapping_index == RAFT_REDIRECTED) {
 #ifdef DEBUG
         printf("redirected to %s\n", raft_client_leader);
 #endif
         mapping_index =
-            raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), timeout);
+            raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 1, timeout);
     }
     if (raft_is_error(mapping_index)) {
         sprintf(dht_error_msg, "failed to put to raft: %s", raft_error_msg);

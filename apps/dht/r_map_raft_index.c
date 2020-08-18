@@ -1,5 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
+#include "monitor.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -10,19 +11,25 @@
 extern char WooF_dir[2048];
 
 int r_map_raft_index(WOOF* wf, unsigned long seq_no, void* ptr) {
-    DHT_MAP_RAFT_INDEX_ARG* arg = (DHT_MAP_RAFT_INDEX_ARG*)ptr;
-
     log_set_tag("r_map_raft_index");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
+    DHT_MAP_RAFT_INDEX_ARG arg = {0};
+    if (monitor_cast(ptr, &arg) < 0) {
+        log_error("failed to call monitor_cast");
+        monitor_exit(ptr);
+        exit(1);
+    }
+
     char index_woof[DHT_NAME_LENGTH] = {0};
-    sprintf(index_woof, "%s_%s", arg->topic_name, DHT_MAP_RAFT_INDEX_WOOF_SUFFIX);
+    sprintf(index_woof, "%s_%s", arg.topic_name, DHT_MAP_RAFT_INDEX_WOOF_SUFFIX);
 
     if (!WooFExist(index_woof)) {
         if (WooFCreate(index_woof, sizeof(DHT_MAP_RAFT_INDEX_ARG), DHT_HISTORY_LENGTH_LONG) < 0) {
             log_error("failed to create woof %s", index_woof);
+            monitor_exit(ptr);
             exit(1);
         }
         log_info("created raft_index_map woof %s", index_woof);
@@ -33,12 +40,14 @@ int r_map_raft_index(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-    unsigned long seq = WooFPut(index_woof, NULL, arg);
+    unsigned long seq = WooFPut(index_woof, NULL, &arg);
     if (WooFInvalid(seq)) {
         log_error("failed to store raft indext");
+        monitor_exit(ptr);
         exit(1);
     }
-    log_debug("map raft_index %" PRIu64 " to topic %s seq_no %lu", arg->raft_index, arg->topic_name, seq);
+    log_debug("map raft_index %" PRIu64 " to topic %s seq_no %lu", arg.raft_index, arg.topic_name, seq);
 
+    monitor_exit(ptr);
     return 1;
 }

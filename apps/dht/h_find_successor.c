@@ -125,15 +125,18 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 }
 #ifdef USE_RAFT
                 unsigned long index = raft_sessionless_put_handler(
-                    successor_leader, "h_register_topic", &action_arg, sizeof(DHT_REGISTER_TOPIC_ARG), 0);
+                    successor_leader, "h_register_topic", &action_arg, sizeof(DHT_REGISTER_TOPIC_ARG), 1, 0);
                 if (raft_is_error(index)) {
                     log_error("failed to invoke h_register_topic on %s: %s", successor_leader, raft_error_msg);
                     exit(1);
                 }
 #else
+                char callback_monitor[DHT_NAME_LENGTH] = {0};
+                sprintf(callback_monitor, "%s/%s", successor_leader, DHT_MONITOR_NAME);
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", successor_leader, DHT_REGISTER_TOPIC_WOOF);
-                unsigned long seq = WooFPut(callback_woof, "h_register_topic", &action_arg);
+                unsigned long seq =
+                    monitor_remote_put(callback_monitor, callback_woof, "h_register_topic", &action_arg, 0);
                 if (WooFInvalid(seq)) {
                     log_error("failed to invoke h_register_topic on %s", callback_woof);
                     exit(1);
@@ -159,15 +162,17 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 }
 #ifdef USE_RAFT
                 unsigned long index = raft_sessionless_put_handler(
-                    successor_leader, "h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 0);
+                    successor_leader, "h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 1, 0);
                 if (raft_is_error(index)) {
                     log_error("failed to invoke h_subscribe on %s: %s", successor_leader, raft_error_msg);
                     exit(1);
                 }
 #else
+                char callback_monitor[DHT_NAME_LENGTH] = {0};
+                sprintf(callback_monitor, "%s/%s", successor_leader, DHT_MONITOR_NAME);
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", successor_leader, DHT_SUBSCRIBE_WOOF);
-                unsigned long seq = WooFPut(callback_woof, "h_subscribe", &action_arg);
+                unsigned long seq = monitor_remote_put(callback_monitor, callback_woof, "h_subscribe", &action_arg);
                 if (WooFInvalid(seq)) {
                     log_error("failed to invoke h_subscribe on %s", callback_woof);
                     exit(1);

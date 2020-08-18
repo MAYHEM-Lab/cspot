@@ -63,7 +63,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
             result.redirected = 0;
-            result.index = entry_seqno;
+            result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;
             if (RAFT_SAMPLING_RATE > 0 && (entry_seqno % RAFT_SAMPLING_RATE == 0)) {
                 log_debug("entry %lu was created at %" PRIu64 "", entry_seqno, request.created_ts);
@@ -71,8 +71,16 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             // if it's a handler entry, invoke the handler
             if (request.is_handler) {
                 RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)(&request.data);
-                unsigned long invoked_seq =
-                    WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+                unsigned long invoked_seq = -1;
+                if (handler_entry->monitored) {
+                    invoked_seq = monitor_put(RAFT_MONITOR_NAME,
+                                              RAFT_LOG_HANDLER_ENTRIES_WOOF,
+                                              handler_entry->handler,
+                                              handler_entry->ptr,
+                                              0);
+                } else {
+                    invoked_seq = WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+                }
                 if (WooFInvalid(invoked_seq)) {
                     log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
                     exit(1);
