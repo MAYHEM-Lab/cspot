@@ -52,11 +52,11 @@ int main(int argc, char** argv) {
         fprintf(stderr, "can't read config file\n");
         exit(1);
     }
-    int timeout_min, timeout_max;
-    char cluster_name[RAFT_NAME_LENGTH] = {0};
+    int timeout_min, timeout_max, replicate_delay;
+    char name[RAFT_NAME_LENGTH];
     int members;
-    char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH] = {0};
-    if (read_config(fp, &timeout_min, &timeout_max, cluster_name, &members, member_woofs) < 0) {
+    char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
+    if (read_config(fp, &timeout_min, &timeout_max, &replicate_delay, name, &members, member_woofs) < 0) {
         fprintf(stderr, "failed to read the config file\n");
         fclose(fp);
         exit(1);

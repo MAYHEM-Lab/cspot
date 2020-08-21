@@ -3,11 +3,13 @@
 #endif
 
 #include "dht_client.h"
+#include "dht_utils.h"
 #include "multi_regression.h"
 
 #include <iostream>
 #include <mlpack/core.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
+#include <stdint.h>
 
 #define TIMEOUT 5000
 
@@ -25,8 +27,8 @@ void restore_model(const REGRESSOR_MODEL model, mlpack::regression::LinearRegres
 
 // return -1 if all are within 1 minute, or return the index of largerst timestamp
 int align(TEMPERATURE_ELEMENT temp[6]) {
-    unsigned long diff = 60 * 1000;
-    unsigned long min_ts = ULONG_MAX, max_ts = 0;
+    uint64_t diff = 60 * 1000;
+    uint64_t min_ts = ULONG_MAX, max_ts = 0;
     int max_index = -1;
     for (int i = 0; i < 6; ++i) {
         min_ts = min(min_ts, temp[i].timestamp);
@@ -78,10 +80,9 @@ extern "C" int h_regress(char* woof_name, char* topic_name, unsigned long seq_no
         p(i, 0) = temp[i].temp;
     }
 
-    cout << "input: " << p(0) << " " << p(1) << " " << p(2) << " " << p(3) << " " << p(4) << endl;
+    // cout << "input: " << p(0) << " " << p(1) << " " << p(2) << " " << p(3) << " " << p(4) << endl;
     arma::rowvec res;
     regressor.Predict(p, res);
-    cout << "predict: " << res;
 
     unsigned long dht_seqno = dht_topic_latest_seqno((char*)TOPIC_PIZERO02_DHT, TIMEOUT);
     if (dht_topic_is_empty(dht_seqno)) {
@@ -90,14 +91,16 @@ extern "C" int h_regress(char* woof_name, char* topic_name, unsigned long seq_no
     }
     TEMPERATURE_ELEMENT dht_reading = {0};
     while (dht_seqno > 1) {
-        if (dht_topic_get((char*)TOPIC_PIZERO02_DHT, &dht_reading, sizeof(TEMPERATURE_ELEMENT), dht_seqno, TIMEOUT) < 0) {
+        if (dht_topic_get((char*)TOPIC_PIZERO02_DHT, &dht_reading, sizeof(TEMPERATURE_ELEMENT), dht_seqno, TIMEOUT) <
+            0) {
             cerr << "failed to get the temperature from " << TOPIC_PIZERO02_DHT << ": " << dht_error_msg << endl;
             exit(1);
         }
         unsigned long pred_ts = el->timestamp / (300 * 1000);
         unsigned long dht_ts = dht_reading.timestamp / (300 * 1000);
         if (dht_ts == pred_ts) {
-            cout << "error: " << abs(res(0) - dht_reading.temp) << endl;
+            cout << "predict: " << res(0) << ", truth: " << dht_reading.temp
+                 << ", error: " << abs(res(0) - dht_reading.temp) << endl;
             break;
         } else if (dht_ts > pred_ts) {
             --dht_seqno;

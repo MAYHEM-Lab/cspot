@@ -143,6 +143,10 @@ int read_raft_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_N
         sprintf(dht_error_msg, "wrong format of config file\n");
         return -1;
     }
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(dht_error_msg, "wrong format of config file\n");
+        return -1;
+    }
     *len = (int)strtol(buffer, (char**)NULL, 10);
     if (*len == 0) {
         sprintf(dht_error_msg, "wrong format of config file\n");

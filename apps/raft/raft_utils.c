@@ -106,6 +106,7 @@ void log_error(const char* message, ...) {
 int read_config(FILE* fp,
                 int* timeout_min,
                 int* timeout_max,
+                int* replicate_delay,
                 char* name,
                 int* members,
                 char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]) {
@@ -125,6 +126,11 @@ int read_config(FILE* fp,
         return -1;
     }
     *timeout_max = (int)strtol(buffer, (char**)NULL, 10);
+    if (fgets(buffer, sizeof(buffer), fp) == NULL) {
+        sprintf(raft_error_msg, "wrong format of config file\n");
+        return -1;
+    }
+    *replicate_delay = (int)strtol(buffer, (char**)NULL, 10);
     if (fgets(buffer, sizeof(buffer), fp) == NULL) {
         sprintf(raft_error_msg, "wrong format of config file\n");
         return -1;

@@ -24,8 +24,13 @@ MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC} -DUSE_RAFT
 BOOSTFLAGS=-I/usr/include/boost169 -lmlpack -fopenmp
 
-all: h_regress h_train init_topic publish_temp
+all: h_publish h_regress h_train init_client init_topic publish_temp
 
+h_publish: h_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_publish/g' ${SHEP_SRC} > h_publish_shepherd.c
+	${CC} ${CFLAGS} -c h_publish_shepherd.c -o h_publish_shepherd.o
+	${CC} ${CFLAGS} -o h_publish h_publish.c h_publish_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	
 h_regress: h_regress.cpp multi_regression.h
 	sed 's/PUT_HANDLER_NAME/h_regress/g' ${DHTDIR}/handler_wrapper.c > h_regress_wrapped.c
 	sed 's/WOOF_HANDLER_NAME/handler_wrapper/g' ${SHEP_SRC} > h_regress_shepherd.c
@@ -42,6 +47,9 @@ h_train: h_train.cpp multi_regression.h
 	${CXX} ${CFLAGS} ${BOOSTFLAGS} -c h_train.cpp -o h_train.o
 	${CXX} ${CFLAGS} ${BOOSTFLAGS} -o h_train h_train_wrapped.o h_train.o h_train_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+init_client: init_client.c multi_regression.h
+	${CC} ${CFLAGS} -o init_client init_client.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 init_topic: init_topic.c multi_regression.h
 	${CC} ${CFLAGS} -o init_topic init_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
@@ -49,4 +57,4 @@ publish_temp: publish_temp.c multi_regression.h
 	${CC} ${CFLAGS} -o publish_temp publish_temp.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 clean:
-	rm -rf *.o *_wrapped.c *_shepherd.c h_regress h_train init_topic publish_temp
+	rm -rf *.o *_wrapped.c *_shepherd.c h_publish h_regress h_train init_client init_topic publish_temp

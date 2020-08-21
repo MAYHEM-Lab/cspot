@@ -172,7 +172,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 sprintf(callback_monitor, "%s/%s", successor_leader, DHT_MONITOR_NAME);
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", successor_leader, DHT_SUBSCRIBE_WOOF);
-                unsigned long seq = monitor_remote_put(callback_monitor, callback_woof, "h_subscribe", &action_arg);
+                unsigned long seq = monitor_remote_put(callback_monitor, callback_woof, "h_subscribe", &action_arg, 0);
                 if (WooFInvalid(seq)) {
                     log_error("failed to invoke h_subscribe on %s", callback_woof);
                     exit(1);

@@ -42,12 +42,6 @@
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST 8
 #define RAFT_DATA_TYPE_SIZE 4096
-// #define RAFT_TIMEOUT_MIN 5000 // better to be greater than zeromq timeout to avoid unnecessary election
-// #define RAFT_TIMEOUT_MAX 10000
-// #define RAFT_HEARTBEAT_RATE (RAFT_TIMEOUT_MIN / 2)
-// #define RAFT_TIMEOUT_CHECKER_DELAY (RAFT_TIMEOUT_MIN / 5)
-// #define RAFT_REPLICATE_ENTRIES_DELAY 20
-// #define RAFT_REPLICATE_ENTRIES_DELAY (RAFT_HEARTBEAT_RATE / 5) // needs to be smaller than RAFT_HEARTBEAT_RATE
 
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
 

@@ -58,13 +58,6 @@ copy: handlers clients
 	cp client_node_info ./cspot;
 	cp client_publish ./cspot;
 	cp client_subscribe ./cspot;
-	# cp test_dht_handler ./cspot;
-	# cp test_latency_call ./cspot;
-	# cp test_latency_create ./cspot;
-	# cp test_latency_handler ./cspot;
-	# cp test_publish ./cspot;
-	# cp test_subscribe ./cspot;
-	# cp test_trigger_publish ./cspot;
 	cp ../monitor/monitor_invoker ./cspot
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \

@@ -10,18 +10,19 @@
 #include <iostream>
 #include <mlpack/core.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
+#include <stdint.h>
 
-#define TIMEOUT 5000
-#define TRAINING_WINDOW (24 * 60 * 60 * 1000)
+#define TIMEOUT 3000
+#define TRAINING_WINDOW (12 * 60 * 60 * 1000)
 #define MAX_SAMPLES (TRAINING_WINDOW / 5 / 60 / 1000)
 
 using namespace std;
 
 void store_model(REGRESSOR_MODEL* model, mlpack::regression::LinearRegression regressor) {
     arma::vec& p = regressor.Parameters();
-    model->n_rows = p.n_rows;
-    model->n_cols = p.n_cols;
-    model->n_elem = p.n_elem;
+    model->n_rows = (int32_t)p.n_rows;
+    model->n_cols = (int32_t)p.n_cols;
+    model->n_elem = (int32_t)p.n_elem;
     for (int i = 0; i < p.n_elem; ++i) {
         model->p_vec[i] = p(i);
     }
@@ -30,8 +31,8 @@ void store_model(REGRESSOR_MODEL* model, mlpack::regression::LinearRegression re
 
 // return -1 if all are within 1 minute, or return the index of largerst timestamp
 int align(TEMPERATURE_ELEMENT temp[6]) {
-    unsigned long diff = 60 * 1000;
-    unsigned long min_ts = ULONG_MAX, max_ts = 0;
+    uint64_t diff = 60 * 1000;
+    uint64_t min_ts = ULONG_MAX, max_ts = 0;
     int max_index = -1;
     for (int i = 0; i < 6; ++i) {
         min_ts = min(min_ts, temp[i].timestamp);
@@ -67,11 +68,11 @@ int get_topic_replica(char* topic_name, char* replica) {
 }
 
 extern "C" int h_train(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr) {
-    cout << "h_train triggered by " << topic_name << endl;
+    // cout << "h_train triggered by " << topic_name << endl;
     TEMPERATURE_ELEMENT* el = (TEMPERATURE_ELEMENT*)ptr;
     int remain = (el->timestamp / 10 * 10) % TRAINING_WINDOW;
     if (remain == 0) {
-        cout << "start training with one day window" << endl;
+        cout << "start training with one day window (" << MAX_SAMPLES << " samples)" << endl;
     } else {
         cout << ((TRAINING_WINDOW - remain) / 1000 / 60) << " minutes until next training" << endl;
         return 1;

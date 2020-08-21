@@ -1,4 +1,5 @@
 #include "dht.h"
+#include "dht_client.h"
 #include "dht_utils.h"
 #include "woofc-access.h"
 #include "woofc.h"
@@ -14,6 +15,23 @@
 
 extern int PUT_HANDLER_NAME(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr);
 
+int get_client_addr(char* client_addr) {
+    DHT_NODE_INFO node = {0};
+    if (get_latest_node_info(&node) < 0) {
+        sprintf(dht_error_msg, "failed to get the latest dht node info: %s", dht_error_msg);
+        return -1;
+    }
+    for (int i = strlen("woof://"); i < strlen(node.addr); ++i) {
+        if (node.addr[i] == '/') {
+            client_addr[i - strlen("woof://")] = '\0';
+            return 0;
+        }
+        client_addr[i - strlen("woof://")] = node.addr[i];
+    }
+    sprintf(dht_error_msg, "couldn't find the last \"/\" in %s", node.addr);
+    return -1;
+}
+
 int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_INVOCATION_ARG* arg = (DHT_INVOCATION_ARG*)ptr;
 
@@ -21,6 +39,13 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+
+    char client_addr[DHT_NAME_LENGTH];
+    if (get_client_addr(client_addr) < 0) {
+        log_error("failed to get client_addr: %s", dht_error_msg);
+        exit(1);
+    }
+    dht_set_client_ip(client_addr);
 
 #ifdef USE_RAFT
     log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
@@ -50,6 +75,7 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
         free(element);
         exit(1);
     }
+
     int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, element);
     free(element);
 #endif

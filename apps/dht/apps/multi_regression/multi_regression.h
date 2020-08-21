@@ -2,6 +2,7 @@
 #define MULTI_REGRESSION_H
 
 #include "dht.h"
+#include "stdint.h"
 
 #define TOPIC_PIZERO02_CPU "pizero02_cpu"
 #define TOPIC_PIZERO02_DHT "pizero02_dht"
@@ -16,6 +17,8 @@
 #define TOPIC_REGRESSOR_MODEL "regressor_model"
 #define HANDLER_REGRESS "h_regress"
 #define HANDLER_TRAIN "h_train"
+#define CLIENT_WOOF_NAME "client_publish.woof"
+#define CLIENT_WOOF_LENGTH 16
 
 #define MULTI_REGRESSION_HISTORY_LENGTH 256
 
@@ -32,19 +35,21 @@ char other_topics[][DHT_NAME_LENGTH] = {TOPIC_PIZERO02_PREDICT, TOPIC_REGRESSOR_
 
 typedef struct temperature_element {
     double temp;
-    unsigned long timestamp;
+    uint64_t timestamp;
 } TEMPERATURE_ELEMENT;
 
+typedef struct publish_arg {
+    char topic[DHT_NAME_LENGTH];
+    TEMPERATURE_ELEMENT val;
+    int32_t timeout;
+} PUBLISH_ARG;
+
 typedef struct regressor_model {
-    int n_rows;
-    int n_cols;
-    int n_elem;
+    int32_t n_rows;
+    int32_t n_cols;
+    int32_t n_elem;
     double p_vec[8];
     double lambda;
 } REGRESSOR_MODEL;
-
-// typedef struct regressing_args {
-//     int window;
-// } REGRESSING_ARGS;
 
 #endif
