@@ -25,22 +25,18 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
 #ifdef USE_RAFT
     if (now - arg->last_update_leader_id > arg->update_leader_freq) {
         int leader_id = raft_leader_id();
-        if (leader_id < 0) {
-            log_error("failed to get replica's current leader_id: %s", dht_error_msg);
-        } else {
-            DHT_NODE_INFO node = {0};
-            if (get_latest_node_info(&node) < 0) {
-                log_error("couldn't get latest node info: %s", dht_error_msg);
-                exit(1);
-            }
-            node.leader_id = leader_id;
-            unsigned long seq = WooFPut(DHT_NODE_INFO_WOOF, NULL, &node);
-            if (WooFInvalid(seq)) {
-                log_error("failed to update replica's leader_id to %d", node.leader_id);
-                exit(1);
-            }
-            log_debug("updated replica's leader_id to %d", node.leader_id);
+        DHT_NODE_INFO node = {0};
+        if (get_latest_node_info(&node) < 0) {
+            log_error("couldn't get latest node info: %s", dht_error_msg);
+            exit(1);
         }
+        node.leader_id = leader_id;
+        unsigned long seq = WooFPut(DHT_NODE_INFO_WOOF, NULL, &node);
+        if (WooFInvalid(seq)) {
+            log_error("failed to update replica's leader_id to %d", node.leader_id);
+            exit(1);
+        }
+        log_debug("updated replica's leader_id to %d", node.leader_id);
         arg->last_update_leader_id = now;
     }
     if (!raft_is_leader()) {

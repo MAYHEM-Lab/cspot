@@ -35,6 +35,7 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
         memcpy(result.predecessor_replicas, predecessor.replicas, sizeof(result.predecessor_replicas));
         result.predecessor_leader = predecessor.leader;
     }
+    result.successor_leader_id = node.leader_id;
 
     char callback_ipaddr[DHT_NAME_LENGTH] = {0};
     if (WooFIPAddrFromURI(arg->callback_woof, callback_ipaddr, DHT_NAME_LENGTH) < 0) {

@@ -106,10 +106,8 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
         if (WooFInvalid(seq)) {
 #ifdef USE_RAFT
-            log_warn("failed to invoke h_get_predecessor on %s", successor_woof_name);
-            DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-            try_replicas_arg.type = DHT_TRY_SUCCESSOR;
-            seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+            DHT_TRY_REPLICAS_ARG try_replicas_arg;
+            seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke r_try_replicas");
                 monitor_exit(ptr);
@@ -118,13 +116,13 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
 #else
             DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
             unsigned long seq =
-                monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 1);
+                monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
             if (WooFInvalid(seq)) {
                 log_error("failed to shift successor");
                 monitor_exit(ptr);
                 exit(1);
             }
-            log_warn("use the next successor in line: %s", successor_addr(&successor, 0));
+            log_warn("called h_shift_successor to use the next successor in line");
 #endif
             monitor_exit(ptr);
             return 1;

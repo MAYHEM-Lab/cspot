@@ -61,9 +61,11 @@ unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO* element);
 char* predecessor_addr(DHT_PREDECESSOR_INFO* info);
 char* successor_addr(DHT_SUCCESSOR_INFO* info, int r);
 char* finger_addr(DHT_FINGER_INFO* info);
-#ifdef USE_RAFT
 int raft_leader_id();
-#endif
+int try_successor_replicas();
+int shift_successor();
+int invalidate_fingers(char hash[SHA_DIGEST_LENGTH]);
+#define TRY_SUCCESSOR_REPLICAS_TIMEOUT 10000
 
 #endif
 

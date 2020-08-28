@@ -54,6 +54,7 @@ copy: handlers clients
 	cp r_set_successor ./cspot;
 	cp r_try_replicas ./cspot;
 	cp client_find_node ./cspot;
+	cp client_find_topic ./cspot;
 	cp client_init_topic ./cspot;
 	cp client_node_info ./cspot;
 	cp client_publish ./cspot;
@@ -66,12 +67,15 @@ handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 	r_map_raft_index r_set_successor r_try_replicas
 
 clients: s_create_cluster s_create_woofs s_join_cluster \
-	client_find_node client_init_topic client_node_info client_publish client_subscribe
+	client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe test_trigger_publish test_latency_call test_latency_create test_latency_handler
 
 client_find_node: client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o client_find_node client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+client_find_topic: client_find_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
+	${CC} ${CFLAGS} -o client_find_topic client_find_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_init_topic: client_init_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o client_init_topic client_init_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -233,7 +237,7 @@ test_trigger_publish: test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
 	rm -f s_create_cluster s_create_woofs s_join_cluster
-	rm -f client_find_node client_node_info
+	rm -f client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
 	rm -f h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger

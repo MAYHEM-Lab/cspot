@@ -35,7 +35,7 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    log_debug("shifted successor list");
+    log_warn("new successor: %s", successor.replicas[0][successor.leader[0]]);
 
     monitor_exit(ptr);
     return 1;

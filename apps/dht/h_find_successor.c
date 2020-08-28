@@ -28,6 +28,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+
     srand((unsigned int)get_milliseconds());
 
     DHT_NODE_INFO node = {0};
@@ -205,41 +206,39 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (in_range(finger.hash, node.hash, arg->hashed_key)) {
             char* finger_replicas_leader = finger_addr(&finger);
             sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
-            // unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+            // char req_forward_monitor[DHT_NAME_LENGTH] = {0};
+            // sprintf(req_forward_monitor, "%s/%s", finger_replicas_leader, DHT_MONITOR_NAME);
+            // unsigned long seq = monitor_remote_put(req_forward_monitor, req_forward_woof, "h_find_successor", &arg,
+            // 0);
             unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
             if (WooFInvalid(seq)) {
-                log_warn("failed to forward find_successor request to %s, ACTION: %d", req_forward_woof, arg->action);
-                DHT_INVALIDATE_FINGERS_ARG invalidate_fingers_arg = {0};
-                memcpy(invalidate_fingers_arg.finger_hash, finger.hash, sizeof(invalidate_fingers_arg.finger_hash));
-                seq = monitor_put(
-                    DHT_MONITOR_NAME, DHT_INVALIDATE_FINGERS_WOOF, "h_invalidate_fingers", &invalidate_fingers_arg, 0);
-                if (WooFInvalid(seq)) {
-                    log_error("failed to call h_invalidate_fingers to invalidate failed fingers");
-                    continue;
+                log_warn("failed to forward find_successor request to finger[%d] %s, ACTION: %d",
+                         i,
+                         req_forward_woof,
+                         arg->action);
+                log_warn("invalidating all fingers with same hash to finger %s", finger_replicas_leader);
+                if (invalidate_fingers(finger.hash) < 0) {
+                    log_error("failed to invalidate fingers");
+                    exit(1);
                 }
-                char hash_str[DHT_NAME_LENGTH] = {0};
-                print_node_hash(hash_str, invalidate_fingers_arg.finger_hash);
-                log_debug("invoked h_invalidate_fingers to invalidate failed finger %s", hash_str);
                 continue;
             }
             log_debug("forwarded find_succesor request to finger[%d]: %s", i, finger_replicas_leader);
             return 1;
         }
     }
-    // TODO: also check the other successors
     if (in_range(successor.hash[0], node.hash, arg->hashed_key)) {
         sprintf(req_forward_woof, "%s/%s", successor_addr(&successor, 0), DHT_FIND_SUCCESSOR_WOOF);
-        // unsigned long seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+        // char req_forward_monitor[DHT_NAME_LENGTH] = {0};
+        // sprintf(req_forward_monitor, "%s/%s", successor_addr(&successor, 0), DHT_MONITOR_NAME);
+        // unsigned long seq = monitor_remote_put(req_forward_monitor, req_forward_woof, "h_find_successor", &arg, 0);
         unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
         if (WooFInvalid(seq)) {
-            log_warn("failed to forward find_successor request to %s", req_forward_woof);
+            log_warn(
+                "failed to forward find_successor request to successor %s, ACTION: %d", req_forward_woof, arg->action);
 #ifdef USE_RAFT
-            DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-            try_replicas_arg.type = DHT_TRY_SUCCESSOR;
-            strcpy(try_replicas_arg.woof_name, wf->shared->filename);
-            strcpy(try_replicas_arg.handler_name, "h_find_successor");
-            try_replicas_arg.seq_no = seq_no;
-            seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+            DHT_TRY_REPLICAS_ARG try_replicas_arg;
+            seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke r_try_replicas");
                 exit(1);

@@ -13,9 +13,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "w:r:d:i:"
+#define ARGS "w:r:d:i:n"
 char* Usage = "s_join_cluster -w node_woof -r raft_config -d dht_config\n\
-\t-i to bind a certain IP\n";
+\t-i to bind a certain IP, -n to rejoin when recover from failure\n";
 
 char node_woof[DHT_NAME_LENGTH];
 
@@ -23,6 +23,7 @@ int main(int argc, char** argv) {
     char ip[256] = {0};
     char dht_config[256] = {0};
     char raft_config[256] = {0};
+    int rejoin = 0;
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -41,6 +42,10 @@ int main(int argc, char** argv) {
         }
         case 'i': {
             strncpy(ip, optarg, sizeof(ip));
+            break;
+        }
+        case 'n': {
+            rejoin = 1;
             break;
         }
         default: {
@@ -107,6 +112,7 @@ int main(int argc, char** argv) {
                              woof_name,
                              name,
                              replicas,
+                             rejoin,
                              stabilize_freq,
                              chk_predecessor_freq,
                              fix_finger_freq,
@@ -123,14 +129,19 @@ int main(int argc, char** argv) {
             fprintf(stderr, "failed to initialize DHT: %s\n", dht_error_msg);
             exit(1);
         }
-        if (monitor_create(DHT_MONITOR_NAME) < 0) {
-            fprintf(stderr, "failed to create and start the handler monitor\n");
-            return -1;
-        }
-        if (dht_start_daemon(
-                stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) < 0) {
-            fprintf(stderr, "failed to start the daemon\n");
-            exit(1);
+
+        if (rejoin == 0) {
+            if (monitor_create(DHT_MONITOR_NAME) < 0) {
+                fprintf(stderr, "failed to create and start the handler monitor\n");
+                return -1;
+            }
+
+            if (dht_start_daemon(
+                    stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) <
+                0) {
+                fprintf(stderr, "failed to start the daemon\n");
+                exit(1);
+            }
         }
     }
 #else
@@ -138,6 +149,7 @@ int main(int argc, char** argv) {
                          woof_name,
                          name,
                          replicas,
+                         rejoin,
                          stabilize_freq,
                          chk_predecessor_freq,
                          fix_finger_freq,

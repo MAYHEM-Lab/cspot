@@ -128,7 +128,11 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         int result_member_id = member_id(result.server_woof, server_state.member_woofs);
         if (result_member_id == -1) {
-            log_warn("received a result not in current config");
+            log_warn("received a result not in current config: %s", result.server_woof);
+            int k;
+            for (k = 0; k < 3; ++k) {
+                log_warn("server_state.member_woofs[%d]: %s", k, server_state.member_woofs[k]);
+            }
             arg.last_seen_result_seqno = result_seq;
             continue;
         }

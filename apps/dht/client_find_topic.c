@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #define ARGS "t:i:o:"
-char* Usage = "client_find_node -t topic -i client_ip (-o timeout)\n";
+char* Usage = "client_find_topic -t topic -i client_ip (-o timeout)\n";
 
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
@@ -59,20 +59,29 @@ int main(int argc, char** argv) {
     int hops;
     uint64_t begin = get_milliseconds();
     if (dht_find_node(topic, result_replicas, &result_leader, &hops, timeout) < 0) {
-        fprintf(stderr, "failed to find the topic\n");
-        exit(1);
+        printf("failed to find the topic\n");
+        printf("timeout after %d ms\n", timeout);
+        return 0;
     }
-    printf("latency: %" PRIu64 " ms\n", get_milliseconds() - begin);
+    printf("found_node_latency: %" PRIu64 " ms\n", get_milliseconds() - begin);
     printf("hops: %d\n", hops);
-    printf("replicas:\n");
+
+    DHT_TOPIC_REGISTRY topic_entry = {0};
+    char* node_addr;
     int i;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
-        if (result_replicas[i][0] == 0) {
-            break;
+        node_addr = result_replicas[(result_leader + i) % DHT_REPLICA_NUMBER];
+        // get the topic namespace
+        char registration_woof[DHT_NAME_LENGTH] = {0};
+        sprintf(registration_woof, "%s/%s_%s", node_addr, topic, DHT_TOPIC_REGISTRATION_WOOF);
+        if (get_latest_element(registration_woof, &topic_entry) < 0) {
+            sprintf(
+                dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
         }
-        printf("%s\n", result_replicas[i]);
+        break;
     }
-    printf("leader: %s(%d)\n", result_replicas[result_leader], result_leader);
 
+    printf("found_replica: %s\n", topic_entry.topic_replicas[0]);
+    printf("found_replica_latency: %" PRIu64 " ms\n", get_milliseconds() - begin);
     return 0;
 }

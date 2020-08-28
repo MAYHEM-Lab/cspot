@@ -395,6 +395,107 @@ int raft_leader_id() {
         sprintf(dht_error_msg, "current_leader %s is not in the replica list", raft_state.current_leader);
         return -1;
     }
+    if (i == node.replica_id && raft_state.role != RAFT_LEADER) {
+        sprintf(dht_error_msg, "the node's cluster has no leader");
+        return -1;
+    }
     return i;
+}
+
+int try_successor_replicas() {
+    DHT_SUCCESSOR_INFO successor = {0};
+    if (get_latest_successor_info(&successor) < 0) {
+        log_error("couldn't get latest successor info: %s", dht_error_msg);
+        exit(1);
+    }
+    if (is_empty(successor.hash[0])) {
+        log_warn("successor is nil");
+        return 0;
+    }
+
+    uint64_t begin = get_milliseconds();
+    int i = successor.leader[0];
+    while (get_milliseconds() - begin < TRY_SUCCESSOR_REPLICAS_TIMEOUT) {
+        i = (i + 1) % DHT_REPLICA_NUMBER;
+        successor.leader[0] = i;
+        if (successor_addr(&successor, 0)[0] == 0) {
+            break;
+        }
+        log_warn("trying successor replica[%d]: %s", i, successor_addr(&successor, 0));
+        // check if the replica is leader
+        char replica_woof[DHT_NAME_LENGTH] = {0};
+        sprintf(replica_woof, "%s/%s", successor_addr(&successor, 0), DHT_NODE_INFO_WOOF);
+        unsigned long latest_node = WooFGetLatestSeqno(replica_woof);
+        if (WooFInvalid(latest_node)) {
+            log_warn("failed to get the latest seq_no of %s", replica_woof);
+            continue;
+        }
+        DHT_NODE_INFO node = {0};
+        if (WooFGet(replica_woof, &node, latest_node) < 0) {
+            log_warn("failed to get the latest node info from %s", replica_woof);
+            continue;
+        }
+        log_warn("got leader_id %d from %s", node.leader_id, replica_woof);
+        if (node.leader_id == -1) {
+            continue;
+        }
+        successor.leader[0] = node.leader_id;
+        unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+        if (WooFInvalid(seq)) {
+            log_error(
+                "failed to update successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
+            return -1;
+        }
+        log_warn("updated successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
+        return 0;
+    }
+    log_warn("none of successor replicas is responding, shifting successors");
+    return shift_successor();
+}
+
+int shift_successor() {
+    DHT_SUCCESSOR_INFO successor = {0};
+    if (get_latest_successor_info(&successor) < 0) {
+        log_error("couldn't get latest successor info: %s", dht_error_msg);
+        return -1;
+    }
+
+    int i;
+    for (i = 0; i < DHT_SUCCESSOR_LIST_R - 1; ++i) {
+        memcpy(successor.hash[i], successor.hash[i + 1], sizeof(successor.hash[i]));
+        memcpy(successor.replicas[i], successor.replicas[i + 1], sizeof(successor.replicas[i]));
+        successor.leader[i] = successor.leader[i + 1];
+    }
+    memset(successor.hash[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor.hash[DHT_SUCCESSOR_LIST_R - 1]));
+    memset(successor.replicas[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor.replicas[DHT_SUCCESSOR_LIST_R - 1]));
+    successor.leader[DHT_SUCCESSOR_LIST_R - 1] = 0;
+
+    unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+    if (WooFInvalid(seq)) {
+        log_error("failed to shift successor list");
+        return -1;
+    }
+    log_info("new successor: %s", successor.replicas[0][successor.leader[0]]);
+    return 0;
+}
+
+int invalidate_fingers(char hash[SHA_DIGEST_LENGTH]) {
+    int i;
+    for (i = 1; i <= SHA_DIGEST_LENGTH * 8; ++i) {
+        DHT_FINGER_INFO finger = {0};
+        if (get_latest_finger_info(i, &finger) < 0) {
+            log_error("failed to get finger[%d]'s info: %s", i, dht_error_msg);
+            continue;
+        }
+        if (memcmp(finger.hash, hash, sizeof(finger.hash)) == 0) {
+            memset(&finger, 0, sizeof(finger));
+            unsigned long seq = set_finger_info(i, &finger);
+            if (WooFInvalid(seq)) {
+                log_error("failed to invalidate finger[%d]", i);
+                continue;
+            }
+        }
+    }
+    return 0;
 }
 #endif

@@ -40,6 +40,9 @@ extern "C" {
 #define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
 
+#define DHT_SIM_SNAPSHOT_WOOF "dht_sim_snapshot.woof"
+#define DHT_SIM_ARG_WOOF "dht_sim_arg.woof"
+
 #define DHT_NAME_LENGTH WOOFNAMESIZE
 #define DHT_HISTORY_LENGTH_LONG 512
 #define DHT_HISTORY_LENGTH_SHORT 32
@@ -143,6 +146,7 @@ typedef struct dht_stabilize_callback_arg {
     unsigned char predecessor_hash[SHA_DIGEST_LENGTH];
     char predecessor_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t predecessor_leader;
+    int32_t successor_leader_id;
 } DHT_STABILIZE_CALLBACK_ARG;
 
 typedef struct dht_notify_arg {
@@ -237,11 +241,7 @@ typedef struct dht_replicate_state_arg {
 } DHT_REPLICATE_STATE_ARG;
 
 typedef struct dht_try_replicas_arg {
-    int32_t type;
-    int32_t finger_id;
-    char woof_name[DHT_NAME_LENGTH];
-    char handler_name[DHT_NAME_LENGTH];
-    uint64_t seq_no;
+
 } DHT_TRY_REPLICAS_ARG;
 
 typedef struct dht_invalidate_fingers_arg {
@@ -254,6 +254,18 @@ typedef struct dht_map_raft_index_arg {
     uint64_t raft_index;
     uint64_t timestamp;
 } DHT_MAP_RAFT_INDEX_ARG;
+
+// for node_failure
+typedef struct dht_sim_snapshot {
+    // DHT_NODE_INFO node;
+    DHT_PREDECESSOR_INFO predecessor;
+    DHT_SUCCESSOR_INFO successor;
+    DHT_FINGER_INFO finger[SHA_DIGEST_LENGTH * 8 + 1];
+} DHT_SIM_SNAPSHOT;
+
+typedef struct dht_sim_arg {
+
+} DHT_SIM_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon(
@@ -270,6 +282,7 @@ int dht_join_cluster(char* node_woof,
                      char* woof_name,
                      char* node_name,
                      char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                     int rejoin,
                      int stabilize_freq,
                      int chk_predecessor_freq,
                      int fix_finger_freq,

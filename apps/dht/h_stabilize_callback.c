@@ -63,6 +63,17 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
 #endif
             log_info("updated successor to %s", result.predecessor_replicas[result.predecessor_leader]);
         }
+    } else {
+        log_debug("get successor_leader_id %d", result.successor_leader_id);
+        if (successor.leader[0] != result.successor_leader_id) {
+            successor.leader[0] = result.successor_leader_id;
+            unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
+            if (WooFInvalid(seq)) {
+                log_error("failed to update DHT table to %s", DHT_SUCCESSOR_INFO_WOOF);
+                monitor_exit(ptr);
+                exit(1);
+            }
+        }
     }
 
     char* successor_leader = successor_addr(&successor, 0);
@@ -82,9 +93,8 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_warn("failed to call notify on successor %s", notify_woof_name);
 #ifdef USE_RAFT
-        DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
-        try_replicas_arg.type = DHT_TRY_SUCCESSOR;
-        seq = WooFPut(DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg);
+        DHT_TRY_REPLICAS_ARG try_replicas_arg;
+        seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke r_try_replicas");
             monitor_exit(ptr);

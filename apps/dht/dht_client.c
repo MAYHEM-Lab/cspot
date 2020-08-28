@@ -80,7 +80,7 @@ int dht_find_node(char* topic_name,
             }
         }
         last_checked_result = latest_result;
-        usleep(100 * 1000);
+        usleep(10 * 1000);
     }
 }
 
@@ -113,7 +113,6 @@ int dht_register_topic(char* topic_name, int timeout) {
     } else {
         sprintf(topic_namespace, "woof://%s%s", client_ip, local_namespace);
     }
-
     DHT_REGISTER_TOPIC_ARG register_topic_arg = {0};
     strcpy(register_topic_arg.topic_name, topic_name);
 #ifdef USE_RAFT
@@ -123,7 +122,6 @@ int dht_register_topic(char* topic_name, int timeout) {
         return -1;
     }
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
-
     // initial raft index mapping woof
     DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
     strcpy(map_raft_index_arg.topic_name, topic_name);
@@ -145,7 +143,6 @@ int dht_register_topic(char* topic_name, int timeout) {
         sprintf(dht_error_msg, "failed to store subscribe arg");
         return -1;
     }
-
     char hashed_key[SHA_DIGEST_LENGTH];
     dht_hash(hashed_key, topic_name);
     DHT_FIND_SUCCESSOR_ARG arg = {0};
@@ -153,7 +150,6 @@ int dht_register_topic(char* topic_name, int timeout) {
     arg.action = DHT_ACTION_REGISTER_TOPIC;
     strcpy(arg.action_namespace, topic_namespace);
     arg.action_seqno = action_seqno;
-
     unsigned long seq_no = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &arg);
     if (WooFInvalid(seq_no)) {
         sprintf(dht_error_msg, "failed to invoke h_find_successor");
@@ -224,16 +220,22 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to find node hosting the topic: %s", dht_error_msg);
         return -1;
     }
-    char* node_addr = node_replicas[node_leader];
     uint64_t found = get_milliseconds();
-    // TODO: if failed use the next replica
-    // get the topic namespace
-    char registration_woof[DHT_NAME_LENGTH] = {0};
-    sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
-
     DHT_TOPIC_REGISTRY topic_entry = {0};
-    if (get_latest_element(registration_woof, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+    char* node_addr;
+    int i;
+    for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+        node_addr = node_replicas[(node_leader + i) % DHT_REPLICA_NUMBER];
+        // get the topic namespace
+        char registration_woof[DHT_NAME_LENGTH] = {0};
+        sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+        if (get_latest_element(registration_woof, &topic_entry) >= 0) {
+            // found a working replica
+            break;
+        }
+    }
+    if (i == DHT_REPLICA_NUMBER) {
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", node_addr, dht_error_msg);
         return -1;
     }
 
@@ -241,25 +243,32 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     strcpy(trigger_arg.topic_name, topic_name);
     sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
     char trigger_woof[DHT_NAME_LENGTH] = {0};
-    // TODO: use other replicas if the first one failed
 #ifdef USE_RAFT
-#ifdef DEBUG
-    printf("using raft, leader: %s\n", topic_entry.topic_replicas[0]);
-#endif
-    raft_set_client_leader(topic_entry.topic_replicas[0]);
     raft_set_client_result_delay(100);
-    RAFT_DATA_TYPE raft_data = {0};
-    memcpy(raft_data.val, element, element_size);
-    sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_replicas[0]);
-    // TODO should use remaining timeout here
-    unsigned long index = raft_sync_put(&raft_data, timeout);
-    while (index == RAFT_REDIRECTED) {
+    int working_replica_id = -1;
+    unsigned long index;
+    for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
 #ifdef DEBUG
-        printf("redirected to %s\n", raft_client_leader);
+        printf("using raft, leader: %s\n", topic_entry.topic_replicas[i]);
 #endif
+        raft_set_client_leader(topic_entry.topic_replicas[i]);
+        RAFT_DATA_TYPE raft_data = {0};
+        memcpy(raft_data.val, element, element_size);
+        sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_replicas[i]);
         index = raft_sync_put(&raft_data, timeout);
+        while (index == RAFT_REDIRECTED) {
+#ifdef DEBUG
+            printf("redirected to %s\n", raft_client_leader);
+#endif
+            index = raft_sync_put(&raft_data, timeout);
+        }
+        if (!raft_is_error(index)) {
+            // found a working replica
+            working_replica_id = i;
+            break;
+        }
     }
-    if (raft_is_error(index)) {
+    if (i == DHT_REPLICA_NUMBER) {
         sprintf(dht_error_msg, "failed to put to raft: %s", raft_error_msg);
         return -1;
     }
@@ -272,7 +281,6 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 #endif
     map_raft_index_arg.timestamp = get_milliseconds();
     unsigned long mapping_index =
-        // TODO should use remaining timeout here
         raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 1, timeout);
     while (mapping_index == RAFT_REDIRECTED) {
 #ifdef DEBUG
@@ -288,7 +296,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 
     uint64_t committed = get_milliseconds();
     trigger_arg.element_seqno = index;
-    sprintf(trigger_woof, "%s/%s", topic_entry.topic_replicas[0], DHT_TRIGGER_WOOF);
+    sprintf(trigger_woof, "%s/%s", topic_entry.topic_replicas[working_replica_id], DHT_TRIGGER_WOOF);
 #else
     sprintf(trigger_arg.element_woof, "%s/%s", topic_entry.topic_namespace, topic_name);
 #ifdef DEBUG
