@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 				strncpy(wname,optarg,sizeof(wname));
 				break;
 			case 'F':
-				strncpy(wname,optarg,sizeof(wname));
+				strncpy(fname,optarg,sizeof(wname));
 				break;
 			default:
 				fprintf(stderr,
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 	 * copy remote woof name into local state woof
 	 */
 	memset(&sfwd,0,sizeof(SENSFWD));
-	strncpy(&(sfwd.forward_woof),fname,sizeof(sfwd.forward_woof));
+	strncpy(sfwd.forward_woof,fname,sizeof(sfwd.forward_woof));
 
 	seq_no = WooFPut(wname,NULL,&sfwd);
 
