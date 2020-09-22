@@ -26,5 +26,14 @@ typedef struct senspot_stc SENSPOT;
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no);
 void SenspotAssign(SENSPOT *spt, char type, char *v);
 
+struct senspot_forward_stc
+{
+	char forward_woof[4096];
+	unsigned last_local;
+	unsigned last_remote;
+};
+
+typedef struct senspot_forward_stc SENSFWD;
+
 #endif
 
