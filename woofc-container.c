@@ -755,7 +755,10 @@ void *WooFForker(void *arg)
 			execve(pbuf, earg, eenvp);
 
 			fprintf(stderr, "WooFForker: execve of %s failed\n", pbuf);
-			exit(1);
+			/*
+			 * probably execve failed due to missing handler
+			 */
+			pthread_exit(NULL);
 
 #if 0
 		sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
