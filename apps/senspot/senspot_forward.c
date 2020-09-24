@@ -23,13 +23,16 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 	SENSPOT *spt = (SENSPOT *)ptr;
 	SENSPOT fpt;
 	SENSFWD sfwd;
+	SENSFWDSTATE sync_state;
 	char state_woof[4096];
+	char sync_woof[4096];
 	WOOF *swf;
 	unsigned long r_seq_no;
 	unsigned long s_seq_no;
 	unsigned long curr_seq_no;
 	int i;
 	int err;
+	int pid = getpid();
 
 /*
 	fprintf(stdout,"seq_no: %lu %s recv type %c from %s and timestamp %s\n",
@@ -48,7 +51,8 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 	strncpy(state_woof,wf->shared->filename,sizeof(state_woof));
 	strcat(state_woof,".FWD");
 #ifdef DEBUG
-	fprintf(stdout,"senspot-forward: woof: %s, seq_no: %lu, forwarding woof: %s\n",
+	fprintf(stdout,"senspot-forward (%d): woof: %s, seq_no: %lu, forwarding woof: %s\n",
+			pid,
 			wf->shared->filename,
 			seq_no,
 			state_woof);
@@ -67,10 +71,69 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 	}
 
 	/*
+	 * now make sure this is the only forward handler running
+	 */
+	memset(sync_woof,0,sizeof(sync_woof));
+	strncpy(sync_woof,wf->shared->filename,sizeof(state_woof));
+	strcat(sync_woof,".FWDSTATE");
+	/*
+	 * first append put my state in as active
+	 */
+	sync_state.seq_no = seq_no;
+	sync_state.state = FWDACTIVE;
+	s_seq_no = WooFPut(sync_woof,NULL,&sync_state);
+	if(s_seq_no == (unsigned long)-1) {
+		fprintf(stderr,
+			"bad put to sync woof %s from seq_no %lu\n",
+			sync_woof,
+			seq_no);
+		fflush(stderr);
+		WooFDrop(swf);
+		return(0);
+	}
+
+	/*
+	 * now look at the previous record to make sure that the forwarder is idle
+	 */
+	err = WooFGet(sync_woof,&sync_state,(s_seq_no-1));
+	if(err < 0) {
+		fprintf(stderr,
+			"error reading sync_woof %s at seq_no %lu\n",
+			sync_woof,
+			s_seq_no-1);
+		fflush(stderr);
+		WooFDrop(swf);
+		return(0);
+	}
+
+	/*
+	 * if the system was not IDLE, there is another one running, exit this one
+	 *
+	 * note that we could spin here but the assumption is another update will be
+	 * coming
+	 */
+	if(sync_state.state != FWDIDLE) {
+#ifdef DEBUG
+		fprintf(stdout,
+		"senspot-forward (%d): forward for state_woof %s %lu is running while system is not idle -- exiting\n",
+				pid,state_woof,seq_no);
+		fflush(stdout);
+#endif
+		WooFDrop(swf);
+		return(0);
+	}
+	
+
+	/*
 	 * read the last entry
 	 */
 	i = WooFReadTail(swf,&sfwd,1);
 
+	/*
+	 * load up sync state to idle the system on exit
+	 */
+	sync_state.state = FWDIDLE;
+	sync_state.seq_no = seq_no;
 	/*
 	 * if there are no entries, this there is nothing to do
 	 */
@@ -78,6 +141,10 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 		fprintf(stdout,"no entries in %s\n",state_woof);
 		fflush(stdout);
 		WooFDrop(swf);
+		/*
+		 * idle the system
+		 */
+		WooFPut(sync_woof,NULL,&sync_state);
 		return(0);
 	}
 
@@ -87,8 +154,8 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 	if(sfwd.last_local == 0) {
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: state_woof %s is initialized but empty\n",
-				state_woof);
+			"senspot-forward (%d): state_woof %s is initialized but empty\n",
+				pid,state_woof);
 		fflush(stdout);
 #endif
 		/*
@@ -102,12 +169,13 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 					sfwd.forward_woof);
 			fflush(stdout);
 			WooFDrop(swf);
+			WooFPut(sync_woof,NULL,&sync_state);
 			return(0);
 		}
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: successful first put of %lu to %s at %lu\n",
-				seq_no,sfwd.forward_woof,r_seq_no);
+			"senspot-forward (%d): successful first put of %lu to %s at %lu\n",
+				pid,seq_no,sfwd.forward_woof,r_seq_no);
 		fflush(stdout);
 #endif
 		sfwd.last_local = seq_no;
@@ -123,12 +191,13 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: successful state write to %s of %lu at %lu\n",
-				state_woof,seq_no,s_seq_no);
+			"senspot-forward (%d): successful state write to %s of %lu at %lu\n",
+				pid,state_woof,seq_no,s_seq_no);
 		fflush(stdout);
 #endif
 
 		WooFDrop(swf);
+		WooFPut(sync_woof,NULL,&sync_state);
 		return(1);
 
 	} else { /* try and sync in case there has been a partition */
@@ -136,8 +205,8 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 		curr_seq_no = sfwd.last_local+1;
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: synching %s %lu to %s %lu\n",
-				wf->shared->filename,seq_no,sfwd.forward_woof,curr_seq_no);
+			"senspot-forward (%d): synching %s %lu to %s %lu\n",
+				pid,wf->shared->filename,seq_no,sfwd.forward_woof,curr_seq_no);
 		fflush(stdout);
 #endif
 		/*
@@ -152,6 +221,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 						curr_seq_no);
 				fflush(stdout);
 				WooFDrop(swf);
+				WooFPut(sync_woof,NULL,&sync_state);
 				return(0);
 			}
 			r_seq_no = WooFPut(sfwd.forward_woof,NULL,&fpt);
@@ -162,12 +232,14 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 						sfwd.forward_woof,
 						curr_seq_no);
 				fflush(stdout);
+				WooFDrop(swf);
+				WooFPut(sync_woof,NULL,&sync_state);
 				return(0);
 			}
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: successful put of %s %lu to %s %lu\n",
-				wf->shared->filename,curr_seq_no,sfwd.forward_woof,r_seq_no);
+			"senspot-forward (%d): successful put of %s %lu to %s %lu\n",
+				pid,wf->shared->filename,curr_seq_no,sfwd.forward_woof,r_seq_no);
 		fflush(stdout);
 #endif
 			sfwd.last_local = curr_seq_no;
@@ -183,8 +255,8 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 			}
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: successful state update to %s of %lu at %lu\n",
-				state_woof,curr_seq_no,s_seq_no);
+			"senspot-forward (%d): successful state update to %s of %lu at %lu\n",
+				pid,state_woof,curr_seq_no,s_seq_no);
 		fflush(stdout);
 #endif
 			curr_seq_no++;
@@ -200,12 +272,14 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 					sfwd.forward_woof,
 					curr_seq_no);
 			fflush(stdout);
+			WooFDrop(swf);
+			WooFPut(sync_woof,NULL,&sync_state);
 			return(0);
 		}
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: successful sync put of %s %lu to %s %lu\n",
-				wf->shared->filename,seq_no,sfwd.forward_woof,r_seq_no);
+			"senspot-forward (%d): successful sync put of %s %lu to %s %lu\n",
+				pid,wf->shared->filename,seq_no,sfwd.forward_woof,r_seq_no);
 		fflush(stdout);
 #endif
 		sfwd.last_local = seq_no;
@@ -221,12 +295,13 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 		}
 #ifdef DEBUG
 		fprintf(stdout,
-			"senspot-forward: sync wtite to %s of %lu at %lu\n",
-				state_woof,seq_no,s_seq_no);
+			"senspot-forward (%d): sync wtite to %s of %lu at %lu\n",
+				pid,state_woof,seq_no,s_seq_no);
 #endif
 		WooFDrop(swf);
 	} /* end of sync branch */
 
+	WooFPut(sync_woof,NULL,&sync_state);
 	return(1);
 
 }

@@ -12,8 +12,6 @@
 char *Usage = "senspot-forward-init -W local_state_woof_name\n\
 \t-F woof_to_receive_forward\n";
 
-char Wname[4096];
-char Fname[4096];
 char NameSpace[4096];
 char Namelog_dir[4096];
 char putbuf1[4096];
@@ -36,8 +34,10 @@ int main(int argc, char **argv)
 	int c;
 	int err;
 	SENSFWD sfwd;
+	SENSFWDSTATE sync_state;
 	char wname[4096];
 	char fname[4096];
+	char sname[4096];
 	char *s;
 	unsigned long seq_no;
 	WOOF *wf;
@@ -93,6 +93,40 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	WooFDrop(wf);
+
+	/*
+	 * create the local sync woof so that only one forward runs at a time
+	 */
+	strncpy(sname,wname,sizeof(sname));
+	s = strcat(sname,".FWDSTATE");
+	if(s == NULL) {
+		fprintf(stderr,
+			"strcat of .FWDSTATE to %s failed\n",wname);
+		fflush(stderr);
+		exit(1);
+	}
+	err = WooFCreate(sname,sizeof(SENSFWDSTATE),STATE_SIZE);
+
+	if(err < 0) {
+		fprintf(stderr,"senspot-forward-init failed for %s with history size %lu\n",
+			sname,
+			STATE_SIZE);
+		fflush(stderr);
+		exit(1);
+	}
+
+	/*
+	 * start the system in an IDLE state
+	 */
+	memset(&sync_state,0,sizeof(SENSFWDSTATE));
+	sync_state.state = FWDIDLE;
+	seq_no = WooFPut(sname,NULL,&sync_state);
+	if(seq_no == (unsigned long)-1) {
+		fprintf(stderr,
+			"senspot-forward-init could write IDLE state\n");
+		fflush(stderr);
+		exit(1);
+	}
 
 	/*
 	 * create the local mapping woof
