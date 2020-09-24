@@ -35,5 +35,15 @@ struct senspot_forward_stc
 
 typedef struct senspot_forward_stc SENSFWD;
 
+struct senspot_fwd_state_stc
+{
+	unsigned seq_no;
+	int state;
+};
+
+typedef struct senspot_fwd_state_stc SENSFWDSTATE;
+#define FWDACTIVE (1)
+#define FWDIDLE (2)
+
 #endif
 
