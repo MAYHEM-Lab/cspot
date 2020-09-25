@@ -12,6 +12,12 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
+    DHT_NODE_INFO node = {0};
+    if (get_latest_node_info(&node) < 0) {
+        log_error("couldn't get latest node info: %s", dht_error_msg);
+        monitor_exit(ptr);
+        exit(1);
+    }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
@@ -36,6 +42,15 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     log_warn("new successor: %s", successor.replicas[0][successor.leader[0]]);
+#ifdef USE_RAFT
+    unsigned long index = raft_sessionless_put_handler(
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, DHT_RAFT_TIMEOUT);
+    if (raft_is_error(index)) {
+        log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+        monitor_exit(ptr);
+        exit(1);
+    }
+#endif
 
     monitor_exit(ptr);
     return 1;

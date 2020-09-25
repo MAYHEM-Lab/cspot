@@ -21,7 +21,8 @@ int get_client_addr(char* client_addr) {
         sprintf(dht_error_msg, "failed to get the latest dht node info: %s", dht_error_msg);
         return -1;
     }
-    for (int i = strlen("woof://"); i < strlen(node.addr); ++i) {
+    int i;
+    for (i = strlen("woof://"); i < strlen(node.addr); ++i) {
         if (node.addr[i] == '/') {
             client_addr[i - strlen("woof://")] = '\0';
             return 0;

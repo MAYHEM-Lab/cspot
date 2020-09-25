@@ -4,17 +4,26 @@
 #include "woofc-access.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+int retry_replica_delay = 1;
+
 int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
-    log_set_tag("try_replicas");
+    log_set_tag("r_try_replicas");
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
+    DHT_NODE_INFO self = {0};
+    if (get_latest_node_info(&self) < 0) {
+        log_error("couldn't get latest node info: %s", dht_error_msg);
+        monitor_exit(ptr);
+        exit(1);
+    }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
@@ -26,6 +35,16 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         return 1;
     }
+
+    BLOCKED_NODES blocked_nodes = {0};
+    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    FAILURE_RATE failure_rate = {0};
+    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
+        log_error("failed to get failure rate");
+    }
+
     uint64_t begin = get_milliseconds();
     int i = successor.leader[0];
     while (get_milliseconds() - begin < TRY_SUCCESSOR_REPLICAS_TIMEOUT) {
@@ -38,18 +57,25 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
         // check if the replica is leader
         char replica_woof[DHT_NAME_LENGTH] = {0};
         sprintf(replica_woof, "%s/%s", successor_addr(&successor, 0), DHT_NODE_INFO_WOOF);
-        unsigned long latest_node = WooFGetLatestSeqno(replica_woof);
+        unsigned long latest_node = -1;
+        if (!is_blocked(replica_woof, self.addr, blocked_nodes, failure_rate)) {
+            latest_node = WooFGetLatestSeqno(replica_woof);
+        }
         if (WooFInvalid(latest_node)) {
             log_warn("failed to get the latest seq_no of %s", replica_woof);
+            sleep(retry_replica_delay);
             continue;
         }
         DHT_NODE_INFO node = {0};
-        if (WooFGet(replica_woof, &node, latest_node) < 0) {
+        if (is_blocked(replica_woof, self.addr, blocked_nodes, failure_rate) ||
+            WooFGet(replica_woof, &node, latest_node) < 0) {
             log_warn("failed to get the latest node info from %s", replica_woof);
+            sleep(retry_replica_delay);
             continue;
         }
         log_warn("got leader_id %d from %s", node.leader_id, replica_woof);
         if (node.leader_id == -1) {
+            sleep(retry_replica_delay);
             continue;
         }
         successor.leader[0] = node.leader_id;
@@ -61,19 +87,50 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
         log_warn("updated successor to use replica[%d]: %s", node.leader_id, successor_addr(&successor, 0));
+#ifdef USE_RAFT
+        unsigned long index = raft_sessionless_put_handler(node.replicas[node.leader_id],
+                                                           "r_set_successor",
+                                                           &successor,
+                                                           sizeof(DHT_SUCCESSOR_INFO),
+                                                           0,
+                                                           DHT_RAFT_TIMEOUT);
+        if (raft_is_error(index)) {
+            log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+            monitor_exit(ptr);
+            exit(1);
+        }
+#endif
         monitor_exit(ptr);
         return 1;
     }
     log_warn("none of successor replicas is responding, shifting successors");
-    DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
-    unsigned long seq =
-        monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
+
+    for (i = 0; i < DHT_SUCCESSOR_LIST_R - 1; ++i) {
+        memcpy(successor.hash[i], successor.hash[i + 1], sizeof(successor.hash[i]));
+        memcpy(successor.replicas[i], successor.replicas[i + 1], sizeof(successor.replicas[i]));
+        successor.leader[i] = successor.leader[i + 1];
+    }
+    memset(successor.hash[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor.hash[DHT_SUCCESSOR_LIST_R - 1]));
+    memset(successor.replicas[DHT_SUCCESSOR_LIST_R - 1], 0, sizeof(successor.replicas[DHT_SUCCESSOR_LIST_R - 1]));
+    successor.leader[DHT_SUCCESSOR_LIST_R - 1] = 0;
+
+    unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
     if (WooFInvalid(seq)) {
-        log_error("failed to shift successor");
+        log_error("failed to shift successor list");
         monitor_exit(ptr);
         exit(1);
     }
-    log_warn("called h_shift_successor to use the next successor in line");
+    log_warn("shifted new successor: %s", successor.replicas[0][successor.leader[0]]);
+#ifdef USE_RAFT
+    unsigned long index = raft_sessionless_put_handler(
+        self.replicas[self.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, DHT_RAFT_TIMEOUT);
+    if (raft_is_error(index)) {
+        log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+        monitor_exit(ptr);
+        exit(1);
+    }
+#endif
+
     monitor_exit(ptr);
     return 1;
 }

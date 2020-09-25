@@ -96,21 +96,31 @@ typedef struct dht_finger_info {
 } DHT_FINGER_INFO;
 
 typedef struct dht_find_successor_arg {
-    int32_t hops;
     char key[DHT_NAME_LENGTH];
     unsigned char hashed_key[SHA_DIGEST_LENGTH];
     int32_t action;
     char action_namespace[DHT_NAME_LENGTH]; // if action == DHT_ACTION_JOIN, this serves as serialized dht_config
     uint64_t action_seqno;                  // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
     char callback_namespace[DHT_NAME_LENGTH];
+    int32_t query_count;
+    int32_t message_count;
+    int32_t failure_count;
+    int32_t blocked_count;
+    int32_t self_forward_count;
+    uint64_t delayed_time;
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
     char topic[DHT_NAME_LENGTH];
-    int32_t hops;
     unsigned char node_hash[SHA_DIGEST_LENGTH];
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
+    int32_t find_successor_query_count;
+    int32_t find_successor_message_count;
+    int32_t find_successor_failure_count;
+    int32_t find_successor_blocked_count;
+    uint64_t find_successor_delayed_time;
+    int32_t find_successor_self_forward_count;
 } DHT_FIND_NODE_RESULT;
 
 typedef struct dht_invocation_arg {
@@ -123,6 +133,9 @@ typedef struct dht_join_arg {
     unsigned char node_hash[SHA_DIGEST_LENGTH];
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
+    unsigned char replier_hash[SHA_DIGEST_LENGTH];
+    char replier_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t replier_leader;
     char serialized_config[DHT_NAME_LENGTH];
 } DHT_JOIN_ARG;
 
@@ -241,7 +254,6 @@ typedef struct dht_replicate_state_arg {
 } DHT_REPLICATE_STATE_ARG;
 
 typedef struct dht_try_replicas_arg {
-
 } DHT_TRY_REPLICAS_ARG;
 
 typedef struct dht_invalidate_fingers_arg {
@@ -254,18 +266,6 @@ typedef struct dht_map_raft_index_arg {
     uint64_t raft_index;
     uint64_t timestamp;
 } DHT_MAP_RAFT_INDEX_ARG;
-
-// for node_failure
-typedef struct dht_sim_snapshot {
-    // DHT_NODE_INFO node;
-    DHT_PREDECESSOR_INFO predecessor;
-    DHT_SUCCESSOR_INFO successor;
-    DHT_FINGER_INFO finger[SHA_DIGEST_LENGTH * 8 + 1];
-} DHT_SIM_SNAPSHOT;
-
-typedef struct dht_sim_arg {
-
-} DHT_SIM_ARG;
 
 int dht_create_woofs();
 int dht_start_daemon(
@@ -288,6 +288,20 @@ int dht_join_cluster(char* node_woof,
                      int fix_finger_freq,
                      int update_leader_freq,
                      int daemon_wakeup_freq);
+
+// for simultaing node failure
+typedef struct blocked_nodes {
+    char blocked_nodes[32][256];
+} BLOCKED_NODES;
+
+// for simulating unstable network
+typedef struct failure_rate {
+    int failed_percentage;
+} FAILURE_RATE;
+
+#define BLOCKED_NODES_WOOF "blocked_nodes.woof"
+#define FAILURE_RATE_WOOF "failure_rate.woof"
+int is_blocked(char* target, char* self, BLOCKED_NODES blocked_nodes, FAILURE_RATE failure_rate);
 
 #endif
 

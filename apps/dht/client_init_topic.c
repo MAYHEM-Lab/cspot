@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define ARGS "t:s:n:i:d:"
-char* Usage = "client_subscribe -t topic -s element_size -n history_size (-i client_ip -d timeout)\n";
+char* Usage = "client_init_topic -t topic -s element_size -n history_size (-i client_ip -d timeout)\n";
 
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};

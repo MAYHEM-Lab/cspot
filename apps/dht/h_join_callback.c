@@ -29,7 +29,7 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    
+
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
@@ -52,12 +52,19 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_debug("find_successor result leader: %d", arg.node_leader);
     log_debug("find_successor result addr: %s", arg.node_replicas[arg.node_leader]);
 
-    memcpy(successor.hash[0], arg.node_hash, sizeof(successor.hash[0]));
-    memcpy(successor.replicas[0], arg.node_replicas, sizeof(successor.replicas[0]));
-    successor.leader[0] = arg.node_leader;
+    if (memcmp(node.hash, arg.node_hash, sizeof(node.hash)) == 0) {
+        // double join
+        memcpy(successor.hash[0], arg.replier_hash, sizeof(successor.hash[0]));
+        memcpy(successor.replicas[0], arg.replier_replicas, sizeof(successor.replicas[0]));
+        successor.leader[0] = arg.replier_leader;
+    } else {
+        memcpy(successor.hash[0], arg.node_hash, sizeof(successor.hash[0]));
+        memcpy(successor.replicas[0], arg.node_replicas, sizeof(successor.replicas[0]));
+        successor.leader[0] = arg.node_leader;
+    }
 #ifdef USE_RAFT
     unsigned long index = raft_sessionless_put_handler(
-                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, 0);
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, DHT_RAFT_TIMEOUT);
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);

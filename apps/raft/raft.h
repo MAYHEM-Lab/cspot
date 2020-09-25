@@ -76,6 +76,7 @@ typedef struct raft_server_state {
     char current_leader[RAFT_NAME_LENGTH];
     int32_t timeout_min;
     int32_t timeout_max;
+    int32_t replicate_delay;
 
     int32_t members;
     int32_t observers;
@@ -192,6 +193,18 @@ int raft_start_server(int members,
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer,
                       int timeout_min,
-                      int timeout_max);
+                      int timeout_max,
+                      int replicate_delay);
+
+typedef struct raft_blocked_nodes {
+    char blocked_nodes[32][256];
+} RAFT_BLOCKED_NODES;
+typedef struct raftfailure_rate {
+    int failed_percentage;
+} RAFT_FAILURE_RATE;
+
+#define RAFT_BLOCKED_NODES_WOOF "blocked_nodes.woof"
+#define RAFT_FAILURE_RATE_WOOF "failure_rate.woof"
+int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES blocked_nodes, RAFT_FAILURE_RATE failure_rate);
 
 #endif

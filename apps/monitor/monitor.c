@@ -118,10 +118,12 @@ unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handle
 
     unsigned long element_size = WooFMsgGetElSize(woof_uri);
     if (WooFInvalid(element_size)) {
+        fprintf(stderr, "failed to get element size from %s\n", woof_uri);
         return -1;
     }
     unsigned long woof_seq = WooFPut(woof_uri, NULL, ptr);
     if (WooFInvalid(woof_seq)) {
+        fprintf(stderr, "failed to WooFPut to %s\n", woof_uri);
         return -1;
     }
     MONITOR_POOL_ITEM pool_item = {0};
@@ -141,6 +143,7 @@ unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handle
     sprintf(pool_woof, "%s_%s", monitor_uri, MONITOR_POOL_WOOF);
     unsigned long monitor_seq = WooFPut(pool_woof, NULL, &pool_item);
     if (WooFInvalid(monitor_seq)) {
+        fprintf(stderr, "failed to WooFPut to %s\n", pool_woof);
         return -1;
     }
     return woof_seq;

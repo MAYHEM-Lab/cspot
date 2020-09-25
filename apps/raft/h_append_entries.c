@@ -33,6 +33,15 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     int warning_latency = server_state.timeout_min / 2;
 
+    RAFT_BLOCKED_NODES blocked_nodes = {0};
+    if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    RAFT_FAILURE_RATE failure_rate = {0};
+    if (WooFGet(RAFT_FAILURE_RATE_WOOF, &failure_rate, WooFGetLatestSeqno(RAFT_FAILURE_RATE_WOOF)) < 0) {
+        log_error("failed to get failure rate");
+    }
+
     RAFT_APPEND_ENTRIES_RESULT result = {0};
     result.request_created_ts = request.created_ts;
     result.seqno = seq_no;
@@ -281,7 +290,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];
     sprintf(leader_result_woof, "%s/%s", request.leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
-    unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
+    unsigned long seq = -1;
+    if (!raft_is_blocked(leader_result_woof, server_state.woof_name, blocked_nodes, failure_rate)) {
+        seq = WooFPut(leader_result_woof, NULL, &result);
+    }
     if (WooFInvalid(seq)) {
         log_warn("failed to return the append_entries result to %s", leader_result_woof);
     }

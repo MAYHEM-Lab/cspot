@@ -204,7 +204,8 @@ int raft_start_server(int members,
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer,
                       int timeout_min,
-                      int timeout_max) {
+                      int timeout_max,
+                      int replicate_delay) {
     RAFT_SERVER_STATE server_state = {0};
     server_state.members = members;
     memcpy(server_state.member_woofs, member_woofs, sizeof(server_state.member_woofs));
@@ -221,6 +222,7 @@ int raft_start_server(int members,
     server_state.observers = 0;
     server_state.timeout_min = timeout_min;
     server_state.timeout_max = timeout_max;
+    server_state.replicate_delay = replicate_delay;
 
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     if (WooFInvalid(seq)) {
@@ -268,5 +270,24 @@ int raft_start_server(int members,
         }
     }
     printf("Started daemon functions\n");
+    return 0;
+}
+
+int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES blocked_nodes, RAFT_FAILURE_RATE failure_rate) {
+    if (rand() % 100 < failure_rate.failed_percentage) {
+        return 1;
+    }
+    int i;
+    for (i = 0; i < 32; ++i) {
+        if (blocked_nodes.blocked_nodes[i][0] == 0) {
+            break;
+        }
+        if (strncmp(target, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
+            return 1;
+        }
+        if (strncmp(self, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
+            return 1;
+        }
+    }
     return 0;
 }

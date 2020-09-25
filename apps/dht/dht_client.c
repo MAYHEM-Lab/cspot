@@ -26,8 +26,35 @@ void dht_set_client_ip(char* ip) {
 int dht_find_node(char* topic_name,
                   char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
                   int* result_node_leader,
-                  int* hops,
                   int timeout) {
+    int query_count;
+    int message_count;
+    int failure_count;
+    int blocked_count;
+    int self_forward_count;
+    int delayed_time;
+    return dht_find_node_debug(topic_name,
+                               result_node_replicas,
+                               result_node_leader,
+                               &query_count,
+                               &message_count,
+                               &failure_count,
+                               &blocked_count,
+                               &self_forward_count,
+                               &delayed_time,
+                               timeout);
+}
+
+int dht_find_node_debug(char* topic_name,
+                        char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                        int* result_node_leader,
+                        int* query_count,
+                        int* message_count,
+                        int* failure_count,
+                        int* blocked_count,
+                        int* self_forward_count,
+                        int* delayed_time,
+                        int timeout) {
     uint64_t begin = get_milliseconds();
 
     char local_namespace[DHT_NAME_LENGTH] = {0};
@@ -60,7 +87,7 @@ int dht_find_node(char* topic_name,
 
     while (1) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
-            sprintf(dht_error_msg, "timeout after %dms\n", timeout);
+            sprintf(dht_error_msg, "timeout after %d ms", timeout);
             return -1;
         }
 
@@ -75,7 +102,12 @@ int dht_find_node(char* topic_name,
             if (memcmp(result.topic, topic_name, SHA_DIGEST_LENGTH) == 0) {
                 memcpy(result_node_replicas, result.node_replicas, sizeof(result.node_replicas));
                 *result_node_leader = result.node_leader;
-                *hops = result.hops;
+                *query_count = result.find_successor_query_count;
+                *message_count = result.find_successor_message_count;
+                *failure_count = result.find_successor_failure_count;
+                *blocked_count = result.find_successor_blocked_count;
+                *self_forward_count = result.find_successor_self_forward_count;
+                *delayed_time = result.find_successor_delayed_time;
                 return 0;
             }
         }
@@ -118,7 +150,9 @@ int dht_register_topic(char* topic_name, int timeout) {
 #ifdef USE_RAFT
     DHT_NODE_INFO node_info = {0};
     if (get_latest_node_info(&node_info) < 0) {
-        sprintf(dht_error_msg, "couldn't get latest node info: %s", dht_error_msg);
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "couldn't get latest node info: %s", err_msg);
         return -1;
     }
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
@@ -206,6 +240,14 @@ int dht_subscribe(char* topic_name, char* handler) {
 }
 
 unsigned long dht_publish(char* topic_name, void* element, unsigned long element_size, int timeout) {
+    BLOCKED_NODES blocked_nodes = {0};
+    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    FAILURE_RATE failure_rate = {0};
+    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
+        log_error("failed to get failure rate");
+    }
 #ifdef USE_RAFT
     if (element_size > RAFT_DATA_TYPE_SIZE) {
         sprintf(dht_error_msg, "element size %lu exceeds RAFT_DATA_TYPE_SIZE %lu", element_size, RAFT_DATA_TYPE_SIZE);
@@ -215,9 +257,10 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     uint64_t called = get_milliseconds();
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
-    int hops;
-    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops, timeout) < 0) {
-        sprintf(dht_error_msg, "failed to find node hosting the topic: %s", dht_error_msg);
+    if (dht_find_node(topic_name, node_replicas, &node_leader, timeout) < 0) {
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "failed to find node hosting the topic: %s", err_msg);
         return -1;
     }
     uint64_t found = get_milliseconds();
@@ -229,13 +272,18 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         // get the topic namespace
         char registration_woof[DHT_NAME_LENGTH] = {0};
         sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+        if (is_blocked(registration_woof, "client", blocked_nodes, failure_rate)) {
+            continue;
+        }
         if (get_latest_element(registration_woof, &topic_entry) >= 0) {
             // found a working replica
             break;
         }
     }
     if (i == DHT_REPLICA_NUMBER) {
-        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", node_addr, dht_error_msg);
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", node_addr, err_msg);
         return -1;
     }
 
@@ -244,19 +292,26 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
     char trigger_woof[DHT_NAME_LENGTH] = {0};
 #ifdef USE_RAFT
-    raft_set_client_result_delay(100);
+    raft_set_client_result_delay(10);
     int working_replica_id = -1;
     unsigned long index;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
 #ifdef DEBUG
-        printf("using raft, leader: %s\n", topic_entry.topic_replicas[i]);
+        printf("putting data to raft: %s\n", topic_entry.topic_replicas[i]);
 #endif
+        if (is_blocked(topic_entry.topic_replicas[i], "client", blocked_nodes, failure_rate)) {
+            continue;
+        }
         raft_set_client_leader(topic_entry.topic_replicas[i]);
         RAFT_DATA_TYPE raft_data = {0};
         memcpy(raft_data.val, element, element_size);
         sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_replicas[i]);
         index = raft_sync_put(&raft_data, timeout);
         while (index == RAFT_REDIRECTED) {
+            if (timeout > 0 && get_milliseconds() - called > timeout) {
+                sprintf(dht_error_msg, "failed to put data to raft, timeout after %d ms", timeout);
+                return -1;
+            }
 #ifdef DEBUG
             printf("redirected to %s\n", raft_client_leader);
 #endif
@@ -272,6 +327,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to put to raft: %s", raft_error_msg);
         return -1;
     }
+    uint64_t committed = get_milliseconds();
 
     DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
     strcpy(map_raft_index_arg.topic_name, topic_name);
@@ -283,6 +339,10 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     unsigned long mapping_index =
         raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 1, timeout);
     while (mapping_index == RAFT_REDIRECTED) {
+        if (timeout > 0 && get_milliseconds() - called > timeout) {
+            sprintf(dht_error_msg, "failed to map data to raft, timeout after %d ms", timeout);
+            return -1;
+        }
 #ifdef DEBUG
         printf("redirected to %s\n", raft_client_leader);
 #endif
@@ -294,7 +354,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         return -1;
     }
 
-    uint64_t committed = get_milliseconds();
+    uint64_t mapped = get_milliseconds();
     trigger_arg.element_seqno = index;
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_replicas[working_replica_id], DHT_TRIGGER_WOOF);
 #else
@@ -302,7 +362,10 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 #ifdef DEBUG
     printf("using woof: %s\n", trigger_arg.element_woof);
 #endif
-    trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
+    trigger_arg.element_seqno = -1;
+    if (!is_blocked(trigger_arg.element_woof, blocked_nodes, failure_rate)) {
+        trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
+    }
     if (WooFInvalid(trigger_arg.element_seqno)) {
         sprintf(dht_error_msg, "failed to put element to woof");
         return -1;
@@ -310,18 +373,22 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     uint64_t committed = get_milliseconds();
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_namespace, DHT_TRIGGER_WOOF);
 #endif
-    unsigned long seq = WooFPut(trigger_woof, "h_trigger", &trigger_arg);
+    unsigned long seq = -1;
+    if (!is_blocked(trigger_woof, "client", blocked_nodes, failure_rate)) {
+        seq = WooFPut(trigger_woof, "h_trigger", &trigger_arg);
+    }
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed to invoke h_trigger");
         return -1;
     }
     uint64_t triggered = get_milliseconds();
-#ifdef DEBUG
+    // #ifdef DEBUG
     printf("called: %" PRIu64 "\n", called);
     printf("found: %" PRIu64 " %" PRIu64 "\n", found, (found - called));
     printf("committed: %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", committed, (committed - called), (committed - found));
+    printf("mapped: %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", mapped, (mapped - called), (mapped - committed));
     fflush(stdout);
-#endif
+    // #endif
     return trigger_arg.element_seqno;
 }
 
@@ -333,8 +400,7 @@ int dht_topic_is_empty(unsigned long seqno) {
 unsigned long dht_topic_latest_seqno(char* topic_name, int timeout) {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
-    int hops;
-    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops, timeout) < 0) {
+    if (dht_find_node(topic_name, node_replicas, &node_leader, timeout) < 0) {
         sprintf(dht_error_msg, "failed to find node hosting the topic");
         return -1;
     }
@@ -343,7 +409,9 @@ unsigned long dht_topic_latest_seqno(char* topic_name, int timeout) {
     sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
     DHT_TOPIC_REGISTRY topic_entry = {0};
     if (get_latest_element(registration_woof, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, err_msg);
         return -1;
     }
 
@@ -367,8 +435,7 @@ unsigned long dht_remote_topic_latest_seqno(char* remote_woof, char* topic_name)
 int dht_topic_get(char* topic_name, void* element, unsigned long element_size, unsigned long seqno, int timeout) {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
-    int hops;
-    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops, timeout) < 0) {
+    if (dht_find_node(topic_name, node_replicas, &node_leader, timeout) < 0) {
         sprintf(dht_error_msg, "failed to find node hosting the topic");
         return -1;
     }
@@ -377,7 +444,9 @@ int dht_topic_get(char* topic_name, void* element, unsigned long element_size, u
     sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
     DHT_TOPIC_REGISTRY topic_entry = {0};
     if (get_latest_element(registration_woof, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, err_msg);
         return -1;
     }
     return dht_remote_topic_get(topic_entry.topic_replicas[0], topic_name, element, element_size, seqno);
@@ -401,8 +470,7 @@ int dht_topic_get_range(char* topic_name,
                         int timeout) {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
-    int hops;
-    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops, timeout) < 0) {
+    if (dht_find_node(topic_name, node_replicas, &node_leader, timeout) < 0) {
         sprintf(dht_error_msg, "failed to find node hosting the topic");
         return -1;
     }
@@ -411,7 +479,9 @@ int dht_topic_get_range(char* topic_name,
     sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
     DHT_TOPIC_REGISTRY topic_entry = {0};
     if (get_latest_element(registration_woof, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, err_msg);
         return -1;
     }
     return dht_remote_topic_get_range(

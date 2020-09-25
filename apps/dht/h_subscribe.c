@@ -7,7 +7,7 @@
 #include <string.h>
 
 int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
-    log_set_tag("subscribe");
+    log_set_tag("h_subscribe");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
@@ -39,11 +39,20 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
         return 1;
     }
 
+    int i;
+    for (i = 0; i < list.size; ++i) {
+        if (strcmp(list.handlers[i], arg.handler) == 0 &&
+            strcmp(list.handler_namespace[i], arg.handler_namespace) == 0) {
+            log_info("%s/%s has already subscribed to topic %s", arg.handler_namespace, arg.handler, arg.topic_name);
+            monitor_exit(ptr);
+            return 1;
+        }
+    }
+
     memcpy(list.handlers[list.size], arg.handler, sizeof(list.handlers[list.size]));
     memcpy(list.handler_namespace[list.size], arg.handler_namespace, sizeof(list.handler_namespace[list.size]));
     list.size += 1;
     log_debug("number of subscription: %d", list.size);
-    int i;
     for (i = 0; i < list.size; ++i) {
         log_debug("[%d] %s/%s", i, list.handler_namespace[i], list.handlers[i]);
     }

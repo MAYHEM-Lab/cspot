@@ -11,7 +11,16 @@ void dht_set_client_ip(char* ip);
 int dht_find_node(char* topic_name,
                   char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
                   int* result_node_leader,
-                  int* hops,
+                  int timeout);
+int dht_find_node_debug(char* topic_name,
+                  char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH],
+                  int* result_node_leader,
+                  int* query_count,
+                  int* message_count,
+                  int* failure_count,
+                  int* blocked_count,
+                  int* self_forward_count,
+                  int* delayed_time,
                   int timeout);
 int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long history_size);
 int dht_register_topic(char* topic_name, int timeout);

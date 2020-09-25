@@ -24,11 +24,18 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
         int count = last_queued - last_done;
         MONITOR_POOL_ITEM pool_item[count];
         memset(pool_item, 0, sizeof(MONITOR_POOL_ITEM) * count);
-
         int i;
         for (i = 0; i < count; ++i) {
             if (WooFGet(arg->pool_woof, &pool_item[i], last_done + 1 + i) < 0) {
-                fprintf(stderr, "failed to get queued handler information from %s\n", arg->pool_woof);
+                fprintf(stderr, "failed to get queued handler information from %s(%lu)\n", arg->pool_woof, last_done + 1 + i);
+                fprintf(stderr, "last_done: %lu, count: %d, i: %d\n", last_done, count, i);
+
+                fprintf(stderr, "queued handlers: %lu\n", last_queued - last_done);
+                int j;
+                for (j = 0; j < i; ++j) {
+                    fprintf(stderr, "%s ", pool_item[j].handler);
+                }
+                printf("\n");
                 exit(1);
             }
         }

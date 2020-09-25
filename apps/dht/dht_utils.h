@@ -13,6 +13,7 @@ extern "C" {
 #define DHT_LOG_INFO 1
 #define DHT_LOG_WARN 2
 #define DHT_LOG_ERROR 3
+#define DHT_RAFT_TIMEOUT (10 * 1000)
 
 uint64_t get_milliseconds();
 void node_woof_namespace(char* woof_namespace);
@@ -62,8 +63,6 @@ char* predecessor_addr(DHT_PREDECESSOR_INFO* info);
 char* successor_addr(DHT_SUCCESSOR_INFO* info, int r);
 char* finger_addr(DHT_FINGER_INFO* info);
 int raft_leader_id();
-int try_successor_replicas();
-int shift_successor();
 int invalidate_fingers(char hash[SHA_DIGEST_LENGTH]);
 #define TRY_SUCCESSOR_REPLICAS_TIMEOUT 10000
 

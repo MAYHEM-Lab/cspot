@@ -33,9 +33,17 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
+    BLOCKED_NODES blocked_nodes = {0};
+    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    FAILURE_RATE failure_rate = {0};
+    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
+        log_error("failed to get failure rate");
+    }
 
     if (memcmp(successor.hash[0], node.hash, SHA_DIGEST_LENGTH) == 0) {
-        // successor = predecessor;
+        // successor == predecessor;
         if (!is_empty(predecessor.hash) && (memcmp(successor.hash[0], predecessor.hash, SHA_DIGEST_LENGTH) != 0)) {
             // predecessor's replicas should be in the hashmap already
             memcpy(successor.hash[0], predecessor.hash, sizeof(successor.hash[0]));
@@ -43,7 +51,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             successor.leader[0] = predecessor.leader;
 #ifdef USE_RAFT
             unsigned long index = raft_sessionless_put_handler(
-                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, 0);
+                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, DHT_RAFT_TIMEOUT);
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
@@ -80,7 +88,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         successor.leader[0] = node.replica_id;
 #ifdef USE_RAFT
         unsigned long index = raft_sessionless_put_handler(
-            node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, 0);
+            node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, DHT_RAFT_TIMEOUT);
         if (raft_is_error(index)) {
             log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
             monitor_exit(ptr);
@@ -103,9 +111,14 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("current successor_addr: %s", successor_addr(&successor, 0));
         char successor_woof_name[DHT_NAME_LENGTH] = {0};
         sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
-        unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
+        unsigned long seq = -1;
+        if (!is_blocked(successor_woof_name, node.addr, blocked_nodes, failure_rate)) {
+            seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
+        }
         if (WooFInvalid(seq)) {
 #ifdef USE_RAFT
+            log_warn("current successor %s is not responding, calling r_tey_replicas to try other replicas",
+                     successor_woof_name);
             DHT_TRY_REPLICAS_ARG try_replicas_arg;
             seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
             if (WooFInvalid(seq)) {

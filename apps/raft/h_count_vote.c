@@ -104,6 +104,9 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         log_debug("promoted to leader for term %" PRIu64 "", result.term);
         log_info("state changed at term %" PRIu64 ": LEADER", server_state.current_term);
+        // #ifdef DEBUG
+        printf("elected as leader at %" PRIu64 " (%lu)\n", get_milliseconds(), WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF));
+        // #endif
 
         // start replicate_entries handlers
         unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);

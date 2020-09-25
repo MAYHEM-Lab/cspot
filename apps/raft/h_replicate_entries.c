@@ -17,6 +17,9 @@ typedef struct replicate_thread_arg {
     char member_woof[RAFT_NAME_LENGTH];
     int num_entries;
     RAFT_APPEND_ENTRIES_ARG arg;
+    RAFT_BLOCKED_NODES blocked_nodes;
+    RAFT_FAILURE_RATE failure_rate;
+    char self_woof[RAFT_NAME_LENGTH];
 } REPLICATE_THREAD_ARG;
 
 pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
@@ -28,7 +31,13 @@ void* replicate_thread(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 1);
+    unsigned long seq = -1;
+    if (!raft_is_blocked(woof_name,
+                         replicate_thread_arg->self_woof,
+                         replicate_thread_arg->blocked_nodes,
+                         thread_arg->failure_rate)) {
+        seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 1);
+    }
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d", replicate_thread_arg->member_id);
     } else {
@@ -71,6 +80,15 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     seq_no = monitor_seqno(ptr);
 
+    RAFT_BLOCKED_NODES blocked_nodes = {0};
+    if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    RAFT_FAILURE_RATE failure_rate = {0};
+    if (WooFGet(RAFT_FAILURE_RATE_WOOF, &failure_rate, WooFGetLatestSeqno(RAFT_FAILURE_RATE_WOOF)) < 0) {
+        log_error("failed to get failure rate");
+    }
+
     // zsys_init() is called automatically when a socket is created
     // not thread safe and can only be called in main thread
     // call it here to avoid being called concurrently in the threads
@@ -83,7 +101,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     int heartbeat_rate = server_state.timeout_min / 2;
-    int replicate_delay = heartbeat_rate / 5;
+    int replicate_delay = server_state.replicate_delay;
 
     if (server_state.current_term != arg.term || server_state.role != RAFT_LEADER) {
         log_debug(
@@ -297,6 +315,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         if ((num_entries > 0 && server_state.last_sent_index[m] != server_state.next_index[m]) ||
             (get_milliseconds() - server_state.last_sent_timestamp[m] > heartbeat_rate)) {
+            memcpy(&thread_arg[m].blocked_nodes, &blocked_nodes, sizeof(RAFT_BLOCKED_NODES));
+            memcpy(&thread_arg[m].failure_rate, &failure_rate, sizeof(RAFT_FAILURE_RATE));
+            strcpy(thread_arg[m].self_woof, server_state.woof_name);
             thread_arg[m].member_id = m;
             thread_arg[m].num_entries = num_entries;
             strcpy(thread_arg[m].member_woof, server_state.member_woofs[m]);

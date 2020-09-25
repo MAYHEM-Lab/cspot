@@ -12,14 +12,7 @@
 #endif
 
 int put_fail_rate = 0;
-
-unsigned long lucky_woof_put(char* woof, void* arg, int fail_rate) {
-    int r = rand() % 100;
-    if (r < fail_rate) {
-        return -1;
-    }
-    return WooFPut(woof, "h_find_successor", arg);
-}
+int self_forward_delay = 100;
 
 int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_FIND_SUCCESSOR_ARG* arg = (DHT_FIND_SUCCESSOR_ARG*)ptr;
@@ -29,7 +22,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
-    srand((unsigned int)get_milliseconds());
+    // srand((unsigned int)get_milliseconds());
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
@@ -41,11 +34,23 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         exit(1);
     }
+    BLOCKED_NODES blocked_nodes = {0};
+    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    FAILURE_RATE failure_rate = {0};
+    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
+        log_error("failed to get failure rate");
+    }
 
-    arg->hops++;
     char hash_str[2 * SHA_DIGEST_LENGTH + 1];
     print_node_hash(hash_str, arg->hashed_key);
-    log_debug("callback_namespace: %s, hashed_key: %s, hops: %d", arg->callback_namespace, hash_str, arg->hops);
+    log_debug("callback_namespace: %s, hashed_key: %s, query_count: %d, message_count: %d, failure_count: %d",
+              arg->callback_namespace,
+              hash_str,
+              arg->query_count,
+              arg->message_count,
+              arg->failure_count);
 
     // if id in (n, successor]
     if (in_range(arg->hashed_key, node.hash, successor.hash[0]) ||
@@ -59,11 +64,19 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(action_result.node_hash, successor.hash[0], sizeof(action_result.node_hash));
             memcpy(action_result.node_replicas, successor.replicas[0], sizeof(action_result.node_replicas));
             action_result.node_leader = successor.leader[0];
-            action_result.hops = arg->hops;
+            action_result.find_successor_query_count = arg->query_count;
+            action_result.find_successor_message_count = arg->message_count;
+            action_result.find_successor_failure_count = arg->failure_count;
+            action_result.find_successor_blocked_count = arg->blocked_count;
+            action_result.find_successor_self_forward_count = arg->self_forward_count;
+            action_result.find_successor_delayed_time = arg->delayed_time;
 
             char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIND_NODE_RESULT_WOOF);
-            unsigned long seq = WooFPut(callback_woof, NULL, &action_result);
+            unsigned long seq = -1;
+            if (!is_blocked(callback_woof, node.addr, blocked_nodes, failure_rate)) {
+                seq = WooFPut(callback_woof, NULL, &action_result);
+            }
             if (WooFInvalid(seq)) {
                 log_error("failed to put find_node result on %s", callback_woof);
                 exit(1);
@@ -73,6 +86,9 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         case DHT_ACTION_JOIN: {
             DHT_JOIN_ARG action_arg = {0};
+            memcpy(action_arg.replier_hash, node.hash, sizeof(action_arg.node_hash));
+            memcpy(action_arg.replier_replicas, node.replicas, sizeof(action_arg.node_replicas));
+            action_arg.replier_leader = node.leader_id;
             memcpy(action_arg.node_hash, successor.hash[0], sizeof(action_arg.node_hash));
             memcpy(action_arg.node_replicas, successor.replicas[0], sizeof(action_arg.node_replicas));
             action_arg.node_leader = successor.leader[0];
@@ -82,7 +98,10 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             sprintf(callback_monitor, "%s/%s", arg->callback_namespace, DHT_MONITOR_NAME);
             char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_JOIN_WOOF);
-            unsigned long seq = monitor_remote_put(callback_monitor, callback_woof, "h_join_callback", &action_arg, 0);
+            unsigned long seq = -1;
+            if (!is_blocked(callback_monitor, node.addr, blocked_nodes, failure_rate)) {
+                seq = monitor_remote_put(callback_monitor, callback_woof, "h_join_callback", &action_arg, 0);
+            }
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke h_join_callback on %s", callback_woof);
                 exit(1);
@@ -101,10 +120,12 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             sprintf(callback_monitor, "%s/%s", arg->callback_namespace, DHT_MONITOR_NAME);
             char callback_woof[DHT_NAME_LENGTH] = {0};
             sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIX_FINGER_CALLBACK_WOOF);
-            unsigned long seq =
-                monitor_remote_put(callback_monitor, callback_woof, "h_fix_finger_callback", &action_arg, 0);
+            unsigned long seq = -1;
+            if (!is_blocked(callback_monitor, node.addr, blocked_nodes, failure_rate)) {
+                seq = monitor_remote_put(callback_monitor, callback_woof, "h_fix_finger_callback", &action_arg, 0);
+            }
             if (WooFInvalid(seq)) {
-                log_error("failed to invoke h_fix_finger_callback on %s", callback_woof);
+                log_warn("failed to invoke h_fix_finger_callback on %s", callback_woof);
                 exit(1);
             }
             log_debug("found successor_addr %s for action %s", replicas_leader, "FIX_FINGER");
@@ -114,7 +135,8 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             char action_arg_woof[DHT_NAME_LENGTH] = {0};
             sprintf(action_arg_woof, "%s/%s", arg->action_namespace, DHT_REGISTER_TOPIC_WOOF);
             DHT_REGISTER_TOPIC_ARG action_arg = {0};
-            if (WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
+            if (is_blocked(action_arg_woof, node.addr, blocked_nodes, failure_rate) ||
+                WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
                 log_error("failed to get register_topic_arg from %s", action_arg_woof);
                 exit(1);
             }
@@ -125,8 +147,12 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                     break;
                 }
 #ifdef USE_RAFT
-                unsigned long index = raft_sessionless_put_handler(
-                    successor_leader, "h_register_topic", &action_arg, sizeof(DHT_REGISTER_TOPIC_ARG), 1, 0);
+                unsigned long index = raft_sessionless_put_handler(successor_leader,
+                                                                   "h_register_topic",
+                                                                   &action_arg,
+                                                                   sizeof(DHT_REGISTER_TOPIC_ARG),
+                                                                   1,
+                                                                   DHT_RAFT_TIMEOUT);
                 if (raft_is_error(index)) {
                     log_error("failed to invoke h_register_topic on %s: %s", successor_leader, raft_error_msg);
                     exit(1);
@@ -136,8 +162,10 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 sprintf(callback_monitor, "%s/%s", successor_leader, DHT_MONITOR_NAME);
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", successor_leader, DHT_REGISTER_TOPIC_WOOF);
-                unsigned long seq =
-                    monitor_remote_put(callback_monitor, callback_woof, "h_register_topic", &action_arg, 0);
+                unsigned long seq = -1;
+                if (!is_blocked(callback_monitor, blocked_nodes, failure_rate)) {
+                    seq = monitor_remote_put(callback_monitor, callback_woof, "h_register_topic", &action_arg, 0);
+                }
                 if (WooFInvalid(seq)) {
                     log_error("failed to invoke h_register_topic on %s", callback_woof);
                     exit(1);
@@ -151,7 +179,8 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             char action_arg_woof[DHT_NAME_LENGTH] = {0};
             sprintf(action_arg_woof, "%s/%s", arg->action_namespace, DHT_SUBSCRIBE_WOOF);
             DHT_SUBSCRIBE_ARG action_arg = {0};
-            if (WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
+            if (is_blocked(action_arg_woof, node.addr, blocked_nodes, failure_rate) ||
+                WooFGet(action_arg_woof, &action_arg, arg->action_seqno) < 0) {
                 log_error("failed to get subscribe_arg from %s", action_arg_woof);
                 exit(1);
             }
@@ -163,7 +192,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 }
 #ifdef USE_RAFT
                 unsigned long index = raft_sessionless_put_handler(
-                    successor_leader, "h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 1, 0);
+                    successor_leader, "h_subscribe", &action_arg, sizeof(DHT_SUBSCRIBE_ARG), 1, DHT_RAFT_TIMEOUT);
                 if (raft_is_error(index)) {
                     log_error("failed to invoke h_subscribe on %s: %s", successor_leader, raft_error_msg);
                     exit(1);
@@ -173,7 +202,10 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 sprintf(callback_monitor, "%s/%s", successor_leader, DHT_MONITOR_NAME);
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", successor_leader, DHT_SUBSCRIBE_WOOF);
-                unsigned long seq = monitor_remote_put(callback_monitor, callback_woof, "h_subscribe", &action_arg, 0);
+                unsigned long seq = -1;
+                if (!is_blocked(callback_monitor, blocked_nodes, failure_rate)) {
+                    seq = monitor_remote_put(callback_monitor, callback_woof, "h_subscribe", &action_arg, 0);
+                }
                 if (WooFInvalid(seq)) {
                     log_error("failed to invoke h_subscribe on %s", callback_woof);
                     exit(1);
@@ -205,13 +237,23 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         // return finger[i].find_succesor(id)
         if (in_range(finger.hash, node.hash, arg->hashed_key)) {
             char* finger_replicas_leader = finger_addr(&finger);
+            if (finger_replicas_leader[0] == 0) {
+                continue;
+            }
             sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
-            // char req_forward_monitor[DHT_NAME_LENGTH] = {0};
-            // sprintf(req_forward_monitor, "%s/%s", finger_replicas_leader, DHT_MONITOR_NAME);
-            // unsigned long seq = monitor_remote_put(req_forward_monitor, req_forward_woof, "h_find_successor", &arg,
-            // 0);
-            unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
+            unsigned long seq = -1;
+            ++arg->query_count;
+            ++arg->message_count;
+            int blocked = is_blocked(req_forward_woof, node.addr, blocked_nodes, failure_rate);
+            if (!blocked) {
+                seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+            }
             if (WooFInvalid(seq)) {
+                --arg->query_count;
+                ++arg->failure_count;
+                if (blocked) {
+                    ++arg->blocked_count;
+                }
                 log_warn("failed to forward find_successor request to finger[%d] %s, ACTION: %d",
                          i,
                          req_forward_woof,
@@ -227,42 +269,59 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             return 1;
         }
     }
-    if (in_range(successor.hash[0], node.hash, arg->hashed_key)) {
-        sprintf(req_forward_woof, "%s/%s", successor_addr(&successor, 0), DHT_FIND_SUCCESSOR_WOOF);
-        // char req_forward_monitor[DHT_NAME_LENGTH] = {0};
-        // sprintf(req_forward_monitor, "%s/%s", successor_addr(&successor, 0), DHT_MONITOR_NAME);
-        // unsigned long seq = monitor_remote_put(req_forward_monitor, req_forward_woof, "h_find_successor", &arg, 0);
-        unsigned long seq = lucky_woof_put(req_forward_woof, arg, put_fail_rate);
-        if (WooFInvalid(seq)) {
-            log_warn(
-                "failed to forward find_successor request to successor %s, ACTION: %d", req_forward_woof, arg->action);
+    for (i = 0; i < DHT_SUCCESSOR_LIST_R; ++i) {
+        if (!is_empty(successor.hash[i]) && in_range(successor.hash[i], node.hash, arg->hashed_key)) {
+            sprintf(req_forward_woof, "%s/%s", successor_addr(&successor, i), DHT_FIND_SUCCESSOR_WOOF);
+            unsigned long seq = -1;
+            ++arg->query_count;
+            ++arg->message_count;
+            int blocked = is_blocked(req_forward_woof, node.addr, blocked_nodes, failure_rate);
+            if (!blocked) {
+                seq = WooFPut(req_forward_woof, "h_find_successor", arg);
+            }
+            if (WooFInvalid(seq)) {
+                --arg->query_count;
+                ++arg->failure_count;
+                if (blocked) {
+                    ++arg->blocked_count;
+                }
+                log_warn("failed to forward find_successor request to successor %s, ACTION: %d",
+                         req_forward_woof,
+                         arg->action);
 #ifdef USE_RAFT
-            DHT_TRY_REPLICAS_ARG try_replicas_arg;
-            seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
-            if (WooFInvalid(seq)) {
-                log_error("failed to invoke r_try_replicas");
-                exit(1);
-            }
+                unsigned long delayed_query_seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, arg);
+                if (WooFInvalid(delayed_query_seq)) {
+                    log_error("failed to store delayed find_successor query");
+                    exit(1);
+                }
+                DHT_TRY_REPLICAS_ARG try_replicas_arg;
+                seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
+                if (WooFInvalid(seq)) {
+                    log_error("failed to invoke r_try_replicas");
+                    exit(1);
+                }
+                log_debug("trying successor replicas, forward query to the next successor in line");
 #else
-            DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
-            unsigned long seq =
-                monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
-            if (WooFInvalid(seq)) {
-                log_error("failed to shift successor");
-                exit(1);
-            }
-            log_warn("called h_shift_successor to use the next successor in line");
+                DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
+                unsigned long seq = monitor_put(
+                    DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
+                if (WooFInvalid(seq)) {
+                    log_error("failed to shift successor");
+                    exit(1);
+                }
+                log_warn("called h_shift_successor to use the next successor in line");
 #endif
-        } else {
-            log_debug("forwarded find_succesor request to successor: %s", successor_addr(&successor, 0));
-            return 1;
+            } else {
+                log_debug("forwarded find_succesor request to successor: %s", successor_addr(&successor, i));
+                return 1;
+            }
         }
     }
 
-    // forwarding to self doesn't count as an extra hop
-    arg->hops--;
     // return n.find_succesor(id)
     log_debug("closest_preceding_node not found in finger table");
+    usleep(self_forward_delay * 1000);
+    ++arg->self_forward_count;
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to put woof to self");

@@ -20,10 +20,23 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_debug("topic: %s, woof: %s, seqno: %lu", arg->topic_name, arg->element_woof, arg->element_seqno);
 #endif
 
+    DHT_NODE_INFO node = {0};
+    if (get_latest_node_info(&node) < 0) {
+        log_error("couldn't get latest node info: %s", dht_error_msg);
+        exit(1);
+    }
     DHT_SUBSCRIPTION_LIST list = {0};
     if (get_latest_element(arg->subscription_woof, &list) < 0) {
         log_error("failed to get the latest subscription list of %s: %s", arg->topic_name, dht_error_msg);
         exit(1);
+    }
+    BLOCKED_NODES blocked_nodes = {0};
+    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+        log_error("failed to get blocked nodes");
+    }
+    FAILURE_RATE failure_rate = {0};
+    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
+        log_error("failed to get failure rate");
     }
 
     int i;
@@ -39,7 +52,10 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
 
         char invocation_woof[DHT_NAME_LENGTH];
         sprintf(invocation_woof, "%s/%s", list.handler_namespace[i], DHT_INVOCATION_WOOF);
-        unsigned long seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
+        unsigned long seq = -1;
+        if (!is_blocked(invocation_woof, node.addr, blocked_nodes, failure_rate)) {
+            seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
+        }
         if (WooFInvalid(seq)) {
             log_error("failed to trigger handler %s in %s", list.handlers[i], list.handler_namespace[i]);
         } else {

@@ -34,7 +34,6 @@ copy: handlers clients
 	cp d_daemon ./cspot;
 	cp d_fix_finger ./cspot;
 	cp d_stabilize ./cspot;
-	cp h_find_result ./cspot;
 	cp h_find_successor ./cspot;
 	cp h_fix_finger_callback ./cspot;
 	cp h_get_predecessor ./cspot;
@@ -47,8 +46,10 @@ copy: handlers clients
 	cp h_stabilize_callback ./cspot;
 	cp h_subscribe ./cspot;
 	cp h_trigger ./cspot;
+	cp s_block_nodes ./cspot;
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
+	cp s_failure_rate ./cspot;
 	cp s_join_cluster ./cspot;
 	cp r_map_raft_index ./cspot;
 	cp r_set_successor ./cspot;
@@ -62,14 +63,22 @@ copy: handlers clients
 	cp ../monitor/monitor_invoker ./cspot
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
-	h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
+	h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
 	r_map_raft_index r_set_successor r_try_replicas
 
-clients: s_create_cluster s_create_woofs s_join_cluster \
+clients: s_block_nodes s_create_cluster s_create_woofs s_failure_rate s_join_cluster \
 	client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe test_trigger_publish test_latency_call test_latency_create test_latency_handler
+	mkdir -p cspot;
+	cp test_dht_handler ./cspot;
+	cp test_publish ./cspot;
+	cp test_subscribe ./cspot;
+	cp test_trigger_publish ./cspot;
+	cp test_latency_call ./cspot;
+	cp test_latency_create ./cspot;
+	cp test_latency_handler ./cspot;
 
 client_find_node: client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o client_find_node client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -117,11 +126,6 @@ d_stabilize: d_stabilize.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC
 	sed 's/WOOF_HANDLER_NAME/d_stabilize/g' ${SHEP_SRC} > d_stabilize_shepherd.c
 	${CC} ${CFLAGS} -c d_stabilize_shepherd.c -o d_stabilize_shepherd.o
 	${CC} ${CFLAGS} -o d_stabilize d_stabilize.c d_stabilize_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-h_find_result: h_find_result.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/h_find_result/g' ${SHEP_SRC} > h_find_result_shepherd.c
-	${CC} ${CFLAGS} -c h_find_result_shepherd.c -o h_find_result_shepherd.o
-	${CC} ${CFLAGS} -o h_find_result h_find_result.c h_find_result_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_find_successor: h_find_successor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_find_successor/g' ${SHEP_SRC} > h_find_successor_shepherd.c
@@ -198,11 +202,17 @@ r_try_replicas: r_try_replicas.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} 
 	${CC} ${CFLAGS} -c r_try_replicas_shepherd.c -o r_try_replicas_shepherd.o
 	${CC} ${CFLAGS} -o r_try_replicas r_try_replicas.c r_try_replicas_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+s_block_nodes: s_block_nodes.c dht.o dht_utils.o
+	${CC} ${CFLAGS} -o s_block_nodes s_block_nodes.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 s_create_cluster: s_create_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_create_cluster s_create_cluster.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 s_create_woofs: s_create_woofs.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_create_woofs s_create_woofs.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+s_failure_rate: s_failure_rate.c dht.o dht_utils.o
+	${CC} ${CFLAGS} -o s_failure_rate s_failure_rate.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 s_join_cluster: s_join_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_join_cluster s_join_cluster.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -236,10 +246,10 @@ test_trigger_publish: test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
-	rm -f s_create_cluster s_create_woofs s_join_cluster
+	rm -f s_block_nodes s_create_cluster s_create_woofs s_failure_rate s_join_cluster
 	rm -f client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
-	rm -f h_find_result h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
+	rm -f h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
 	rm -f r_map_raft_index r_set_successor r_try_replicas
 	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish

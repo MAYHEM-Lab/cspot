@@ -11,33 +11,21 @@
 #include <string.h>
 #include <time.h>
 
-char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF,
-                                              DHT_DAEMON_WOOF,
-                                              DHT_FIND_NODE_RESULT_WOOF,
-                                              DHT_FIND_SUCCESSOR_WOOF,
-                                              DHT_FIX_FINGER_WOOF,
-                                              DHT_FIX_FINGER_CALLBACK_WOOF,
-                                              DHT_GET_PREDECESSOR_WOOF,
-                                              DHT_INVALIDATE_FINGERS_WOOF,
-                                              DHT_INVOCATION_WOOF,
-                                              DHT_JOIN_WOOF,
-                                              DHT_NOTIFY_CALLBACK_WOOF,
-                                              DHT_NOTIFY_WOOF,
-                                              DHT_REGISTER_TOPIC_WOOF,
-                                              DHT_SHIFT_SUCCESSOR_WOOF,
-                                              DHT_STABILIZE_WOOF,
-                                              DHT_STABILIZE_CALLBACK_WOOF,
-                                              DHT_SUBSCRIBE_WOOF,
-                                              DHT_TRIGGER_WOOF,
-                                              DHT_NODE_INFO_WOOF,
-                                              DHT_PREDECESSOR_INFO_WOOF,
+char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF, DHT_DAEMON_WOOF,
+                                              DHT_FIND_NODE_RESULT_WOOF,  DHT_FIND_SUCCESSOR_WOOF,
+                                              DHT_FIX_FINGER_WOOF,        DHT_FIX_FINGER_CALLBACK_WOOF,
+                                              DHT_GET_PREDECESSOR_WOOF,   DHT_INVALIDATE_FINGERS_WOOF,
+                                              DHT_INVOCATION_WOOF,        DHT_JOIN_WOOF,
+                                              DHT_NOTIFY_CALLBACK_WOOF,   DHT_NOTIFY_WOOF,
+                                              DHT_REGISTER_TOPIC_WOOF,    DHT_SHIFT_SUCCESSOR_WOOF,
+                                              DHT_STABILIZE_WOOF,         DHT_STABILIZE_CALLBACK_WOOF,
+                                              DHT_SUBSCRIBE_WOOF,         DHT_TRIGGER_WOOF,
+                                              DHT_NODE_INFO_WOOF,         DHT_PREDECESSOR_INFO_WOOF,
                                               DHT_SUCCESSOR_INFO_WOOF,
 #ifdef USE_RAFT
-                                              DHT_REPLICATE_STATE_WOOF,
-                                              DHT_TRY_REPLICAS_WOOF,
+                                              DHT_REPLICATE_STATE_WOOF,   DHT_TRY_REPLICAS_WOOF,
 #endif
-                                              DHT_SIM_SNAPSHOT_WOOF,
-                                              DHT_SIM_ARG_WOOF};
+                                              BLOCKED_NODES_WOOF, FAILURE_RATE_WOOF};
 
 unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
     sizeof(DHT_CHECK_PREDECESSOR_ARG),
@@ -65,8 +53,8 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
     sizeof(DHT_REPLICATE_STATE_WOOF),
     sizeof(DHT_TRY_REPLICAS_WOOF),
 #endif
-    sizeof(DHT_SIM_SNAPSHOT),
-    sizeof(DHT_SIM_ARG),
+    sizeof(BLOCKED_NODES),
+    sizeof(FAILURE_RATE),
 };
 
 unsigned long DHT_ELEMENT_SIZE[] = {
@@ -95,8 +83,8 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_SHORT, // DHT_REPLICATE_STATE_WOOF,
     DHT_HISTORY_LENGTH_SHORT, // DHT_TRY_REPLICAS_WOOF,
 #endif
-    DHT_HISTORY_LENGTH_SHORT, // DHT_SIM_SNAPSHOT_WOOF
-    DHT_HISTORY_LENGTH_SHORT, // DHT_SIM_ARG_WOOF
+    DHT_HISTORY_LENGTH_SHORT, // BLOCKED_NODES_WOOF
+    DHT_HISTORY_LENGTH_SHORT, // FAILURE_RATE
 };
 
 int dht_create_woofs() {
@@ -263,5 +251,26 @@ int dht_join_cluster(char* node_woof,
         return -1;
     }
 
+    return 0;
+}
+
+int is_blocked(char* target, char* self, BLOCKED_NODES blocked_nodes, FAILURE_RATE failure_rate) {
+    if (rand() % 100 < failure_rate.failed_percentage) {
+        return 1;
+    }
+    int i;
+    for (i = 0; i < 32; ++i) {
+        if (blocked_nodes.blocked_nodes[i][0] == 0) {
+            break;
+        }
+        if (strncmp(target, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
+            log_error("%s is blocked", target);
+            return 1;
+        }
+        if (strncmp(self, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
+            log_error("%s is blocked", self);
+            return 1;
+        }
+    }
     return 0;
 }

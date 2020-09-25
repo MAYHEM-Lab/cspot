@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
-    log_set_tag("client_put");
+    log_set_tag("h_client_put");
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
@@ -29,7 +29,8 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the server state");
         exit(1);
     }
-    int client_put_delay = server_state.timeout_min / 10;
+    // int client_put_delay = server_state.timeout_min / 10;
+    int client_put_delay = 0;
 
     unsigned long last_request = WooFGetLatestSeqno(RAFT_CLIENT_PUT_REQUEST_WOOF);
     if (WooFInvalid(last_request)) {
@@ -62,6 +63,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to append raft log");
                 exit(1);
             }
+            log_debug("put entry into log[%lu]", entry_seqno);
             result.redirected = 0;
             result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;
@@ -115,6 +117,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("client_put_request seq_no %lu doesn't match result seq_no %lu", i, result_seq);
             exit(1);
         }
+        log_debug("put result for %" PRIu64 " to result woof", result.index);
 
         arg.last_seqno = i;
     }

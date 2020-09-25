@@ -3,7 +3,7 @@
 
 #include "raft.h"
 
-#define DHT_CLIENT_DEFAULT_RESULT_DELAY 50
+#define DHT_CLIENT_DEFAULT_RESULT_DELAY 10
 
 #define RAFT_SUCCESS 0
 #define RAFT_ERROR -1

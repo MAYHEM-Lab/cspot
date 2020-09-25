@@ -37,6 +37,7 @@ copy: handlers clients test
 	cp h_timeout_checker ./cspot
 	cp client_get ./cspot
 	cp client_interrupt ./cspot
+	cp client_node_info ./cspot
 	cp client_observe ./cspot
 	cp client_put ./cspot
 	cp client_reconfig ./cspot
@@ -48,7 +49,7 @@ copy: handlers clients test
 
 test: test_append_handler test_client test_config test_raft_handler raft.o raft_client.o raft_utils.o
 
-clients: client_get client_interrupt client_observe client_put client_reconfig
+clients: client_get client_interrupt client_node_info client_observe client_put client_reconfig
 
 handlers: s_create_woofs s_start_server\
 d_interrupt h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker\
@@ -67,6 +68,9 @@ client_get: client_get.c raft.o raft_client.o raft_utils.o
 
 client_interrupt: client_interrupt.c raft.o raft_client.o raft_utils.o 
 	${CC} ${CFLAGS} -o client_interrupt client_interrupt.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+client_node_info:  client_node_info.c raft.o raft_client.o raft_utils.o 
+	${CC} ${CFLAGS} -o client_node_info client_node_info.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_observe: client_observe.c raft.o raft_client.o raft_utils.o 
 	${CC} ${CFLAGS} -o client_observe client_observe.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -140,6 +144,6 @@ test_raft_handler: test_raft_handler.c raft.o raft_client.o raft_utils.o ${SHEP_
 clean:
 	rm -rf ./cspot *.o 
 	rm -f test_append_handler test_client test_config test_raft_handler 
-	rm -f client_get client_interrupt client_observe client_put client_reconfig d_interrupt
+	rm -f client_get client_interrupt client_node_info client_observe client_put client_reconfig d_interrupt
 	rm -f h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker 
 	rm -f s_create_woofs s_start_server 
