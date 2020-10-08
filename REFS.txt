@@ -1,4 +1,0 @@
-https://eng.uber.com/schemaless-part-three/
-https://github.com/alexellis/faas
-http://s3.amazonaws.com/academia.edu.documents/6088156/irdp-figures.pdf?AWSAccessKeyId=AKIAIWOWYYGZ2Y53UL3A&Expires=1498152300&Signature=msbQvtVAzix440%2BOG9PRQSMp9pM%3D&response-content-disposition=inline%3B%20filename%3DIntroduction_to_reliable_distributed_pro.pdf
-https://gist.github.com/lesovsky/7420b0493b9b6c846bdb
