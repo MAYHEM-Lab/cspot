@@ -1,5 +1,7 @@
+extern "C" {
 #include "log.h"
 #include "woofc.h"
+}
 
 #include <errno.h>
 #include <pthread.h>
@@ -36,13 +38,13 @@ typedef struct cont_arg_stc CA;
  * note that this does NOT work for 32-bit architectures which means
  * a raspbian client needs to specify the port number explicitly
  */
-unsigned long WooFNameHash(char* namespace) {
+unsigned long WooFNameHash(char* woof_namespace) {
     unsigned long h = 5381;
     unsigned long a = 33;
     unsigned long i;
 
-    for (i = 0; i < strlen(namespace); i++) {
-        h = ((h * a) + namespace[i]); /* no mod p due to wrap */
+    for (i = 0; i < strlen(woof_namespace); i++) {
+        h = ((h * a) + woof_namespace[i]); /* no mod p due to wrap */
     }
 
     return (h);
@@ -188,7 +190,7 @@ static int WooFHostInit(int min_containers, int max_containers) {
     fflush(stdout);
 #endif
 
-    ca = malloc(sizeof(CA));
+    ca = new CA;
     if (ca == NULL) {
         exit(1);
     }
@@ -274,7 +276,7 @@ void* WooFContainerLauncher(void* arg) {
     }
 
     // build the names for the workers to spawn
-    WooF_worker_containers = malloc(sizeof(char*) * (container_count + 1));
+    WooF_worker_containers = new char*[container_count + 1];
     WooF_worker_containers[container_count] = NULL;
 #ifdef DEBUG
     fprintf(stdout, "worker names\n");
@@ -387,7 +389,7 @@ void* WooFContainerLauncher(void* arg) {
 }
 
 #define ARGS "m:M:d:H:N:"
-char* Usage = "woofc-name-platform -d application woof directory\n\
+const char* Usage = "woofc-name-platform -d application woof directory\n\
 \t-H directory for hostwide namelog\n\
 \t-m min container count\n\
 -t-M max container count\n\
@@ -437,7 +439,7 @@ void CleanUpContainers(char** names) {
     }
     ptr = names;
 
-    char* command = malloc(name_lengths + 512);
+    char* command = new char[name_lengths + 512];
     command[0] = 0;
     strcpy(command, "docker rm -f ");
     while (*ptr != NULL) {

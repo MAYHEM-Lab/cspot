@@ -57,6 +57,8 @@ unsigned long WooFAppendWithCause(
 unsigned long WooFAppend(WOOF* wf, char* hand_name, void* element);
 int WooFRead(WOOF* wf, void* element, unsigned long seq_no);
 int WooFReadTail(WOOF* wf, void* elements, int element_count);
+int WooFReadWithCause(
+    WOOF* wf, void* element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no);
 unsigned long WooFGetLatestSeqno(char* wf_name);
 unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
                                           unsigned long cause_host,
@@ -76,6 +78,7 @@ unsigned long WooFForward(WOOF* wf, unsigned long ndx, unsigned long elements);
 int WooFHandlerDone(char* wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF* wf);
+void WooFFree(WOOF*);
 int WooFTruncate(char* name, unsigned long seq_no);
 int WooFExist(char* name);
 

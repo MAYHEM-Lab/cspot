@@ -19,7 +19,7 @@ struct event_stc {
     unsigned long woofc_history_size;
     char woofc_name[128];
     char woofc_handler[128];
-    char namespace[1024];
+    char woofc_namespace[1024];
     unsigned long ino; // for caching if enabled
     uint64_t timestamp;
 };

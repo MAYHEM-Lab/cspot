@@ -13,9 +13,9 @@ add_subdirectory(src)
 add_library(woof 
   src/log.c 
   include/log.h
-  src/woofc.c
-  include/woofc.h 
-  src/woofc-access.c
+  src/woofc.cpp
+  include/woofc.h
+  src/woofc-access.cpp
   include/woofc-access.h 
   src/woofc-cache.c
   include/woofc-cache.h
@@ -43,6 +43,6 @@ add_library(woof-thread
 target_include_directories(woof-thread PUBLIC include)
 target_link_libraries(woof-thread PUBLIC mio euca_utils)
 
-add_executable(woofc-namespace-platform src/woofc-host.c include/woofc-host.h)
+add_executable(woofc-namespace-platform src/woofc-host.cpp include/woofc-host.h)
 target_link_libraries(woofc-namespace-platform PRIVATE woof)
 target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)

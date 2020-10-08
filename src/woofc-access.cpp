@@ -1,11 +1,12 @@
 // #define DEBUG
 
+extern "C" {
 #include "woofc-access.h"
 
 #include "dlist.h"
-#include "uriparser2.h"
 #include "woofc-cache.h"
 #include "woofc.h" /* for WooFPut */
+}
 
 #include <arpa/inet.h>
 #include <czmq.h>
@@ -20,6 +21,9 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <uriparser2.h>
+
+extern "C" {
 
 extern char WooF_namespace[2048];
 extern char Host_ip[25];
@@ -34,13 +38,13 @@ WOOF_CACHE* WooF_cache;
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
-unsigned int WooFPortHash(char* namespace) {
+unsigned int WooFPortHash(char* woof_namespace) {
     unsigned long h = 5381;
     unsigned long a = 33;
     unsigned long i;
 
-    for (i = 0; i < strlen(namespace); i++) {
-        h = ((h * a) + namespace[i]); /* no mod p due to wrap */
+    for (i = 0; i < strlen(woof_namespace); i++) {
+        h = ((h * a) + woof_namespace[i]); /* no mod p due to wrap */
     }
 
     /*
@@ -66,65 +70,53 @@ int WooFValidURI(char* str) {
  * convert URI to namespace path
  */
 int WooFURINameSpace(char* woof_uri_str, char* woof_namespace, int len) {
-    struct URI* uri;
-    int i;
-
     if (!WooFValidURI(woof_uri_str)) { /* still might be local name, but return error */
-        return (-1);
+        return -1;
     }
 
-    uri = uri_parse(woof_uri_str);
-    if (uri == NULL) {
-        return (-1);
+    URI uri(woof_uri_str);
+    if (uri.reserved == nullptr) {
+        return -1;
     }
 
-    if (uri->path == NULL) {
-        free(uri);
-        return (-1);
+    if (uri.path == nullptr) {
+        return -1;
     }
-    strncpy(woof_namespace, uri->path, len);
 
-    free(uri);
+    strncpy(woof_namespace, uri.path, len);
 
-    return (1);
+    return 1;
 }
 
 /*
  * extract namespace from full woof_name
  */
 int WooFNameSpaceFromURI(char* woof_uri_str, char* woof_namespace, int len) {
-    struct URI* uri;
-    int i;
-
     if (!WooFValidURI(woof_uri_str)) { /* still might be local name, but return error */
         return (-1);
     }
 
-    uri = uri_parse(woof_uri_str);
-    if (uri == NULL) {
-        return (-1);
+    URI uri(woof_uri_str);
+    if (uri.reserved == nullptr) {
+        return -1;
     }
 
-    if (uri->path == NULL) {
-        free(uri);
-        return (-1);
+    if (uri.path == nullptr) {
+        return -1;
     }
     /*
      * walk back to the last '/' character
      */
-    i = strlen(uri->path);
+    auto i = strlen(uri.path);
     while (i >= 0) {
-        if (uri->path[i] == '/') {
+        if (uri.path[i] == '/') {
             if (i <= 0) {
-                free(uri);
                 return (-1);
             }
             if (i > len) { /* not enough space to hold path */
-                free(uri);
                 return (-1);
             }
-            strncpy(woof_namespace, uri->path, i);
-            free(uri);
+            strncpy(woof_namespace, uri.path, i);
             return (1);
         }
         i--;
@@ -132,56 +124,46 @@ int WooFNameSpaceFromURI(char* woof_uri_str, char* woof_namespace, int len) {
     /*
      * we didn't find a '/' in the URI path for the woofname -- error out
      */
-    free(uri);
     return (-1);
 }
 
 int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len) {
-    struct URI* uri;
-    int i;
-    int j;
-
     if (!WooFValidURI(woof_uri_str)) {
         return (-1);
     }
 
-    uri = uri_parse(woof_uri_str);
-    if (uri == NULL) {
-        return (-1);
+    URI uri(woof_uri_str);
+    if (uri.reserved == nullptr) {
+        return -1;
     }
 
-    if (uri->path == NULL) {
-        free(uri);
-        return (-1);
+    if (uri.path == nullptr) {
+        return -1;
     }
     /*
      * walk back to the last '/' character
      */
-    i = strlen(uri->path);
-    j = 0;
+    auto i = strlen(uri.path);
+    auto j = 0;
     /*
      * if last character in the path is a '/' this is an error
      */
-    if (uri->path[i] == '/') {
-        free(uri);
+    if (uri.path[i] == '/') {
         return (-1);
     }
     while (i >= 0) {
-        if (uri->path[i] == '/') {
+        if (uri.path[i] == '/') {
             i++;
             if (i <= 0) {
-                free(uri);
                 return (-1);
             }
             if (j > len) { /* not enough space to hold path */
-                free(uri);
                 return (-1);
             }
             /*
              * pull off the end as the name of the woof
              */
-            strncpy(woof_name, &(uri->path[i]), len);
-            free(uri);
+            strncpy(woof_name, &(uri.path[i]), len);
             return (1);
         }
         i--;
@@ -190,7 +172,6 @@ int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len) {
     /*
      * we didn't find a '/' in the URI path for the woofname -- error out
      */
-    free(uri);
     return (-1);
 }
 
@@ -198,94 +179,76 @@ int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len) {
  * returns IP address to avoid DNS issues
  */
 int WooFIPAddrFromURI(char* woof_uri_str, char* woof_ip, int len) {
-    struct URI* uri;
-    int i;
-    int j;
-    struct in_addr addr;
-    struct in_addr** list;
-    struct hostent* he;
-    int err;
-
     if (!WooFValidURI(woof_uri_str)) {
         return (-1);
     }
 
-    uri = uri_parse(woof_uri_str);
-    if (uri == NULL) {
-        return (-1);
+    URI uri(woof_uri_str);
+    if (uri.reserved == nullptr) {
+        return -1;
     }
 
-    if (uri->host == NULL) {
-        free(uri);
-        return (-1);
+    if (uri.host == nullptr) {
+        return -1;
     }
 
+    in_addr addr;
     /*
      * test to see if the host is an IP address already
      */
-    err = inet_aton(uri->host, &addr);
+    auto err = inet_aton(uri.host, &addr);
     if (err == 1) {
-        strncpy(woof_ip, uri->host, len);
-        free(uri);
+        strncpy(woof_ip, uri.host, len);
         return (1);
     }
 
+    struct hostent* he;
     /*
      * here, assume it is a DNS name
      */
-    he = gethostbyname(uri->host);
+    he = gethostbyname(uri.host);
     if (he == NULL) {
-        free(uri);
         return (-1);
     }
 
-    list = (struct in_addr**)he->h_addr_list;
+    auto list = (struct in_addr**)he->h_addr_list;
     if (list == NULL) {
-        free(uri);
         return (-1);
     }
 
-    for (i = 0; list[i] != NULL; i++) {
+    for (int i = 0; list[i] != NULL; i++) {
         /*
          * return first non-NULL ip address
          */
         if (list[i] != NULL) {
             strncpy(woof_ip, inet_ntoa(*list[i]), len);
-            free(uri);
             return (1);
         }
     }
 
-    free(uri);
     return (-1);
 }
 
 int WooFPortFromURI(char* woof_uri_str, int* woof_port) {
-    struct URI* uri;
-    int err;
-
     if (!WooFValidURI(woof_uri_str)) {
         return (-1);
     }
 
-    uri = uri_parse(woof_uri_str);
-    if (uri == NULL) {
+    URI uri(woof_uri_str);
+    if (uri.reserved == nullptr) {
+        return -1;
+    }
+
+    if (uri.port == 0) {
+        return -1;
+    }
+
+    if (uri.port == -1) {
         return (-1);
     }
 
-    if (uri->port == 0) {
-        free(uri);
-        return (-1);
-    }
+    *woof_port = (int)uri.port;
 
-    if (uri->port == -1) {
-        free(uri);
-        return (-1);
-    }
-
-    *woof_port = (int)uri->port;
-
-    free(uri);
     return (1);
 }
 
@@ -388,7 +351,7 @@ static zmsg_t* ServerRequest(char* endpoint, zmsg_t* msg) {
     /*
      * wait for the reply, but not indefinitely
      */
-    server_resp = zpoller_wait(resp_poll, WOOF_MSG_REQ_TIMEOUT);
+    server_resp = static_cast<zsock_t*>(zpoller_wait(resp_poll, WOOF_MSG_REQ_TIMEOUT));
     if (server_resp != NULL) {
         r_msg = zmsg_recv(server_resp);
         if (r_msg == NULL) {
@@ -900,7 +863,7 @@ void WooFProcessGetLatestSeqno(zmsg_t* req_msg, zsock_t* receiver) {
 
 unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsigned long cause_woof_latest_seq_no) {
     char endpoint[255];
-    char namespace[2048];
+    char woof_namespace[2048];
     char ip_str[25];
     int port;
     zmsg_t* msg;
@@ -921,8 +884,8 @@ unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsi
         my_log_seq_no = 0;
     }
 
-    memset(namespace, 0, sizeof(namespace));
-    err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+    memset(woof_namespace, 0, sizeof(woof_namespace));
+    err = WooFNameSpaceFromURI(woof_name, woof_namespace, sizeof(woof_namespace));
     if (err < 0) {
         fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no name space\n", woof_name);
         fflush(stderr);
@@ -945,7 +908,7 @@ unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsi
 
     err = WooFPortFromURI(woof_name, &port);
     if (err < 0) {
-        port = WooFPortHash(namespace);
+        port = WooFPortHash(woof_namespace);
     }
 
     memset(endpoint, 0, sizeof(endpoint));
@@ -1229,7 +1192,7 @@ unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsi
             zmsg_destroy(&r_msg);
             return (-1);
         }
-        str = zframe_data(r_frame);
+        str = reinterpret_cast<char*>(zframe_data(r_frame));
         lastest_seq_no = strtoul(str, (char**)NULL, 10);
         zmsg_destroy(&r_msg);
     }
@@ -1302,7 +1265,7 @@ void WooFProcessGetTail(zmsg_t* req_msg, zsock_t* receiver) {
         perror("WooFProcessGetTail: couldn't find element count in msg");
         return;
     }
-    el_count = strtoul(zframe_data(frame), (char**)NULL, 10);
+    el_count = strtoul(reinterpret_cast<char*>(zframe_data(frame)), (char**)NULL, 10);
 
     /*
      * FIX ME: for now, all process requests are local
@@ -2296,7 +2259,7 @@ void* WooFMsgThread(void* arg) {
     pthread_exit(NULL);
 }
 
-int WooFMsgServer(char* namespace) {
+int WooFMsgServer(char* woof_namespace) {
 
     int port;
     zactor_t* proxy;
@@ -2309,7 +2272,7 @@ int WooFMsgServer(char* namespace) {
     zsock_t* workers;
     zmsg_t* msg;
 
-    if (namespace[0] == 0) {
+    if (woof_namespace[0] == 0) {
         fprintf(stderr, "WooFMsgServer: couldn't find namespace\n");
         fflush(stderr);
         exit(1);
@@ -2325,7 +2288,7 @@ int WooFMsgServer(char* namespace) {
      */
     memset(endpoint, 0, sizeof(endpoint));
 
-    port = WooFPortHash(namespace);
+    port = WooFPortHash(woof_namespace);
 
     /*
      * listen to any tcp address on port hash of namespace
@@ -2392,7 +2355,7 @@ int WooFMsgServer(char* namespace) {
 
 unsigned long WooFMsgGetElSize(char* woof_name) {
     char endpoint[255];
-    char namespace[2048];
+    char woof_namespace[2048];
     char ip_str[25];
     int port;
     zmsg_t* msg;
@@ -2425,8 +2388,8 @@ unsigned long WooFMsgGetElSize(char* woof_name) {
         return (*el_size_cached);
     }
 
-    memset(namespace, 0, sizeof(namespace));
-    err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+    memset(woof_namespace, 0, sizeof(woof_namespace));
+    err = WooFNameSpaceFromURI(woof_name, woof_namespace, sizeof(woof_namespace));
     if (err < 0) {
         fprintf(stderr, "WooFMsgGetElSize: woof: %s no name space\n", woof_name);
         fflush(stderr);
@@ -2449,7 +2412,7 @@ unsigned long WooFMsgGetElSize(char* woof_name) {
 
     err = WooFPortFromURI(woof_name, &port);
     if (err < 0) {
-        port = WooFPortHash(namespace);
+        port = WooFPortHash(woof_namespace);
     }
 
     memset(endpoint, 0, sizeof(endpoint));
@@ -2566,7 +2529,7 @@ unsigned long WooFMsgGetElSize(char* woof_name) {
             zmsg_destroy(&r_msg);
             return (-1);
         }
-        str = zframe_data(r_frame);
+        str = reinterpret_cast<char*>(zframe_data(r_frame));
         el_size = strtoul(str, (char**)NULL, 10);
         zmsg_destroy(&r_msg);
     }
@@ -2600,7 +2563,7 @@ unsigned long WooFMsgGetElSize(char* woof_name) {
 
 unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_size, int el_count) {
     char endpoint[255];
-    char namespace[2048];
+    char woof_namespace[2048];
     char ip_str[25];
     int port;
     zmsg_t* msg;
@@ -2613,8 +2576,8 @@ unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_s
     int err;
     unsigned long el_read;
 
-    memset(namespace, 0, sizeof(namespace));
-    err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+    memset(woof_namespace, 0, sizeof(woof_namespace));
+    err = WooFNameSpaceFromURI(woof_name, woof_namespace, sizeof(woof_namespace));
     if (err < 0) {
         fprintf(stderr, "WooFMsgGetTail: woof: %s no name space\n", woof_name);
         fflush(stderr);
@@ -2637,7 +2600,7 @@ unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_s
 
     err = WooFPortFromURI(woof_name, &port);
     if (err < 0) {
-        port = WooFPortHash(namespace);
+        port = WooFPortHash(woof_namespace);
     }
 
     memset(endpoint, 0, sizeof(endpoint));
@@ -2785,7 +2748,7 @@ unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_s
             zmsg_destroy(&r_msg);
             return (-1);
         }
-        str = zframe_data(r_frame);
+        str = reinterpret_cast<char*>(zframe_data(r_frame));
         el_read = strtoul(str, (char**)NULL, 10);
 
         r_frame = zmsg_next(r_msg);
@@ -2819,7 +2782,7 @@ unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_s
 
 unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsigned long el_size) {
     char endpoint[255];
-    char namespace[2048];
+    char woof_namespace[2048];
     char ip_str[25];
     int port;
     zmsg_t* msg;
@@ -2846,8 +2809,8 @@ unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsign
         my_log_seq_no = 0;
     }
 
-    memset(namespace, 0, sizeof(namespace));
-    err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+    memset(woof_namespace, 0, sizeof(woof_namespace));
+    err = WooFNameSpaceFromURI(woof_name, woof_namespace, sizeof(woof_namespace));
     if (err < 0) {
         fprintf(stderr, "WooFMsgPut: woof: %s no name space\n", woof_name);
         fflush(stderr);
@@ -2871,7 +2834,7 @@ unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsign
 
     err = WooFPortFromURI(woof_name, &port);
     if (err < 0) {
-        port = WooFPortHash(namespace);
+        port = WooFPortHash(woof_namespace);
     }
 
     memset(endpoint, 0, sizeof(endpoint));
@@ -3149,7 +3112,7 @@ unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsign
             zmsg_destroy(&r_msg);
             return (-1);
         }
-        str = zframe_data(r_frame);
+        str = reinterpret_cast<char*>(zframe_data(r_frame));
         seq_no = strtoul(str, (char**)NULL, 10);
         zmsg_destroy(&r_msg);
     }
@@ -3164,7 +3127,7 @@ unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsign
 
 int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned long seq_no) {
     char endpoint[255];
-    char namespace[2048];
+    char woof_namespace[2048];
     char ip_str[25];
     int port;
     zmsg_t* msg;
@@ -3186,8 +3149,8 @@ int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned l
         my_log_seq_no = 0;
     }
 
-    memset(namespace, 0, sizeof(namespace));
-    err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+    memset(woof_namespace, 0, sizeof(woof_namespace));
+    err = WooFNameSpaceFromURI(woof_name, woof_namespace, sizeof(woof_namespace));
     if (err < 0) {
         fprintf(stderr, "WooFMsgGet: woof: %s no name space\n", woof_name);
         fflush(stderr);
@@ -3210,7 +3173,7 @@ int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned l
 
     err = WooFPortFromURI(woof_name, &port);
     if (err < 0) {
-        port = WooFPortHash(namespace);
+        port = WooFPortHash(woof_namespace);
     }
 
     memset(endpoint, 0, sizeof(endpoint));
@@ -4521,3 +4484,4 @@ int WooFMsgRepairProgress(
 }
 
 #endif
+}

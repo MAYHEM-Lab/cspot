@@ -1,5 +1,6 @@
 // #define DEBUG
 
+extern "C" {
 #include "woofc.h"
 
 #include "log.h"
@@ -8,6 +9,7 @@
 #ifdef REPAIR
 #include "repair.h"
 #endif
+}
 
 #include <errno.h>
 #include <pthread.h>
@@ -570,10 +572,10 @@ fflush(stdout);
         return (seq_no);
     }
 
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFAppend: namespace: %s\n", ev->namespace);
+    printf("WooFAppend: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
 
@@ -810,10 +812,10 @@ unsigned long WooFAppendWithCause(
     fflush(stdout);
 #endif
 
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFAppendWithCause: namespace: %s\n", ev->namespace);
+    printf("WooFAppendWithCause: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
 
@@ -1177,6 +1179,7 @@ int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
     if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
         el_size = WooFMsgGetElSize(wf_name);
         if (el_size != (unsigned long)-1) {
+            WooFMsgPut;
             err = WooFMsgGet(wf_name, element, el_size, seq_no);
             return (err);
         } else {
@@ -1703,10 +1706,10 @@ int WooFReadWithCause(
     ev = EventCreate(READ, Name_id);
     EventSetCause(ev, cause_host, cause_seq_no);
 
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFReadWithCause: namespace: %s\n", ev->namespace);
+    printf("WooFReadWithCause: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
 
@@ -1786,30 +1789,26 @@ unsigned long WooFLatest(WOOF* wf) {
 unsigned long WooFBack(WOOF* wf, unsigned long ndx, unsigned long elements) {
     WOOF_SHARED* wfs = wf->shared;
     unsigned long remainder = elements % wfs->history_size;
-    unsigned long new;
-    unsigned long wrap;
 
     if (elements == 0) {
         return (wfs->head);
     }
 
-    new = ndx - remainder;
+    unsigned long new_idx = ndx - remainder;
 
     /*
      * if we need to wrap around
      */
-    if (new >= wfs->history_size) {
-        wrap = remainder - ndx;
-        new = wfs->history_size - wrap;
+    if (new_idx >= wfs->history_size) {
+        auto wrap = remainder - ndx;
+        new_idx = wfs->history_size - wrap;
     }
 
-    return (new);
+    return new_idx;
 }
 
 unsigned long WooFForward(WOOF* wf, unsigned long ndx, unsigned long elements) {
-    unsigned long new = (ndx + elements) % wf->shared->history_size;
-
-    return (new);
+    return (ndx + elements) % wf->shared->history_size;
 }
 
 int WooFInvalid(unsigned long seq_no) {
@@ -1918,10 +1917,10 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
 
     ev = EventCreate(LATEST_SEQNO, Name_id);
     EventSetCause(ev, cause_host, cause_seq_no);
-    memset(ev->namespace, 0, sizeof(ev->namespace));
-    strncpy(ev->namespace, WooF_namespace, sizeof(ev->namespace));
+    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
+    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG
-    printf("WooFLatestSeqnoWithCause: namespace: %s\n", ev->namespace);
+    printf("WooFLatestSeqnoWithCause: namespace: %s\n", ev->woofc_namespace);
     fflush(stdout);
 #endif
     ev->woofc_seq_no = latest_seq_no;

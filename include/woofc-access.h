@@ -6,16 +6,26 @@
 
 #include <czmq.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 int WooFValidURI(char* str);
 int WooFNameSpaceFromURI(char* woof_uri_str, char* woof_namespace, int len);
 int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len);
 int WooFIPAddrFromURI(char* woof_uri_str, char* woof_ip, int len);
-unsigned int WooFPortHash(char* namespace);
+unsigned int WooFPortHash(char* woof_namespace);
 int WooFLocalIP(char* ip_str, int len);
 
 unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsigned long el_size);
+int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
 unsigned long WooFMsgGetElSize(char* woof_name);
-int WooFMsgServer(char* namespace);
+unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsigned long cause_woof_latest_seq_no);
+unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_size, int el_count);
+int WooFMsgServer(char* woof_namespace);
+
+unsigned long WooFPutWithCause(
+    char* wf_name, char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no);
 
 int WooFURINameSpace(char* woof_uri_str, char* woof_namespace, int len);
 
@@ -45,5 +55,9 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #define LOG_GET_REMOTE_SIZE (10)
 
 #define WOOF_MSG_CACHE_SIZE (100)
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
