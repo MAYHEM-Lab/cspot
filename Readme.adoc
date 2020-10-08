@@ -2,7 +2,7 @@
 
 == Dependencies
 
-cspot only depends on `czmq`. You can install it either through a package manager or by compiling it from link::https://github.com/zeromq/czmq[sources].
+cspot only depends on `czmq`. You can install it either through a package manager or by compiling it from link:https://github.com/zeromq/czmq[sources].
 
 == Building
 
