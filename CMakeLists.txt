@@ -30,6 +30,7 @@ add_library(woof
 )
 
 find_package(Threads REQUIRED)
+find_package(czmq REQUIRED)
 
 target_include_directories(woof PUBLIC include)
 target_link_libraries(woof PUBLIC mio euca_utils czmq m Threads::Threads uriparser2)
