@@ -1,35 +1,34 @@
 FROM centos:7
 MAINTAINER Name rich@cs.ucsb.edu
+
 RUN yum -y update && \
-yum -y install epel-release && \
-yum -y install zeromq-devel install blas blas-devel atlas-devel \
-	gcc \
-	autoconf \
-	gdb \
+yum -y install epel-release
+
+RUN yum -y install centos-release-scl && \
+    yum -y install devtoolset-9
+
+SHELL [ "/usr/bin/scl", "enable", "devtoolset-9" ]
+
+RUN yum -y install zeromq-devel install \
 	git \
-	make \
-	cmake \ 
 	libtool \
-	uuid-devel 
+	uuid-devel wget
+
 WORKDIR /root
+
+RUN wget https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-linux.zip
+RUN unzip ninja-linux.zip
+RUN install ninja /usr/bin/
+
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4-Linux-x86_64.tar.gz
+RUN tar xf cmake-3.18.4-Linux-x86_64.tar.gz
+RUN yes | cp -rf cmake-3.18.4-Linux-x86_64/* /usr/local/
+
 RUN mkdir -p src
 WORKDIR /root/src
-RUN git clone git://github.com/zeromq/czmq.git
+RUN git clone https://github.com/zeromq/czmq.git
 WORKDIR /root/src/czmq
-RUN ./autogen.sh && ./configure && make && make install && ldconfig
-WORKDIR /
-ENV LAPACK=lapack-3.8.0
-RUN mkdir ${LAPACK}
-RUN /bin/bash -l -c '\
-    curl -sSL "http://www.netlib.org/lapack/${LAPACK}.tar" | \
-    tar xz && cd ${LAPACK} && \
-    cp make.inc.example make.inc && \
-    make blaslib && \
-    make lapacklib -j 8 && cp liblapack.a /lib64 && \
-    cp liblapack.a /usr/local/lib && cp librefblas.a /usr/local/lib && \
-    cd LAPACKE && make && cd .. && cp liblapacke.a /usr/local/lib && \
-    cd ../ && rm -rf ${LAPACK}'
-# install python36 for AWS Lambda execution
-RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
-    yum update -y && \
-    yum install -y python36u python36u-libs python36u-devel python36u-pip \
+RUN git checkout v4.2.0
+RUN mkdir build
+WORKDIR /root/src/czmq/build
+RUN cmake -G Ninja .. && ninja && ninja install
