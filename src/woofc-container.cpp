@@ -14,6 +14,7 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <mutex>
+#include <fmt/format.h>
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
@@ -52,7 +53,6 @@ void* WooFReaper(void* arg);
 int WooFContainerInit() {
     struct timeval tm;
     int err;
-    char log_name[2048];
     char putbuf[25];
     pthread_t tid;
     char* str;
@@ -150,12 +150,11 @@ int WooFContainerInit() {
 
     strncpy(WooF_namelog_dir, "/cspot-namelog", sizeof(WooF_namelog_dir));
 
-    memset(log_name, 0, sizeof(log_name));
-    sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
+    auto log_name = fmt::format("{}/{}", WooF_namelog_dir, Namelog_name);
 
-    lmio = MIOReOpen(log_name);
+    lmio = MIOReOpen(log_name.c_str());
     if (lmio == NULL) {
-        fprintf(stderr, "WooFOntainerInit: couldn't open mio for log %s\n", log_name);
+        fprintf(stderr, "WooFOntainerInit: couldn't open mio for log %s\n", log_name.c_str());
         fflush(stderr);
         exit(1);
     }
@@ -262,8 +261,6 @@ void* WooFForker(void* arg) {
     EVENT last_event; /* needed to understand if log tail has changed */
     int status;
     int pid;
-    char* pbuf;
-    char** eenvp;
     int i;
     sig_t old_sig;
     int pd[2];
@@ -558,143 +555,37 @@ void* WooFForker(void* arg) {
 
             strncpy(woof_shepherd_dir, pathp, sizeof(woof_shepherd_dir));
 
-            eenvp = (char**)malloc(12 * sizeof(char*));
-            if (eenvp == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp\n");
-                exit(1);
-            }
+            std::vector<std::string> env;
 
-            i = 0; /* 0 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOFC_NAMESPACE=%s", WooF_namespace);
-            eenvp[i] = pbuf;
-            i++;
+            env.emplace_back(fmt::format("WOOFC_NAMESPACE={}", WooF_namespace));
+            env.emplace_back(fmt::format("WOOFC_DIR={}", WooF_dir));
+            env.emplace_back(fmt::format("WOOF_HOST_IP={}", Host_ip));
+            env.emplace_back(fmt::format("WOOF_SHEPHERD_NAME={}", wf->shared->filename));
+            env.emplace_back(fmt::format("WOOF_SHEPHERD_NDX={}", ev[first].woofc_ndx));
+            env.emplace_back(fmt::format("WOOF_SHEPHERD_SEQNO={}", ev[first].woofc_seq_no));
+            env.emplace_back(fmt::format("WOOF_NAME_ID={}", Name_id));
+            env.emplace_back(fmt::format("WOOF_NAMELOG_DIR={}", WooF_namelog_dir));
+            env.emplace_back(fmt::format("WOOF_NAMELOG_NAME={}", Namelog_name));
+            env.emplace_back(fmt::format("WOOF_NAMELOG_SEQNO={}", ev[first].seq_no));
+            env.emplace_back("LD_LIBRARY_PATH=/usr/local/lib");
+            env.emplace_back(fmt::format("WOOF_NAMELOG_DIR={}", WooF_namelog_dir));
 
-            /* 1 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOFC_DIR=%s", WooF_dir);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 2 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOF_HOST_IP=%s", Host_ip);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 3 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            /*
-             * XXX if we can get the file name in a different way we can eliminate this
-             * call to WooFOpen()
-             */
-            sprintf(pbuf, "WOOF_SHEPHERD_NAME=%s", wf->shared->filename);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 4 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOF_SHEPHERD_NDX=%lu", ev[first].woofc_ndx);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 5 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOF_SHEPHERD_SEQNO=%lu", ev[first].woofc_seq_no);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 6 */
-            pbuf = (char*)malloc(255);
-            sprintf(pbuf, "WOOF_NAME_ID=%lu", Name_id);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 7 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOF_NAMELOG_DIR=%s", WooF_namelog_dir);
-            putenv(pbuf);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 8 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOF_NAMELOG_NAME=%s", Namelog_name);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 9 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            sprintf(pbuf, "WOOF_NAMELOG_SEQNO=%llu", ev[first].seq_no);
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 10 */
-            pbuf = (char*)malloc(255);
-            if (pbuf == NULL) {
-                fprintf(stderr, "WooFForker: no space for eenvp %d\n", i);
-                exit(1);
-            }
-            memset(pbuf, 0, 255);
-            strcpy(pbuf, "LD_LIBRARY_PATH=/usr/local/lib");
-            eenvp[i] = pbuf;
-            i++;
-
-            /* 11 */
-            eenvp[i] = NULL;
-
-            pbuf = (char*)malloc(255);
-            sprintf(pbuf, "%s/%s", WooF_dir, ev[first].woofc_handler);
+            auto binary = fmt::format("{}/{}", WooF_dir, ev[first].woofc_handler);
 
             char* earg[2];
-            earg[0] = pbuf;
-            earg[1] = NULL;
+            earg[0] = const_cast<char*>(binary.c_str());
+            earg[1] = nullptr;
 
             WooFFree(wf);
 
-            execve(pbuf, earg, eenvp);
+            std::vector<char*> eenvp(env.size());
+            std::transform(env.begin(), env.end(), eenvp.begin(), [](auto& str) {
+                return const_cast<char*>(str.c_str());
+            });
 
-            fprintf(stderr, "WooFForker: execve of %s failed\n", pbuf);
+            execve(binary.c_str(), earg, eenvp.data());
+
+            fprintf(stderr, "WooFForker: execve of %s failed\n", binary.c_str());
             exit(1);
 
 #if 0
