@@ -47,14 +47,13 @@ void WooFShutdown(int) {
     }
 }
 
-void* WooFForker(void* arg);
-void* WooFReaper(void* arg);
+void WooFForker();
+void WooFReaper();
 
 int WooFContainerInit() {
     struct timeval tm;
     int err;
     char putbuf[25];
-    pthread_t tid;
     char* str;
     MIO* lmio;
     unsigned long name_id;
@@ -160,7 +159,8 @@ int WooFContainerInit() {
     Name_log = (LOG*)MIOAddr(lmio);
 
     if (Name_log == NULL) {
-        fprintf(stderr, "WooFContainerInit: couldn't open log as %s, size %d\n", log_name, DEFAULT_WOOF_LOG_SIZE);
+        fprintf(
+            stderr, "WooFContainerInit: couldn't open log as %s, size %d\n", log_name.c_str(), DEFAULT_WOOF_LOG_SIZE);
         fflush(stderr);
         exit(1);
     }
@@ -176,9 +176,9 @@ int WooFContainerInit() {
     Tcount = WOOF_CONTAINER_FORKERS;
 
     for (i = 0; i < WOOF_CONTAINER_FORKERS; i++) {
-        std::thread(WooFForker, nullptr).detach();
+        std::thread(WooFForker).detach();
     }
-    std::thread(WooFReaper, nullptr).detach();
+    std::thread(WooFReaper).detach();
 
     signal(SIGHUP, WooFShutdown);
     return (1);
@@ -189,7 +189,7 @@ void WooFExit() {
     pthread_exit(NULL);
 }
 
-void* WooFReaper(void* arg) {
+void WooFReaper() {
     int status;
     int i;
     struct timespec tspec;
@@ -229,36 +229,26 @@ void* WooFReaper(void* arg) {
     pthread_exit(NULL);
 }
 
-void* WooFForker(void* arg) {
+void WooFForker() {
     unsigned long last_seq_no = 0;
     unsigned long trigger_seq_no;
     unsigned long ls;
     unsigned long first;
     unsigned long firing;
-    unsigned long last;
     LOG* log_tail;
     EVENT* ev;
     EVENT* fev;
-    char* launch_string;
     char* pathp;
-    WOOF* wf;
     char woof_shepherd_dir[2048];
-    int err;
     int none;
     int firing_found;
-    EVENT last_event; /* needed to understand if log tail has changed */
+    EVENT last_event{}; /* needed to understand if log tail has changed */
     int status;
     int pid;
-    int i;
-    sig_t old_sig;
-    int pd[2];
-    int retries;
-    unsigned long cache_vals[2];
 
     /*
      * wait for things to show up in the log
      */
-    memset(&last_event, 0, sizeof(last_event));
 #ifdef DEBUG
     fprintf(stdout, "WooFForker: namespace: %s started\n", WooF_namespace);
     fflush(stdout);
@@ -325,7 +315,7 @@ void* WooFForker(void* arg) {
             continue;
         }
 
-        ev = (EVENT*)(MIOAddr(log_tail->m_buf) + sizeof(LOG));
+        ev = (EVENT*)(static_cast<char*>(MIOAddr(log_tail->m_buf)) + sizeof(LOG));
 
         /*
          * find the first TRIGGER we haven't seen yet
@@ -520,7 +510,7 @@ void* WooFForker(void* arg) {
 
             close(0); /* so shepherd knows there is no pipe */
 
-            wf = WooFOpen(ev[first].woofc_name);
+            auto wf = WooFOpen(ev[first].woofc_name);
 
             if (wf == NULL) {
                 fprintf(stderr,
@@ -575,13 +565,13 @@ void* WooFForker(void* arg) {
             fprintf(stderr, "WooFForker: execve of %s failed\n", binary.c_str());
             exit(1);
         } else if (pid < 0) {
-            fprintf(stderr,
-                    "WooFForker: fork failed for %s/%s in %s/%s\n",
-                    WooF_dir,
-                    ev[first].woofc_handler,
-                    WooF_namespace,
-                    wf->shared->filename);
-            fflush(stderr);
+//            fprintf(stderr,
+//                    "WooFForker: fork failed for %s/%s in %s/%s\n",
+//                    WooF_dir,
+//                    ev[first].woofc_handler,
+//                    WooF_namespace,
+//                    wf->shared->filename);
+//            fflush(stderr);
             WooFDone = 1;
         } else { /* parent */
 
@@ -616,7 +606,6 @@ void* WooFForker(void* arg) {
 }
 
 int main(int argc, char** argv) {
-    char c;
     int message_server = 0;
 
     WooFContainerInit();
@@ -624,6 +613,7 @@ int main(int argc, char** argv) {
     /*
      * check c != 255 for Raspberry Pi
      */
+    int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF && c != 255) {
         switch (c) {
         case 'M':
@@ -644,7 +634,7 @@ int main(int argc, char** argv) {
      */
     if (message_server) {
         fprintf(stdout, "woofc-container: started message server\n");
-        auto err = WooFMsgServer(WooF_namespace);
+        [[maybe_unused]] auto err = WooFMsgServer(WooF_namespace);
     } else {
         fprintf(stdout, "woofc-container: message server disabled. not listening.\n");
     }
