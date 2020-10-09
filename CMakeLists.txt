@@ -37,6 +37,10 @@ target_include_directories(woof PUBLIC include)
 target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2 fmt::fmt)
 target_compile_features(woof PUBLIC cxx_std_17)
 
+if (${CMAKE_BUILD_TYPE} MATCHES Debug)
+    target_compile_definitions(woof PUBLIC DEBUG=1)
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(woof PUBLIC -Wall -Wextra)
 endif()

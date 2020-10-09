@@ -2279,7 +2279,7 @@ int WooFMsgServer(char* woof_namespace) {
     }
 
 #ifdef DEBUG
-    printf("WooFMsgServer: started for namespace %s\n", namespace);
+    printf("WooFMsgServer: started for namespace %s\n", woof_namespace);
     fflush(stdout);
 #endif
 
