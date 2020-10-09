@@ -26,12 +26,12 @@ typedef struct mio_stc MIO;
 #define MIOLINESIZE (1024*1024) /* max size of input line */
 #define MIOSEPARATORS " \n"	/* separator chars for text parsing */
 
-MIO *MIOOpen(const char *filename, char *mode, unsigned long int size);
+MIO *MIOOpen(const char *filename, const char *mode, unsigned long int size);
 MIO *MIOReOpen(const char *filename);
 MIO *MIOMalloc(unsigned long int size);
 void MIOClose(MIO *mio);
-unsigned long int MIOSize(char *file);
-unsigned long int MIOFileSize(char *file);
+unsigned long int MIOSize(const char *file);
+unsigned long int MIOFileSize(const char *file);
 void *MIOAddr(MIO *mio);
 int MIOTextFields(MIO *mio);
 unsigned long int MIOTextRecords(MIO *mio);

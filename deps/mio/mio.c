@@ -32,7 +32,7 @@ void MIOClose(MIO *mio)
 /*
  * same semantics as fopen()
  */
-MIO *MIOOpen(const char *filename, char *mode, unsigned long int size)
+MIO *MIOOpen(const char *filename, const char *mode, unsigned long int size)
 {
 	MIO *mio;
 	int flen;
@@ -258,7 +258,7 @@ MIO *MIOMalloc(unsigned long int size)
 /*
  * rounds to page size
  */
-unsigned long int MIOSize(char *file)
+unsigned long int MIOSize(const char *file)
 {
 	int psize;
 	unsigned long int size;
@@ -282,7 +282,7 @@ unsigned long int MIOSize(char *file)
 
 }
 
-unsigned long int MIOFileSize(char *file)
+unsigned long int MIOFileSize(const char *file)
 {
 	struct stat fs;
 	int err;
