@@ -32,7 +32,7 @@ void MIOClose(MIO *mio)
 /*
  * same semantics as fopen()
  */
-MIO *MIOOpen(char *filename, char *mode, unsigned long int size)
+MIO *MIOOpen(const char *filename, char *mode, unsigned long int size)
 {
 	MIO *mio;
 	int flen;
@@ -151,7 +151,7 @@ MIO *MIOOpen(char *filename, char *mode, unsigned long int size)
 /*
  * useful when MIO exists
  */
-MIO *MIOReOpen(char *filename)
+MIO *MIOReOpen(const char *filename)
 {
 	int err;
 	MIO *mio;
