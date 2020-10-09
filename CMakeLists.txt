@@ -33,7 +33,7 @@ find_package(Threads REQUIRED)
 find_package(czmq REQUIRED)
 
 target_include_directories(woof PUBLIC include)
-target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2)
+target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2 fmt::fmt)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
