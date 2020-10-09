@@ -5,16 +5,16 @@ extern "C" {
 #include "woofc.h"
 }
 
-#include <errno.h>
-#include <pthread.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-#include <mutex>
+#include <cerrno>
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <fmt/format.h>
+#include <mutex>
+#include <thread>
+#include <unistd.h>
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
@@ -26,14 +26,16 @@ LOG* Name_log;
 
 #define ARGS "M"
 
-static int WooFDone;
+namespace {
+constexpr auto WOOF_CONTAINER_FORKERS = 15;
+int WooFDone;
 
-#define WOOF_CONTAINER_FORKERS (15)
 sema ForkerThrottle;
 std::mutex Tlock;
 int Tcount;
+} // namespace
 
-void WooFShutdown(int sig) {
+void WooFShutdown(int) {
     int val;
 
     WooFDone = 1;
@@ -43,8 +45,6 @@ void WooFShutdown(int sig) {
         }
         V(&Name_log->tail_wait);
     }
-
-    return;
 }
 
 void* WooFForker(void* arg);
@@ -112,8 +112,7 @@ int WooFContainerInit() {
         WooF_dir[strlen(WooF_dir) - 1] = 0;
     }
 
-    memset(putbuf, 0, sizeof(putbuf));
-    sprintf(putbuf, "WOOFC_DIR=%s", WooF_dir);
+    fmt::format_to(putbuf, "WOOFC_DIR={}", WooF_dir);
     putenv(putbuf);
 #ifdef DEBUG
     fprintf(stdout, "WooFContainerInit: %s\n", putbuf);
@@ -177,20 +176,9 @@ int WooFContainerInit() {
     Tcount = WOOF_CONTAINER_FORKERS;
 
     for (i = 0; i < WOOF_CONTAINER_FORKERS; i++) {
-        err = pthread_create(&tid, NULL, WooFForker, NULL);
-        if (err < 0) {
-            fprintf(stderr, "couldn't start forker thread\n");
-            exit(1);
-        }
-        pthread_detach(tid);
+        std::thread(WooFForker, nullptr).detach();
     }
-
-    err = pthread_create(&tid, NULL, WooFReaper, NULL);
-    if (err < 0) {
-        fprintf(stderr, "couldn't start reaper thread\n");
-        exit(1);
-    }
-    pthread_detach(tid);
+    std::thread(WooFReaper, nullptr).detach();
 
     signal(SIGHUP, WooFShutdown);
     return (1);
@@ -366,7 +354,8 @@ void* WooFForker(void* arg) {
                 firing_found = 0;
                 while (firing != log_tail->tail) {
                     if ((ev[firing].type == TRIGGER_FIRING) &&
-                        (strncmp(ev[firing].woofc_namespace, WooF_namespace, sizeof(ev[firing].woofc_namespace)) == 0) &&
+                        (strncmp(ev[firing].woofc_namespace, WooF_namespace, sizeof(ev[firing].woofc_namespace)) ==
+                         0) &&
                         (ev[firing].cause_seq_no == (unsigned long long)trigger_seq_no)) {
                         /* found FIRING */
                         firing_found = 1;
@@ -525,7 +514,6 @@ void* WooFForker(void* arg) {
 
         pid = fork();
         if (pid == 0) {
-
             /*
              * I am the child.  I need the read end but not the write end
              */
@@ -579,39 +567,13 @@ void* WooFForker(void* arg) {
             WooFFree(wf);
 
             std::vector<char*> eenvp(env.size());
-            std::transform(env.begin(), env.end(), eenvp.begin(), [](auto& str) {
-                return const_cast<char*>(str.c_str());
-            });
+            std::transform(
+                env.begin(), env.end(), eenvp.begin(), [](auto& str) { return const_cast<char*>(str.c_str()); });
 
             execve(binary.c_str(), earg, eenvp.data());
 
             fprintf(stderr, "WooFForker: execve of %s failed\n", binary.c_str());
             exit(1);
-
-#if 0
-		sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
-			 export WOOFC_DIR=%s; \
-			 export WOOF_HOST_IP=%s; \
-			 export WOOF_SHEPHERD_NAME=%s; \
-			 export WOOF_SHEPHERD_NDX=%lu; \
-			 export WOOF_SHEPHERD_SEQNO=%lu; \
-			 export WOOF_NAME_ID=%lu; \
-			 export WOOF_NAMELOG_DIR=%s; \
-			 export WOOF_NAMELOG_NAME=%s; \
-			 export WOOF_NAMELOG_SEQNO=%lu; \
-			 %s/%s",
-				WooF_namespace,
-				WooF_dir,
-				Host_ip,
-				wf->shared->filename,
-				ev[first].woofc_ndx,
-				ev[first].woofc_seq_no,
-				Name_id,
-				WooF_namelog_dir,
-				Namelog_name,
-				ev[first].seq_no,
-				WooF_dir,ev[first].woofc_handler);
-#endif
         } else if (pid < 0) {
             fprintf(stderr,
                     "WooFForker: fork failed for %s/%s in %s/%s\n",
@@ -651,12 +613,9 @@ void* WooFForker(void* arg) {
 
     fprintf(stderr, "WooFForker namespace: %s exiting\n", WooF_namespace);
     fflush(stderr);
-
-    pthread_exit(NULL);
 }
 
 int main(int argc, char** argv) {
-    int err;
     char c;
     int message_server = 0;
 
@@ -685,11 +644,9 @@ int main(int argc, char** argv) {
      */
     if (message_server) {
         fprintf(stdout, "woofc-container: started message server\n");
-        err = WooFMsgServer(WooF_namespace);
+        auto err = WooFMsgServer(WooF_namespace);
     } else {
         fprintf(stdout, "woofc-container: message server disabled. not listening.\n");
     }
     fflush(stdout);
-
-    pthread_exit(NULL);
 }

@@ -12,7 +12,6 @@ extern "C" {
 }
 
 #include <errno.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,10 +33,10 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
     WOOF_SHARED* wfs;
     MIO* mio;
     unsigned long space;
-    char local_name[4096];
-    char temp_name[4096];
+    char local_name[4096] = {};
+    char temp_name[4096] = {};
     char fname[1024];
-    char ip_str[25];
+    char ip_str[25] = {};
     int err;
     int is_local;
     struct stat sbuf;
@@ -62,8 +61,6 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
     }
 
     is_local = 0;
-    memset(local_name, 0, sizeof(local_name));
-    memset(ip_str, 0, sizeof(ip_str));
     /*
      * if it is a woof:// spec, check to see if the path matches the namespace
      *
