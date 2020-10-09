@@ -33,8 +33,12 @@ find_package(Threads REQUIRED)
 find_package(czmq REQUIRED)
 
 target_include_directories(woof PUBLIC include)
-target_link_libraries(woof PUBLIC mio euca_utils czmq m Threads::Threads uriparser2)
+target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2)
 target_compile_features(woof PUBLIC cxx_std_17)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(woof PUBLIC -Wall -Wextra)
+endif()
 
 add_library(woof-thread 
   src/woofc-thread.c 
@@ -46,3 +50,10 @@ target_link_libraries(woof-thread PUBLIC mio euca_utils)
 add_executable(woofc-namespace-platform src/woofc-host.cpp include/woofc-host.h)
 target_link_libraries(woofc-namespace-platform PRIVATE woof)
 target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)
+
+add_executable(woofc-container src/woofc-container.cpp)
+target_link_libraries(woofc-container PRIVATE woof)
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_link_options(woofc-container PRIVATE -static-libgcc)
+    target_link_options(woofc-container PRIVATE -static-libstdc++)
+endif()

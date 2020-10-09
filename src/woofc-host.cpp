@@ -13,6 +13,7 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <woofc-access.h>
+#include <iostream>
 
 char WooF_dir[2048];
 char WooF_namespace[2048];
@@ -364,6 +365,8 @@ void* WooFContainerLauncher(void* arg) {
         fprintf(stdout, "\tcommand: '%s'\n", launch_string);
         fflush(stdout);
 #endif
+
+        std::cerr << launch_string << '\n';
 
         err = pthread_create(&tid, NULL, WooFDockerThread, (void*)launch_string);
         if (err < 0) {

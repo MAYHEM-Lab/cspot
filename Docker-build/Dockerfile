@@ -31,4 +31,13 @@ WORKDIR /root/src/czmq
 RUN git checkout v4.2.0
 RUN mkdir build
 WORKDIR /root/src/czmq/build
-RUN cmake -G Ninja .. && ninja && ninja install
+RUN cmake -G Ninja \
+    -DCZMQ_WITH_UUID=OFF \
+    -DCZMQ_WITH_SYSTEMD=OFF \
+    -DCZMQ_WITH_LZ4=OFF \
+    -DCZMQ_WITH_LIBCURL=OFF \
+    -DCZMQ_WITH_NSS=OFF \
+    -DCZMQ_WITH_LIBMICROHTTPD=OFF \
+    .. && \
+    ninja && \
+    ninja install
