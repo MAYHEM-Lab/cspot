@@ -86,6 +86,10 @@ void WooFFree(WOOF*);
 int WooFTruncate(char* name, unsigned long seq_no);
 int WooFExist(char* name);
 
+unsigned int WooFPortHash(char* woof_namespace);
+
+unsigned long WooFNameHash(char* woof_namespace);
+
 #ifdef REPAIR
 WOOF* WooFOpenOriginal(char* name);
 int WooFRepairProgress(

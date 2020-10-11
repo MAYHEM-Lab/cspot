@@ -1990,6 +1990,24 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
     return (latest_seq_no);
 }
 
+unsigned int WooFPortHash(char* woof_namespace) {
+    /*
+     * hash namespace to port number between 50000 and 60000
+     */
+    return (50000 + (WooFNameHash(woof_namespace) % 10000));
+}
+
+unsigned long WooFNameHash(char* woof_namespace) {
+    uint64_t h = 5381;
+    uint64_t a = 33;
+
+    for (int i = 0; i < strlen(woof_namespace); i++) {
+        h = ((h * a) + woof_namespace[i]); /* no mod p due to wrap */
+    }
+
+    return (h);
+}
+
 #ifdef REPAIR
 WOOF* WooFOpenOriginal(char* name) {
     WOOF* wf;

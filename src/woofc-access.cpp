@@ -35,24 +35,6 @@ extern LOG* Name_log;
 
 WOOF_CACHE* WooF_cache;
 
-/*
- * from https://en.wikipedia.org/wiki/Universal_hashing
- */
-unsigned int WooFPortHash(char* woof_namespace) {
-    unsigned long h = 5381;
-    unsigned long a = 33;
-    unsigned long i;
-
-    for (i = 0; i < strlen(woof_namespace); i++) {
-        h = ((h * a) + woof_namespace[i]); /* no mod p due to wrap */
-    }
-
-    /*
-     * hash namespace to port number between 50000 and 60000
-     */
-    return (50000 + (h % 10000));
-}
-
 int WooFValidURI(char* str) {
     char* prefix;
     /*
