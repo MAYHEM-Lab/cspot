@@ -1,4 +1,6 @@
+extern "C" {
 #include "event.h"
+}
 
 #include <math.h>
 #include <stdio.h>
@@ -6,20 +8,19 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <new>
 
+extern "C" {
 EVENT* EventCreate(unsigned char type, unsigned long host) {
-    EVENT* ev;
-    struct timespec ts;
-
-    ev = (EVENT*)malloc(sizeof(EVENT));
-    if (ev == NULL) {
-        return (NULL);
+    auto ev = new (std::nothrow) EVENT{};
+    if (ev == nullptr) {
+        return nullptr;
     }
-    memset(ev, 0, sizeof(EVENT));
 
     ev->type = type;
     ev->host = host;
 
+    timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     ev->timestamp = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 
@@ -27,8 +28,7 @@ EVENT* EventCreate(unsigned char type, unsigned long host) {
 }
 
 void EventFree(EVENT* ev) {
-    free(ev);
-    return;
+    delete ev;
 }
 
 int EventSetCause(EVENT* ev, unsigned long cause_host, unsigned long long cause_seq_no) {
@@ -46,4 +46,5 @@ int64_t EventIndex(unsigned long host, unsigned long long seq_no) {
     ndx = ((int64_t)host << 32) + (int64_t)seq_no;
 
     return (ndx);
+}
 }
