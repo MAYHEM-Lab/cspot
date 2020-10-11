@@ -1,5 +1,5 @@
 // #define DEBUG
-
+#include <debug.h>
 extern "C" {
 #include "woofc.h"
 
