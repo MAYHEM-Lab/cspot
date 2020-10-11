@@ -1,5 +1,5 @@
-#ifndef LOG_H
-#define LOG_H
+#ifndef CSPOT_LOG_H
+#define CSPOT_LOG_H
 
 #include "event.h"
 #include "host.h"
