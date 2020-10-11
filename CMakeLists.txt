@@ -28,6 +28,8 @@ add_library(woof
 #  include/sema.h
   src/lsema.c
   include/lsema.h
+  src/debug.cpp
+  include/debug.h
 )
 
 find_package(Threads REQUIRED)
