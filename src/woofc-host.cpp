@@ -140,7 +140,7 @@ int WooFInit() {
 }
 
 #ifdef IS_PLATFORM
-void* WooFContainerLauncher(std::unique_ptr<CA>);
+void WooFContainerLauncher(std::unique_ptr<CA>);
 
 void CatchSignals();
 
@@ -213,78 +213,46 @@ void* WooFDockerThread(void* arg) {
     return (NULL);
 }
 
-void* WooFContainerLauncher(void* arg) {
-    unsigned long last_seq_no = 0;
-    unsigned long first;
-    LOG* log_tail;
-    EVENT* ev;
-    char* launch_string;
-    char* pathp;
-    WOOF* wf;
-    int err;
-    pthread_t tid;
-    int none;
-    int count;
-    int container_count;
-    unsigned int port;
-    CA* ca = (CA*)arg;
-    pthread_t* tids;
-
-    container_count = ca->container_count;
-    free(ca);
+void WooFContainerLauncher(std::unique_ptr<CA> ca) {
+    int container_count = ca->container_count;
+    ca.reset();
 
     /*
      * find the last directory in the path
      */
-    pathp = strrchr(WooF_dir, '/');
+    auto pathp = strrchr(WooF_dir, '/');
     if (pathp == NULL) {
         fprintf(stderr, "couldn't find leaf dir in %s\n", WooF_dir);
         exit(1);
     }
 
     // build the names for the workers to spawn
-#ifdef DEBUG
-    fprintf(stdout, "worker names\n");
-#endif
-    for (count = 0; count < container_count; ++count) {
-        worker_containers.emplace_back(fmt::format("CSPOTWorker-{}-{:x}-{}", pathp + 1, WooFNameHash(WooF_namespace), count));
-#ifdef DEBUG
-        fprintf(stdout, "\t - %s\n", worker_containers[count].c_str());
-#endif
+    DEBUG_LOG("worker names\n");
+    for (int count = 0; count < container_count; ++count) {
+        worker_containers.emplace_back(
+            fmt::format("CSPOTWorker-{}-{:x}-{}", pathp + 1, WooFNameHash(WooF_namespace), count));
+        DEBUG_LOG("\t - %s\n", worker_containers[count].c_str());
     }
 
     // kill any existing workers using CleanupDocker
     CleanUpContainers(worker_containers);
 
     // now create the new containers
-#ifdef DEBUG
-    fprintf(stdout, "WooFContainerLauncher started\n");
-    fflush(stdout);
-#endif
+    DEBUG_LOG("WooFContainerLauncher started\n");
 
-    tids = (pthread_t*)malloc(container_count * sizeof(pthread_t));
-    if (tids == NULL) {
-        fprintf(stderr, "WooFContainerLauncher no space\n");
-        exit(1);
-    }
+    std::vector<std::thread> launch_threads;
 
-    for (count = 0; count < container_count; count++) {
-        /*
-         * yield in case other threads need to complete
-         */
-#ifdef DEBUG
-        fprintf(stdout, "WooFContainerLauncher: launch %d\n", count + 1);
-        fflush(stdout);
-#endif
+    for (int count = 0; count < container_count; count++) {
+        DEBUG_LOG("WooFContainerLauncher: launch %d\n", count + 1);
 
-        launch_string = (char*)malloc(1024 * 8);
+        auto launch_string = (char*)malloc(1024 * 8);
         if (launch_string == NULL) {
             exit(1);
         }
 
-        memset(launch_string, 0, 4096);
+        memset(launch_string, 0, 1024 * 8);
 
-        port = WooFPortHash(WooF_namespace);
+        auto port = WooFPortHash(WooF_namespace);
 
         // begin constructing the launch string
         sprintf(launch_string + strlen(launch_string),
@@ -324,34 +292,18 @@ void* WooFContainerLauncher(void* arg) {
             sprintf(launch_string + strlen(launch_string), "-M ");
         }
 
-#ifdef DEBUG
-        fprintf(stdout, "\tcommand: '%s'\n", launch_string);
-        fflush(stdout);
-#endif
+        DEBUG_LOG("\tcommand: '%s'\n", launch_string);
 
         std::cerr << launch_string << '\n';
 
-        err = pthread_create(&tid, NULL, WooFDockerThread, (void*)launch_string);
-        if (err < 0) {
-            /* LOGGING
-             * log thread create failure here
-             */
-            exit(1);
-        }
-        //		pthread_detach(tid);
-        tids[count] = tid;
+        launch_threads.emplace_back([=] { WooFDockerThread(launch_string); });
     }
 
-    for (count = 0; count < container_count; count++) {
-        pthread_join(tids[count], NULL);
+    for (auto& thread : launch_threads) {
+        thread.join();
     }
 
-#ifdef DEBUG
-    fprintf(stdout, "WooFContainerLauncher exiting\n");
-    fflush(stdout);
-#endif
-    free(tids);
-    pthread_exit(NULL);
+    DEBUG_LOG("WooFContainerLauncher exiting\n");
 }
 
 #define ARGS "m:M:d:H:N:"
