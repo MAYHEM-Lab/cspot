@@ -46,7 +46,7 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
      */
     space = ((history_size + 1) * (element_size + sizeof(ELID))) + sizeof(WOOF_SHARED);
 
-    if (WooF_dir == NULL) {
+    if (WooF_dir[0] == 0) {
         fprintf(stderr, "WooFCreate: must init system\n");
         fflush(stderr);
         exit(1);
