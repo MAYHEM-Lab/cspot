@@ -3241,7 +3241,7 @@ int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned l
      */
 
     memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu\0", seq_no);
+    sprintf(buffer, "%lu", seq_no);
     frame = zframe_new(buffer, strlen(buffer));
 
     if (frame == NULL) {
@@ -3278,7 +3278,7 @@ int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned l
      * make a frame for the cause_host
      */
     memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu\0", Name_id);
+    sprintf(buffer, "%lu", Name_id);
     frame = zframe_new(buffer, strlen(buffer));
     if (frame == NULL) {
         fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_host to server at %s\n", woof_name, endpoint);
@@ -3311,7 +3311,7 @@ int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned l
      * make a frame for the cause_seq_no
      */
     memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu\0", my_log_seq_no);
+    sprintf(buffer, "%lu", my_log_seq_no);
     frame = zframe_new(buffer, strlen(buffer));
     if (frame == NULL) {
         fprintf(stderr, "WooFMsgGet: woof: %s no frame for cause_seq_no to server at %s\n", woof_name, endpoint);
