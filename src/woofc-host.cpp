@@ -15,14 +15,14 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <woofc-access.h>
-
-char** WooF_worker_containers = NULL;
 #include <thread>
 #include <vector>
 #include <string>
 #include <fmt/format.h>
 #include <debug.h>
 #include <global.h>
+
+std::vector<std::string> worker_containers;
 static int WooFDone;
 
 struct cont_arg_stc {
@@ -149,7 +149,7 @@ void* WooFContainerLauncher(void* arg);
 void CatchSignals();
 
 void CleanUpDocker(int, void*);
-void CleanUpContainers(char** names);
+void CleanUpContainers(const std::vector<std::string>& names);
 
 static int WooFHostInit(int min_containers, int max_containers) {
     char log_name[2048];
@@ -259,21 +259,18 @@ void* WooFContainerLauncher(void* arg) {
     }
 
     // build the names for the workers to spawn
-    WooF_worker_containers = new char*[container_count + 1];
-    WooF_worker_containers[container_count] = NULL;
 #ifdef DEBUG
     fprintf(stdout, "worker names\n");
 #endif
     for (count = 0; count < container_count; ++count) {
-        WooF_worker_containers[count] = (char*)malloc(1024);
-        sprintf(WooF_worker_containers[count], "CSPOTWorker-%s-%x-%d", pathp + 1, WooFNameHash(WooF_namespace), count);
+        worker_containers.emplace_back(fmt::format("CSPOTWorker-{}-{:x}-{}", pathp + 1, WooFNameHash(WooF_namespace), count));
 #ifdef DEBUG
-        fprintf(stdout, "\t - %s\n", WooF_worker_containers[count]);
+        fprintf(stdout, "\t - %s\n", worker_containers[count].c_str());
 #endif
     }
 
     // kill any existing workers using CleanupDocker
-    CleanUpContainers(WooF_worker_containers);
+    CleanUpContainers(worker_containers);
 
     // now create the new containers
 #ifdef DEBUG
@@ -317,7 +314,7 @@ void* WooFContainerLauncher(void* arg) {
                 "-e WOOF_NAME_ID=%lu "
                 "-e WOOF_NAMELOG_NAME=%s "
                 "-e WOOF_HOST_IP=%s ",
-                WooF_worker_containers[count],
+                worker_containers[count].c_str(),
                 WooF_namespace,
                 pathp,
                 Name_id,
@@ -414,46 +411,22 @@ char* SignalFgetS(char* buffer, int size, FILE* fd) {
     }
 }
 
-void CleanUpContainers(char** names) {
-    char** ptr = names;
-
-    int name_lengths = 0;
-    while (*ptr != NULL) {
-        name_lengths += strlen(*ptr) + 2 /* account for the space we will add */;
-        *ptr++;
-    }
-    ptr = names;
-
-    char* command = new char[name_lengths + 512];
-    command[0] = 0;
-    strcpy(command, "docker rm -f ");
-    while (*ptr != NULL) {
-        sprintf(command + strlen(command), "%s ", *ptr);
-        ptr++;
-    }
-    strcpy(command + strlen(command), "\n");
+void CleanUpContainers(const std::vector<std::string>& names) {
+    auto command = fmt::format("docker rm -f {}\n", fmt::join(names, ", "));
 #ifdef DEBUG
-    fprintf(stdout, "CleanUpDocker command: %s\n", command);
+    fprintf(stdout, "CleanUpDocker command: %s\n", command.c_str());
 #endif
-    system(command);
 }
 
 void CleanUpDocker(int signal, void* arg) {
     // simple guard, try to prevent two threads from making it in here at once
     // no real harm is done however if two threads do make it in other than
     // a possible double free, but the process is about to exit anyway
-    if (WooF_worker_containers == NULL)
+    if (worker_containers.empty())
         return;
 
-    char** names = WooF_worker_containers;
-    WooF_worker_containers = NULL;
-    CleanUpContainers(names);
-
-    char** ptr = names;
-    while (*ptr != NULL) {
-        free(*ptr++);
-    }
-    free(names);
+    CleanUpContainers(worker_containers);
+    worker_containers.clear();
 }
 
 void sig_int_handler(int signal) {
