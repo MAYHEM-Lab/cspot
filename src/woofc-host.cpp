@@ -140,7 +140,7 @@ int WooFInit() {
 }
 
 #ifdef IS_PLATFORM
-void* WooFContainerLauncher(void* arg);
+void* WooFContainerLauncher(std::unique_ptr<CA>);
 
 void CatchSignals();
 
@@ -149,9 +149,6 @@ void CleanUpContainers(const std::vector<std::string>& names);
 
 static int WooFHostInit(int min_containers, int max_containers) {
     char log_name[2048];
-    CA* ca;
-    int err;
-    pthread_t tid;
 
     WooFInit();
 
@@ -169,18 +166,10 @@ static int WooFHostInit(int min_containers, int max_containers) {
     fflush(stdout);
 #endif
 
-    ca = new CA;
-    if (ca == NULL) {
-        exit(1);
-    }
-
+    auto ca = std::make_unique<CA>();
     ca->container_count = min_containers;
 
-    err = pthread_create(&tid, NULL, WooFContainerLauncher, (void*)ca);
-    if (err < 0) {
-        fprintf(stderr, "couldn't start launcher thread\n");
-        exit(1);
-    }
+    auto thread = std::thread(WooFContainerLauncher, std::move(ca));
 
     /*
      * sleep for 10 years
@@ -190,7 +179,7 @@ static int WooFHostInit(int min_containers, int max_containers) {
      * be caught which then triggers a clean up of the docker container
      */
     sleep(86400 * 365 * 10);
-    pthread_join(tid, NULL);
+    thread.join();
 
     exit(0);
 }
