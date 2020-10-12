@@ -493,6 +493,7 @@ void WooFForker() {
             std::vector<char*> eenvp(env.size());
             std::transform(
                 env.begin(), env.end(), eenvp.begin(), [](auto& str) { return const_cast<char*>(str.c_str()); });
+            eenvp.push_back(nullptr);
 
             execve(binary.c_str(), earg, eenvp.data());
 
