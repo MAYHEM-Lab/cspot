@@ -499,13 +499,13 @@ void WooFForker() {
             fprintf(stderr, "WooFForker: execve of %s failed\n", binary.c_str());
             exit(1);
         } else if (pid < 0) {
-//            fprintf(stderr,
-//                    "WooFForker: fork failed for %s/%s in %s/%s\n",
-//                    WooF_dir,
-//                    ev[first].woofc_handler,
-//                    WooF_namespace,
-//                    wf->shared->filename);
-//            fflush(stderr);
+            //            fprintf(stderr,
+            //                    "WooFForker: fork failed for %s/%s in %s/%s\n",
+            //                    WooF_dir,
+            //                    ev[first].woofc_handler,
+            //                    WooF_namespace,
+            //                    wf->shared->filename);
+            //            fflush(stderr);
             WooFDone = 1;
         } else { /* parent */
 
