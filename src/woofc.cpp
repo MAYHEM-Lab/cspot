@@ -29,7 +29,7 @@ extern char Host_ip[25];
 
 void WooFDrop(WOOF* wf);
 
-int WooFCreate(char* name, unsigned long element_size, unsigned long history_size) {
+int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size) {
     WOOF_SHARED* wfs;
     MIO* mio;
     unsigned long space;
@@ -209,7 +209,7 @@ int WooFCreate(char* name, unsigned long element_size, unsigned long history_siz
     return (1);
 }
 
-WOOF* WooFOpen(char* name) {
+WOOF* WooFOpen(const char* name) {
     WOOF* wf;
     WOOF_SHARED* wfs;
     MIO* mio;
@@ -373,7 +373,7 @@ int WooFExist(char* name) {
     return 1;
 }
 
-unsigned long WooFAppend(WOOF* wf, char* hand_name, void* element) {
+unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
     MIO* mio;
     MIO* lmio;
     WOOF_SHARED* wfs;
@@ -572,7 +572,7 @@ fflush(stdout);
 }
 
 unsigned long WooFAppendWithCause(
-    WOOF* wf, char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
+    WOOF* wf, const char* hand_name, const void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
     MIO* mio;
     MIO* lmio;
     WOOF_SHARED* wfs;
@@ -777,7 +777,7 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     return (seq_no);
 }
 
-unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
+unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element) {
     WOOF* wf;
     unsigned long seq_no;
     unsigned long el_size;
@@ -791,7 +791,7 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
     struct timeval t1, t2;
     double elapsedTime;
 
-    DEBUG_LOG("WooFPut: called %s %s\n", wf_name, hand_name);
+    DEBUG_LOG("WooFPut: called %s %s\n", wf_name, wf_handler);
 
     memset(ns_ip, 0, sizeof(ns_ip));
     err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
@@ -826,7 +826,7 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
     if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
         el_size = WooFMsgGetElSize(wf_name);
         if (el_size != (unsigned long)-1) {
-            seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
+            seq_no = WooFMsgPut(wf_name, wf_handler, element, el_size);
             return (seq_no);
         } else {
             fprintf(stderr, "WooFPut: couldn't get element size for %s\n", wf_name);
@@ -855,7 +855,7 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
     } else {
         my_log_seq_no = 0;
     }
-    seq_no = WooFAppendWithCause(wf, hand_name, element, Name_id, my_log_seq_no);
+    seq_no = WooFAppendWithCause(wf, wf_handler, element, Name_id, my_log_seq_no);
 #ifdef REPAIR
     if (wf->shared->repair_mode == REMOVE) {
         memset(shadow_name, 0, sizeof(shadow_name));
@@ -1726,14 +1726,14 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
     return (latest_seq_no);
 }
 
-unsigned int WooFPortHash(char* woof_namespace) {
+unsigned int WooFPortHash(const char* woof_namespace) {
     /*
      * hash namespace to port number between 50000 and 60000
      */
     return (50000 + (WooFNameHash(woof_namespace) % 10000));
 }
 
-unsigned long WooFNameHash(char* woof_namespace) {
+unsigned long WooFNameHash(const char* woof_namespace) {
     uint64_t h = 5381;
     uint64_t a = 33;
 

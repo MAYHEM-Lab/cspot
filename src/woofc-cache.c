@@ -81,7 +81,7 @@ void WooFCacheFree(WOOF_CACHE* wc) {
 /*
  * take an arbitrary payload because what we want to cache for a WOOF may differ
  */
-int WooFCacheInsert(WOOF_CACHE* wc, char* woof_name, void* payload) {
+int WooFCacheInsert(WOOF_CACHE* wc, const char* woof_name, const void* payload) {
     char* name;
     RB* rb;
     DlistNode* dln;
@@ -183,7 +183,7 @@ void WooFCacheDelete(WOOF_CACHE* wc, DlistNode* dln) {
     return;
 }
 
-void* WooFCacheFind(WOOF_CACHE* wc, char* woof_name) {
+void* WooFCacheFind(WOOF_CACHE* wc, const char* woof_name) {
     RB* rb;
     DlistNode* dln;
     WOOF_CACHE_EL* el;
@@ -208,7 +208,7 @@ void* WooFCacheFind(WOOF_CACHE* wc, char* woof_name) {
     return (payload);
 }
 
-void WooFCacheRemove(WOOF_CACHE* wc, char* name) {
+void WooFCacheRemove(WOOF_CACHE* wc, const char* name) {
     RB* rb;
     DlistNode* dln;
 

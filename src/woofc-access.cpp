@@ -35,12 +35,11 @@ extern LOG* Name_log;
 
 WOOF_CACHE* WooF_cache;
 
-int WooFValidURI(char* str) {
-    char* prefix;
+int WooFValidURI(const char* str) {
     /*
      * must begin with woof://
      */
-    prefix = strstr(str, "woof://");
+    auto prefix = strstr(str, "woof://");
     if (prefix == str) {
         return (1);
     } else {
@@ -73,7 +72,7 @@ int WooFURINameSpace(char* woof_uri_str, char* woof_namespace, int len) {
 /*
  * extract namespace from full woof_name
  */
-int WooFNameSpaceFromURI(char* woof_uri_str, char* woof_namespace, int len) {
+int WooFNameSpaceFromURI(const char* woof_uri_str, char* woof_namespace, int len) {
     if (!WooFValidURI(woof_uri_str)) { /* still might be local name, but return error */
         return (-1);
     }
@@ -109,7 +108,7 @@ int WooFNameSpaceFromURI(char* woof_uri_str, char* woof_namespace, int len) {
     return (-1);
 }
 
-int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len) {
+int WooFNameFromURI(const char* woof_uri_str, char* woof_name, int len) {
     if (!WooFValidURI(woof_uri_str)) {
         return (-1);
     }
@@ -160,7 +159,7 @@ int WooFNameFromURI(char* woof_uri_str, char* woof_name, int len) {
 /*
  * returns IP address to avoid DNS issues
  */
-int WooFIPAddrFromURI(char* woof_uri_str, char* woof_ip, int len) {
+int WooFIPAddrFromURI(const char* woof_uri_str, char* woof_ip, int len) {
     if (!WooFValidURI(woof_uri_str)) {
         return (-1);
     }
@@ -211,7 +210,7 @@ int WooFIPAddrFromURI(char* woof_uri_str, char* woof_ip, int len) {
     return (-1);
 }
 
-int WooFPortFromURI(char* woof_uri_str, int* woof_port) {
+int WooFPortFromURI(const char* woof_uri_str, int* woof_port) {
     if (!WooFValidURI(woof_uri_str)) {
         return (-1);
     }
@@ -2335,7 +2334,7 @@ int WooFMsgServer(char* woof_namespace) {
     exit(0);
 }
 
-unsigned long WooFMsgGetElSize(char* woof_name) {
+unsigned long WooFMsgGetElSize(const char* woof_name) {
     char endpoint[255];
     char woof_namespace[2048];
     char ip_str[25];
@@ -2762,7 +2761,7 @@ unsigned long WooFMsgGetTail(char* woof_name, void* elements, unsigned long el_s
     }
 }
 
-unsigned long WooFMsgPut(char* woof_name, char* hand_name, void* element, unsigned long el_size) {
+unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size) {
     char endpoint[255];
     char woof_namespace[2048];
     char ip_str[25];

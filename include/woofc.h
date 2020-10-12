@@ -52,13 +52,13 @@ struct element_stc {
 
 typedef struct element_stc ELID;
 
-int WooFCreate(char* name, unsigned long element_size, unsigned long history_size);
-WOOF* WooFOpen(char* name);
-unsigned long WooFPut(char* wf_name, char* wf_handler, void* element);
+int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size);
+WOOF* WooFOpen(const char* name);
+unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
 int WooFGet(char* wf_name, void* element, unsigned long seq_no);
 unsigned long WooFAppendWithCause(
-    WOOF* wf, char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no);
-unsigned long WooFAppend(WOOF* wf, char* hand_name, void* element);
+    WOOF* wf, const char* hand_name, const void* element, unsigned long cause_host, unsigned long long cause_seq_no);
+unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element);
 int WooFRead(WOOF* wf, void* element, unsigned long seq_no);
 int WooFReadTail(WOOF* wf, void* elements, int element_count);
 int WooFReadWithCause(
@@ -79,16 +79,15 @@ unsigned long WooFEarliest(WOOF* wf);
 unsigned long WooFLatest(WOOF* wf);
 unsigned long WooFBack(WOOF* wf, unsigned long ndx, unsigned long elements);
 unsigned long WooFForward(WOOF* wf, unsigned long ndx, unsigned long elements);
-int WooFHandlerDone(char* wf_name, unsigned long seq_no);
 int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF* wf);
 void WooFFree(WOOF*);
 int WooFTruncate(char* name, unsigned long seq_no);
 int WooFExist(char* name);
 
-unsigned int WooFPortHash(char* woof_namespace);
+unsigned int WooFPortHash(const char* woof_namespace);
 
-unsigned long WooFNameHash(char* woof_namespace);
+unsigned long WooFNameHash(const char* woof_namespace);
 
 #ifdef REPAIR
 WOOF* WooFOpenOriginal(char* name);
