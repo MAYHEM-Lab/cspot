@@ -432,7 +432,7 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
     /*
      * write the data and record the indices
      */
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
     ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
 
@@ -632,7 +632,7 @@ unsigned long WooFAppendWithCause(
     /*
      * write the data and record the indices
      */
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
     ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
 
@@ -1216,7 +1216,7 @@ int WooFReadTail(WOOF* wf, void* elements, int element_count) {
 
     wfs = wf->shared;
 
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
 
     i = 0;
     lp = (unsigned char*)elements;
@@ -1325,7 +1325,7 @@ int WooFRead(WOOF* wf, void* element, unsigned long seq_no) {
 
     wfs = wf->shared;
 
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
 
     P(&wfs->mutex);
 
@@ -1425,7 +1425,7 @@ int WooFReadWithCause(
 
     wfs = wf->shared;
 
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
 
     P(&wfs->mutex);
 
