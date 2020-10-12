@@ -206,7 +206,7 @@ void WooFReaper() {
         }
         if (then.tv_sec == now.tv_sec) {
             tspec.tv_sec = 0;
-            tspec.tv_nsec = 5000000;
+            tspec.tv_nsec = 5'000'000;
         } else {
             tspec.tv_sec = 1;
             tspec.tv_nsec = 0;
