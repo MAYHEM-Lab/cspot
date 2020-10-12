@@ -1,5 +1,5 @@
 #ifndef CSPOT_DEBUG_H
-#define CSPOG_DEBUG_H
+#define CSPOT_DEBUG_H
 
 #if defined(__cplusplus)
 extern "C" {
