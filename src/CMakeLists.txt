@@ -11,3 +11,4 @@ add_executable(log-test-thread log-test-thread.c)
 target_link_libraries(log-test-thread PRIVATE woof)
 
 add_subdirectory(python)
+add_subdirectory(tests)
