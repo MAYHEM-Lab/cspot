@@ -31,7 +31,6 @@ struct cont_arg_stc {
 
 typedef struct cont_arg_stc CA;
 
-// #define DEBUG
 void WooFShutdown(int sig) {
     int val;
 
@@ -42,8 +41,6 @@ void WooFShutdown(int sig) {
         }
         V(&Name_log->tail_wait);
     }
-
-    return;
 }
 
 int WooFInit() {
@@ -143,7 +140,6 @@ int WooFInit() {
 }
 
 #ifdef IS_PLATFORM
-void* WooFLauncher(void* arg);
 void* WooFContainerLauncher(void* arg);
 
 void CatchSignals();
@@ -197,7 +193,6 @@ static int WooFHostInit(int min_containers, int max_containers) {
     pthread_join(tid, NULL);
 
     exit(0);
-    return (1);
 }
 
 void WooFExit() {
@@ -418,7 +413,7 @@ void CleanUpContainers(const std::vector<std::string>& names) {
 #endif
 }
 
-void CleanUpDocker(int signal, void* arg) {
+void CleanUpDocker([[maybe_unused]] int signal, [[maybe_unused]] void* arg) {
     // simple guard, try to prevent two threads from making it in here at once
     // no real harm is done however if two threads do make it in other than
     // a possible double free, but the process is about to exit anyway
@@ -451,8 +446,6 @@ void CatchSignals() {
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGHUP, &action, NULL);
-
-    return;
 }
 
 int main(int argc, char** argv, char** envp) {
