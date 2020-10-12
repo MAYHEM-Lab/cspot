@@ -2,11 +2,10 @@
 #include <debug.h>
 #include <global.h>
 extern "C" {
-#include "woofc.h"
-
 #include "log.h"
 #include "woofc-access.h"
 #include "woofc-cache.h"
+#include "woofc.h"
 #ifdef REPAIR
 #include "repair.h"
 #endif

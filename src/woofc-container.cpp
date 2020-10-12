@@ -11,6 +11,7 @@ extern "C" {
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <debug.h>
 #include <fmt/format.h>
 #include <mutex>
 #include <thread>

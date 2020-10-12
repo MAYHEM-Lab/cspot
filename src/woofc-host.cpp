@@ -4,6 +4,8 @@ extern "C" {
 }
 
 #include <errno.h>
+#include <iostream>
+#include <memory>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -13,9 +15,13 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <woofc-access.h>
-#include <iostream>
 
 char** WooF_worker_containers = NULL;
+#include <thread>
+#include <vector>
+#include <string>
+#include <fmt/format.h>
+#include <debug.h>
 #include <global.h>
 static int WooFDone;
 
