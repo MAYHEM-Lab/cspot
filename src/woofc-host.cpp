@@ -3,7 +3,10 @@ extern "C" {
 #include "woofc.h"
 }
 
+#include <debug.h>
 #include <errno.h>
+#include <fmt/format.h>
+#include <global.h>
 #include <iostream>
 #include <memory>
 #include <pthread.h>
@@ -11,16 +14,13 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <sys/time.h>
+#include <thread>
 #include <time.h>
 #include <unistd.h>
-#include <woofc-access.h>
-#include <thread>
 #include <vector>
-#include <string>
-#include <fmt/format.h>
-#include <debug.h>
-#include <global.h>
+#include <woofc-access.h>
 
 std::vector<std::string> worker_containers;
 static int WooFDone;
