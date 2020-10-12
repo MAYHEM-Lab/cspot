@@ -30,6 +30,8 @@ add_library(woof
   include/lsema.h
   src/debug.cpp
   include/debug.h
+  include/global.h
+  src/global.cpp
 )
 
 find_package(Threads REQUIRED)

@@ -15,15 +15,8 @@ extern "C" {
 #include <woofc-access.h>
 #include <iostream>
 
-char WooF_dir[2048];
-char WooF_namespace[2048];
-char WooF_namelog_dir[2048];
-char Host_dir[2048];
-char Host_ip[25];
-char Namelog_name[2048];
-unsigned long Name_id;
-LOG* Name_log;
 char** WooF_worker_containers = NULL;
+#include <global.h>
 static int WooFDone;
 
 struct cont_arg_stc {

@@ -22,13 +22,9 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <uriparser2.h>
+#include <global.h>
 
 extern "C" {
-
-extern char WooF_namespace[2048];
-extern char Host_ip[25];
-extern unsigned long Name_id;
-
 #ifdef REPAIR
 extern LOG* Name_log;
 #endif

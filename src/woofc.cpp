@@ -1,5 +1,6 @@
 // #define DEBUG
 #include <debug.h>
+#include <global.h>
 extern "C" {
 #include "woofc.h"
 
@@ -18,14 +19,6 @@ extern "C" {
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-
-extern char WooF_namespace[2048];
-extern char WooF_dir[2048];
-extern char WooF_namelog_dir[2048];
-extern char Namelog_name[2048];
-extern unsigned long Name_id;
-extern LOG* Name_log;
-extern char Host_ip[25];
 
 void WooFDrop(WOOF* wf);
 
