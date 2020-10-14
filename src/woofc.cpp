@@ -1,5 +1,8 @@
 // #define DEBUG
+#include "event.h"
+
 #include <debug.h>
+#include <fmt/format.h>
 #include <global.h>
 extern "C" {
 #include "log.h"
@@ -363,25 +366,12 @@ int WooFExist(const char* name) {
 unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
     MIO* mio;
     MIO* lmio;
-    WOOF_SHARED* wfs;
     char woof_name[2048];
-    char log_name[4096];
-    pthread_t tid;
-    unsigned long next;
-    unsigned char* buf;
-    unsigned char* ptr;
-    ELID* el_id;
     unsigned long seq_no;
-    unsigned long ndx;
     int err;
     char launch_string[4096];
-    char* namelog_seq_no;
     unsigned long my_log_seq_no;
-    EVENT* ev;
-    unsigned long ls;
     DEBUG_LOG("WooFAppend: called %s %s\n", wf->shared->filename, hand_name);
-
-    wfs = wf->shared;
 
     /*
      * if called from within a handler, env variable carries cause seq_no
@@ -389,24 +379,26 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
      *
      * when called for first time on namespace to start, should be NULL
      */
-    namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
-    if (namelog_seq_no != NULL) {
+    auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+    if (namelog_seq_no) {
         my_log_seq_no = strtoul(namelog_seq_no, (char**)NULL, 10);
     } else {
         my_log_seq_no = 0;
     }
 
-    if (hand_name != NULL) {
-        ev = EventCreate(TRIGGER, Name_id);
-        if (ev == NULL) {
-            fprintf(stderr, "WooFAppend: couldn't create log event\n");
-            exit(1);
+    cspot::event_ptr ev;
+    if (hand_name) {
+        ev = cspot::make_event(TRIGGER, Name_id);
+        if (!ev) {
+            DEBUG_FATAL("WooFAppend: couldn't create log event\n");
         }
         ev->cause_host = Name_id;
         ev->cause_seq_no = my_log_seq_no;
     }
 
     DEBUG_LOG("WooFAppend: checking for empty slot, ino: %lu\n", wf->ino);
+
+    auto wfs = wf->shared;
 
     P(&wfs->tail_wait);
 
@@ -418,18 +410,19 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
      */
     P(&wfs->mutex);
     DEBUG_LOG("WooFAppend: in mutex\n");
+
     /*
      * find the next spot
      */
-    next = (wfs->head + 1) % wfs->history_size;
-    ndx = next;
+    unsigned long next = (wfs->head + 1) % wfs->history_size;
+    unsigned long ndx = next;
 
     /*
      * write the data and record the indices
      */
-    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
-    ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
-    el_id = (ELID*)(ptr + wfs->element_size);
+    auto buf = reinterpret_cast<unsigned char*>(wfs) + sizeof(WOOF_SHARED);
+    unsigned char* ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
+    auto el_id = reinterpret_cast<ELID*>(ptr + wfs->element_size);
 
     /*
      * tail is the last valid place where data could go
@@ -466,9 +459,8 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
     if (wfs->repair_mode & SHADOW) {
         err = WooFShadowForward(wf);
         if (err < 0) {
-            fprintf(stderr, "WooFAppend: couldn't forward shadow %s\n", wfs->filename);
-            fflush(stderr);
-            return (-1);
+            DEBUG_WARN("WooFAppend: couldn't forward shadow %s\n", wfs->filename);
+            return -1;
         }
         if (wfs->repair_mode == NORMAL) // shadow closed
         {
@@ -496,48 +488,38 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
         return (seq_no);
     }
 
-    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
     strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
-    DEBUG_LOG("WooFAppend: namespace: %s\n", ev->woofc_namespace);
-
     ev->woofc_ndx = ndx;
-    DEBUG_LOG("WooFAppend: ndx: %lu\n", ev->woofc_ndx);
     ev->woofc_seq_no = seq_no;
-    DEBUG_LOG("WooFAppend: seq_no: %lu\n", ev->woofc_seq_no);
     ev->woofc_element_size = wfs->element_size;
-    DEBUG_LOG("WooFAppend: element_size %lu\n", ev->woofc_element_size);
     ev->woofc_history_size = wfs->history_size;
-    DEBUG_LOG("WooFAppend: history_size %lu\n", ev->woofc_history_size);
-    memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
     strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
-    DEBUG_LOG("WooFAppend: name %s\n", ev->woofc_name);
-    memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
     strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
-    DEBUG_LOG("WooFAppend: handler %s\n", ev->woofc_handler);
-
     ev->ino = wf->ino;
+
+    DEBUG_LOG("WooFAppend: namespace: %s\n", ev->woofc_namespace);
+    DEBUG_LOG("WooFAppend: ndx: %lu\n", ev->woofc_ndx);
+    DEBUG_LOG("WooFAppend: seq_no: %lu\n", ev->woofc_seq_no);
+    DEBUG_LOG("WooFAppend: element_size %lu\n", ev->woofc_element_size);
+    DEBUG_LOG("WooFAppend: history_size %lu\n", ev->woofc_history_size);
+    DEBUG_LOG("WooFAppend: name %s\n", ev->woofc_name);
+    DEBUG_LOG("WooFAppend: handler %s\n", ev->woofc_handler);
     DEBUG_LOG("WooFAppend: ino %lu\n", ev->ino);
 
     /*
      * log the event so that it can be triggered
      */
-    memset(log_name, 0, sizeof(log_name));
-    sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
-    DEBUG_LOG("WooFAppend: logging event to %s\n", log_name);
-    ls = LogEvent(Name_log, ev);
-    if (ls == 0) {
-        fprintf(stderr, "WooFAppend: couldn't log event to log %s\n", log_name);
-        fflush(stderr);
-        EventFree(ev);
-        return (-1);
+    unsigned long long ls;
+    if ((ls = LogEvent(Name_log, ev.get())) == 0) {
+        DEBUG_WARN("WooFAppend: couldn't log event to log\n");
+        return -1;
     }
 
     DEBUG_LOG("WooFAppend: logged %lu for woof %s %s\n", ls, ev->woofc_name, ev->woofc_handler);
 
-    EventFree(ev);
     V(&Name_log->tail_wait);
 
-    return (seq_no);
+    return seq_no;
 }
 
 unsigned long WooFAppendWithCause(
