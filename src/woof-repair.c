@@ -3,7 +3,6 @@
 #include "log.h"
 #include "mio.h"
 #include "repair.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>
