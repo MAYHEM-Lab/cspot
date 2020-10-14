@@ -9,6 +9,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(ENABLE_PYCSPOT "Enable cspot python bindings" OFF)
+option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
 add_subdirectory(deps)
 add_subdirectory(src)
@@ -43,6 +44,11 @@ target_compile_features(woof PUBLIC cxx_std_17)
 
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     target_compile_definitions(woof PUBLIC DEBUG=1)
+endif()
+
+if (ENABLE_FEATURE_REPAIR)
+    target_compile_definitions(woof PUBLIC REPAIR=1)
+    target_sources(woof PRIVATE src/repair.c)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
