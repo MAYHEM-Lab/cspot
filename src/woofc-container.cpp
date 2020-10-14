@@ -17,12 +17,13 @@ extern "C" {
 #include <mutex>
 #include <thread>
 #include <unistd.h>
+#include <atomic>
 
 #define ARGS "M"
 
 namespace {
 constexpr auto WOOF_CONTAINER_FORKERS = 15;
-int WooFDone;
+std::atomic<bool> should_exit;
 
 sema ForkerThrottle;
 std::mutex Tlock;
@@ -32,7 +33,7 @@ int Tcount;
 void WooFShutdown(int) {
     int val;
 
-    WooFDone = 1;
+    should_exit = true;
     while (sem_getvalue(&Name_log->tail_wait, &val) >= 0) {
         if (val > 0) {
             break;
@@ -170,7 +171,7 @@ int WooFContainerInit() {
 }
 
 void WooFExit() {
-    WooFDone = 1;
+    should_exit = true;
     pthread_exit(NULL);
 }
 
@@ -235,12 +236,12 @@ void WooFForker() {
 
     DEBUG_LOG("WooFForker: namespace: %s memset called\n", WooF_namespace);
 
-    while (WooFDone == 0) {
+    while (!should_exit) {
         DEBUG_LOG("WooFForker: namespace: %s caling P\n", WooF_namespace);
         P(&Name_log->tail_wait);
         DEBUG_LOG("WooFForker (%lu): namespace: %s awake\n", pthread_self(), WooF_namespace);
 
-        if (WooFDone == 1) {
+        if (should_exit) {
             break;
         }
 
@@ -500,7 +501,7 @@ void WooFForker() {
             //                    WooF_namespace,
             //                    wf->shared->filename);
             //            fflush(stderr);
-            WooFDone = 1;
+            should_exit = true;
         } else { /* parent */
 
             /*
