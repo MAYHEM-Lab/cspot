@@ -751,18 +751,12 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
      */
     if (err < 0) {
         err = WooFLocalIP(ns_ip, sizeof(ns_ip));
-        if (err < 0) {
-            fprintf(stderr, "WooFPut: no local IP\n");
-            exit(1);
-        }
+        DEBUG_FATAL_IF(err < 0, "WooFPut: no local IP\n");
     }
 
     memset(my_ip, 0, sizeof(my_ip));
     err = WooFLocalIP(my_ip, sizeof(my_ip));
-    if (err < 0) {
-        fprintf(stderr, "WooFPut: no local IP\n");
-        exit(1);
-    }
+    DEBUG_FATAL_IF(err < 0, "WooFPut: no local IP\n");
 
     memset(wf_namespace, 0, sizeof(wf_namespace));
     err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
@@ -780,17 +774,16 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
             seq_no = WooFMsgPut(wf_name, wf_handler, element, el_size);
             return (seq_no);
         } else {
-            fprintf(stderr, "WooFPut: couldn't get element size for %s\n", wf_name);
-            fflush(stderr);
+            DEBUG_WARN("WooFPut: couldn't get element size for %s\n", wf_name);
             return (-1);
         }
     }
 
     if (WooF_dir[0] == 0) {
-        fprintf(stderr, "WooFPut: local namespace put must init system\n");
-        fflush(stderr);
+        DEBUG_WARN("WooFPut: local namespace put must init system\n");
         return (-1);
     }
+
     DEBUG_LOG("WooFPut: namespace: %s,  WooF_dir: %s, name: %s\n", WooF_namespace, WooF_dir, wf_name);
     wf = WooFOpen(wf_name);
 
@@ -807,6 +800,7 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
         my_log_seq_no = 0;
     }
     seq_no = WooFAppendWithCause(wf, wf_handler, element, Name_id, my_log_seq_no);
+
 #ifdef REPAIR
     if (wf->shared->repair_mode == REMOVE) {
         memset(shadow_name, 0, sizeof(shadow_name));
@@ -827,6 +821,7 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
         return (seq_no);
     }
 #endif
+
     WooFFree(wf);
     return (seq_no);
 }
