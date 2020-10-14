@@ -15,6 +15,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -343,23 +344,22 @@ int WooFExist(char* name) {
         exit(1);
     }
 
-    char local_name[4096];
-    memset(local_name, 0, sizeof(local_name));
-    strncpy(local_name, WooF_dir, sizeof(local_name));
-    if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 1);
+    std::string local_name = WooF_dir;
+
+    if (local_name.back() != '/') {
+        local_name += "/";
     }
     if (WooFValidURI(name)) {
         if (WooFNameFromURI(name, fname, sizeof(fname)) < 0) {
             fprintf(stderr, "WooFExist: bad name in URI %s\n", name);
             return 0;
         }
-        strncat(local_name, fname, sizeof(fname));
+        local_name += fname;
     } else {
-        strncat(local_name, name, sizeof(local_name));
+        local_name += name;
     }
 
-    if (stat(local_name, &sbuf) < 0) {
+    if (stat(local_name.c_str(), &sbuf) < 0) {
         return 0;
     }
     return 1;
