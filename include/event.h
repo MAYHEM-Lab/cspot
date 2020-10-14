@@ -4,8 +4,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef enum EventState
+{
+    UNKNOWN = 1,
+    FUNC = 2,
+    TRIGGER = 3,
+    TRIGGER_FIRING = 4,
+    FIRED = 5,
+    APPEND = 6,
+    READ = 7,
+    LATEST_SEQNO = 8,
+} EventState;
+
 struct event_stc {
-    unsigned char type;
+    EventState type;
     unsigned long host;
     unsigned long long seq_no;
     unsigned long cause_host;
@@ -26,22 +38,13 @@ struct event_stc {
 
 typedef struct event_stc EVENT;
 
-#define UNKNOWN (1)
-#define FUNC (2)
-#define TRIGGER (3)
-#define TRIGGER_FIRING (4)
-#define FIRED (5)
-#define APPEND (6)
-#define READ (7)
-#define LATEST_SEQNO (8)
-
 #ifdef REPAIR
 #define MARKED (32) // for downstream events discovery in repair mode
 #define ROOT (64)
 #define INVALID (128)
 #endif
 
-EVENT* EventCreate(unsigned char type, unsigned long host);
+EVENT* EventCreate(EventState type, unsigned long host);
 
 void EventFree(EVENT* ev);
 

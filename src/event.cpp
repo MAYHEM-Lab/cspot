@@ -11,7 +11,7 @@ extern "C" {
 #include <new>
 
 extern "C" {
-EVENT* EventCreate(unsigned char type, unsigned long host) {
+EVENT* EventCreate(EventState type, unsigned long host) {
     auto ev = new (std::nothrow) EVENT{};
     if (ev == nullptr) {
         return nullptr;
@@ -41,10 +41,6 @@ int EventSetCause(EVENT* ev, unsigned long cause_host, unsigned long long cause_
 }
 
 int64_t EventIndex(unsigned long host, unsigned long long seq_no) {
-    int64_t ndx;
-
-    ndx = ((int64_t)host << 32) + (int64_t)seq_no;
-
-    return (ndx);
+    return ((int64_t)host << 32) + (int64_t)seq_no;
 }
 }
