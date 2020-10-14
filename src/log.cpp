@@ -107,7 +107,7 @@ int LogAdd(LOG* log, EVENT* event) {
         return (1);
     }
 
-    ev_array = (EVENT*)(((void*)log) + sizeof(LOG));
+    ev_array = (EVENT*)(((unsigned char*)log) + sizeof(LOG));
 
     /*
      * FIX ME: need to implement a cleaner that moves the tail
@@ -128,8 +128,8 @@ int LogEventEqual(LOG* l1, LOG* l2, unsigned long ndx) {
     EVENT* e1;
     EVENT* e2;
 
-    e1 = (EVENT*)(MIOAddr(l1->m_buf) + sizeof(LOG));
-    e2 = (EVENT*)(MIOAddr(l2->m_buf) + sizeof(LOG));
+    e1 = (EVENT*)((unsigned char*)MIOAddr(l1->m_buf) + sizeof(LOG));
+    e2 = (EVENT*)((unsigned char*)MIOAddr(l2->m_buf) + sizeof(LOG));
 
     if (memcmp(&e1[ndx], &e2[ndx], sizeof(EVENT)) != 0) {
         return (0);
@@ -213,7 +213,7 @@ LOG* LogTail(LOG* log, unsigned long long earliest, unsigned long max_size) {
     }
 
     //	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
-    ev_array = (EVENT*)(((void*)log) + sizeof(LOG));
+    ev_array = (EVENT*)(((unsigned char*)log) + sizeof(LOG));
 
     /*
      * put events in the tail log in reverse order to save a scan
@@ -248,7 +248,7 @@ void LogPrint(FILE* fd, LOG* log) {
     EVENT* ev_array;
 
     //	ev_array = (EVENT *)(MIOAddr(log->m_buf) + sizeof(LOG));
-    ev_array = (EVENT*)(((void*)log) + sizeof(LOG));
+    ev_array = (EVENT*)(((unsigned char*)log) + sizeof(LOG));
 
     fprintf(fd, "log filename: %s\n", log->filename);
     fprintf(fd, "log size: %lu\n", log->size);
@@ -312,7 +312,7 @@ PENDING* PendingCreate(char* filename, unsigned long psize) {
     strcpy(pending->filename, filename);
     pending->size = psize;
     pending->next_free = 0;
-    ev_array = (EVENT*)(MIOAddr(mio) + sizeof(PENDING));
+    ev_array = (EVENT*)((unsigned char*)MIOAddr(mio) + sizeof(PENDING));
     // printf("memset start\n");
     // fflush(stdout);
     // 	memset(ev_array, 0, psize * sizeof(EVENT));
@@ -361,7 +361,7 @@ int PendingAddEvent(PENDING* pending, EVENT* event) {
         return (-1);
     }
 
-    ev_array = (EVENT*)(MIOAddr(pending->p_mio) + sizeof(PENDING));
+    ev_array = (EVENT*)((unsigned char*)MIOAddr(pending->p_mio) + sizeof(PENDING));
     start = pending->next_free;
     fail = 0;
     while (ev_array[pending->next_free].seq_no != 0) {
@@ -379,9 +379,11 @@ int PendingAddEvent(PENDING* pending, EVENT* event) {
     }
     memcpy(&ev_array[pending->next_free], event, sizeof(EVENT));
     ndx = EventIndex(event->host, event->seq_no);
-    RBInsertI64(pending->alive, ndx, (Hval)(void*)(&ev_array[pending->next_free]));
+    Hval val;
+    val.v = &ev_array[pending->next_free];
+    RBInsertI64(pending->alive, ndx, val);
     ndx = EventIndex(event->cause_host, event->cause_seq_no);
-    RBInsertI64(pending->causes, ndx, (Hval)(void*)(&ev_array[pending->next_free]));
+    RBInsertI64(pending->causes, ndx, val);
 
     return (1);
 }
@@ -1241,7 +1243,7 @@ int ImportLogTail(GLOG* gl, LOG* ll) {
         return (0);
     }
 
-    ev = (EVENT*)(MIOAddr(lt->m_buf) + sizeof(LOG));
+    ev = (EVENT*)(reinterpret_cast<unsigned char*>(MIOAddr(lt->m_buf)) + sizeof(LOG));
 
     /*
      * set the event horizon

@@ -12,7 +12,7 @@ add_subdirectory(deps)
 add_subdirectory(src)
 
 add_library(woof 
-  src/log.c 
+  src/log.cpp
   include/log.h
   src/woofc.cpp
   include/woofc.h

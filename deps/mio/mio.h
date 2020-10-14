@@ -2,6 +2,11 @@
 #define MIO_H
 
 #include <stdio.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #include "mymalloc.h"
 
 struct mio_stc
@@ -45,6 +50,10 @@ MIO *MIOOpenDouble(char *filename, char *mode, unsigned int long size);
 int MIOIndexText(MIO *mio);
 char *MIOGetText(MIO *mio, int rec, int field);
 void MIOSync(MIO *mio);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
 

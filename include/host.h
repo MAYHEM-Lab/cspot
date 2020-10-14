@@ -1,9 +1,13 @@
 #ifndef HOST_H
 #define HOST_H
 
-#include "mio.h"
-
 #include <pthread.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+#include "mio.h"
 
 struct host_stc {
     unsigned long host_id;
@@ -27,9 +31,12 @@ typedef struct host_list_stc HOSTLIST;
 #define HASHCOUNT 100
 #define HOSTSIZE (HASHCOUNT * sizeof(HOST) + sizeof(HOSTLIST))
 
-HOSTLIST* HostListCreate();
+HOSTLIST* HostListCreate(const char* filename);
 void HostListFree(HOSTLIST* hl);
 int HostListAdd(HOSTLIST* hl, unsigned long host_id);
 HOST* HostListFind(HOSTLIST* hl, unsigned long host_id);
 
+#if defined(__cplusplus)
+}
+#endif
 #endif

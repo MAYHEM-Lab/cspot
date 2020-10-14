@@ -3,12 +3,17 @@
 
 #include "event.h"
 #include "host.h"
-#include "lsema.h"
-#include "mio.h"
-#include "redblack.h"
 
 #include <pthread.h>
 #include <stdio.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+#include "lsema.h"
+#include "mio.h"
+#include "redblack.h"
 
 struct log_stc {
     sema mutex;
@@ -68,5 +73,9 @@ void GLogFree(GLOG* gl);
 void GLogPrint(FILE* fd, GLOG* gl);
 
 int ImportLogTail(GLOG* gl, LOG* ll);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

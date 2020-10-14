@@ -8,7 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
-HOSTLIST* HostListCreate(char* filename) {
+HOSTLIST* HostListCreate(const char* filename) {
     HOSTLIST* hl;
     MIO* mio;
 
