@@ -59,11 +59,7 @@ const char* from_env_or(const char* env_key, const char* or_) {
 int WooFInit() {
     struct timeval tm;
     int err;
-    char log_name[2048];
-    char log_path[2048];
-    char putbuf[1024];
     char* str;
-    MIO* lmio;
     unsigned long name_id;
 
     gettimeofday(&tm, NULL);
@@ -75,7 +71,6 @@ int WooFInit() {
     } else {
         strncpy(WooF_dir, str, sizeof(WooF_dir));
     }
-
     if (strcmp(WooF_dir, "/") == 0) {
         fprintf(stderr, "WooFInit: WOOFC_DIR can't be %s\n", WooF_dir);
         exit(1);
@@ -85,41 +80,18 @@ int WooFInit() {
         WooF_dir[strlen(WooF_dir) - 1] = 0;
     }
 
-    memset(putbuf, 0, sizeof(putbuf));
-    sprintf(putbuf, "WOOFC_DIR=%s", WooF_dir);
-    putenv(putbuf);
-#ifdef DEBUG
-    fprintf(stdout, "WooFInit: WooF_dir: %s\n", putbuf);
-    fflush(stdout);
-#endif
+    setenv("WOOFC_DIR", WooF_dir, 1);
+
+    DEBUG_LOG("WooFInit: WooF_dir: %s\n", WooF_dir);
 
     /*
      * note that the container will always have WOOFC_NAMESPACE specified by the launcher
      */
-    str = getenv("WOOFC_NAMESPACE");
-    if (str == NULL) { /* assume this is the host */
-        /* use the WooF_dir as the namespace */
-        strncpy(WooF_namespace, WooF_dir, sizeof(WooF_namespace));
-    } else { /* in the container */
-        strncpy(WooF_namespace, str, sizeof(WooF_namespace));
-    }
-#ifdef DEBUG
-    fprintf(stdout, "WooFInit: namespace: %s\n", WooF_namespace);
-    fflush(stdout);
-#endif
+    cspot::globals::set_namespace(from_env_or("WOOFC_NAMESPACE", WooF_dir));
+    DEBUG_LOG("WooFInit: namespace: %s\n", WooF_namespace);
 
-    str = getenv("WOOF_NAMELOG_DIR");
-    if (str == NULL) { /* if not specified */
-        /* use the WooF_dir as the namelog dir */
-        strncpy(WooF_namelog_dir, WooF_dir, sizeof(WooF_namespace));
-    } else { /* in the container */
-        strncpy(WooF_namelog_dir, str, sizeof(WooF_namelog_dir));
-    }
-
-#ifdef DEBUG
-    fprintf(stdout, "WooFInit: namelog dir: %s\n", WooF_namelog_dir);
-    fflush(stdout);
-#endif
+    cspot::globals::set_namelog_dir(from_env_or("WOOF_NAMELOG_DIR", WooF_dir));
+    DEBUG_LOG("WooFInit: namelog dir: %s\n", WooF_namelog_dir);
 
     err = mkdir(WooF_dir, 0600);
     if ((err < 0) && (errno != EEXIST)) {
@@ -129,13 +101,12 @@ int WooFInit() {
 
     name_id = WooFNameHash(WooF_namelog_dir);
     sprintf(Namelog_name, "cspot-log.%20.20lu", name_id);
+
+    char log_name[2048];
     memset(log_name, 0, sizeof(log_name));
     sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
 
-#ifdef DEBUG
-    printf("WooFInit: Name log at %s with name %s\n", log_name, Namelog_name);
-    fflush(stdout);
-#endif
+    DEBUG_LOG("WooFInit: Name log at %s with name %s\n", log_name, Namelog_name);
 
 #ifndef IS_PLATFORM
     lmio = MIOReOpen(log_name);
@@ -149,7 +120,7 @@ int WooFInit() {
 #endif
     Name_id = name_id;
 
-    return (1);
+    return 1;
 }
 
 #ifdef IS_PLATFORM
@@ -161,23 +132,16 @@ void CleanUpDocker(int, void*);
 void CleanUpContainers(const std::vector<std::string>& names);
 
 static int WooFHostInit(int min_containers, int max_containers) {
-    char log_name[2048];
-
     WooFInit();
 
-    memset(log_name, 0, sizeof(log_name));
-    sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
+    auto log_name = fmt::format("{}/{}", WooF_namelog_dir, Namelog_name);
+    Name_log = LogCreate(log_name.c_str(), Name_id, DEFAULT_WOOF_LOG_SIZE);
+    DEBUG_FATAL_IF(Name_log == nullptr,
+                   "WooFInit: couldn't create name log as %s, size %d\n",
+                   log_name.c_str(),
+                   DEFAULT_WOOF_LOG_SIZE);
 
-    Name_log = LogCreate(log_name, Name_id, DEFAULT_WOOF_LOG_SIZE);
-    if (Name_log == NULL) {
-        fprintf(stderr, "WooFInit: couldn't create name log as %s, size %d\n", log_name, DEFAULT_WOOF_LOG_SIZE);
-        fflush(stderr);
-        exit(1);
-    }
-#ifdef DEBUG
-    printf("WooFHostInit: created %s\n", log_name);
-    fflush(stdout);
-#endif
+    DEBUG_LOG("WooFHostInit: created %s\n", log_name.c_str());
 
     auto ca = std::make_unique<CA>();
     ca->container_count = min_containers;
@@ -208,22 +172,12 @@ void WooFExit() {
  * in the launcher is set before the launch actually happens
  * which means a failure will not be retried
  */
-void* WooFDockerThread(void* arg) {
-    char* launch_string = (char*)arg;
+void WooFDockerThread(std::string launch_string) {
+    DEBUG_LOG("LAUNCH: %s\n", launch_string.c_str());
 
-#ifdef DEBUG
-    fprintf(stdout, "LAUNCH: %s\n", launch_string);
-    fflush(stdout);
-#endif
-    system(launch_string);
-#ifdef DEBUG
-    fprintf(stdout, "DONE: %s\n", launch_string);
-    fflush(stdout);
-#endif
+    system(launch_string.c_str());
 
-    free(launch_string);
-
-    return (NULL);
+    DEBUG_LOG("DONE: %s\n", launch_string.c_str());
 }
 
 void WooFContainerLauncher(std::unique_ptr<CA> ca) {
@@ -326,45 +280,10 @@ const char* Usage = "woofc-name-platform -d application woof directory\n\
 -t-M max container count\n\
 -t-N namespace\n";
 
-char putbuf0[1024];
-char putbuf1[1024];
-char putbuf2[1024];
-char putbuf3[1024];
-char putbuf4[1024];
-
-/*
- * Linux fgets() doesn't appear to work in a signal handler
- */
-char* SignalFgetS(char* buffer, int size, FILE* fd) {
-    int i;
-    char c;
-    char* ptr;
-    int count;
-
-    i = 0;
-    count = read(fileno(fd), &c, 1);
-    while ((count > 0) && (i < size)) {
-        buffer[i] = c;
-        ptr = &(buffer[i]);
-        if (c == '\n') {
-            break;
-        }
-        i++;
-        count = read(fileno(fd), &c, 1);
-    }
-
-    if (count > 0) {
-        return (buffer);
-    } else {
-        return (NULL);
-    }
-}
-
 void CleanUpContainers(const std::vector<std::string>& names) {
     auto command = fmt::format("docker rm -f {}\n", fmt::join(names, ", "));
-#ifdef DEBUG
-    fprintf(stdout, "CleanUpDocker command: %s\n", command.c_str());
-#endif
+    DEBUG_LOG("CleanUpDocker command: %s\n", command.c_str());
+    system(command.c_str());
 }
 
 void CleanUpDocker([[maybe_unused]] int signal, [[maybe_unused]] void* arg) {
@@ -378,14 +297,12 @@ void CleanUpDocker([[maybe_unused]] int signal, [[maybe_unused]] void* arg) {
     worker_containers.clear();
 }
 
-void sig_int_handler(int signal) {
+void sig_int_handler(int) {
     fprintf(stdout, "SIGINT caught\n");
     fflush(stdout);
 
-    CleanUpDocker(0, NULL);
+    CleanUpDocker(0, nullptr);
     exit(0);
-
-    return;
 }
 
 void CatchSignals() {
@@ -402,16 +319,13 @@ void CatchSignals() {
     sigaction(SIGHUP, &action, NULL);
 }
 
-int main(int argc, char** argv, char** envp) {
+int main(int argc, char** argv) {
     int c;
     int min_containers;
     int max_containers;
     char name_dir[2048];
     char name_space[2048];
     int err;
-
-    //	signal(SIGINT,sig_int_handler);
-    //	signal(SIGTERM,sig_int_handler);
 
     min_containers = 1;
     max_containers = 1;
@@ -453,30 +367,21 @@ int main(int argc, char** argv, char** envp) {
         exit(1);
     }
 
-    /*
-     * for czmq to work
-     */
-    strncpy(putbuf0,
-            "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib",
-            strlen("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib"));
-    putenv(putbuf0);
+    setenv("LD_LIBRARY_PATH", "$LD_LIBRARY_PATH:/usr/local/lib", 1);
 
     if (name_dir[0] != 0) {
-        sprintf(putbuf2, "WOOF_NAMELOG_DIR=%s", name_dir);
-        putenv(putbuf2);
+        setenv("WOOF_NAMELOG_DIR", name_dir, 1);
     }
 
     if (name_space[0] == 0) {
         getcwd(name_space, sizeof(name_space));
     }
-    sprintf(putbuf1, "WOOFC_DIR=%s", name_space);
-    putenv(putbuf1);
-    sprintf(putbuf3, "WOOFC_NAMESPACE=%s", name_space);
-    putenv(putbuf3);
+
+    setenv("WOOFC_DIR", name_space, 1);
+    setenv("WOOFC_NAMESPACE", name_space, 1);
 
 #if IS_PLATFORM
-    printf("starting platform listening to port %lu\n", WooFPortHash(name_space));
-    fflush(stdout);
+    DEBUG_LOG("starting platform listening to port %lu\n", WooFPortHash(name_space));
 #endif
 
     //	fclose(stdin);
@@ -487,17 +392,13 @@ int main(int argc, char** argv, char** envp) {
 #endif
 
     err = WooFLocalIP(Host_ip, sizeof(Host_ip));
-    if (err < 0) {
-        fprintf(stderr, "woofc-namespace-platform no local host IP found\n");
-        exit(1);
-    }
-    sprintf(putbuf4, "WOOF_HOST_IP=%s", Host_ip);
+    DEBUG_FATAL_IF(err < 0, "woofc-namespace-platform no local host IP found\n");
+
+    setenv("WOOF_HOST_IP", Host_ip, 1);
 
     WooFHostInit(min_containers, max_containers);
 
-    pthread_exit(NULL);
-
-    return (0);
+    pthread_exit(nullptr);
 }
 
 #endif
