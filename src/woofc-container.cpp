@@ -1,9 +1,11 @@
 extern "C" {
+#include "woofc-cache.h"
+}
+
+
 #include "log.h"
 #include "woofc-access.h"
-#include "woofc-cache.h"
 #include "woofc.h"
-}
 
 #include <cerrno>
 #include <csignal>
