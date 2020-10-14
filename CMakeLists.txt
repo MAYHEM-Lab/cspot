@@ -26,8 +26,6 @@ add_library(woof
   include/event.h
   src/host.c
   include/host.h
-#  src/sema.c
-#  include/sema.h
   src/lsema.c
   include/lsema.h
   src/debug.cpp
