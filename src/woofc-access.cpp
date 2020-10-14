@@ -3102,7 +3102,7 @@ unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const voi
     return (seq_no);
 }
 
-int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned long seq_no) {
+int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no) {
     char endpoint[255];
     char woof_namespace[2048];
     char ip_str[25];

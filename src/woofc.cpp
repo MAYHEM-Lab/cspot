@@ -923,7 +923,7 @@ unsigned long WooFPutWithCause(
     return (seq_no);
 }
 
-int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
+int WooFGet(const char* wf_name, void* element, unsigned long seq_no) {
     WOOF* wf;
     unsigned long el_size;
     char wf_namespace[2048];
@@ -2317,12 +2317,9 @@ int WooFShadowForward(WOOF* wf) {
         }
         DEBUG_LOG("WooFShadowForward: done copying\n");
 
-// copy back
-#ifdef DEBUG
-        printf("WooFShadowForward: copying from shadow to the original woof %s\n", wf->shared->filename);
-        fflush(stdout);
+        // copy back
+        DEBUG_LOG("WooFShadowForward: copying from shadow to the original woof %s\n", wf->shared->filename);
         gettimeofday(&t1, NULL);
-#endif
         err = WooFReplace(og_wf, wf, 0, wf->shared->history_size);
         if (err < 0) {
             fprintf(stderr,
@@ -2350,11 +2347,8 @@ int WooFShadowForward(WOOF* wf) {
 
         DEBUG_LOG("WooFShadowForward: shadow %s closed\n", wfs->filename);
         V(&og_wf->shared->mutex);
-#ifdef DEBUG
-        printf("WooFShadowForward: marking original events invalid for %s\n", wfs->filename);
-        fflush(stdout);
+        DEBUG_LOG("WooFShadowForward: marking original events invalid for %s\n", wfs->filename);
         gettimeofday(&t1, NULL);
-#endif
         // mark the original events invalid
         LogInvalidByWooF(Name_log);
 #ifdef DEBUG
