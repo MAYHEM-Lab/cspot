@@ -438,18 +438,6 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
      */
     DEBUG_LOG("WooFAppend: element in\n");
 
-#if 0
-	while((el_id->busy == 1) && (next == wfs->tail)) {
-DEBUG_LOG("WooFAppend: busy at %lu\n",next);
-		V(&wfs->mutex);
-		P(&wfs->tail_wait);
-		P(&wfs->mutex);
-		next = (wfs->head + 1) % wfs->history_size;
-		ptr = buf + (next * (wfs->element_size + sizeof(ELID)));
-		el_id = (ELID *)(ptr+wfs->element_size);
-	}
-#endif
-
     /*
      * write the element
      */
@@ -460,12 +448,6 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
      */
     el_id->seq_no = wfs->seq_no;
     el_id->busy = 1;
-
-    /*
-printf("WooFAppend: about to set head for name %s, head: %lu, next: %lu, size: %lu\n",
-wfs->filename,wfs->head,next,wfs->history_size);
-fflush(stdout);
-*/
 
     /*
      * update circular buffer
