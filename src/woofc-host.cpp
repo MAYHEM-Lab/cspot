@@ -46,6 +46,16 @@ void WooFShutdown(int sig) {
     }
 }
 
+namespace {
+const char* from_env_or(const char* env_key, const char* or_) {
+    auto env = getenv(env_key);
+    if (!env) {
+        return or_;
+    }
+    return env;
+}
+} // namespace
+
 int WooFInit() {
     struct timeval tm;
     int err;
