@@ -59,7 +59,6 @@ int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
 unsigned long WooFAppendWithCause(
     WOOF* wf, const char* hand_name, const void* element, unsigned long cause_host, unsigned long long cause_seq_no);
 unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element);
-int WooFRead(WOOF* wf, void* element, unsigned long seq_no);
 int WooFReadTail(WOOF* wf, void* elements, int element_count);
 int WooFReadWithCause(
     WOOF* wf, void* element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no);
