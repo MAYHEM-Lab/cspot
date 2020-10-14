@@ -48,7 +48,6 @@ void WooFReaper();
 int WooFContainerInit() {
     struct timeval tm;
     int err;
-    char putbuf[25];
     char* str;
     MIO* lmio;
     unsigned long name_id;
@@ -58,24 +57,15 @@ int WooFContainerInit() {
     srand48(tm.tv_sec + tm.tv_usec);
 
     str = getenv("WOOFC_NAMESPACE");
-    if (str == NULL) {
-        fprintf(stderr, "WooFContainerInit: no namespace specified\n");
-        exit(1);
-    }
-    strncpy(WooF_namespace, str, sizeof(WooF_namespace));
+    DEBUG_FATAL_IF(!str, "WooFContainerInit: no namespace specified\n");
+    cspot::globals::set_namespace(str);
+
     DEBUG_LOG("WooFContainerInit: namespace %s\n", WooF_namespace);
 
     str = getenv("WOOFC_DIR");
-    if (str == NULL) {
-        fprintf(stderr, "WooFContainerInit: couldn't find WOOFC_DIR\n");
-        exit(1);
-    }
+    DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find WOOFC_DIR\n");
 
-    if (strcmp(str, ".") == 0) {
-        fprintf(stderr, "WOOFC_DIR cannot be .\n");
-        fflush(stderr);
-        exit(1);
-    }
+    DEBUG_FATAL_IF(strcmp(str, ".") == 0, "WooFWOOFC_DIR cannot be .\n");
 
     if (str[0] != '/') { /* not an absolute path name */
         getcwd(WooF_dir, sizeof(WooF_dir));
@@ -86,48 +76,30 @@ int WooFContainerInit() {
             strncat(WooF_dir, str, sizeof(WooF_dir) - strlen(WooF_dir));
         }
     } else {
-        strncpy(WooF_dir, str, sizeof(WooF_dir));
+        cspot::globals::set_dir(str);
     }
 
-    if (strcmp(WooF_dir, "/") == 0) {
-        fprintf(stderr, "WooFContainerInit: WOOFC_DIR can't be %s\n", WooF_dir);
-        exit(1);
-    }
-
-    if (strlen(str) >= (sizeof(WooF_dir) - 1)) {
-        fprintf(stderr, "WooFContainerInit: %s too long for directory name\n", str);
-        exit(1);
-    }
+    DEBUG_FATAL_IF(strcmp(WooF_dir, "/") == 0, "WooFContainerInit: WOOFC_DIR can't be %s\n", WooF_dir);
+    DEBUG_FATAL_IF(strlen(str) >= (sizeof(WooF_dir) - 1), "WooFContainerInit: %s too long for directory name\n", str);
 
     if (WooF_dir[strlen(WooF_dir) - 1] == '/') {
         WooF_dir[strlen(WooF_dir) - 1] = 0;
     }
 
-    fmt::format_to(putbuf, "WOOFC_DIR={}", WooF_dir);
-    putenv(putbuf);
-    DEBUG_LOG("WooFContainerInit: %s\n", putbuf);
+    setenv("WOOFC_DIR", WooF_dir, 1);
+    DEBUG_LOG("WooFContainerInit: WOOFC_DIR=%s\n", WooF_dir);
 
     str = getenv("WOOF_HOST_IP");
-    if (str == NULL) {
-        fprintf(stderr, "WooFContainerInit: couldn't find local host IP\n");
-        exit(1);
-    }
-    strncpy(Host_ip, str, sizeof(Host_ip));
+    DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find local host IP\n");
+    cspot::globals::set_host_ip("str");
 
     str = getenv("WOOF_NAME_ID");
-    if (str == NULL) {
-        fprintf(stderr, "WooFContainerInit: couldn't find name id\n");
-        exit(1);
-    }
+    DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find name id\n");
     name_id = strtoul(str, (char**)NULL, 10);
 
     str = getenv("WOOF_NAMELOG_NAME");
-    if (str == NULL) {
-        fprintf(stderr, "WooFContainerInit: couldn't find namelog name\n");
-        exit(1);
-    }
-
-    strncpy(Namelog_name, str, sizeof(Namelog_name));
+    DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find namelog name\n");
+    cspot::globals::set_namelog_name(str);
 
     err = mkdir(WooF_dir, 0600);
     if ((err < 0) && (errno != EEXIST)) {
@@ -135,24 +107,18 @@ int WooFContainerInit() {
         exit(1);
     }
 
-    strncpy(WooF_namelog_dir, "/cspot-namelog", sizeof(WooF_namelog_dir));
+    cspot::globals::set_namelog_dir("/cspot-namelog");
 
     auto log_name = fmt::format("{}/{}", WooF_namelog_dir, Namelog_name);
 
     lmio = MIOReOpen(log_name.c_str());
-    if (lmio == NULL) {
-        fprintf(stderr, "WooFOntainerInit: couldn't open mio for log %s\n", log_name.c_str());
-        fflush(stderr);
-        exit(1);
-    }
+
+    DEBUG_FATAL_IF(!lmio, "WooFOntainerInit: couldn't open mio for log %s\n", log_name.c_str());
+
     Name_log = (LOG*)MIOAddr(lmio);
 
-    if (Name_log == NULL) {
-        fprintf(
-            stderr, "WooFContainerInit: couldn't open log as %s, size %d\n", log_name.c_str(), DEFAULT_WOOF_LOG_SIZE);
-        fflush(stderr);
-        exit(1);
-    }
+    DEBUG_FATAL_IF(
+        !Name_log, "WooFContainerInit: couldn't open log as %s, size %d\n", log_name.c_str(), DEFAULT_WOOF_LOG_SIZE);
 
     DEBUG_LOG("WooFContainerInit: log %s open\n", log_name.c_str());
 
@@ -273,7 +239,7 @@ void WooFForker() {
             continue;
         }
 
-        ev = (EVENT*)(static_cast<char*>(MIOAddr(log_tail->m_buf)) + sizeof(LOG));
+        ev = (EVENT*)(static_cast<unsigned char*>(MIOAddr(log_tail->m_buf)) + sizeof(LOG));
 
         /*
          * find the first TRIGGER we haven't seen yet
@@ -328,20 +294,19 @@ void WooFForker() {
              * Note that this may cause spurious wake ups since this container
              * can't tell if the others have seen this trigger yet
              */
-            if ((ev[first].type == TRIGGER) && (memcmp(&last_event, &ev[first], sizeof(last_event)) != 0) &&
-                (strncmp(ev[first].woofc_namespace, WooF_namespace, sizeof(ev[first].woofc_namespace)) != 0)) {
-                DEBUG_LOG("WooFForker: namespace: %s found trigger for evns: %s, name: %s, "
-                          "first: %lu, head: %lu, tail: %lu\n",
-                          WooF_namespace,
-                          ev[first].woofc_namespace,
-                          ev[first].woofc_name,
-                          first,
-                          log_tail->head,
-                          log_tail->tail);
-                exit(1);
-                memcpy(&last_event, &ev[first], sizeof(last_event));
-                V(&Name_log->tail_wait);
-            }
+
+            auto illegal = (ev[first].type == TRIGGER) && (memcmp(&last_event, &ev[first], sizeof(last_event)) != 0) &&
+                           (strncmp(ev[first].woofc_namespace, WooF_namespace, sizeof(ev[first].woofc_namespace)) != 0);
+            DEBUG_FATAL_IF(illegal,
+                           "WooFForker: namespace: %s found trigger for evns: %s, name: %s, "
+                           "first: %lu, head: %lu, tail: %lu\n",
+                           WooF_namespace,
+                           ev[first].woofc_namespace,
+                           ev[first].woofc_name,
+                           first,
+                           log_tail->head,
+                           log_tail->tail);
+
             // TODO: only go back to latest triggered
             first = (first - 1);
             if (first >= log_tail->size) {
