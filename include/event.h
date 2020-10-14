@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 typedef enum EventState
 {
     UNKNOWN = 1,
@@ -51,5 +55,27 @@ void EventFree(EVENT* ev);
 int EventSetCause(EVENT* ev, unsigned long cause_host, unsigned long long cause_seq_no);
 
 int64_t EventIndex(unsigned long host, unsigned long long seq_no);
+
+#if defined(__cplusplus)
+}
+
+extern "C++" {
+#include <memory>
+
+namespace cspot {
+struct event_deleter {
+    void operator()(EVENT* ev) {
+        EventFree(ev);
+    }
+};
+
+using event_ptr = std::unique_ptr<EVENT, event_deleter>;
+
+inline event_ptr make_event(EventState type, unsigned long host) {
+    return event_ptr(EventCreate(type, host));
+}
+} // namespace cspot
+}
+#endif
 
 #endif
