@@ -51,8 +51,8 @@ struct global_log_stc {
 
 typedef struct global_log_stc GLOG;
 
-LOG* LogCreate(char* filename, unsigned long host_id, unsigned long int size);
-LOG* LogOpen(char* filename, unsigned long size);
+LOG* LogCreate(const char* filename, unsigned long host_id, unsigned long int size);
+LOG* LogOpen(const char* filename, unsigned long size);
 void LogFree(LOG* log);
 int LogFull(LOG* log);
 unsigned long long LogEvent(LOG* log, EVENT* event);

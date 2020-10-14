@@ -11,7 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 
-LOG* LogCreate(char* filename, unsigned long host_id, unsigned long int size) {
+LOG* LogCreate(const char* filename, unsigned long host_id, unsigned long int size) {
     LOG* log;
     unsigned long int space;
     MIO* mio;
@@ -49,7 +49,7 @@ LOG* LogCreate(char* filename, unsigned long host_id, unsigned long int size) {
     return (log);
 }
 
-LOG* LogOpen(char* filename, unsigned long size) {
+LOG* LogOpen(const char* filename, unsigned long size) {
     LOG* log;
     unsigned long int space;
     MIO* mio;
