@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
 int InitSem(sema* s, int count) {
     int err;
 
@@ -27,7 +26,6 @@ void FreeSem(sema* s) {
 
 void P(sema* s) {
     int err;
-
 
     err = sem_wait(s);
     while ((err < 0) && (errno == EINTR)) {
