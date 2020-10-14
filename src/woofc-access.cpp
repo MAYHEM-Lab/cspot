@@ -245,7 +245,7 @@ int WooFLocalIP(char* ip_str, int len) {
 
     /*
      * now check to see if there is a specific ip address we should use
-     * (e.g. this is a amulti-homed host and we want a specific NIC to be the NIC
+     * (e.g. this is a a multi-homed host and we want a specific NIC to be the NIC
      * servicing requests
      */
     local_ip = getenv("WOOFC_IP");
@@ -1743,7 +1743,7 @@ void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
     frame = zmsg_next(req_msg);
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
-        count = strtoul(zframe_data(frame), (char**)NULL, 10);
+        count = strtoul(reinterpret_cast<const char*>(zframe_data(frame)), (char**)NULL, 10);
 #ifdef DEBUG
         printf("WooFProcessRepair: received count %lu\n", count);
         fflush(stdout);
@@ -1756,7 +1756,7 @@ void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
     /*
      * seq_no in the third frame
      */
-    seq_no = malloc(count * sizeof(unsigned long));
+    seq_no = (unsigned long*)malloc(count * sizeof(unsigned long));
     frame = zmsg_next(req_msg);
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
