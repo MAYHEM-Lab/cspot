@@ -327,14 +327,6 @@ int WooFTruncate(char* name, unsigned long seq_no) {
 }
 
 int WooFExist(const char* name) {
-    WOOF* wf;
-    WOOF_SHARED* wfs;
-    MIO* mio;
-
-    char fname[4096];
-    int err;
-    struct stat sbuf;
-
     if (name == NULL) {
         return 0;
     }
@@ -349,7 +341,9 @@ int WooFExist(const char* name) {
     if (local_name.back() != '/') {
         local_name += "/";
     }
+
     if (WooFValidURI(name)) {
+        char fname[4096];
         if (WooFNameFromURI(name, fname, sizeof(fname)) < 0) {
             fprintf(stderr, "WooFExist: bad name in URI %s\n", name);
             return 0;
@@ -359,6 +353,7 @@ int WooFExist(const char* name) {
         local_name += name;
     }
 
+    struct stat sbuf;
     if (stat(local_name.c_str(), &sbuf) < 0) {
         return 0;
     }
