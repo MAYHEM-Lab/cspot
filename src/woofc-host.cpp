@@ -21,9 +21,12 @@ extern "C" {
 #include <unistd.h>
 #include <vector>
 #include <woofc-access.h>
+#include <atomic>
 
+namespace {
 std::vector<std::string> worker_containers;
-static int WooFDone;
+std::atomic<bool> should_exit;
+}
 
 struct cont_arg_stc {
     int container_count;
@@ -34,7 +37,7 @@ typedef struct cont_arg_stc CA;
 void WooFShutdown(int sig) {
     int val;
 
-    WooFDone = 1;
+    should_exit = true;
     while (sem_getvalue(&Name_log->tail_wait, &val) >= 0) {
         if (val > 0) {
             break;
@@ -185,7 +188,7 @@ static int WooFHostInit(int min_containers, int max_containers) {
 }
 
 void WooFExit() {
-    WooFDone = 1;
+    should_exit = true;
     pthread_exit(NULL);
 }
 
