@@ -326,7 +326,7 @@ int WooFTruncate(char* name, unsigned long seq_no) {
     return 1;
 }
 
-int WooFExist(char* name) {
+int WooFExist(const char* name) {
     WOOF* wf;
     WOOF_SHARED* wfs;
     MIO* mio;

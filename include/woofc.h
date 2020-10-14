@@ -83,7 +83,7 @@ int WooFInvalid(unsigned long seq_no);
 void WooFDrop(WOOF* wf);
 void WooFFree(WOOF*);
 int WooFTruncate(char* name, unsigned long seq_no);
-int WooFExist(char* name);
+int WooFExist(const char* name);
 
 unsigned int WooFPortHash(const char* woof_namespace);
 
