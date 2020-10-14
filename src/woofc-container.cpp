@@ -13,17 +13,10 @@ extern "C" {
 #include <ctime>
 #include <debug.h>
 #include <fmt/format.h>
+#include <global.h>
 #include <mutex>
 #include <thread>
 #include <unistd.h>
-
-char WooF_dir[2048];
-char WooF_namespace[2048];
-char WooF_namelog_dir[2048];
-char Host_ip[25];
-char Namelog_name[2048];
-unsigned long Name_id;
-LOG* Name_log;
 
 #define ARGS "M"
 
