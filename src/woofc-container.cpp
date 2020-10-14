@@ -187,8 +187,6 @@ void WooFForker() {
     LOG* log_tail;
     EVENT* ev;
     EVENT* fev;
-    char* pathp;
-    char woof_shepherd_dir[2048];
     int none;
     int firing_found;
     EVENT last_event{}; /* needed to understand if log tail has changed */
@@ -399,26 +397,10 @@ void WooFForker() {
 
             auto wf = WooFOpen(ev[first].woofc_name);
 
-            if (wf == NULL) {
-                fprintf(stderr,
-                        "WooFForker: open failed for WooF at %s, %lu %lu\n",
-                        ev[first].woofc_name,
-                        ev[first].woofc_element_size,
-                        ev[first].woofc_history_size);
-                fflush(stderr);
-                exit(1);
-            }
-
-            /*
-             * find the last directory in the path
-             */
-            pathp = strrchr(WooF_dir, '/');
-            if (pathp == NULL) {
-                fprintf(stderr, "couldn't find leaf dir in %s\n", WooF_dir);
-                exit(1);
-            }
-
-            strncpy(woof_shepherd_dir, pathp, sizeof(woof_shepherd_dir));
+            DEBUG_FATAL_IF(!wf, "WooFForker: open failed for WooF at %s, %lu %lu\n",
+                           ev[first].woofc_name,
+                           ev[first].woofc_element_size,
+                           ev[first].woofc_history_size);
 
             std::vector<std::string> env;
 
