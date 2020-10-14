@@ -28,8 +28,7 @@ constexpr auto WOOF_CONTAINER_FORKERS = 15;
 std::atomic<bool> should_exit;
 
 sema ForkerThrottle;
-std::mutex Tlock;
-int Tcount;
+std::atomic<int> Tcount;
 } // namespace
 
 void WooFShutdown(int) {
@@ -161,9 +160,8 @@ void WooFReaper() {
                 gettimeofday(&now, NULL);
                 V(&ForkerThrottle);
 
-                std::lock_guard lg{Tlock};
                 Tcount++;
-                DEBUG_LOG("Reaper: count after increment: %d\n", Tcount);
+                DEBUG_LOG("Reaper: count after increment: %d\n", Tcount.load());
             }
         }
         if (then.tv_sec == now.tv_sec) {
@@ -385,17 +383,11 @@ void WooFForker() {
         /*
          * block here not to overload the machine
          */
-        {
-            std::lock_guard lg{Tlock};
-            DEBUG_LOG("Forker calling P with Tcount %d\n", Tcount);
-        }
+        DEBUG_LOG("Forker calling P with Tcount %d\n", Tcount.load());
 
-        {
-            P(&ForkerThrottle);
-            std::lock_guard lg{Tlock};
-            Tcount--;
-            DEBUG_LOG("Forker awake, after decrement %d\n", Tcount);
-        }
+        P(&ForkerThrottle);
+        Tcount--;
+        DEBUG_LOG("Forker awake, after decrement %d\n", Tcount.load());
 
         pid = fork();
         if (pid == 0) {
@@ -484,9 +476,8 @@ void WooFForker() {
 
         while (waitpid(-1, &status, WNOHANG) > 0) {
             V(&ForkerThrottle);
-            std::lock_guard lg{Tlock};
             Tcount++;
-            DEBUG_LOG("Parent: count after increment: %d\n", Tcount);
+            DEBUG_LOG("Parent: count after increment: %d\n", Tcount.load());
         }
     }
 
