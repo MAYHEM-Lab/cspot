@@ -19,7 +19,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     RAFT_APPEND_ENTRIES_ARG request = {0};
-    if (monitor_cast(ptr, &request) < 0) {
+    if (monitor_cast(ptr, &request, sizeof(RAFT_APPEND_ENTRIES_ARG)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }
@@ -36,10 +36,6 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_BLOCKED_NODES blocked_nodes = {0};
     if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    RAFT_FAILURE_RATE failure_rate = {0};
-    if (WooFGet(RAFT_FAILURE_RATE_WOOF, &failure_rate, WooFGetLatestSeqno(RAFT_FAILURE_RATE_WOOF)) < 0) {
-        log_error("failed to get failure rate");
     }
 
     RAFT_APPEND_ENTRIES_RESULT result = {0};
@@ -119,7 +115,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("failed to put a new heartbeat from term %" PRIu64 "", request.term);
             exit(1);
         }
-        // log_debug("received a heartbeat [%lu]", seq_no);
+        log_debug("received a heartbeat [%lu]", seq_no);
 
         // check if the previous log matches with the leader
         unsigned long last_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
@@ -167,6 +163,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     if (request.entries[i].term == 0) {
                         break; // no entry, finish append
                     }
+                    log_debug("processing entry[%d]", i);
                     unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request.entries[i]);
                     if (WooFInvalid(seq)) {
                         log_error("failed to append entries[%d]", i);
@@ -290,13 +287,11 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];
     sprintf(leader_result_woof, "%s/%s", request.leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
-    unsigned long seq = -1;
-    if (!raft_is_blocked(leader_result_woof, server_state.woof_name, blocked_nodes, failure_rate)) {
-        seq = WooFPut(leader_result_woof, NULL, &result);
-    }
+    unsigned long seq = raft_checkedWooFPut(&blocked_nodes, server_state.woof_name, leader_result_woof, NULL, &result);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the append_entries result to %s", leader_result_woof);
     }
+    log_debug("returned result to %s", leader_result_woof);
 
     return 1;
 }

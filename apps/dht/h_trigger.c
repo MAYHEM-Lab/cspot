@@ -34,32 +34,41 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
         log_error("failed to get blocked nodes");
     }
-    FAILURE_RATE failure_rate = {0};
-    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
-        log_error("failed to get failure rate");
-    }
 
-    int i;
+    int i, j, k;
     for (i = 0; i < list.size; ++i) {
         DHT_INVOCATION_ARG invocation_arg = {0};
         strcpy(invocation_arg.woof_name, arg->element_woof);
         strcpy(invocation_arg.topic_name, arg->topic_name);
         invocation_arg.seq_no = arg->element_seqno;
-        log_debug("woof_name: %s, topic_name: %s, seq_no: %lu",
-                  invocation_arg.woof_name,
-                  invocation_arg.topic_name,
-                  invocation_arg.seq_no);
-
-        char invocation_woof[DHT_NAME_LENGTH];
-        sprintf(invocation_woof, "%s/%s", list.handler_namespace[i], DHT_INVOCATION_WOOF);
-        unsigned long seq = -1;
-        if (!is_blocked(invocation_woof, node.addr, blocked_nodes, failure_rate)) {
-            seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
-        }
-        if (WooFInvalid(seq)) {
-            log_error("failed to trigger handler %s in %s", list.handlers[i], list.handler_namespace[i]);
-        } else {
-            log_debug("triggered handler %s/%s", list.handler_namespace[i], list.handlers[i]);
+        // log_debug("woof_name: %s, topic_name: %s, seq_no: %lu",
+        //           invocation_arg.woof_name,
+        //           invocation_arg.topic_name,
+        //           invocation_arg.seq_no);
+        for (j = 0; j < DHT_REPLICA_NUMBER; ++j) {
+            k = (list.last_successful_replica[i] + j) % DHT_REPLICA_NUMBER;
+            if (list.replica_namespaces[i][k][0] == 0) {
+                continue;
+            }
+            char invocation_woof[DHT_NAME_LENGTH];
+            sprintf(invocation_woof, "%s/%s", list.replica_namespaces[i][k], DHT_INVOCATION_WOOF);
+            unsigned long seq =
+                checkedWooFPut(&blocked_nodes, node.addr, invocation_woof, list.handlers[i], &invocation_arg);
+            if (WooFInvalid(seq)) {
+                log_error("failed to trigger handler %s in %s", list.handlers[i], list.replica_namespaces[i][k]);
+            } else {
+                log_debug("triggered handler %s/%s", list.replica_namespaces[i][k], list.handlers[i]);
+                if (k != list.last_successful_replica[i]) {
+                    list.last_successful_replica[i] = k;
+                    seq = WooFPut(arg->subscription_woof, NULL, &list);
+                    if (WooFInvalid(seq)) {
+                        log_error("failed to update last_successful_replica[%d] to %d", i, k);
+                    } else {
+                        log_debug("updated last_successful_replica[%d] to %d", i, k);
+                    }
+                }
+                break;
+            }
         }
     }
 

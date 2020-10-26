@@ -15,7 +15,6 @@ typedef struct request_vote_thread_arg {
     char member_woof[RAFT_NAME_LENGTH];
     RAFT_REQUEST_VOTE_ARG arg;
     RAFT_BLOCKED_NODES blocked_nodes;
-    RAFT_FAILURE_RATE failure_rate;
     char self_woof[RAFT_NAME_LENGTH];
 } REQUEST_VOTE_THREAD_ARG;
 
@@ -28,10 +27,13 @@ void* request_vote(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", thread_arg->member_woof, RAFT_REQUEST_VOTE_ARG_WOOF);
-    unsigned long seq = -1;
-    if (!raft_is_blocked(woof_name, thread_arg->self_woof, thread_arg->blocked_nodes, thread_arg->failure_rate)) {
-        seq = monitor_remote_put(monitor_name, woof_name, "h_request_vote", &thread_arg->arg, 0);
-    }
+    unsigned long seq = raft_checkedMonitorRemotePut(&thread_arg->blocked_nodes,
+                                                     thread_arg->self_woof,
+                                                     monitor_name,
+                                                     woof_name,
+                                                     "h_request_vote",
+                                                     &thread_arg->arg,
+                                                     0);
     if (WooFInvalid(seq)) {
         log_warn("failed to request vote from %s", thread_arg->member_woof);
     } else {
@@ -46,17 +48,13 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     RAFT_TIMEOUT_CHECKER_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(RAFT_TIMEOUT_CHECKER_ARG)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }
     RAFT_BLOCKED_NODES blocked_nodes = {0};
     if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    RAFT_FAILURE_RATE failure_rate = {0};
-    if (WooFGet(RAFT_FAILURE_RATE_WOOF, &failure_rate, WooFGetLatestSeqno(RAFT_FAILURE_RATE_WOOF)) < 0) {
-        log_error("failed to get failure rate");
     }
 
     // zsys_init() is called automatically when a socket is created
@@ -145,7 +143,6 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         int i;
         for (i = 0; i < server_state.members; ++i) {
             memcpy(&thread_arg[i].blocked_nodes, &blocked_nodes, sizeof(RAFT_BLOCKED_NODES));
-            memcpy(&thread_arg[i].failure_rate, &failure_rate, sizeof(RAFT_FAILURE_RATE));
             strcpy(thread_arg[i].self_woof, server_state.woof_name);
             strcpy(thread_arg[i].member_woof, server_state.member_woofs[i]);
             thread_arg[i].arg.term = server_state.current_term;

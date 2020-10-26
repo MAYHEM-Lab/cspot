@@ -18,8 +18,8 @@ typedef struct replicate_thread_arg {
     int num_entries;
     RAFT_APPEND_ENTRIES_ARG arg;
     RAFT_BLOCKED_NODES blocked_nodes;
-    RAFT_FAILURE_RATE failure_rate;
     char self_woof[RAFT_NAME_LENGTH];
+    uint64_t term;
 } REPLICATE_THREAD_ARG;
 
 pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
@@ -31,15 +31,30 @@ void* replicate_thread(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
-    unsigned long seq = -1;
-    if (!raft_is_blocked(woof_name,
-                         replicate_thread_arg->self_woof,
-                         replicate_thread_arg->blocked_nodes,
-                         thread_arg->failure_rate)) {
-        seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 1);
-    }
+    unsigned long seq = raft_checkedMonitorRemotePut(&replicate_thread_arg->blocked_nodes,
+                                                     replicate_thread_arg->self_woof,
+                                                     monitor_name,
+                                                     woof_name,
+                                                     "h_append_entries",
+                                                     &replicate_thread_arg->arg,
+                                                     1);
     if (WooFInvalid(seq)) {
-        log_warn("failed to replicate the log entries to member %d", replicate_thread_arg->member_id);
+        log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
+                 replicate_thread_arg->member_id);
+        unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+        if (WooFInvalid(last_log_entry_seqno)) {
+            log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+            exit(1);
+        }
+        RAFT_APPEND_ENTRIES_RESULT result = {0};
+        memcpy(result.server_woof, replicate_thread_arg->member_woof, sizeof(result.server_woof));
+        result.term = replicate_thread_arg->term;
+        result.last_entry_seq = last_log_entry_seqno;
+        result.success = 0;
+        seq = WooFPut(RAFT_APPEND_ENTRIES_RESULT_WOOF, NULL, &result);
+        if (WooFInvalid(seq)) {
+            log_error("failed to put to result woof and cooldown failed thread");
+        }
     } else {
         if (replicate_thread_arg->num_entries > 0) {
             if (replicate_thread_arg->member_id < RAFT_MAX_MEMBERS) {
@@ -58,7 +73,7 @@ void* replicate_thread(void* arg) {
                           woof_name);
             }
         } else {
-            // log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
+            log_debug("sent a heartbeat to member %d [%lu]: %s", replicate_thread_arg->member_id, seq, woof_name);
         }
     }
 }
@@ -74,7 +89,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     RAFT_REPLICATE_ENTRIES_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(RAFT_REPLICATE_ENTRIES_ARG)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }
@@ -83,10 +98,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_BLOCKED_NODES blocked_nodes = {0};
     if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    RAFT_FAILURE_RATE failure_rate = {0};
-    if (WooFGet(RAFT_FAILURE_RATE_WOOF, &failure_rate, WooFGetLatestSeqno(RAFT_FAILURE_RATE_WOOF)) < 0) {
-        log_error("failed to get failure rate");
     }
 
     // zsys_init() is called automatically when a socket is created
@@ -109,17 +120,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         return 1;
     }
-
-    // if (get_milliseconds() - arg.last_ts < RAFT_REPLICATE_ENTRIES_DELAY) {
-    //     monitor_exit(ptr);
-    // 	usleep(RAFT_REPLICATE_ENTRIES_DELAY * 1000);
-    //     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &arg,
-    //     1); if (WooFInvalid(seq)) {
-    //         log_error("failed to queue the next h_replicate_entries handler");
-    //         exit(1);
-    //     }
-    //     return 1;
-    // }
 
     // check previous append_entries_result
     unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
@@ -206,6 +206,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         arg.last_seen_result_seqno = result_seq;
     }
+
     // update commit_index using qsort
     unsigned long sorted_match_index[server_state.members];
     memcpy(sorted_match_index, server_state.match_index, sizeof(unsigned long) * server_state.members);
@@ -313,10 +314,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (num_entries > RAFT_MAX_ENTRIES_PER_REQUEST) {
             num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
         }
-        if ((num_entries > 0 && server_state.last_sent_index[m] != server_state.next_index[m]) ||
+        if ((num_entries > 0 && server_state.last_sent_index[m] < last_log_entry_seqno) ||
             (get_milliseconds() - server_state.last_sent_timestamp[m] > heartbeat_rate)) {
             memcpy(&thread_arg[m].blocked_nodes, &blocked_nodes, sizeof(RAFT_BLOCKED_NODES));
-            memcpy(&thread_arg[m].failure_rate, &failure_rate, sizeof(RAFT_FAILURE_RATE));
             strcpy(thread_arg[m].self_woof, server_state.woof_name);
             thread_arg[m].member_id = m;
             thread_arg[m].num_entries = num_entries;
@@ -324,6 +324,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             thread_arg[m].arg.term = server_state.current_term;
             strcpy(thread_arg[m].arg.leader_woof, server_state.woof_name);
             thread_arg[m].arg.prev_log_index = server_state.next_index[m] - 1;
+            thread_arg[m].term = arg.term;
             if (thread_arg[m].arg.prev_log_index == 0) {
                 thread_arg[m].arg.prev_log_term = 0;
             } else {
@@ -352,7 +353,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
             server_state.last_sent_timestamp[m] = get_milliseconds();
-            server_state.last_sent_index[m] = server_state.next_index[m];
+            server_state.last_sent_index[m] = thread_arg[m].arg.prev_log_index + num_entries;
         }
     }
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);

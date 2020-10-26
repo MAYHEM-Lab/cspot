@@ -72,6 +72,9 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
                     fprintf(stderr, "failed to invoke handler %s\n", pool_item[i].handler);
                     exit(1);
                 }
+                // if (strcmp(pool_item[i].monitor_name, "raft") == 0) {
+                //     printf("invoked %s\n", pool_item[i].handler);
+                // }
 #ifdef PROCESS_TIME
                 struct timeval tv;
                 gettimeofday(&tv, NULL);

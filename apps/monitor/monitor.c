@@ -186,8 +186,24 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
     return monitor_seq;
 }
 
-int monitor_cast(void* ptr, void* element) {
+int monitor_cast(void* ptr, void* element, unsigned long size) {
     MONITOR_POOL_ITEM* pool_item = (MONITOR_POOL_ITEM*)ptr;
+    WOOF* wf = WooFOpen(pool_item->woof_name);
+    unsigned long pool_item_size = wf->shared->element_size;
+    WooFDrop(wf);
+    if (size < pool_item_size) {
+        void* buf = malloc(pool_item_size);
+        if (buf == NULL) {
+            return -1;
+        }
+        if (WooFGet(pool_item->woof_name, buf, (unsigned long)pool_item->seq_no) < 0) {
+            free(buf);
+            return -1;
+        }
+        memcpy(element, buf, size);
+        free(buf);
+        return 0;
+    }
     if (WooFGet(pool_item->woof_name, element, (unsigned long)pool_item->seq_no) < 0) {
         return -1;
     }
@@ -217,6 +233,9 @@ int monitor_exit(void* ptr) {
     invoker_arg.spinlock_delay = MONITOR_SPINLOCK_DELAY;
     char invoker_woof[MONITOR_WOOF_NAME_LENGTH];
     sprintf(invoker_woof, "%s_%s", pool_item->monitor_name, MONITOR_INVOKER_WOOF);
+    // if (strcmp(pool_item->monitor_name, "raft") == 0) {
+    //     printf("handler %s done\n", pool_item->handler);
+    // }
     seq = WooFPut(invoker_woof, "monitor_invoker", &invoker_arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to spinlock on %s\n", invoker_woof);

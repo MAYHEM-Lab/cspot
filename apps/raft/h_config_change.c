@@ -17,7 +17,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     RAFT_CONFIG_CHANGE_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(RAFT_CONFIG_CHANGE_ARG)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }

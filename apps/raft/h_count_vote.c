@@ -16,7 +16,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     RAFT_REQUEST_VOTE_RESULT result = {0};
-    if (monitor_cast(ptr, &result) < 0) {
+    if (monitor_cast(ptr, &result, sizeof(RAFT_REQUEST_VOTE_RESULT)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }

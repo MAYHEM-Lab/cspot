@@ -17,9 +17,8 @@ int r_map_raft_index(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     DHT_MAP_RAFT_INDEX_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(DHT_MAP_RAFT_INDEX_ARG)) < 0) {
         log_error("failed to call monitor_cast");
-        monitor_exit(ptr);
         exit(1);
     }
 
@@ -29,10 +28,9 @@ int r_map_raft_index(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (!WooFExist(index_woof)) {
         if (WooFCreate(index_woof, sizeof(DHT_MAP_RAFT_INDEX_ARG), DHT_HISTORY_LENGTH_LONG) < 0) {
             log_error("failed to create woof %s", index_woof);
-            monitor_exit(ptr);
             exit(1);
         }
-        log_info("created raft_index_map woof %s", index_woof);
+        log_debug("created raft_index_map woof %s", index_woof);
         char woof_file[DHT_NAME_LENGTH] = {0};
         sprintf(woof_file, "%s/%s", WooF_dir, index_woof);
         if (chmod(woof_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
@@ -43,7 +41,6 @@ int r_map_raft_index(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(index_woof, NULL, &arg);
     if (WooFInvalid(seq)) {
         log_error("failed to store raft indext");
-        monitor_exit(ptr);
         exit(1);
     }
     log_debug("map raft_index %" PRIu64 " to topic %s seq_no %lu", arg.raft_index, arg.topic_name, seq);

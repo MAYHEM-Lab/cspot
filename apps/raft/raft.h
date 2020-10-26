@@ -41,7 +41,7 @@
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST 8
-#define RAFT_DATA_TYPE_SIZE 4096
+#define RAFT_DATA_TYPE_SIZE 8192
 
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
 
@@ -197,14 +197,30 @@ int raft_start_server(int members,
                       int replicate_delay);
 
 typedef struct raft_blocked_nodes {
-    char blocked_nodes[32][256];
+    char blocked_nodes[64][256];
+    int failure_rate[64];
+    int timeout[64];
 } RAFT_BLOCKED_NODES;
-typedef struct raftfailure_rate {
-    int failed_percentage;
-} RAFT_FAILURE_RATE;
 
 #define RAFT_BLOCKED_NODES_WOOF "blocked_nodes.woof"
-#define RAFT_FAILURE_RATE_WOOF "failure_rate.woof"
-int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES blocked_nodes, RAFT_FAILURE_RATE failure_rate);
+int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES* blocked_nodes);
+int raft_checkedWooFGet(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq);
+unsigned long raft_checkedWooFGetLatestSeq(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof);
+unsigned long raft_checkedWooFPut(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr);
+unsigned long raft_checkedMonitorRemotePut(RAFT_BLOCKED_NODES* blocked_nodes,
+                                      char* self,
+                                      char* callback_monitor,
+                                      char* callback_woof,
+                                      char* callback_handler,
+                                      void* ptr,
+                                      int idempotent);
+unsigned long raft_checked_raft_sessionless_put_handler(RAFT_BLOCKED_NODES* blocked_nodes,
+                                                   char* self,
+                                                   char* replica,
+                                                   char* handler,
+                                                   void* ptr,
+                                                   unsigned long size,
+                                                   int monitored,
+                                                   int timeout);
 
 #endif

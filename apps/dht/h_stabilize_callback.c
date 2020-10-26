@@ -16,7 +16,7 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     DHT_STABILIZE_CALLBACK_ARG result = {0};
-    if (monitor_cast(ptr, &result) < 0) {
+    if (monitor_cast(ptr, &result, sizeof(DHT_STABILIZE_CALLBACK_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
         exit(1);
@@ -31,10 +31,6 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     BLOCKED_NODES blocked_nodes = {0};
     if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    FAILURE_RATE failure_rate = {0};
-    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
-        log_error("failed to get failure rate");
     }
 
     DHT_SUCCESSOR_INFO successor = {0};
@@ -54,12 +50,14 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(successor.replicas[0], result.predecessor_replicas, sizeof(successor.replicas[0]));
             successor.leader[0] = result.predecessor_leader;
 #ifdef USE_RAFT
-            unsigned long index = raft_sessionless_put_handler(node.replicas[node.leader_id],
-                                                               "r_set_successor",
-                                                               &successor,
-                                                               sizeof(DHT_SUCCESSOR_INFO),
-                                                               0,
-                                                               DHT_RAFT_TIMEOUT);
+            unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
+                                                                       node.addr,
+                                                                       node.replicas[node.leader_id],
+                                                                       "r_set_successor",
+                                                                       &successor,
+                                                                       sizeof(DHT_SUCCESSOR_INFO),
+                                                                       0,
+                                                                       DHT_RAFT_TIMEOUT);
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
@@ -80,12 +78,14 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (successor.leader[0] != result.successor_leader_id) {
             successor.leader[0] = result.successor_leader_id;
 #ifdef USE_RAFT
-            unsigned long index = raft_sessionless_put_handler(node.replicas[node.leader_id],
-                                                               "r_set_successor",
-                                                               &successor,
-                                                               sizeof(DHT_SUCCESSOR_INFO),
-                                                               0,
-                                                               DHT_RAFT_TIMEOUT);
+            unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
+                                                                       node.addr,
+                                                                       node.replicas[node.leader_id],
+                                                                       "r_set_successor",
+                                                                       &successor,
+                                                                       sizeof(DHT_SUCCESSOR_INFO),
+                                                                       0,
+                                                                       DHT_RAFT_TIMEOUT);
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
@@ -115,14 +115,12 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     notify_arg.node_leader = node.replica_id;
     sprintf(notify_arg.callback_woof, "%s/%s", node.addr, DHT_NOTIFY_CALLBACK_WOOF);
     sprintf(notify_arg.callback_handler, "h_notify_callback");
-    unsigned long seq = -1;
-    if (!is_blocked(notify_monitor, node.addr, blocked_nodes, failure_rate)) {
-        seq = monitor_remote_put(notify_monitor, notify_woof_name, "h_notify", &notify_arg, 1);
-    }
+    unsigned long seq = checkedMonitorRemotePut(
+        &blocked_nodes, node.addr, notify_monitor, notify_woof_name, "h_notify", &notify_arg, 1);
     if (WooFInvalid(seq)) {
         log_warn("failed to call notify on successor %s", notify_woof_name);
 #ifdef USE_RAFT
-        DHT_TRY_REPLICAS_ARG try_replicas_arg = {0};
+        DHT_TRY_REPLICAS_ARG try_replicas_arg;
         seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke r_try_replicas");

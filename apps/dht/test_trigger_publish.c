@@ -10,7 +10,7 @@
 #include <string.h>
 
 #define TEST_HANDLER "test_dht_handler"
-#define TEST_TIMEOUT 10000
+#define TEST_TIMEOUT 60000
 
 #include <unistd.h>
 

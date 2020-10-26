@@ -17,7 +17,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     RAFT_CLIENT_PUT_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(RAFT_CLIENT_PUT_ARG)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }
@@ -63,7 +63,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to append raft log");
                 exit(1);
             }
-            log_debug("put entry into log[%lu]", entry_seqno);
+            // log_debug("appended entry[%lu] into log", entry_seqno);
             result.redirected = 0;
             result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;

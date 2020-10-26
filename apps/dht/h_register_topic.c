@@ -16,7 +16,7 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     DHT_REGISTER_TOPIC_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(DHT_REGISTER_TOPIC_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
         exit(1);

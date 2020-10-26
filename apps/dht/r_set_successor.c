@@ -29,13 +29,16 @@ int r_set_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to set successor");
         exit(1);
     }
-    log_debug("set successor to %s", successor_addr(arg, 0));
+    log_debug("set successor[0] to %s", successor_addr(arg, 0));
+    log_debug("set successor[1] to %s", successor_addr(arg, 1));
+    log_debug("set successor[2] to %s", successor_addr(arg, 2));
     // #ifdef DEBUG
-    printf("%s successor set to %s at %" PRIu64 " (%lu)\n",
-           node.addr,
-           successor_addr(arg, 0),
-           get_milliseconds(),
-           WooFGetLatestSeqno(BLOCKED_NODES_WOOF));
+    // printf("%s successor set to %s at %" PRIu64 " (%lu)\n",
+    //        arg->triggered_by,
+    //        node.addr,
+    //        successor_addr(arg, 0),
+    //        get_milliseconds(),
+    //        WooFGetLatestSeqno(BLOCKED_NODES_WOOF));
     // #endif
 
     return 1;

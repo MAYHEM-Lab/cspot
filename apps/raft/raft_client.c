@@ -190,8 +190,9 @@ uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int mon
     request.is_handler = 1;
     request.created_ts = get_milliseconds();
     RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
+    memset(handler_entry, 0, sizeof(RAFT_LOG_HANDLER_ENTRY));
     strcpy(handler_entry->handler, handler);
-    memcpy(handler_entry->ptr, data, sizeof(handler_entry->ptr));
+    memcpy(handler_entry->ptr, data, size);
     handler_entry->monitored = monitored;
     char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "%s/%s", raft_client_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
@@ -274,11 +275,13 @@ uint64_t raft_sessionless_put_handler(char* raft_leader, char* handler, void* da
         request.is_handler = 1;
         request.created_ts = get_milliseconds();
         RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
+        memset(handler_entry, 0, sizeof(RAFT_LOG_HANDLER_ENTRY));
         strcpy(handler_entry->handler, handler);
-        memcpy(handler_entry->ptr, data, sizeof(handler_entry->ptr));
+        memcpy(handler_entry->ptr, data, size);
         handler_entry->monitored = monitored;
         sprintf(woof_name, "%s/%s", leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
         unsigned long seq = WooFPut(woof_name, NULL, &request);
+        
         if (WooFInvalid(seq)) {
             sprintf(raft_error_msg, "failed to send put request\n");
             return RAFT_ERROR;
@@ -320,7 +323,6 @@ uint64_t raft_sessionless_put_handler(char* raft_leader, char* handler, void* da
             usleep(raft_client_result_delay * 1000);
             commit_index = server_state.commit_index;
         }
-
         RAFT_LOG_ENTRY entry = {0};
         sprintf(woof_name, "%s/%s", leader, RAFT_LOG_ENTRIES_WOOF);
         if (WooFGet(woof_name, &entry, result.index) < 0) {

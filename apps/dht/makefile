@@ -49,10 +49,11 @@ copy: handlers clients
 	cp s_block_nodes ./cspot;
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
-	cp s_failure_rate ./cspot;
 	cp s_join_cluster ./cspot;
 	cp r_map_raft_index ./cspot;
+	cp r_register_topic ./cspot;
 	cp r_set_successor ./cspot;
+	cp r_subscribe ./cspot;
 	cp r_try_replicas ./cspot;
 	cp client_find_node ./cspot;
 	cp client_find_topic ./cspot;
@@ -65,9 +66,9 @@ copy: handlers clients
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 	h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
-	r_map_raft_index r_set_successor r_try_replicas
+	r_map_raft_index r_register_topic r_set_successor r_subscribe r_try_replicas
 
-clients: s_block_nodes s_create_cluster s_create_woofs s_failure_rate s_join_cluster \
+clients: s_block_nodes s_create_cluster s_create_woofs s_join_cluster \
 	client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe test_trigger_publish test_latency_call test_latency_create test_latency_handler
@@ -192,10 +193,20 @@ r_map_raft_index: r_map_raft_index.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_S
 	${CC} ${CFLAGS} -c r_map_raft_index_shepherd.c -o r_map_raft_index_shepherd.o
 	${CC} ${CFLAGS} -o r_map_raft_index r_map_raft_index.c r_map_raft_index_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+r_register_topic: r_register_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_register_topic/g' ${SHEP_SRC} > r_register_topic_shepherd.c
+	${CC} ${CFLAGS} -c r_register_topic_shepherd.c -o r_register_topic_shepherd.o
+	${CC} ${CFLAGS} -o r_register_topic r_register_topic.c r_register_topic_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 r_set_successor: r_set_successor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_set_successor/g' ${SHEP_SRC} > r_set_successor_shepherd.c
 	${CC} ${CFLAGS} -c r_set_successor_shepherd.c -o r_set_successor_shepherd.o
 	${CC} ${CFLAGS} -o r_set_successor r_set_successor.c r_set_successor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+r_subscribe: r_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_subscribe/g' ${SHEP_SRC} > r_subscribe_shepherd.c
+	${CC} ${CFLAGS} -c r_subscribe_shepherd.c -o r_subscribe_shepherd.o
+	${CC} ${CFLAGS} -o r_subscribe r_subscribe.c r_subscribe_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 r_try_replicas: r_try_replicas.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_try_replicas/g' ${SHEP_SRC} > r_try_replicas_shepherd.c
@@ -210,9 +221,6 @@ s_create_cluster: s_create_cluster.c dht.o dht_utils.o
 
 s_create_woofs: s_create_woofs.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_create_woofs s_create_woofs.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-s_failure_rate: s_failure_rate.c dht.o dht_utils.o
-	${CC} ${CFLAGS} -o s_failure_rate s_failure_rate.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 s_join_cluster: s_join_cluster.c dht.o dht_utils.o
 	${CC} ${CFLAGS} -o s_join_cluster s_join_cluster.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -246,11 +254,11 @@ test_trigger_publish: test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
-	rm -f s_block_nodes s_create_cluster s_create_woofs s_failure_rate s_join_cluster
+	rm -f s_block_nodes s_create_cluster s_create_woofs s_join_cluster
 	rm -f client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
 	rm -f h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
-	rm -f r_map_raft_index r_set_successor r_try_replicas
+	rm -f r_map_raft_index r_register_topic r_set_successor r_subscribe r_try_replicas
 	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish
 

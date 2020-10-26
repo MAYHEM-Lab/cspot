@@ -14,7 +14,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     DHT_NOTIFY_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(DHT_NOTIFY_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
         exit(1);
@@ -42,10 +42,6 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     BLOCKED_NODES blocked_nodes = {0};
     if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    FAILURE_RATE failure_rate = {0};
-    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
-        log_error("failed to get failure rate");
     }
 
     // if (predecessor is nil or n' ∈ (predecessor, n))
@@ -116,10 +112,8 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     } else {
         sprintf(callback_monitor, "woof://%s%s/%s", callback_ipaddr, callback_namespace, DHT_MONITOR_NAME);
     }
-    unsigned long seq = -1;
-    if (!is_blocked(callback_monitor, node.addr, blocked_nodes, failure_rate)) {
-        seq = monitor_remote_put(callback_monitor, arg.callback_woof, arg.callback_handler, &result, 1);
-    }
+    unsigned long seq = checkedMonitorRemotePut(
+        &blocked_nodes, node.addr, callback_monitor, arg.callback_woof, arg.callback_handler, &result, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to put notify result to woof %s", arg.callback_woof);
         monitor_exit(ptr);

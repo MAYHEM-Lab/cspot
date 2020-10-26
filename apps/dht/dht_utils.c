@@ -273,7 +273,7 @@ int dht_init(unsigned char* node_hash,
     DHT_SUCCESSOR_INFO successor_info = {0};
     // initialize successor to itself
     memcpy(successor_info.hash, node_hash, sizeof(node_info.hash));
-    memcpy(successor_info.replicas, node_replicas, sizeof(successor_info.replicas));
+    memcpy(successor_info.replicas[0], node_replicas, sizeof(successor_info.replicas[0]));
     seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor_info);
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed to initialize %s", DHT_SUCCESSOR_INFO_WOOF);
@@ -300,10 +300,6 @@ void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG* arg, char* key, char* hashed_key,
     arg->query_count = 0;
     arg->message_count = 0;
     arg->failure_count = 0;
-    arg->blocked_count = 0;
-    arg->failure_real_count = 0;
-    arg->self_forward_count = 0;
-    arg->delayed_time = 0;
 }
 
 char* dht_hash(unsigned char* dst, char* src) {

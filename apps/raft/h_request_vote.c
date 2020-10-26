@@ -13,15 +13,16 @@
 int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("request_vote");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     RAFT_REQUEST_VOTE_ARG request = {0};
-    if (monitor_cast(ptr, &request) < 0) {
+    if (monitor_cast(ptr, &request, sizeof(RAFT_REQUEST_VOTE_ARG)) < 0) {
         log_error("failed to monitor_cast");
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
+    log_debug("request vote from %s", request.candidate_woof);
 
     // get the server's current term
     RAFT_SERVER_STATE server_state;
@@ -32,10 +33,6 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_BLOCKED_NODES blocked_nodes = {0};
     if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    RAFT_FAILURE_RATE failure_rate = {0};
-    if (WooFGet(RAFT_FAILURE_RATE_WOOF, &failure_rate, WooFGetLatestSeqno(RAFT_FAILURE_RATE_WOOF)) < 0) {
-        log_error("failed to get failure rate");
     }
 
     if (server_state.role == RAFT_SHUTDOWN) {
@@ -149,10 +146,8 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     char candidate_result_woof[RAFT_NAME_LENGTH];
     sprintf(candidate_monitor, "%s/%s", request.candidate_woof, RAFT_MONITOR_NAME);
     sprintf(candidate_result_woof, "%s/%s", request.candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
-    unsigned long seq = -1;
-    if (!raft_is_blocked(candidate_result_woof, server_state.woof_name, blocked_nodes, failure_rate)) {
-        seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result, 0);
-    }
+    unsigned long seq = raft_checkedMonitorRemotePut(
+        &blocked_nodes, server_state.woof_name, candidate_monitor, candidate_result_woof, "h_count_vote", &result, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the vote result to %s", candidate_result_woof);
     }

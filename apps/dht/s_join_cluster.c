@@ -17,7 +17,7 @@
 char* Usage = "s_join_cluster -w node_woof -r raft_config -d dht_config\n\
 \t-i to bind a certain IP, -n to rejoin when recover from failure\n";
 
-char node_woof[DHT_NAME_LENGTH];
+char node_woof[DHT_NAME_LENGTH] = {0};
 
 int main(int argc, char** argv) {
     char ip[256] = {0};
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
 
     FILE* fp = fopen(dht_config, "r");
     if (fp == NULL) {
-        fprintf(stderr, "failed to open dht_config file\n");
+        fprintf(stderr, "failed to open dht_config file %s\n", dht_config);
         exit(1);
     }
     int stabilize_freq = 0;
@@ -75,21 +75,21 @@ int main(int argc, char** argv) {
     if (read_dht_config(
             fp, &stabilize_freq, &chk_predecessor_freq, &fix_finger_freq, &update_leader_freq, &daemon_wakeup_freq) <
         0) {
-        fprintf(stderr, "failed to read dht_config file\n");
+        fprintf(stderr, "failed to read dht_config file %s: %s\n", dht_config, dht_error_msg);
         fclose(fp);
         exit(1);
     }
     fclose(fp);
     fp = fopen(raft_config, "r");
     if (fp == NULL) {
-        fprintf(stderr, "failed to open raft_config file\n");
+        fprintf(stderr, "failed to open raft_config file %s\n", raft_config);
         exit(1);
     }
     char name[DHT_NAME_LENGTH];
     int num_replica;
     char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     if (read_raft_config(fp, name, &num_replica, replicas) < 0) {
-        fprintf(stderr, "failed to read raft_config file\n");
+        fprintf(stderr, "failed to read raft_config file %s: %s\n", raft_config, dht_error_msg);
         fclose(fp);
         exit(1);
     }

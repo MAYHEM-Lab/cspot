@@ -39,7 +39,7 @@ unsigned long monitor_queue(char* monitor_name, char* woof_name, char* handler, 
 unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handler, void* ptr, int idempotent);
 unsigned long
 monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned long seq_no, int idempotent);
-int monitor_cast(void* ptr, void* element);
+int monitor_cast(void* ptr, void* element, unsigned long size);
 unsigned long monitor_seqno(void* ptr);
 int monitor_exit(void* ptr);
 

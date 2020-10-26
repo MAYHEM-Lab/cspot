@@ -30,19 +30,8 @@ int dht_find_node(char* topic_name,
     int query_count;
     int message_count;
     int failure_count;
-    int blocked_count;
-    int self_forward_count;
-    int delayed_time;
-    return dht_find_node_debug(topic_name,
-                               result_node_replicas,
-                               result_node_leader,
-                               &query_count,
-                               &message_count,
-                               &failure_count,
-                               &blocked_count,
-                               &self_forward_count,
-                               &delayed_time,
-                               timeout);
+    return dht_find_node_debug(
+        topic_name, result_node_replicas, result_node_leader, &query_count, &message_count, &failure_count, timeout);
 }
 
 int dht_find_node_debug(char* topic_name,
@@ -51,9 +40,6 @@ int dht_find_node_debug(char* topic_name,
                         int* query_count,
                         int* message_count,
                         int* failure_count,
-                        int* blocked_count,
-                        int* self_forward_count,
-                        int* delayed_time,
                         int timeout) {
     uint64_t begin = get_milliseconds();
 
@@ -105,9 +91,6 @@ int dht_find_node_debug(char* topic_name,
                 *query_count = result.find_successor_query_count;
                 *message_count = result.find_successor_message_count;
                 *failure_count = result.find_successor_failure_count;
-                *blocked_count = result.find_successor_blocked_count;
-                *self_forward_count = result.find_successor_self_forward_count;
-                *delayed_time = result.find_successor_delayed_time;
                 return 0;
             }
         }
@@ -145,6 +128,7 @@ int dht_register_topic(char* topic_name, int timeout) {
     } else {
         sprintf(topic_namespace, "woof://%s%s", client_ip, local_namespace);
     }
+
     DHT_REGISTER_TOPIC_ARG register_topic_arg = {0};
     strcpy(register_topic_arg.topic_name, topic_name);
 #ifdef USE_RAFT
@@ -198,24 +182,35 @@ int dht_subscribe(char* topic_name, char* handler) {
         return -1;
     }
 
+    RAFT_SERVER_STATE raft_server_state;
+    if (get_server_state(&raft_server_state) < 0) {
+        sprintf(dht_error_msg, "failed to get the latest RAFT server state");
+        return -1;
+    }
+    char replica_namespaces[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
+    int i;
+    for (i = 0; i < DHT_REPLICA_NUMBER && i < raft_server_state.members; ++i) {
+        strcpy(replica_namespaces[i], raft_server_state.member_woofs[i]);
+    }
+
     char local_namespace[DHT_NAME_LENGTH] = {0};
     node_woof_namespace(local_namespace);
-    char handler_namespace[DHT_NAME_LENGTH] = {0};
+    char action_namespace[DHT_NAME_LENGTH] = {0};
     if (client_ip[0] == 0) {
         char ip[DHT_NAME_LENGTH] = {0};
         if (WooFLocalIP(ip, sizeof(ip)) < 0) {
             sprintf(dht_error_msg, "failed to get local IP");
             return -1;
         }
-        sprintf(handler_namespace, "woof://%s%s", ip, local_namespace);
+        sprintf(action_namespace, "woof://%s%s", ip, local_namespace);
     } else {
-        sprintf(handler_namespace, "woof://%s%s", client_ip, local_namespace);
+        sprintf(action_namespace, "woof://%s%s", client_ip, local_namespace);
     }
 
     DHT_SUBSCRIBE_ARG subscribe_arg = {0};
     strcpy(subscribe_arg.topic_name, topic_name);
     strcpy(subscribe_arg.handler, handler);
-    strcpy(subscribe_arg.handler_namespace, handler_namespace);
+    memcpy(subscribe_arg.replica_namespaces, replica_namespaces, sizeof(subscribe_arg.replica_namespaces));
     unsigned long action_seqno = WooFPut(DHT_SUBSCRIBE_WOOF, NULL, &subscribe_arg);
     if (WooFInvalid(action_seqno)) {
         sprintf(dht_error_msg, "failed to store subscribe arg");
@@ -227,7 +222,7 @@ int dht_subscribe(char* topic_name, char* handler) {
     DHT_FIND_SUCCESSOR_ARG arg = {0};
     dht_init_find_arg(&arg, topic_name, hashed_key, ""); // namespace doesn't matter, acted in target namespace
     arg.action = DHT_ACTION_SUBSCRIBE;
-    strcpy(arg.action_namespace, handler_namespace);
+    strcpy(arg.action_namespace, action_namespace);
     arg.action_seqno = action_seqno;
 
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &arg);
@@ -243,10 +238,6 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     BLOCKED_NODES blocked_nodes = {0};
     if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
         log_error("failed to get blocked nodes");
-    }
-    FAILURE_RATE failure_rate = {0};
-    if (get_latest_element(FAILURE_RATE_WOOF, &failure_rate) < 0) {
-        log_error("failed to get failure rate");
     }
 #ifdef USE_RAFT
     if (element_size > RAFT_DATA_TYPE_SIZE) {
@@ -272,7 +263,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         // get the topic namespace
         char registration_woof[DHT_NAME_LENGTH] = {0};
         sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
-        if (is_blocked(registration_woof, "client", blocked_nodes, failure_rate)) {
+        if (is_blocked(registration_woof, "client", &blocked_nodes) != 0) {
             continue;
         }
         if (get_latest_element(registration_woof, &topic_entry) >= 0) {
@@ -299,7 +290,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 #ifdef DEBUG
         printf("putting data to raft: %s\n", topic_entry.topic_replicas[i]);
 #endif
-        if (is_blocked(topic_entry.topic_replicas[i], "client", blocked_nodes, failure_rate)) {
+        if (is_blocked(topic_entry.topic_replicas[i], "client", &blocked_nodes) != 0) {
             continue;
         }
         raft_set_client_leader(topic_entry.topic_replicas[i]);
@@ -362,10 +353,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
 #ifdef DEBUG
     printf("using woof: %s\n", trigger_arg.element_woof);
 #endif
-    trigger_arg.element_seqno = -1;
-    if (!is_blocked(trigger_arg.element_woof, blocked_nodes, failure_rate)) {
-        trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
-    }
+    trigger_arg.element_seqno = WooFPut(trigger_arg.element_woof, NULL, element);
     if (WooFInvalid(trigger_arg.element_seqno)) {
         sprintf(dht_error_msg, "failed to put element to woof");
         return -1;
@@ -373,10 +361,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     uint64_t committed = get_milliseconds();
     sprintf(trigger_woof, "%s/%s", topic_entry.topic_namespace, DHT_TRIGGER_WOOF);
 #endif
-    unsigned long seq = -1;
-    if (!is_blocked(trigger_woof, "client", blocked_nodes, failure_rate)) {
-        seq = WooFPut(trigger_woof, "h_trigger", &trigger_arg);
-    }
+    unsigned long seq = WooFPut(trigger_woof, "h_trigger", &trigger_arg);
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed to invoke h_trigger");
         return -1;

@@ -16,7 +16,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
 
     DHT_NOTIFY_CALLBACK_ARG result = {0};
-    if (monitor_cast(ptr, &result) < 0) {
+    if (monitor_cast(ptr, &result, sizeof(DHT_NOTIFY_CALLBACK_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
         exit(1);
@@ -27,6 +27,10 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
         exit(1);
+    }
+    BLOCKED_NODES blocked_nodes = {0};
+    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+        log_error("failed to get blocked nodes");
     }
 
     DHT_SUCCESSOR_INFO successor = {0};
@@ -47,10 +51,16 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     memcpy(successor.replicas, result.successor_replicas, sizeof(successor.replicas));
     memcpy(successor.leader, result.successor_leader, sizeof(successor.leader));
 #ifdef USE_RAFT
-    unsigned long index = raft_sessionless_put_handler(
-                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, DHT_RAFT_TIMEOUT);
+    unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
+                                                               node.addr,
+                                                               node.replicas[node.leader_id],
+                                                               "r_set_successor",
+                                                               &successor,
+                                                               sizeof(DHT_SUCCESSOR_INFO),
+                                                               0,
+                                                               DHT_RAFT_TIMEOUT);
     if (raft_is_error(index)) {
-        log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
+        log_error("failed to invoke r_set_successor on %s using raft: %s", node.replicas[node.leader_id], raft_error_msg);
         monitor_exit(ptr);
         exit(1);
     }
@@ -62,7 +72,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 #endif
-    log_debug("updated successor list");
+    log_debug("set successor to %s...", successor.replicas[0][successor.leader[0]]);
 
     monitor_exit(ptr);
     return 1;

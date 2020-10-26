@@ -8,7 +8,7 @@
 
 int test_handler_monitored(WOOF* wf, unsigned long seq_no, void* ptr) {
     TEST_MONITOR_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(TEST_MONITOR_ARG)) < 0) {
         fprintf(stderr, "failed to call monitor_cast\n");
         exit(1);
     }

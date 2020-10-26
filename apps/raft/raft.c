@@ -273,21 +273,76 @@ int raft_start_server(int members,
     return 0;
 }
 
-int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES blocked_nodes, RAFT_FAILURE_RATE failure_rate) {
-    if (rand() % 100 < failure_rate.failed_percentage) {
-        return 1;
-    }
+int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES* blocked_nodes) {
     int i;
-    for (i = 0; i < 32; ++i) {
-        if (blocked_nodes.blocked_nodes[i][0] == 0) {
+    for (i = 0; i < 64; ++i) {
+        if (blocked_nodes->blocked_nodes[i][0] == 0) {
             break;
         }
-        if (strncmp(target, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
-            return 1;
+        if (strncmp(target, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
+            if (rand() % 100 < blocked_nodes->failure_rate[i]) {
+                usleep(blocked_nodes->timeout[i] * 1000);
+                return -1;
+            }
         }
-        if (strncmp(self, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
-            return 1;
+        if (strncmp(self, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
+            if (rand() % 100 < blocked_nodes->failure_rate[i]) {
+                return -2;
+            }
         }
     }
     return 0;
+}
+
+int raft_checkedWooFGet(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq) {
+    int err = raft_is_blocked(woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return WooFGet(woof, ptr, seq);
+}
+
+unsigned long raft_checkedWooFGetLatestSeq(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof) {
+    int err = raft_is_blocked(woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return WooFGetLatestSeqno(woof);
+}
+
+unsigned long raft_checkedWooFPut(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr) {
+    int err = raft_is_blocked(woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return WooFPut(woof, handler, ptr);
+}
+
+unsigned long raft_checkedMonitorRemotePut(RAFT_BLOCKED_NODES* blocked_nodes,
+                                           char* self,
+                                           char* callback_monitor,
+                                           char* callback_woof,
+                                           char* callback_handler,
+                                           void* ptr,
+                                           int idempotent) {
+    int err = raft_is_blocked(callback_woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return monitor_remote_put(callback_monitor, callback_woof, callback_handler, ptr, idempotent);
+}
+
+unsigned long raft_checked_raft_sessionless_put_handler(RAFT_BLOCKED_NODES* blocked_nodes,
+                                                        char* self,
+                                                        char* replica,
+                                                        char* handler,
+                                                        void* ptr,
+                                                        unsigned long size,
+                                                        int monitored,
+                                                        int timeout) {
+    int err = raft_is_blocked(replica, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return raft_sessionless_put_handler(replica, handler, ptr, size, monitored, timeout);
 }

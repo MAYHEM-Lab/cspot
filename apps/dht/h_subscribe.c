@@ -9,11 +9,11 @@
 int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_subscribe");
     log_set_level(DHT_LOG_INFO);
-    // log_set_level(DHT_LOG_DEBUG);
+    log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_SUBSCRIBE_ARG arg = {0};
-    if (monitor_cast(ptr, &arg) < 0) {
+    if (monitor_cast(ptr, &arg, sizeof(DHT_SUBSCRIBE_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
         exit(1);
@@ -39,22 +39,24 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
         return 1;
     }
 
-    int i;
+    int i, j;
     for (i = 0; i < list.size; ++i) {
-        if (strcmp(list.handlers[i], arg.handler) == 0 &&
-            strcmp(list.handler_namespace[i], arg.handler_namespace) == 0) {
-            log_info("%s/%s has already subscribed to topic %s", arg.handler_namespace, arg.handler, arg.topic_name);
+        if (strcmp(list.handlers[i], arg.handler) == 0) {
+            log_info("%s has already subscribed to topic %s", arg.handler, arg.topic_name);
             monitor_exit(ptr);
             return 1;
         }
     }
 
     memcpy(list.handlers[list.size], arg.handler, sizeof(list.handlers[list.size]));
-    memcpy(list.handler_namespace[list.size], arg.handler_namespace, sizeof(list.handler_namespace[list.size]));
+    memcpy(list.replica_namespaces[list.size], arg.replica_namespaces, sizeof(list.replica_namespaces[list.size]));
+    list.last_successful_replica[list.size] = 0;
     list.size += 1;
     log_debug("number of subscription: %d", list.size);
     for (i = 0; i < list.size; ++i) {
-        log_debug("[%d] %s/%s", i, list.handler_namespace[i], list.handlers[i]);
+        for (j = 0; j < DHT_REPLICA_NUMBER; ++j) {
+            log_debug("%s[%d] %s", list.handlers[i], i, list.replica_namespaces[i][j]);
+        }
     }
 
     unsigned long seq = WooFPut(subscription_woof, NULL, &list);
@@ -63,7 +65,7 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    log_info("%s/%s subscribed to topic %s", arg.handler_namespace, arg.handler, arg.topic_name);
+    log_info("%s subscribed to topic %s", arg.handler, arg.topic_name);
 
     monitor_exit(ptr);
     return 1;

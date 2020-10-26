@@ -47,13 +47,10 @@ extern "C" {
 #define DHT_HISTORY_LENGTH_LONG 512
 #define DHT_HISTORY_LENGTH_SHORT 32
 #define DHT_MAX_SUBSCRIPTIONS 8
-// #define DHT_STABILIZE_FREQUENCY 1000
-// #define DHT_CHECK_PREDECESSOR_FREQUENCY 1000
-// #define DHT_FIX_FINGER_FREQUENCY 1000
-// #define DHT_UPDATE_LEADER_ID_FREQUENCY 1000
-// #define DHT_DAEMON_WAKEUP_FREQUENCY 100
 #define DHT_SUCCESSOR_LIST_R 3
-#define DHT_REPLICA_NUMBER 3
+// #define DHT_REPLICA_NUMBER 3
+#define DHT_REPLICA_NUMBER 6
+#define DHT_REGISTER_TOPIC_REPLICA 3 // can't be greater than DHT_SUCCESSOR_LIST_R
 
 #define DHT_ACTION_NONE 0
 #define DHT_ACTION_FIND_NODE 1
@@ -61,10 +58,6 @@ extern "C" {
 #define DHT_ACTION_FIX_FINGER 3
 #define DHT_ACTION_REGISTER_TOPIC 4
 #define DHT_ACTION_SUBSCRIBE 5
-
-#define DHT_TRY_PREDECESSOR 0
-#define DHT_TRY_SUCCESSOR 1
-#define DHT_TRY_FINGER 2
 
 char dht_error_msg[256];
 
@@ -105,9 +98,6 @@ typedef struct dht_find_successor_arg {
     int32_t query_count;
     int32_t message_count;
     int32_t failure_count;
-    int32_t blocked_count;
-    int32_t self_forward_count;
-    uint64_t delayed_time;
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
@@ -118,9 +108,6 @@ typedef struct dht_find_node_result {
     int32_t find_successor_query_count;
     int32_t find_successor_message_count;
     int32_t find_successor_failure_count;
-    int32_t find_successor_blocked_count;
-    uint64_t find_successor_delayed_time;
-    int32_t find_successor_self_forward_count;
 } DHT_FIND_NODE_RESULT;
 
 typedef struct dht_invocation_arg {
@@ -191,13 +178,14 @@ typedef struct dht_shift_successor_arg {
 typedef struct dht_subscription_list {
     int32_t size;
     char handlers[DHT_MAX_SUBSCRIPTIONS][DHT_NAME_LENGTH];
-    char handler_namespace[DHT_MAX_SUBSCRIPTIONS][DHT_NAME_LENGTH];
+    char replica_namespaces[DHT_MAX_SUBSCRIPTIONS][DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t last_successful_replica[DHT_MAX_SUBSCRIPTIONS];
 } DHT_SUBSCRIPTION_LIST;
 
 typedef struct dht_subscribe_arg {
     char topic_name[DHT_NAME_LENGTH];
     char handler[DHT_NAME_LENGTH];
-    char handler_namespace[DHT_NAME_LENGTH];
+    char replica_namespaces[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
 } DHT_SUBSCRIBE_ARG;
 
 typedef struct dht_trigger_arg {
@@ -289,20 +277,32 @@ int dht_join_cluster(char* node_woof,
                      int update_leader_freq,
                      int daemon_wakeup_freq);
 
-// for simultaing node failure
 typedef struct blocked_nodes {
-    char blocked_nodes[32][256];
+    char blocked_nodes[64][256];
+    int failure_rate[64];
+    int timeout[64];
 } BLOCKED_NODES;
 
-// for simulating unstable network
-typedef struct failure_rate {
-    int failed_percentage;
-} FAILURE_RATE;
-
 #define BLOCKED_NODES_WOOF "blocked_nodes.woof"
-#define FAILURE_RATE_WOOF "failure_rate.woof"
-int is_blocked(char* target, char* self, BLOCKED_NODES blocked_nodes, FAILURE_RATE failure_rate);
-
+int is_blocked(char* target, char* self, BLOCKED_NODES* blocked_nodes);
+int checkedWooFGet(BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq);
+unsigned long checkedWooFGetLatestSeq(BLOCKED_NODES* blocked_nodes, char* self, char* woof);
+unsigned long checkedWooFPut(BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr);
+unsigned long checkedMonitorRemotePut(BLOCKED_NODES* blocked_nodes,
+                                      char* self,
+                                      char* callback_monitor,
+                                      char* callback_woof,
+                                      char* callback_handler,
+                                      void* ptr,
+                                      int idempotent);
+unsigned long checked_raft_sessionless_put_handler(BLOCKED_NODES* blocked_nodes,
+                                                   char* self,
+                                                   char* replica,
+                                                   char* handler,
+                                                   void* ptr,
+                                                   unsigned long size,
+                                                   int monitored,
+                                                   int timeout);
 #endif
 
 #ifdef __cplusplus

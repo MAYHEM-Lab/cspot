@@ -25,7 +25,7 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF, DHT_DA
 #ifdef USE_RAFT
                                               DHT_REPLICATE_STATE_WOOF,   DHT_TRY_REPLICAS_WOOF,
 #endif
-                                              BLOCKED_NODES_WOOF, FAILURE_RATE_WOOF};
+                                              BLOCKED_NODES_WOOF};
 
 unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
     sizeof(DHT_CHECK_PREDECESSOR_ARG),
@@ -54,7 +54,6 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
     sizeof(DHT_TRY_REPLICAS_WOOF),
 #endif
     sizeof(BLOCKED_NODES),
-    sizeof(FAILURE_RATE),
 };
 
 unsigned long DHT_ELEMENT_SIZE[] = {
@@ -84,7 +83,6 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_SHORT, // DHT_TRY_REPLICAS_WOOF,
 #endif
     DHT_HISTORY_LENGTH_SHORT, // BLOCKED_NODES_WOOF
-    DHT_HISTORY_LENGTH_SHORT, // FAILURE_RATE
 };
 
 int dht_create_woofs() {
@@ -219,7 +217,6 @@ int dht_join_cluster(char* node_woof,
             sprintf(dht_error_msg, "failed to create and start the handler monitor\n");
             return -1;
         }
-
         if (dht_init(node_hash, node_name, woof_name, replicas) < 0) {
             sprintf(dht_error_msg, "failed to initialize DHT: %s", dht_error_msg);
             return -1;
@@ -254,23 +251,76 @@ int dht_join_cluster(char* node_woof,
     return 0;
 }
 
-int is_blocked(char* target, char* self, BLOCKED_NODES blocked_nodes, FAILURE_RATE failure_rate) {
-    if (rand() % 100 < failure_rate.failed_percentage) {
-        return 1;
-    }
+int is_blocked(char* target, char* self, BLOCKED_NODES* blocked_nodes) {
     int i;
-    for (i = 0; i < 32; ++i) {
-        if (blocked_nodes.blocked_nodes[i][0] == 0) {
+    for (i = 0; i < 64; ++i) {
+        if (blocked_nodes->blocked_nodes[i][0] == 0) {
             break;
         }
-        if (strncmp(target, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
-            log_error("%s is blocked", target);
-            return 1;
+        if (strncmp(target, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
+            if (rand() % 100 < blocked_nodes->failure_rate[i]) {
+                usleep(blocked_nodes->timeout[i] * 1000);
+                return -1;
+            }
         }
-        if (strncmp(self, blocked_nodes.blocked_nodes[i], strlen(blocked_nodes.blocked_nodes[i])) == 0) {
-            log_error("%s is blocked", self);
-            return 1;
+        if (strncmp(self, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
+            if (rand() % 100 < blocked_nodes->failure_rate[i]) {
+                return -2;
+            }
         }
     }
     return 0;
+}
+
+int checkedWooFGet(BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq) {
+    int err = is_blocked(woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return WooFGet(woof, ptr, seq);
+}
+
+unsigned long checkedWooFGetLatestSeq(BLOCKED_NODES* blocked_nodes, char* self, char* woof) {
+    int err = is_blocked(woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return WooFGetLatestSeqno(woof);
+}
+
+unsigned long checkedWooFPut(BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr) {
+    int err = is_blocked(woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return WooFPut(woof, handler, ptr);
+}
+
+unsigned long checkedMonitorRemotePut(BLOCKED_NODES* blocked_nodes,
+                                      char* self,
+                                      char* callback_monitor,
+                                      char* callback_woof,
+                                      char* callback_handler,
+                                      void* ptr,
+                                      int idempotent) {
+    int err = is_blocked(callback_woof, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return monitor_remote_put(callback_monitor, callback_woof, callback_handler, ptr, idempotent);
+}
+
+unsigned long checked_raft_sessionless_put_handler(BLOCKED_NODES* blocked_nodes,
+                                                   char* self,
+                                                   char* replica,
+                                                   char* handler,
+                                                   void* ptr,
+                                                   unsigned long size,
+                                                   int monitored,
+                                                   int timeout) {
+    int err = is_blocked(replica, self, blocked_nodes);
+    if (err < 0) {
+        return err;
+    }
+    return raft_sessionless_put_handler(replica, handler, ptr, size, monitored, timeout);
 }
