@@ -76,19 +76,26 @@ int main(int argc, char** argv) {
     }
     raft_set_client_leader(current_leader);
 
+    uint64_t begin, finish;
     if (sync) {
         int i;
         for (i = 0; i < count; ++i) {
             RAFT_DATA_TYPE data = {0};
             sprintf(data.val, "sync_%d", i);
+            begin = get_milliseconds();
             unsigned long index = raft_sync_put(&data, timeout);
+            finish = get_milliseconds();
             while (index == RAFT_REDIRECTED) {
+                begin = get_milliseconds();
                 index = raft_sync_put(&data, timeout);
+                finish = get_milliseconds();
             }
             if (raft_is_error(index)) {
                 fprintf(stderr, "failed to put %s: %s\n", data.val, raft_error_msg);
+                fflush(stderr);
             } else {
-                printf("put data[%d]: %s, index: %lu\n", i, data.val, index);
+                printf("put data[%d]: %s, index: %lu, %lu\n", i, data.val, index, finish - begin);
+                fflush(stdout);
             }
         }
     } else {
@@ -100,8 +107,10 @@ int main(int argc, char** argv) {
             seq[i] = raft_async_put(&data);
             if (raft_is_error(seq[i])) {
                 fprintf(stderr, "failed to put %s: %s\n", data.val, raft_error_msg);
+                fflush(stderr);
             } else {
                 printf("put data[%d]: %s, client_request_seqno: %lu\n", i, data.val, seq[i]);
+                fflush(stdout);
             }
         }
     }

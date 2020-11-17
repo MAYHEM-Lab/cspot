@@ -60,6 +60,7 @@ int main(int argc, char** argv) {
     int query_count;
     int message_count;
     int failure_count;
+    // char path[4096];
     if (dht_find_node_debug(
             topic, result_replicas, &result_leader, &query_count, &message_count, &failure_count, timeout) < 0) {
         fprintf(stderr, "failed to find the topic: %s\n", dht_error_msg);

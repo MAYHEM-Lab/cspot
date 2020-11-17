@@ -79,6 +79,12 @@ int main(int argc, char** argv) {
     char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "woof://%s%s", host_ip, woof_namespace);
 
+    // experiment cheat
+    if (strcmp(woof_name, "woof://128.111.39.229:58433/root/ns_cspot1") == 0) {
+        timeout_min = 0;
+        timeout_max = 1000;
+    }
+
     if (raft_start_server(members, woof_name, member_woofs, observer, timeout_min, timeout_max, replicate_delay) < 0) {
         fprintf(stderr, "Can't start server\n");
         exit(1);

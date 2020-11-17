@@ -48,8 +48,8 @@ extern "C" {
 #define DHT_HISTORY_LENGTH_SHORT 32
 #define DHT_MAX_SUBSCRIPTIONS 8
 #define DHT_SUCCESSOR_LIST_R 3
-// #define DHT_REPLICA_NUMBER 3
-#define DHT_REPLICA_NUMBER 6
+#define DHT_REPLICA_NUMBER 3
+// #define DHT_REPLICA_NUMBER 5
 #define DHT_REGISTER_TOPIC_REPLICA 3 // can't be greater than DHT_SUCCESSOR_LIST_R
 
 #define DHT_ACTION_NONE 0
@@ -98,6 +98,7 @@ typedef struct dht_find_successor_arg {
     int32_t query_count;
     int32_t message_count;
     int32_t failure_count;
+    // char path[4096];
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
@@ -108,6 +109,7 @@ typedef struct dht_find_node_result {
     int32_t find_successor_query_count;
     int32_t find_successor_message_count;
     int32_t find_successor_failure_count;
+    // char path[4096];
 } DHT_FIND_NODE_RESULT;
 
 typedef struct dht_invocation_arg {

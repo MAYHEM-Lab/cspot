@@ -30,8 +30,11 @@ int dht_find_node(char* topic_name,
     int query_count;
     int message_count;
     int failure_count;
+    // char path[4096];
     return dht_find_node_debug(
         topic_name, result_node_replicas, result_node_leader, &query_count, &message_count, &failure_count, timeout);
+    // return dht_find_node_debug(
+    //     topic_name, result_node_replicas, result_node_leader, &query_count, &message_count, &failure_count, timeout);
 }
 
 int dht_find_node_debug(char* topic_name,
@@ -91,6 +94,7 @@ int dht_find_node_debug(char* topic_name,
                 *query_count = result.find_successor_query_count;
                 *message_count = result.find_successor_message_count;
                 *failure_count = result.find_successor_failure_count;
+                // strcpy(path, result.path);
                 return 0;
             }
         }
@@ -248,12 +252,23 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     uint64_t called = get_milliseconds();
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
     int node_leader;
-    if (dht_find_node(topic_name, node_replicas, &node_leader, timeout) < 0) {
+
+    int query_count;
+    int message_count;
+    int failure_count;
+    // char path[4096];
+    if (dht_find_node_debug(
+            topic_name, node_replicas, &node_leader, &query_count, &message_count, &failure_count, timeout) < 0) {
+        // if (dht_find_node(topic_name, node_replicas, &node_leader, timeout) < 0) {
         char err_msg[DHT_NAME_LENGTH] = {0};
         strcpy(err_msg, dht_error_msg);
         sprintf(dht_error_msg, "failed to find node hosting the topic: %s", err_msg);
         return -1;
     }
+    printf("query_count: %d\n", query_count);
+    printf("message_count: %d\n", message_count);
+    printf("failure_count: %d\n", failure_count);
+    // printf("path: %s\n", path);
     uint64_t found = get_milliseconds();
     DHT_TOPIC_REGISTRY topic_entry = {0};
     char* node_addr;
@@ -277,6 +292,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", node_addr, err_msg);
         return -1;
     }
+    uint64_t redirect = found;
 
     DHT_TRIGGER_ARG trigger_arg = {0};
     strcpy(trigger_arg.topic_name, topic_name);
@@ -291,6 +307,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         printf("putting data to raft: %s\n", topic_entry.topic_replicas[i]);
 #endif
         if (is_blocked(topic_entry.topic_replicas[i], "client", &blocked_nodes) != 0) {
+            sprintf(raft_error_msg, "replica is blocked");
             continue;
         }
         raft_set_client_leader(topic_entry.topic_replicas[i]);
@@ -299,6 +316,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_replicas[i]);
         index = raft_sync_put(&raft_data, timeout);
         while (index == RAFT_REDIRECTED) {
+            redirect = get_milliseconds();
             if (timeout > 0 && get_milliseconds() - called > timeout) {
                 sprintf(dht_error_msg, "failed to put data to raft, timeout after %d ms", timeout);
                 return -1;
@@ -319,6 +337,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         return -1;
     }
     uint64_t committed = get_milliseconds();
+    uint64_t redirect2 = committed;
 
     DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
     strcpy(map_raft_index_arg.topic_name, topic_name);
@@ -330,6 +349,7 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     unsigned long mapping_index =
         raft_put_handler("r_map_raft_index", &map_raft_index_arg, sizeof(DHT_MAP_RAFT_INDEX_ARG), 1, timeout);
     while (mapping_index == RAFT_REDIRECTED) {
+        redirect2 = get_milliseconds();
         if (timeout > 0 && get_milliseconds() - called > timeout) {
             sprintf(dht_error_msg, "failed to map data to raft, timeout after %d ms", timeout);
             return -1;
@@ -370,8 +390,16 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     // #ifdef DEBUG
     printf("called: %" PRIu64 "\n", called);
     printf("found: %" PRIu64 " %" PRIu64 "\n", found, (found - called));
-    printf("committed: %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", committed, (committed - called), (committed - found));
-    printf("mapped: %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", mapped, (mapped - called), (mapped - committed));
+    printf("committed: %" PRIu64 " %" PRIu64 " %" PRIu64 " (%" PRIu64 ")\n",
+           committed,
+           (committed - called),
+           (committed - found),
+           (redirect - found));
+    printf("mapped: %" PRIu64 " %" PRIu64 " %" PRIu64 " (%" PRIu64 ")\n",
+           mapped,
+           (mapped - called),
+           (mapped - committed),
+           (redirect2 - committed));
     fflush(stdout);
     // #endif
     return trigger_arg.element_seqno;

@@ -108,11 +108,11 @@ unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handle
     char monitor_name[MONITOR_WOOF_NAME_LENGTH];
     char woof_name[MONITOR_WOOF_NAME_LENGTH];
     if (WooFNameFromURI(monitor_uri, monitor_name, MONITOR_WOOF_NAME_LENGTH) < 0) {
-        fprintf(stderr, "failed to extract monitor name from URI\n");
+        fprintf(stderr, "failed to extract monitor name from URI: %s\n", monitor_uri);
         return -1;
     }
     if (WooFNameFromURI(woof_uri, woof_name, MONITOR_WOOF_NAME_LENGTH) < 0) {
-        fprintf(stderr, "failed to extract woof name from URI\n");
+        fprintf(stderr, "failed to extract woof name from URI: %s\n", woof_uri);
         return -1;
     }
 
@@ -154,11 +154,11 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
     char monitor_name[MONITOR_WOOF_NAME_LENGTH];
     char woof_name[MONITOR_WOOF_NAME_LENGTH];
     if (WooFNameFromURI(monitor_uri, monitor_name, MONITOR_WOOF_NAME_LENGTH) < 0) {
-        fprintf(stderr, "failed to extract monitor name from URI\n");
+        fprintf(stderr, "failed to extract monitor name from URI: %s\n", monitor_uri);
         return -1;
     }
     if (WooFNameFromURI(woof_uri, woof_name, MONITOR_WOOF_NAME_LENGTH) < 0) {
-        fprintf(stderr, "failed to extract woof name from URI\n");
+        fprintf(stderr, "failed to extract woof name from URI: %s\n", woof_uri);
         return -1;
     }
 

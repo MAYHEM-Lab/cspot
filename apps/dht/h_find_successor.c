@@ -39,6 +39,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get blocked nodes");
     }
 
+    // sprintf(arg->path + strlen(arg->path), " %s", node.addr);
     char hash_str[2 * SHA_DIGEST_LENGTH + 1];
     print_node_hash(hash_str, arg->hashed_key);
     log_debug("callback_namespace: %s, hashed_key: %s, query_count: %d, message_count: %d, failure_count: %d",
@@ -49,7 +50,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
               arg->failure_count);
     // if id in (n, successor]
     int i;
-    for (i = 0; i < DHT_SUCCESSOR_LIST_R && successor.hash[i][0] != 0; ++i) {
+    for (i = 0; i < DHT_SUCCESSOR_LIST_R && !is_empty(successor.hash[i]); ++i) {
         unsigned char prev_hash[20] = {0};
         if (i == 0) {
             memcpy(prev_hash, node.hash, sizeof(prev_hash));
@@ -70,6 +71,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
                 action_result.find_successor_query_count = arg->query_count;
                 action_result.find_successor_message_count = arg->message_count;
                 action_result.find_successor_failure_count = arg->failure_count;
+                // strcpy(action_result.path, arg->path);
 
                 log_info("found_node[%d]: %s", i, successor.replicas[i][action_result.node_leader]);
                 char tmp[32];
@@ -278,7 +280,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     // return n.find_succesor(id)
-    log_debug("closest_preceding_node not found in finger table");
+    log_warn("closest_preceding_node not found in finger table");
     usleep(self_forward_delay * 1000);
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", arg);
     if (WooFInvalid(seq)) {

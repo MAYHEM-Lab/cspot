@@ -14,6 +14,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+static const char zero_hash[SHA_DIGEST_LENGTH] = {0};
+
 char log_tag[DHT_NAME_LENGTH];
 FILE* log_output;
 int log_level;
@@ -315,13 +317,7 @@ void print_node_hash(char* dst, const unsigned char* id_hash) {
 }
 
 int is_empty(char hash[SHA_DIGEST_LENGTH]) {
-    int i;
-    for (i = 0; i < SHA_DIGEST_LENGTH; ++i) {
-        if (hash[i] != 0) {
-            return 0;
-        }
-    }
-    return 1;
+    return memcmp(hash, zero_hash, SHA_DIGEST_LENGTH) == 0;
 }
 
 // if n in (lower, upper)

@@ -15,10 +15,11 @@
 int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_DAEMON_ARG* arg = (DHT_DAEMON_ARG*)ptr;
 
-    log_set_tag("daemon");
+    log_set_tag("d_daemon");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+
 
     uint64_t now = get_milliseconds();
 
@@ -30,6 +31,10 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("couldn't get latest node info: %s", dht_error_msg);
             exit(1);
         }
+        if (seq_no == 1) {
+            log_info("%s started", node.addr);
+        }
+
         node.leader_id = leader_id;
         unsigned long seq = WooFPut(DHT_NODE_INFO_WOOF, NULL, &node);
         if (WooFInvalid(seq)) {
