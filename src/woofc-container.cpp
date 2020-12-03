@@ -92,7 +92,7 @@ int WooFContainerInit() {
 
     str = getenv("WOOF_HOST_IP");
     DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find local host IP\n");
-    cspot::globals::set_host_ip("str");
+    cspot::globals::set_host_ip(str);
 
     str = getenv("WOOF_NAME_ID");
     DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find name id\n");
