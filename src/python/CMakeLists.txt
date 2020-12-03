@@ -6,3 +6,4 @@ endif()
 
 pybind11_add_module(pycspot bind.cpp)
 target_link_libraries(pycspot PUBLIC woof)
+target_include_directories(pycspot PRIVATE "../include")
