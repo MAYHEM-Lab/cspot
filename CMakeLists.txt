@@ -11,7 +11,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 option(ENABLE_PYCSPOT "Enable cspot python bindings" OFF)
 option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
-add_subdirectory(apps)
 add_subdirectory(deps)
 add_subdirectory(src)
 
@@ -76,9 +75,19 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif ()
 
 add_library(woofc-shepherd src/woofc-shepherd.c)
-target_link_libraries(woofc-shepherd PRIVATE woof)
+target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_options(woofc-shepherd PUBLIC -static-libgcc)
     target_link_options(woofc-shepherd PUBLIC -static-libstdc++)
 endif ()
+
+set(ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+function (add_handler name)
+    add_executable(${name} ${ARGV})
+    target_link_libraries(${name} PRIVATE woofc-shepherd)
+    configure_file(${ROOT_PATH}/src/handler_fwd.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp)
+    target_sources(${name} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp")
+endfunction()
+
+add_subdirectory(apps)

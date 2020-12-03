@@ -11,7 +11,3 @@ int hw(WOOF* wf, unsigned long seq_no, void* ptr) {
     fflush(stdout);
     return (1);
 }
-
-int handler(WOOF* wf, unsigned long seq_no, void* ptr) {
-    return hw(wf, seq_no, ptr);
-}
