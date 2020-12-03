@@ -109,13 +109,13 @@ int WooFInit() {
     DEBUG_LOG("WooFInit: Name log at %s with name %s\n", log_name, Namelog_name);
 
 #ifndef IS_PLATFORM
-    lmio = MIOReOpen(log_name);
+    MIO *lmio = MIOReOpen(log_name);
     if (lmio == NULL) {
         fprintf(stderr, "WooFInit: name %s (%s) log not initialized.\n", log_name, WooF_dir);
         fflush(stderr);
         exit(1);
     }
-    Name_log = MIOAddr(lmio);
+    Name_log = static_cast<LOG*>(MIOAddr(lmio));
 
 #endif
     Name_id = name_id;
