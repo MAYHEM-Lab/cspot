@@ -31,6 +31,7 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#include <wctype.h>
 
 char Line_buff[512];
 char Fname[255];
