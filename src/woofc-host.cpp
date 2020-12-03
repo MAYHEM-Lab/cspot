@@ -187,8 +187,8 @@ void WooFContainerLauncher(std::unique_ptr<CA> ca) {
     /*
      * find the last directory in the path
      */
-    auto pathp = strrchr(WooF_dir, '/');
-    if (pathp == NULL) {
+    std::string pathp = WooF_dir;
+    if (pathp.empty()) {
         fprintf(stderr, "couldn't find leaf dir in %s\n", WooF_dir);
         exit(1);
     }
@@ -196,8 +196,12 @@ void WooFContainerLauncher(std::unique_ptr<CA> ca) {
     // build the names for the workers to spawn
     DEBUG_LOG("worker names\n");
     for (int count = 0; count < container_count; ++count) {
+        auto name_path_part = pathp;
+        std::replace(name_path_part.begin(), name_path_part.end(), '/', '_');
+        DEBUG_LOG(name_path_part.c_str());
+
         worker_containers.emplace_back(
-            fmt::format("CSPOTWorker-{}-{:x}-{}", pathp + 1, WooFNameHash(WooF_namespace), count));
+            fmt::format("CSPOTWorker-{}-{:x}-{}", name_path_part, WooFNameHash(WooF_namespace), count));
         DEBUG_LOG("\t - %s\n", worker_containers[count].c_str());
     }
 
@@ -235,7 +239,7 @@ void WooFContainerLauncher(std::unique_ptr<CA> ca) {
                 "-e WOOF_HOST_IP=%s ",
                 worker_containers[count].c_str(),
                 WooF_namespace,
-                pathp,
+                pathp.data(),
                 Name_id,
                 Namelog_name,
                 Host_ip);
@@ -250,9 +254,9 @@ void WooFContainerLauncher(std::unique_ptr<CA> ca) {
                 "cspot-docker-centos7 "
                 "%s/%s ",
                 WooF_dir,
-                pathp,
+                pathp.data(),
                 WooF_namelog_dir, /* all containers find namelog in /cspot-namelog */
-                pathp,
+                pathp.data(),
                 "woofc-container");
 
         if (count == 0) {
