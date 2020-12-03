@@ -19,6 +19,16 @@ extern LOG* Name_log;
 }
 
 #include <string_view>
+namespace cspot {
+struct context {
+    std::string WooF_namespace;
+    std::string WooF_dir;
+    std::string WooF_namelog_dir;
+    std::string Namelog_name;
+    unsigned long Name_id;
+    std::string Host_ip;
+};
+}
 
 namespace cspot::globals {
 void set_namespace(std::string_view ns);
@@ -26,6 +36,9 @@ void set_dir(std::string_view dir);
 void set_namelog_dir(std::string_view dir);
 void set_namelog_name(std::string_view name);
 void set_host_ip(std::string_view ip);
+
+context to_context();
+void from_context(const context& ctx);
 }
 #endif
 #endif

@@ -27,4 +27,24 @@ void set_namelog_name(std::string_view name) {
 void set_host_ip(std::string_view ip) {
     strncpy(Host_ip, ip.data(), std::min(std::size(Host_ip), ip.size()));
 }
+
+context to_context() {
+    context ctx;
+    ctx.WooF_namespace = WooF_namespace;
+    ctx.WooF_dir = WooF_dir;
+    ctx.WooF_namelog_dir = WooF_namelog_dir;
+    ctx.Namelog_name = Namelog_name;
+    ctx.Host_ip = Host_ip;
+    ctx.Name_id = Name_id;
+    return ctx;
+}
+
+void from_context(const context& ctx) {
+    set_namespace(ctx.WooF_namespace);
+    set_dir(ctx.WooF_dir);
+    set_namelog_dir(ctx.WooF_namelog_dir);
+    set_namelog_name(ctx.Namelog_name);
+    set_host_ip(ctx.Host_ip);
+    Name_id = ctx.Name_id;
+}
 }
