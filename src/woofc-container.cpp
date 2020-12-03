@@ -415,7 +415,6 @@ void WooFForker() {
             env.emplace_back(fmt::format("WOOF_NAMELOG_NAME={}", Namelog_name));
             env.emplace_back(fmt::format("WOOF_NAMELOG_SEQNO={}", ev[first].seq_no));
             env.emplace_back("LD_LIBRARY_PATH=/usr/local/lib");
-            env.emplace_back(fmt::format("WOOF_NAMELOG_DIR={}", WooF_namelog_dir));
 
             auto binary = fmt::format("{}/{}", WooF_dir, ev[first].woofc_handler);
 
