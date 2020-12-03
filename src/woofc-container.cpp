@@ -109,7 +109,9 @@ int WooFContainerInit() {
         exit(1);
     }
 
-    cspot::globals::set_namelog_dir("/cspot-namelog");
+    str = getenv("WOOF_NAMELOG_DIR");
+    DEBUG_FATAL_IF(!str, "WooFContainerInit: couldn't find namelog dir\n");
+    cspot::globals::set_namelog_dir(str);
 
     auto log_name = fmt::format("{}/{}", WooF_namelog_dir, Namelog_name);
 
