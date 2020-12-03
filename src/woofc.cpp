@@ -22,6 +22,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <woofc-priv.h>
 
 void WooFDrop(WOOF* wf);
 
@@ -173,7 +174,7 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 #endif
 
     if (renamed == 1) {
-        DEBUG_LOG("WooFCreate: attempting unlick of %s\n", temp_name);
+        DEBUG_LOG("WooFCreate: attempting unlink of %s\n", temp_name);
         err = unlink(temp_name);
         if (err < 0) {
             fprintf(stderr, "WooFCreate: couldn't dispose of %s\n", temp_name);

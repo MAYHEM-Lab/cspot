@@ -1,7 +1,7 @@
+#include <woofc-access.h>
 #include "doctest.h"
-#include "woofc-access.h"
+#include <woofc-priv.h>
 
-#include <woofc.h>
 
 namespace {
 TEST_CASE("Computing port hashes work") {

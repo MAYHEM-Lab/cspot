@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "woofc.h"
-#include "woofc-host.h"
 #include "hw.h"
 
 #define ARGS "W:"
@@ -40,7 +39,6 @@ int main(int argc, char **argv)
 	}
 
 	WooFInit();
-
 
 	err = WooFCreate(Wname,sizeof(HW_EL),5);
 	if(err < 0) {

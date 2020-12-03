@@ -11,58 +11,74 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 option(ENABLE_PYCSPOT "Enable cspot python bindings" OFF)
 option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
+add_subdirectory(apps)
 add_subdirectory(deps)
 add_subdirectory(src)
 
-add_library(woof 
-  src/log.cpp
-  include/log.h
-  src/woofc.cpp
-  include/woofc.h
-  src/woofc-access.cpp
-  include/woofc-access.h 
-  src/woofc-cache.c
-  include/woofc-cache.h
-  src/event.cpp
-  include/event.h
-  src/host.c
-  include/host.h
-  src/lsema.c
-  include/lsema.h
-  src/debug.cpp
-  include/debug.h
-  include/global.h
-  src/global.cpp
-)
+add_library(woof
+        src/log.cpp
+        src/include/log.h
+        src/woofc.cpp
+        include/woofc.h
+        src/woofc-access.cpp
+        src/include/woofc-access.h
+        src/woofc-cache.c
+        src/include/woofc-cache.h
+        src/event.cpp
+        src/include/event.h
+        src/host.c
+        src/include/host.h
+        src/lsema.c
+        src/include/lsema.h
+        src/debug.cpp
+        src/include/debug.h
+        src/include/global.h
+        src/global.cpp
+        src/include/woofc-priv.h)
 
 find_package(Threads REQUIRED)
 find_package(czmq REQUIRED)
 
+target_include_directories(woof PRIVATE src/include)
 target_include_directories(woof PUBLIC include)
 target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2 fmt::fmt)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     target_compile_definitions(woof PUBLIC DEBUG=1)
-endif()
+endif ()
 
 if (ENABLE_FEATURE_REPAIR)
     target_compile_definitions(woof PUBLIC REPAIR=1)
     target_sources(woof PRIVATE src/repair.c)
-endif()
+endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(woof PUBLIC -Wall -Wextra)
-endif()
+endif ()
 
+add_library(woofc-host src/woofc-host.cpp)
+target_link_libraries(woofc-host PUBLIC woof)
+target_include_directories(woofc-host PRIVATE src/include)
 
 add_executable(woofc-namespace-platform src/woofc-host.cpp)
 target_link_libraries(woofc-namespace-platform PRIVATE woof)
 target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)
+target_include_directories(woofc-namespace-platform PRIVATE src/include)
 
 add_executable(woofc-container src/woofc-container.cpp)
 target_link_libraries(woofc-container PRIVATE woof)
+target_include_directories(woofc-container PRIVATE src/include)
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    message(STATUS "Static linking libgcc and libstdc++")
     target_link_options(woofc-container PRIVATE -static-libgcc)
     target_link_options(woofc-container PRIVATE -static-libstdc++)
-endif()
+endif ()
+
+add_library(woofc-shepherd src/woofc-shepherd.c)
+target_link_libraries(woofc-shepherd PRIVATE woof)
+target_include_directories(woofc-shepherd PRIVATE src/include)
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_link_options(woofc-shepherd PUBLIC -static-libgcc)
+    target_link_options(woofc-shepherd PUBLIC -static-libstdc++)
+endif ()

@@ -23,6 +23,7 @@ extern "C" {
 #include <unistd.h>
 #include <uriparser2.h>
 #include <global.h>
+#include <woofc-priv.h>
 
 extern "C" {
 #ifdef REPAIR

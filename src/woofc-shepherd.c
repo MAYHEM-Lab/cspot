@@ -1,6 +1,9 @@
 // #define DEBUG
 
 #include "woofc.h"
+#include "woofc-priv.h"
+#include "log.h"
+#include "global.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -12,17 +15,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-LOG* Name_log;
-unsigned long Name_id;
-char WooF_namespace[2048];
-char WooF_dir[2048];
-char Host_ip[25];
-char WooF_namelog_dir[2048];
-char Namelog_name[2048];
-
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
-extern int WOOF_HANDLER_NAME(WOOF* wf, unsigned long seq_no, void* farg);
+extern int handler(WOOF* wf, unsigned long seq_no, void* farg);
 
 int main(int argc, char** argv, char** envp) {
     char* wnld;
@@ -302,7 +297,7 @@ int main(int argc, char** argv, char** envp) {
         fprintf(stdout, "WooFShepherd: invoking %s, seq_no: %lu\n", st, seq_no);
         fflush(stdout);
 #endif
-        err = WOOF_HANDLER_NAME(wf, seq_no, (void*)farg);
+        err = handler(wf, seq_no, (void*)farg);
 #ifdef DEBUG
         fprintf(stdout, "WooFShepherd: %s done with seq_no: %lu\n", st, seq_no);
         fflush(stdout);

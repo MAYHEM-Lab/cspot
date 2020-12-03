@@ -3,10 +3,14 @@ extern "C" {
 #include "woofc.h"
 }
 
-#include <debug.h>
+#include "debug.h"
+#include "global.h"
+#include "woofc-access.h"
+#include "woofc-priv.h"
+
+#include <atomic>
 #include <errno.h>
 #include <fmt/format.h>
-#include <global.h>
 #include <iostream>
 #include <memory>
 #include <pthread.h>
@@ -20,8 +24,6 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <vector>
-#include <woofc-access.h>
-#include <atomic>
 
 namespace {
 std::vector<std::string> worker_containers;
