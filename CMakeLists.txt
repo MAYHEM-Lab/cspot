@@ -55,12 +55,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(woof PUBLIC -Wall -Wextra)
 endif()
 
-add_library(woof-thread 
-  src/woofc-thread.c 
-  include/woofc-thread.h
-)
-target_include_directories(woof-thread PUBLIC include)
-target_link_libraries(woof-thread PUBLIC mio euca_utils)
 
 add_executable(woofc-namespace-platform src/woofc-host.cpp)
 target_link_libraries(woofc-namespace-platform PRIVATE woof)
