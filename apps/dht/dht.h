@@ -48,8 +48,8 @@ extern "C" {
 #define DHT_HISTORY_LENGTH_SHORT 32
 #define DHT_MAX_SUBSCRIPTIONS 8
 #define DHT_SUCCESSOR_LIST_R 3
-#define DHT_REPLICA_NUMBER 3
-// #define DHT_REPLICA_NUMBER 5
+// #define DHT_REPLICA_NUMBER 3
+#define DHT_REPLICA_NUMBER 5
 #define DHT_REGISTER_TOPIC_REPLICA 3 // can't be greater than DHT_SUCCESSOR_LIST_R
 
 #define DHT_ACTION_NONE 0
@@ -170,6 +170,7 @@ typedef struct dht_register_topic_arg {
     char topic_namespace[DHT_NAME_LENGTH];
 #ifdef USE_RAFT
     char topic_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int topic_leader;
 #endif
 } DHT_REGISTER_TOPIC_ARG;
 
@@ -202,6 +203,7 @@ typedef struct dht_topic_registry {
     char topic_namespace[DHT_NAME_LENGTH];
 #ifdef USE_RAFT
     char topic_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t last_leader;
 #endif
 } DHT_TOPIC_REGISTRY;
 

@@ -144,6 +144,7 @@ int dht_register_topic(char* topic_name, int timeout) {
         return -1;
     }
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
+    register_topic_arg.topic_leader = node_info.leader_id;
     // initial raft index mapping woof
     DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
     strcpy(map_raft_index_arg.topic_name, topic_name);
@@ -265,19 +266,21 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to find node hosting the topic: %s", err_msg);
         return -1;
     }
-    printf("query_count: %d\n", query_count);
-    printf("message_count: %d\n", message_count);
-    printf("failure_count: %d\n", failure_count);
+    // printf("query_count: %d\n", query_count);
+    // printf("message_count: %d\n", message_count);
+    // printf("failure_count: %d\n", failure_count);
     // printf("path: %s\n", path);
     uint64_t found = get_milliseconds();
+    char registration_woof[DHT_NAME_LENGTH] = {0};
+    char registration_monitor[DHT_NAME_LENGTH] = {0};
     DHT_TOPIC_REGISTRY topic_entry = {0};
     char* node_addr;
-    int i;
+    int i, j;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         node_addr = node_replicas[(node_leader + i) % DHT_REPLICA_NUMBER];
         // get the topic namespace
-        char registration_woof[DHT_NAME_LENGTH] = {0};
         sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+        sprintf(registration_monitor, "%s/%s", node_addr, DHT_MONITOR_NAME);
         if (is_blocked(registration_woof, "client", &blocked_nodes) != 0) {
             continue;
         }
@@ -292,7 +295,8 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
         sprintf(dht_error_msg, "failed to get topic registration info from %s: %s", node_addr, err_msg);
         return -1;
     }
-    uint64_t redirect = found;
+    uint64_t registry = get_milliseconds();
+    uint64_t redirect = registry;
 
     DHT_TRIGGER_ARG trigger_arg = {0};
     strcpy(trigger_arg.topic_name, topic_name);
@@ -302,18 +306,19 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     raft_set_client_result_delay(10);
     int working_replica_id = -1;
     unsigned long index;
+    char* topic_replica;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+        topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
 #ifdef DEBUG
-        printf("putting data to raft: %s\n", topic_entry.topic_replicas[i]);
+        printf("putting data to raft: %s\n", topic_replica);
 #endif
-        if (is_blocked(topic_entry.topic_replicas[i], "client", &blocked_nodes) != 0) {
+        if (is_blocked(topic_replica, "client", &blocked_nodes) != 0) {
             sprintf(raft_error_msg, "replica is blocked");
             continue;
         }
-        raft_set_client_leader(topic_entry.topic_replicas[i]);
+        raft_set_client_leader(topic_replica);
         RAFT_DATA_TYPE raft_data = {0};
         memcpy(raft_data.val, element, element_size);
-        sprintf(trigger_arg.element_woof, "%s", topic_entry.topic_replicas[i]);
         index = raft_sync_put(&raft_data, timeout);
         while (index == RAFT_REDIRECTED) {
             redirect = get_milliseconds();
@@ -327,13 +332,40 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
             index = raft_sync_put(&raft_data, timeout);
         }
         if (!raft_is_error(index)) {
+            sprintf(trigger_arg.element_woof, "%s", raft_get_client_leader());
             // found a working replica
             working_replica_id = i;
+            // update last_leader so next time we'll use it on the first attempt
+            for (j = 0; j < DHT_REPLICA_NUMBER; ++j) {
+                if (strcmp(raft_get_client_leader(), topic_entry.topic_replicas[j]) == 0) {
+                    break;
+                }
+            }
+            if (j != topic_entry.last_leader) {
+                topic_entry.last_leader = j;
+                DHT_REGISTER_TOPIC_ARG action_arg = {0};
+                strcpy(action_arg.topic_name, topic_entry.topic_name);
+                strcpy(action_arg.topic_namespace, topic_entry.topic_namespace);
+                memcpy(action_arg.topic_replicas, topic_entry.topic_replicas, sizeof(action_arg.topic_replicas));
+                action_arg.topic_leader = topic_entry.last_leader;
+                index = checkedMonitorRemotePut(&blocked_nodes,
+                                                "client",
+                                                registration_monitor,
+                                                registration_woof,
+                                                "r_register_topic",
+                                                &action_arg,
+                                                0);
+                if (WooFInvalid(index)) {
+                    fprintf(stderr, "couldn't update topic registry last seen leader at %s\n", registration_woof);
+                } else {
+                    printf("updated topic registry last seen leader at %s\n", registration_woof);
+                }
+            }
             break;
         }
     }
     if (i == DHT_REPLICA_NUMBER) {
-        sprintf(dht_error_msg, "failed to put to raft: %s", raft_error_msg);
+        sprintf(dht_error_msg, "failed to put to raft: %s", "none of replica is working leader");
         return -1;
     }
     uint64_t committed = get_milliseconds();
@@ -390,16 +422,18 @@ unsigned long dht_publish(char* topic_name, void* element, unsigned long element
     // #ifdef DEBUG
     printf("called: %" PRIu64 "\n", called);
     printf("found: %" PRIu64 " %" PRIu64 "\n", found, (found - called));
+    printf("registry: %" PRIu64 " %" PRIu64 "\n", registry, (registry - found));
     printf("committed: %" PRIu64 " %" PRIu64 " %" PRIu64 " (%" PRIu64 ")\n",
            committed,
            (committed - called),
-           (committed - found),
-           (redirect - found));
+           (committed - registry),
+           (redirect - registry));
     printf("mapped: %" PRIu64 " %" PRIu64 " %" PRIu64 " (%" PRIu64 ")\n",
            mapped,
            (mapped - called),
            (mapped - committed),
            (redirect2 - committed));
+    printf("h_trigger: %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", triggered, (triggered - called), (triggered - mapped));
     fflush(stdout);
     // #endif
     return trigger_arg.element_seqno;

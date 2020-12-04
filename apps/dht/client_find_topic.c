@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
         }
         break;
     }
-    printf("found_replica: %s\n", topic_entry.topic_replicas[0]);
+    printf("found_replica: %s\n", topic_entry.topic_replicas[topic_entry.last_leader]);
     printf("found_replica_latency: %" PRIu64 " ms\n", get_milliseconds() - begin);
     return 0;
 }

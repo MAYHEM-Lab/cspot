@@ -3,6 +3,7 @@
 #include "monitor.h"
 #include "woofc.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,17 +20,20 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
 #else
     log_debug("topic: %s, woof: %s, seqno: %lu", arg->topic_name, arg->element_woof, arg->element_seqno);
 #endif
-
+    uint64_t begin = get_milliseconds();
+    // uint64_t tmp;
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         exit(1);
     }
+    // tmp = get_milliseconds();
     DHT_SUBSCRIPTION_LIST list = {0};
     if (get_latest_element(arg->subscription_woof, &list) < 0) {
         log_error("failed to get the latest subscription list of %s: %s", arg->topic_name, dht_error_msg);
         exit(1);
     }
+    // log_debug("list: %lu, %s", get_milliseconds() - tmp, arg->subscription_woof);
     BLOCKED_NODES blocked_nodes = {0};
     if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
         log_error("failed to get blocked nodes");
@@ -52,6 +56,7 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             char invocation_woof[DHT_NAME_LENGTH];
             sprintf(invocation_woof, "%s/%s", list.replica_namespaces[i][k], DHT_INVOCATION_WOOF);
+            // tmp = get_milliseconds();
             unsigned long seq =
                 checkedWooFPut(&blocked_nodes, node.addr, invocation_woof, list.handlers[i], &invocation_arg);
             if (WooFInvalid(seq)) {
@@ -71,6 +76,7 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
         }
     }
-
+    uint64_t end = get_milliseconds();
+    log_debug("in h_trigger: %" PRIu64 " ms", end - begin);
     return 1;
 }

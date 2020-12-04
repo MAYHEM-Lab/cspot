@@ -9,7 +9,7 @@
 int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_subscribe");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_SUBSCRIBE_ARG arg = {0};

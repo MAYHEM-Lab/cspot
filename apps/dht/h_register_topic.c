@@ -42,6 +42,7 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     strcpy(topic_registry.topic_name, arg.topic_name);
 #ifdef USE_RAFT
     memcpy(topic_registry.topic_replicas, arg.topic_replicas, sizeof(topic_registry.topic_replicas));
+    topic_registry.last_leader = arg.topic_leader;
 #else
     memcpy(topic_registry.topic_namespace, arg.topic_namespace, sizeof(topic_registry.topic_namespace));
 #endif

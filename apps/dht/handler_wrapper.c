@@ -49,14 +49,17 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     dht_set_client_ip(client_addr);
 
 #ifdef USE_RAFT
-    log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
+    // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
     raft_set_client_leader(arg->woof_name);
+    uint64_t begin_get = get_milliseconds();
     unsigned long term = raft_sync_get(&raft_data, arg->seq_no, 0);
     if (raft_is_error(term)) {
         log_error("failed to get raft data from %s at %" PRIu64 ": %s", arg->woof_name, arg->seq_no, raft_error_msg);
         exit(1);
     }
+    uint64_t end_get = get_milliseconds();
+    log_debug("raft_sync_get took %" PRIu64 " ms", end_get - begin_get);
     int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, raft_data.val);
 #else
     log_debug("using woof, getting seqno %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
