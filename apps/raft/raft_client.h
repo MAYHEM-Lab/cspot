@@ -18,6 +18,7 @@ char raft_client_replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGT
 char raft_client_leader[RAFT_NAME_LENGTH];
 int raft_client_result_delay;
 int raft_init_client(int members, char replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
+char* raft_get_client_leader();
 void raft_set_client_leader(char* leader);
 void raft_set_client_result_delay(int delay);
 uint64_t raft_sync_put(RAFT_DATA_TYPE* data, int timeout);                        // return log index

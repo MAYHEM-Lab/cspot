@@ -91,8 +91,7 @@ int main(int argc, char** argv) {
                 finish = get_milliseconds();
             }
             if (raft_is_error(index)) {
-                fprintf(stderr, "failed to put %s: %s\n", data.val, raft_error_msg);
-                fflush(stderr);
+                --i;
             } else {
                 printf("put data[%d]: %s, index: %lu, %lu\n", i, data.val, index, finish - begin);
                 fflush(stdout);

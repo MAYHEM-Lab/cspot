@@ -246,6 +246,19 @@ int raft_start_server(int members,
     RAFT_HEARTBEAT heartbeat = {0};
     heartbeat.term = 0;
     heartbeat.timestamp = get_milliseconds();
+    // experiment cheat
+    // // dht
+    // if (strstr(woof_name, "169.231.23") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
+    // sed
+    if (strstr(woof_name, "128.111.39") != NULL) {
+        heartbeat.timestamp = get_milliseconds() - timeout_min;
+    }
+    // sed1
+    if (strstr(woof_name, "128.111.39.229") != NULL) {
+        heartbeat.timestamp = 0;
+    }
     seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't put the first heartbeat\n");

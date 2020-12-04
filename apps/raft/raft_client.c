@@ -17,6 +17,10 @@ int raft_init_client(int members, char replicas[RAFT_MAX_MEMBERS + RAFT_MAX_OBSE
     return 0;
 }
 
+char* raft_get_client_leader() {
+    return raft_client_leader;
+}
+
 void raft_set_client_leader(char* leader) {
     strcpy(raft_client_leader, leader);
 }
@@ -231,6 +235,10 @@ uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int mon
             return RAFT_TIMEOUT;
         }
         unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+        if (WooFInvalid(latest_server_state)) {
+            sprintf(raft_error_msg, "can't get the latest server state seqno");
+            return RAFT_ERROR;
+        }
         if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
             sprintf(raft_error_msg, "appended but can't get leader's commit index\n");
             return RAFT_ERROR;
@@ -257,7 +265,8 @@ uint64_t raft_put_handler(char* handler, void* data, unsigned long size, int mon
     }
 }
 
-uint64_t raft_sessionless_put_handler(char* raft_leader, char* handler, void* data, unsigned long size, int monitored, int timeout) {
+uint64_t raft_sessionless_put_handler(
+    char* raft_leader, char* handler, void* data, unsigned long size, int monitored, int timeout) {
     if (size > sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH) {
         sprintf(raft_error_msg,
                 "size %lu is greater than the maximum a log entry can support(%lu)",
@@ -281,7 +290,7 @@ uint64_t raft_sessionless_put_handler(char* raft_leader, char* handler, void* da
         handler_entry->monitored = monitored;
         sprintf(woof_name, "%s/%s", leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
         unsigned long seq = WooFPut(woof_name, NULL, &request);
-        
+
         if (WooFInvalid(seq)) {
             sprintf(raft_error_msg, "failed to send put request\n");
             return RAFT_ERROR;
@@ -316,6 +325,10 @@ uint64_t raft_sessionless_put_handler(char* raft_leader, char* handler, void* da
                 return RAFT_TIMEOUT;
             }
             unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
+            if (WooFInvalid(latest_server_state)) {
+                sprintf(raft_error_msg, "can't get the latest server state seqno");
+                return RAFT_ERROR;
+            }
             if (WooFGet(woof_name, &server_state, latest_server_state) < 0) {
                 sprintf(raft_error_msg, "appended but can't get leader's commit index\n");
                 return RAFT_ERROR;
