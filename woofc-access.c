@@ -384,7 +384,6 @@ static zmsg_t* ServerRequest(char* endpoint, zmsg_t* msg) {
         zmsg_destroy(&msg);
         return (NULL);
     }
-    zmsg_destroy(&msg);
 
     /*
      * wait for the reply, but not indefinitely
@@ -610,13 +609,10 @@ void WooFProcessPut(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessPut: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
 
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     return;
 }
 
@@ -717,13 +713,10 @@ void WooFProcessGetElSize(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessGetElSize: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
 
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     return;
 }
 
@@ -898,13 +891,10 @@ void WooFProcessGetLatestSeqno(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessGetLatestSeqno: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
 
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     return;
 }
 
@@ -1408,7 +1398,6 @@ void WooFProcessGetTail(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessGetElSize: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         if (ptr != NULL) {
             free(ptr);
@@ -1416,11 +1405,8 @@ void WooFProcessGetTail(zmsg_t* req_msg, zsock_t* receiver) {
         return;
     }
 
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
-    if (ptr != NULL) {
-        free(ptr);
-    }
+    free(ptr);
+
     return;
 }
 
@@ -1619,13 +1605,10 @@ void WooFProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessGet: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
 
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     return;
 }
 
@@ -1751,13 +1734,10 @@ void WooFProcessGetDone(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessGetDone: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
 
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     return;
 }
 
@@ -1901,7 +1881,6 @@ void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessRepair: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         free(seq_no);
         DlistRemove(dlist);
@@ -1923,9 +1902,6 @@ void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
         fprintf(stderr, "WooFProcessRepair: WooFRepair failed\n");
         fflush(stderr);
     }
-
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     free(seq_no);
     DlistRemove(dlist);
     return;
@@ -2074,7 +2050,6 @@ void WooFProcessRepairProgress(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("WooFProcessRepairProgress: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         free(mapping);
         return;
@@ -2095,9 +2070,6 @@ void WooFProcessRepairProgress(zmsg_t* req_msg, zsock_t* receiver) {
         fprintf(stderr, "WooFProcessRepairProgress: WooFRepairProgress failed\n");
         fflush(stderr);
     }
-
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     free(mapping);
     return;
 }
@@ -2152,13 +2124,9 @@ void LogProcessGetSize(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("LogProcessGetSize: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
-
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     return;
 }
 
@@ -2213,13 +2181,9 @@ void LogProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
     err = zmsg_send(&r_msg, receiver);
     if (err != 0) {
         perror("LogProcessGet: couldn't send r_msg");
-        zframe_destroy(&r_frame);
         zmsg_destroy(&r_msg);
         return;
     }
-
-    zframe_destroy(&r_frame);
-    zmsg_destroy(&r_msg);
     log_block = NULL;
     return;
 }
@@ -2351,11 +2315,8 @@ int WooFMsgServer(char* namespace) {
         exit(1);
     }
 
-    zsys_set_max_sockets(zsys_socket_limit());
-
 #ifdef DEBUG
     printf("WooFMsgServer: started for namespace %s\n", namespace);
-    printf("zsys_socket_limit: %lu\n", zsys_socket_limit());
     fflush(stdout);
 #endif
 
