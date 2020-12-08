@@ -247,14 +247,14 @@ int raft_start_server(int members,
     heartbeat.term = 0;
     heartbeat.timestamp = get_milliseconds();
     // experiment cheat
-    // // dht
-    // if (strstr(woof_name, "169.231.23") != NULL) {
-    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
-    // }
-    // sed
-    if (strstr(woof_name, "128.111.39") != NULL) {
+    // dht
+    if (strstr(woof_name, "169.231.23") != NULL) {
         heartbeat.timestamp = get_milliseconds() - timeout_min;
     }
+    // sed
+    // if (strstr(woof_name, "128.111.39") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
     // sed1
     if (strstr(woof_name, "128.111.39.229") != NULL) {
         heartbeat.timestamp = 0;
