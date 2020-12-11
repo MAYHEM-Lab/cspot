@@ -1,7 +1,11 @@
 #!/bin/bash
 
 HERE=`pwd`
-yum -y install docker gcc-gfortran python-devel python34-devel
+yum -y install gcc-gfortran python-devel python34-devel
+yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+yum install -y yum-utils
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum -y install docker-ce docker-ce-cli containerd.io
 cd ..
 git clone https://github.com/richwolski/euca-cutils.git
 git clone https://github.com/MAYHEM-Lab/mio.git
