@@ -788,7 +788,7 @@ void *WooFForker(void *arg)
 		else if (pid < 0)
 		{
 			fprintf(stderr, "WooFForker: fork failed for %s/%s in %s/%s\n",
-					WooF_dir, ev[first].woofc_handler, WooF_namespace, wf->shared->filename);
+					WooF_dir, ev[first].woofc_handler, WooF_namespace, ev[first].woofc_name);
 			fflush(stderr);
 			WooFDone = 1;
 		}
