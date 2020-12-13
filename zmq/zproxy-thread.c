@@ -355,7 +355,7 @@ void *MsgThread(void *arg)
 		printf("MsgThread(%d) sending %s (%lu) len: %d\n",ta->tid,buffer,value,strlen(buffer));
 		fflush(stdout);
 #endif
-		frame = zframe_new(buffer, sizeof(buffer));
+		frame = zframe_new(buffer, strlen(buffer));
 		if (frame == NULL)
 		{       
 			fprintf(stderr, "MsgThred(%d): no frame for msg %d\n",
