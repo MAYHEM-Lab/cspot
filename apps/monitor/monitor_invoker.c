@@ -45,12 +45,8 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
 
         if (MONITOR_WARNING_QUEUED_HANDLERS > 0 && count >= MONITOR_WARNING_QUEUED_HANDLERS) {
             if (last_queued % 10 == 0) {
-                printf("queued handlers: %lu\n", count);
+                printf("%s queued handlers: %lu\n", pool_item->monitor_name, count);
             }
-            // for (i = 0; i < count; ++i) {
-            //     printf("%s ", pool_item[i].handler);
-            // }
-            // printf("\n");
         }
 
         for (i = 0; i < count; ++i) {

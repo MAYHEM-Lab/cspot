@@ -45,6 +45,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (m_id == -1 || m_id >= server_state.members) {
         log_debug("disregard a request from a server not in the config");
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     } else if (request.term < server_state.current_term) {
         // fail the request from lower term
@@ -288,6 +289,6 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_warn("failed to return the append_entries result to %s", leader_result_woof);
     }
     log_debug("returned result to %s [%lu]", leader_result_woof, seq);
-
+    monitor_join();
     return 1;
 }

@@ -29,10 +29,10 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    BLOCKED_NODES blocked_nodes = {0};
-    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-        log_error("failed to get blocked nodes");
-    }
+    // BLOCKED_NODES blocked_nodes = {0};
+    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+    //     log_error("failed to get blocked nodes");
+    // }
 
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
@@ -67,14 +67,8 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         successor.leader[0] = arg.node_leader;
     }
 #ifdef USE_RAFT
-    unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
-                                                               node.addr,
-                                                               node.replicas[node.leader_id],
-                                                               "r_set_successor",
-                                                               &successor,
-                                                               sizeof(DHT_SUCCESSOR_INFO),
-                                                               0,
-                                                               DHT_RAFT_TIMEOUT);
+    unsigned long index = raft_put_handler(
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);

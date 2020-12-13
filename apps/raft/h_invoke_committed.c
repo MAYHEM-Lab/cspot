@@ -125,6 +125,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (server_state.current_term != arg.term || server_state.role != RAFT_LEADER) {
         log_debug(
             "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
+        monitor_join();
         return 1;
     }
 
@@ -132,6 +133,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     int err = invoke_client_put_handler(&server_state, &arg);
     if (err == 1) { // not leader anymore
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     } else if (err < 0) {
         exit(1);
@@ -150,5 +152,6 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     monitor_exit(ptr);
+    monitor_join();
     return 1;
 }

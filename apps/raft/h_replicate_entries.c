@@ -26,12 +26,12 @@ REPLICATE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 
 void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
-    log_debug("%lu thread[%d] called", replicate_thread_arg->seq_no, replicate_thread_arg->member_id);
     char monitor_name[RAFT_NAME_LENGTH];
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
-    log_debug("%lu thread[%d] calling monitor_remote_put", replicate_thread_arg->seq_no, replicate_thread_arg->member_id);
+    log_debug(
+        "%lu thread[%d] calling monitor_remote_put", replicate_thread_arg->seq_no, replicate_thread_arg->member_id);
     unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
@@ -52,7 +52,8 @@ void* replicate_thread(void* arg) {
         }
     } else {
         if (replicate_thread_arg->num_entries > 0) {
-            log_debug("%lu: sent %d entries to member %d [%lu], prev_index: %" PRIu64 ", ack_seq: %lu",replicate_thread_arg->seq_no,
+            log_debug("%lu: sent %d entries to member %d [%lu], prev_index: %" PRIu64 ", ack_seq: %lu",
+                      replicate_thread_arg->seq_no,
                       replicate_thread_arg->num_entries,
                       replicate_thread_arg->member_id,
                       seq,
@@ -101,6 +102,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug(
             "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
 
@@ -164,7 +166,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             thread_arg[m].arg.created_ts = get_milliseconds();
             thread_arg[m].arg.ack_seq = server_state.last_sent_request_seq[m] + 1;
             thread_arg[m].seq_no = seq_no;
-            log_debug("%lu: sending entries to member[%d]", seq_no, m);
             if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)&thread_arg[m]) < 0) {
                 log_error("failed to create thread to send entries");
                 exit(1);
@@ -191,5 +192,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     threads_join(RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS, thread_id);
+    monitor_join();
     return 1;
 }

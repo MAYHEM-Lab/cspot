@@ -9,7 +9,7 @@
 int r_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("r_subscribe");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     DHT_SUBSCRIBE_ARG arg = {0};
@@ -25,10 +25,10 @@ int r_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    BLOCKED_NODES blocked_nodes = {0};
-    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-        log_error("failed to get blocked nodes");
-    }
+    // BLOCKED_NODES blocked_nodes = {0};
+    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+    //     log_error("failed to get blocked nodes");
+    // }
 
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
@@ -37,8 +37,7 @@ int r_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     log_debug("calling h_subscribe for topic %s on self: %s", arg.topic_name, node.addr);
-    unsigned long index = checked_raft_sessionless_put_handler(
-        &blocked_nodes, node.addr, node.addr, "h_subscribe", &arg, sizeof(DHT_SUBSCRIBE_ARG), 1, DHT_RAFT_TIMEOUT);
+    unsigned long index = raft_put_handler(node.addr, "h_subscribe", &arg, sizeof(DHT_SUBSCRIBE_ARG), 1, NULL);
     if (raft_is_error(index)) {
         log_error("failed to invoke h_subscribe on %s: %s", node.addr, raft_error_msg);
         monitor_exit(ptr);
@@ -52,14 +51,8 @@ int r_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
             break;
         }
         log_debug("replicating h_subscribe for topic %s on successor[%d]: %s", arg.topic_name, i, successor_leader);
-        unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
-                                                                   node.addr,
-                                                                   successor_leader,
-                                                                   "h_subscribe",
-                                                                   &arg,
-                                                                   sizeof(DHT_SUBSCRIBE_ARG),
-                                                                   1,
-                                                                   DHT_RAFT_TIMEOUT);
+        unsigned long index =
+            raft_put_handler(successor_leader, "h_subscribe", &arg, sizeof(DHT_SUBSCRIBE_ARG), 1, NULL);
         if (raft_is_error(index)) {
             log_error("failed to invoke h_subscribe on %s: %s", successor_leader, raft_error_msg);
             continue;

@@ -38,6 +38,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         log_info("server not in the leader config anymore: SHUTDOWN");
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
     // server's term is higher than the vote's term, ignore it
@@ -46,12 +47,14 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
                   server_state.current_term,
                   result.term);
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
     // the server is already a leader at vote's term, ifnore the vote
     if (result.term == server_state.current_term && server_state.role == RAFT_LEADER) {
         log_debug("already a leader at term %" PRIu64 ", ignore the election", server_state.current_term);
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
 
@@ -150,8 +153,8 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         RAFT_INVOKE_COMMITTED_ARG invoke_committed_arg = {0};
         invoke_committed_arg.term = server_state.current_term;
         invoke_committed_arg.last_checked_client_put_result_seqno = last_client_put_result_seqno;
-        seq = monitor_put(
-            RAFT_MONITOR_NAME, RAFT_INVOKE_COMMITTED_WOOF, "h_invoke_committed", &invoke_committed_arg, 1);
+        seq =
+            monitor_put(RAFT_MONITOR_NAME, RAFT_INVOKE_COMMITTED_WOOF, "h_invoke_committed", &invoke_committed_arg, 1);
         if (WooFInvalid(seq)) {
             log_error("failed to start h_invoke_committed handler");
             exit(1);
@@ -162,5 +165,6 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_debug(
         "request [%lu] took %" PRIu64 "ms to receive response", seq_no, get_milliseconds() - result.request_created_ts);
     monitor_exit(ptr);
+    monitor_join();
     return 1;
 }

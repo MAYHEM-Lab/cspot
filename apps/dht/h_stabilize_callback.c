@@ -28,10 +28,10 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    BLOCKED_NODES blocked_nodes = {0};
-    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-        log_error("failed to get blocked nodes");
-    }
+    // BLOCKED_NODES blocked_nodes = {0};
+    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+    //     log_error("failed to get blocked nodes");
+    // }
 
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
@@ -50,14 +50,8 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(successor.replicas[0], result.predecessor_replicas, sizeof(successor.replicas[0]));
             successor.leader[0] = result.predecessor_leader;
 #ifdef USE_RAFT
-            unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
-                                                                       node.addr,
-                                                                       node.replicas[node.leader_id],
-                                                                       "r_set_successor",
-                                                                       &successor,
-                                                                       sizeof(DHT_SUCCESSOR_INFO),
-                                                                       0,
-                                                                       DHT_RAFT_TIMEOUT);
+            unsigned long index = raft_put_handler(
+                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
@@ -78,14 +72,8 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (successor.leader[0] != result.successor_leader_id) {
             successor.leader[0] = result.successor_leader_id;
 #ifdef USE_RAFT
-            unsigned long index = checked_raft_sessionless_put_handler(&blocked_nodes,
-                                                                       node.addr,
-                                                                       node.replicas[node.leader_id],
-                                                                       "r_set_successor",
-                                                                       &successor,
-                                                                       sizeof(DHT_SUCCESSOR_INFO),
-                                                                       0,
-                                                                       DHT_RAFT_TIMEOUT);
+            unsigned long index = raft_put_handler(
+                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
@@ -115,8 +103,7 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     notify_arg.node_leader = node.replica_id;
     sprintf(notify_arg.callback_woof, "%s/%s", node.addr, DHT_NOTIFY_CALLBACK_WOOF);
     sprintf(notify_arg.callback_handler, "h_notify_callback");
-    unsigned long seq = checkedMonitorRemotePut(
-        &blocked_nodes, node.addr, notify_monitor, notify_woof_name, "h_notify", &notify_arg, 1);
+    unsigned long seq = monitor_remote_put(notify_monitor, notify_woof_name, "h_notify", &notify_arg, 1);
     if (WooFInvalid(seq)) {
         log_warn("failed to call notify on successor %s", notify_woof_name);
 #ifdef USE_RAFT
@@ -139,10 +126,12 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_warn("called h_shift_successor to use the next successor in line");
 #endif
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
     log_debug("called notify on successor %s", successor_leader);
 
     monitor_exit(ptr);
+    monitor_join();
     return 1;
 }

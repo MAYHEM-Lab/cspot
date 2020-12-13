@@ -26,10 +26,10 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
         exit(1);
     }
-    BLOCKED_NODES blocked_nodes = {0};
-    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-        log_error("failed to get blocked nodes");
-    }
+    // BLOCKED_NODES blocked_nodes = {0};
+    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+    //     log_error("failed to get blocked nodes");
+    // }
 
     log_debug("callback_woof: %s", arg->callback_woof);
     log_debug("callback_handler: %s", arg->callback_handler);
@@ -65,7 +65,7 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     } else {
         sprintf(callback_monitor, "woof://%s%s/%s", callback_ipaddr, callback_namespace, DHT_MONITOR_NAME);
     }
-    unsigned long seq = checkedMonitorRemotePut(&blocked_nodes, node.addr, callback_monitor, arg->callback_woof, arg->callback_handler, &result, 1);
+    unsigned long seq = monitor_remote_put(callback_monitor, arg->callback_woof, arg->callback_handler, &result, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to put get_predecessor result to %s, monitor: %s", arg->callback_woof, callback_monitor);
         exit(1);
@@ -75,5 +75,6 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_debug("returning predecessor_hash: %s", hash_str);
     log_debug("returning predecessor_addr: %s", result.predecessor_replicas[result.predecessor_leader]);
 
+    monitor_join();
     return 1;
 }

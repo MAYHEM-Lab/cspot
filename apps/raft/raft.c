@@ -298,6 +298,7 @@ int raft_start_server(int members,
             return -1;
         }
     }
+    monitor_join();
     printf("Started daemon functions\n");
     return 0;
 }

@@ -58,6 +58,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     if (server_state.role == RAFT_LEADER || server_state.role == RAFT_OBSERVER || server_state.role == RAFT_SHUTDOWN) {
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
     int checker_delay = server_state.timeout_min / 5;
@@ -154,5 +155,6 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     threads_join(server_state.members, thread_id);
+    monitor_join();
     return 1;
 }

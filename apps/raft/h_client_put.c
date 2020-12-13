@@ -11,12 +11,11 @@
 #include <unistd.h>
 
 int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
+    RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
     log_set_tag("h_client_put");
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-
-    RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
 
     // get the server's current term
     RAFT_SERVER_STATE server_state = {0};
@@ -126,5 +125,6 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to queue the next h_client_put handler");
         exit(1);
     }
+    monitor_join();
     return 1;
 }

@@ -34,6 +34,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (server_state.role == RAFT_SHUTDOWN) {
         log_debug("server already shutdown");
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
 
@@ -148,5 +149,6 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     monitor_exit(ptr);
+    monitor_join();
     return 1;
 }

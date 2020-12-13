@@ -17,5 +17,6 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    monitor_join();
     return 0;
 }

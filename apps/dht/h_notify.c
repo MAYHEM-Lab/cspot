@@ -39,10 +39,10 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    BLOCKED_NODES blocked_nodes = {0};
-    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-        log_error("failed to get blocked nodes");
-    }
+    // BLOCKED_NODES blocked_nodes = {0};
+    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
+    //     log_error("failed to get blocked nodes");
+    // }
 
     // if (predecessor is nil or n' ∈ (predecessor, n))
     if (is_empty(predecessor.hash) || memcmp(predecessor.hash, node.hash, SHA_DIGEST_LENGTH) == 0 ||
@@ -50,6 +50,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (memcmp(predecessor.hash, arg.node_hash, SHA_DIGEST_LENGTH) == 0) {
             log_debug("predecessor is the same, no need to update");
             monitor_exit(ptr);
+            monitor_join();
             return 1;
         }
         memcpy(predecessor.hash, arg.node_hash, sizeof(predecessor.hash));
@@ -69,6 +70,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (arg.callback_woof[0] == 0) {
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
     log_debug("callback: %s@%s", arg.callback_handler, arg.callback_woof);
@@ -112,8 +114,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     } else {
         sprintf(callback_monitor, "woof://%s%s/%s", callback_ipaddr, callback_namespace, DHT_MONITOR_NAME);
     }
-    unsigned long seq = checkedMonitorRemotePut(
-        &blocked_nodes, node.addr, callback_monitor, arg.callback_woof, arg.callback_handler, &result, 1);
+    unsigned long seq = monitor_remote_put(callback_monitor, arg.callback_woof, arg.callback_handler, &result, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to put notify result to woof %s", arg.callback_woof);
         monitor_exit(ptr);
@@ -121,5 +122,6 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     monitor_exit(ptr);
+    monitor_join();
     return 1;
 }

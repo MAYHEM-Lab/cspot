@@ -27,15 +27,20 @@ int main(int argc, char** argv) {
     if (argc >= 3) {
         dht_set_client_ip(argv[2]);
     }
-    
-    TEST_EL el = {0};
-    strcpy(el.msg, argv[1]);
-    el.sent = get_milliseconds();
-    unsigned long seq = dht_publish(TEST_TOPIC, &el, sizeof(TEST_EL), TEST_TIMEOUT);
+
+    DHT_SERVER_PUBLISH_FIND_ARG arg = {0};
+    sprintf(arg.topic_name, "%s", TEST_TOPIC);
+    TEST_EL* el = (TEST_EL*)arg.element;
+    sprintf(el->msg, argv[1]);
+    el->sent = get_milliseconds();
+    arg.element_size = sizeof(TEST_EL);
+    arg.requested_ts = get_milliseconds();
+
+    unsigned long seq = dht_publish(&arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
         exit(1);
     }
-    printf("%s published to topic at %lu\n", el.msg, el.sent);
+    printf("%s published to topic at %lu\n", el->msg, el->sent);
     return 0;
 }

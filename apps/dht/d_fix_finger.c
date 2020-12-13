@@ -91,7 +91,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
         find_sucessor_arg.action_seqno = (uint64_t)finger_index;
         log_debug("fixing finger[%d]", finger_index);
 
-        unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, "h_find_successor", &find_sucessor_arg);
+        unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &find_sucessor_arg);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke find_successor on woof %s", DHT_FIND_SUCCESSOR_WOOF);
         }

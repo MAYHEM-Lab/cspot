@@ -51,6 +51,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("failed to invoke next d_daemon");
             exit(1);
         }
+        monitor_join();
         return 1;
     }
 #endif
@@ -92,5 +93,6 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to invoke next d_daemon");
         exit(1);
     }
+    monitor_join();
     return 1;
 }

@@ -74,6 +74,7 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_CHECK_APPEND_RESUL
                 log_error("failed to start the timeout checker");
                 return -1;
             }
+            monitor_join();
             return 1;
         }
         if (result.term == arg->term) {
@@ -117,6 +118,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug(
             "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
 
@@ -124,6 +126,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     int err = check_append_result(&server_state, &arg);
     if (err == 1) { // not leader anymore
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     } else if (err < 0) {
         exit(1);
@@ -142,5 +145,6 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    monitor_join();
     return 1;
 }

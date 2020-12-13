@@ -1,4 +1,3 @@
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc-access.h"

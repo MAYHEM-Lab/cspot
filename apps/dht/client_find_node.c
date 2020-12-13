@@ -55,17 +55,66 @@ int main(int argc, char** argv) {
     }
 
     uint64_t begin = get_milliseconds();
-    char result_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-    int result_leader;
+    char local_namespace[DHT_NAME_LENGTH] = {0};
+    node_woof_namespace(local_namespace);
+    char callback_namespace[DHT_NAME_LENGTH] = {0};
+    if (client_ip[0] == 0) {
+        char ip[DHT_NAME_LENGTH] = {0};
+        if (WooFLocalIP(ip, sizeof(ip)) < 0) {
+            fprintf(stderr, "failed to get local IP");
+            exit(1);
+        }
+        sprintf(callback_namespace, "woof://%s%s", ip, local_namespace);
+    } else {
+        sprintf(callback_namespace, "woof://%s%s", client_ip, local_namespace);
+    }
+
+    char hashed_key[SHA_DIGEST_LENGTH];
+    dht_hash(hashed_key, topic);
+    DHT_FIND_SUCCESSOR_ARG arg = {0};
+    dht_init_find_arg(&arg, topic, hashed_key, callback_namespace);
+    arg.action = DHT_ACTION_FIND_NODE;
+
+    unsigned long last_checked_result = WooFGetLatestSeqno(DHT_FIND_NODE_RESULT_WOOF);
+    unsigned long seq_no = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+    if (WooFInvalid(seq_no)) {
+        fprintf(stderr, "failed to invoke h_find_successor");
+        exit(1);
+    }
+
+    char result_node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int result_node_leader;
     int query_count;
     int message_count;
     int failure_count;
-    // char path[4096];
-    if (dht_find_node_debug(
-            topic, result_replicas, &result_leader, &query_count, &message_count, &failure_count, timeout) < 0) {
-        fprintf(stderr, "failed to find the topic: %s\n", dht_error_msg);
-        exit(1);
+
+    while (1) {
+        if (timeout > 0 && get_milliseconds() - begin > timeout) {
+            fprintf(stderr, "timeout after %d ms", timeout);
+            exit(1);
+        }
+
+        unsigned long latest_result = WooFGetLatestSeqno(DHT_FIND_NODE_RESULT_WOOF);
+        unsigned long i;
+        for (i = last_checked_result + 1; i <= latest_result; ++i) {
+            DHT_FIND_NODE_RESULT result = {0};
+            if (WooFGet(DHT_FIND_NODE_RESULT_WOOF, &result, i) < 0) {
+                fprintf(stderr, "failed to get result at %lu from %s", i, DHT_FIND_NODE_RESULT_WOOF);
+                exit(1);
+            }
+            if (memcmp(result.topic, topic, SHA_DIGEST_LENGTH) == 0) {
+                memcpy(result_node_replicas, result.node_replicas, sizeof(result.node_replicas));
+                result_node_leader = result.node_leader;
+                query_count = result.find_successor_query_count;
+                message_count = result.find_successor_message_count;
+                failure_count = result.find_successor_failure_count;
+                return 0;
+            }
+        }
+        last_checked_result = latest_result;
+        usleep(10 * 1000);
     }
+
     printf("found_node_latency: %" PRIu64 " ms\n", get_milliseconds() - begin);
     printf("query_count: %d\n", query_count);
     printf("message_count: %d\n", message_count);
@@ -73,11 +122,11 @@ int main(int argc, char** argv) {
     printf("replicas:\n");
     int i;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
-        if (result_replicas[i][0] == 0) {
+        if (result_node_replicas[i][0] == 0) {
             break;
         }
-        printf("%s\n", result_replicas[i]);
+        printf("%s\n", result_node_replicas[i]);
     }
-    printf("leader: %s(%d)\n", result_replicas[result_leader], result_leader);
+    printf("leader: %d\n", result_node_leader);
     return 0;
 }

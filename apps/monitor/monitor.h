@@ -9,13 +9,14 @@
 #define MONITOR_WOOF_NAME_LENGTH 256
 #define MONITOR_HISTORY_LENGTH 1024
 #define MONITOR_SPINLOCK_DELAY 20
-#define MONITOR_WARNING_QUEUED_HANDLERS 1
+#define MONITOR_WARNING_QUEUED_HANDLERS 0
+
+char monitor_error_msg[256];
 
 typedef struct monitor_pool_item {
     char woof_name[MONITOR_WOOF_NAME_LENGTH];
     char handler[MONITOR_WOOF_NAME_LENGTH];
     uint64_t seq_no;
-    uint64_t element_size;
     char monitor_name[MONITOR_WOOF_NAME_LENGTH];
     uint64_t queued_ts;
     int32_t idempotent;
@@ -42,5 +43,6 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
 int monitor_cast(void* ptr, void* element, unsigned long size);
 unsigned long monitor_seqno(void* ptr);
 int monitor_exit(void* ptr);
+int monitor_join();
 
 #endif

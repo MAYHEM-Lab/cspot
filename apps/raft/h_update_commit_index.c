@@ -45,6 +45,7 @@ int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug(
             "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
         monitor_exit(ptr);
+        monitor_join();
         return 1;
     }
 
@@ -143,5 +144,6 @@ int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    monitor_join();
     return 1;
 }

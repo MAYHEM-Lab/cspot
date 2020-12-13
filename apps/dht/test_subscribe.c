@@ -51,15 +51,19 @@ int main(int argc, char** argv) {
 
     int i;
     for (i = 0; i < TEST_COUNT; ++i) {
-        TEST_EL el = {0};
-        sprintf(el.msg, "%s", TEST_MESSAGE);
-        el.sent = get_milliseconds();
-        unsigned long seq = dht_publish(TEST_TOPIC, &el, sizeof(TEST_EL), TEST_TIMEOUT);
+        DHT_SERVER_PUBLISH_FIND_ARG arg = {0};
+        sprintf(arg.topic_name, "%s", TEST_TOPIC);
+        TEST_EL* el = (TEST_EL*)arg.element;
+        sprintf(el->msg, "%s", TEST_MESSAGE);
+        el->sent = get_milliseconds();
+        arg.element_size = sizeof(TEST_EL);
+        arg.requested_ts = get_milliseconds();
+        unsigned long seq = dht_publish(&arg);
         if (WooFInvalid(seq)) {
             fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
             exit(1);
         }
-        printf("%s published to topic at %lu\n", el.msg, el.sent);
+        printf("%s published to topic at %lu\n", el->msg, el->sent);
     }
     printf("test done\n");
     return 0;

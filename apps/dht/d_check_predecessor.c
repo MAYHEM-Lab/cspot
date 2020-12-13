@@ -21,10 +21,6 @@ int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
         exit(1);
     }
-    BLOCKED_NODES blocked_nodes = {0};
-    if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-        log_error("failed to get blocked nodes");
-    }
 
     if (is_empty(predecessor.hash)) {
         log_debug("predecessor is nil");
@@ -36,7 +32,7 @@ int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_GET_PREDECESSOR_ARG get_predecessor_arg = {0};
     char predecessor_woof_name[DHT_NAME_LENGTH];
     sprintf(predecessor_woof_name, "%s/%s", predecessor_addr(&predecessor), DHT_GET_PREDECESSOR_WOOF);
-    unsigned long seq = checkedWooFPut(&blocked_nodes, node.addr, predecessor_woof_name, NULL, &get_predecessor_arg);
+    unsigned long seq = WooFPut(predecessor_woof_name, NULL, &get_predecessor_arg);
     if (WooFInvalid(seq)) {
         memset(&predecessor, 0, sizeof(predecessor));
         unsigned long seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
