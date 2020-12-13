@@ -116,6 +116,8 @@ int main (int argc, char **argv)
         zsock_t *workers;
         zmsg_t *msg;
 
+	threads = 0;
+	port = 0;
 	while((c=getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 't':
@@ -320,10 +322,12 @@ void *MsgThread(void *arg)
 	unsigned long r_val;
         int err;
 	int i;
+	int reqcnt;
 
 	memset(endpoint, 0, sizeof(endpoint));
         sprintf(endpoint, ">tcp://%s:%d", ta->ip, ta->port);
 
+	reqcnt = 0;
 	for(i=0; i < ta->max; i++) {
 		if(*(ta->count) == 0) {
 			pthread_exit(NULL);
@@ -385,7 +389,10 @@ void *MsgThread(void *arg)
 			pthread_exit(NULL);
 		}
 		zmsg_destroy(&r_msg);
+		reqcnt++;
 	}
+	printf("thread: %d sent %d requests\n",ta->tid,reqcnt);
+	fflush(stdout);
 	pthread_exit(NULL);
 }
 
