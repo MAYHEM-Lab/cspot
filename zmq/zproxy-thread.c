@@ -48,7 +48,6 @@ void *MsgThread(void * arg)
 		 * tag in the first frame
 		 */
 		str = (char *)zframe_data(frame);
-		str[1] = 0;
 		tag = strtoul(str, (char **)NULL, 10);
 #ifdef DEBUG
 		printf("MsgThread: received msg tag: %d\n", tag);
@@ -197,7 +196,7 @@ int main (int argc, char **argv)
 struct arg_stc
 {
 	int tid;
-	int *count;
+	unsigned long *count;
 	int max;
 	char *ip;
 	int port;
@@ -205,7 +204,7 @@ struct arg_stc
 };
 
 pthread_mutex_t Lock;
-int Counter;
+unsigned long Counter;
 int Max;
 
 typedef struct arg_stc TARG;
@@ -346,13 +345,17 @@ void *MsgThread(void *arg)
 			pthread_exit(NULL);
 		}
 		pthread_mutex_lock(ta->lock);
-		value = *(ta->count);
-		*(ta->count)--;
+		value = (unsigned long)(*(ta->count));
+		(*ta->count)--;
 		pthread_mutex_unlock(ta->lock);
 
 		memset(buffer, 0, sizeof(buffer));
         	sprintf(buffer, "%lu", value);
-		frame = zframe_new(buffer, strlen(buffer));
+#ifdef DEBUG
+		printf("MsgThread(%d) sending %s (%lu) len: %d\n",ta->tid,buffer,value,strlen(buffer));
+		fflush(stdout);
+#endif
+		frame = zframe_new(buffer, sizeof(buffer));
 		if (frame == NULL)
 		{       
 			fprintf(stderr, "MsgThred(%d): no frame for msg %d\n",
@@ -458,7 +461,7 @@ int main (int argc, char **argv)
 	}
 	memset(tas,0,threads*sizeof(TARG));
 
-	Counter = Max*threads;
+	Counter = (unsigned long)(Max*threads);
 
 	pthread_mutex_init(&Lock,NULL);
 	for (i = 0; i < threads; i++) {
