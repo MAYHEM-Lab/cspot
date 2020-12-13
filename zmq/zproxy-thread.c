@@ -1,13 +1,13 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <zmq.h>
+#include <czmq.h>
 
 #define TIMEOUT (1000)
 
 
 #ifdef SERVER
 #define ARGS "t:p:"
-Usage = "zproxy-thread -p port -t threads\n";
+char *Usage = "zproxy-thread -p port -t threads\n";
 
 void *MsgThread(void * arg)
 {
@@ -15,9 +15,11 @@ void *MsgThread(void * arg)
         zmsg_t *msg;
         zmsg_t *r_msg;
         zframe_t *frame;
+        zframe_t *r_frame;
         unsigned long tag;
         char *str;
         int err;
+	char buffer[255];
 
 	receiver = zsock_new_rep(">inproc://workers");
         if (receiver == NULL)
@@ -114,7 +116,7 @@ int main (int argc, char **argv)
         zsock_t *workers;
         zmsg_t *msg;
 
-	while((c=getopt(argc,argv,ARGS) != EOF) {
+	while((c=getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 't':
 				threads = atoi(optarg);
@@ -201,7 +203,7 @@ int Max;
 
 typedef struct arg_stc TARG;
 #define ARGS "a:t:p:m:"
-Usage = "zproxy-thread-client -a ip_addr_for_server -p port -t threads -m maxcount\n";
+char *Usage = "zproxy-thread-client -a ip_addr_for_server -p port -t threads -m maxcount\n";
 
 
 zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
@@ -323,7 +325,7 @@ void *MsgThread(void *arg)
         sprintf(endpoint, ">tcp://%s:%d", ta->ip, ta->port);
 
 	for(i=0; i < ta->max; i++) {
-		if(*(ta->count == 0) {
+		if(*(ta->count) == 0) {
 			pthread_exit(NULL);
 		}
 		msg = zmsg_new();
@@ -400,11 +402,11 @@ int main (int argc, char **argv)
 	TARG *tas;
 
 
-	memset(ip_addr,sizeof(ip_addr));
+	memset(ip_addr,0,sizeof(ip_addr));
 	threads = 0;
 	port = 0;
 	Max = 1;
-	while((c=getopt(argc,argv,ARGS) != EOF) {
+	while((c=getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 't':
 				threads = atoi(optarg);
@@ -413,10 +415,10 @@ int main (int argc, char **argv)
 				port = atoi(optarg);
 				break;
 			case 'a':
-				ip_addr = strcpy(optarg);
-				break
+				strcpy(ip_addr,optarg);
+				break;
 			case 'm':
-				m = atoi(optarg);
+				Max = atoi(optarg);
 				break;
 			default:
 				fprintf(stderr,
@@ -448,12 +450,12 @@ int main (int argc, char **argv)
 
 	pthread_mutex_init(&Lock,NULL);
 	for (i = 0; i < threads; i++) {
-		ta[i].tid = i;
-		ta[i].count = &Counter;
-		ta[i].max = Max;
-		ta[i].lock = &Lock;
-		ta[i].ip = ip_addr;
-		ta[i].port = port;
+		tas[i].tid = i;
+		tas[i].count = &Counter;
+		tas[i].max = Max;
+		tas[i].lock = &Lock;
+		tas[i].ip = ip_addr;
+		tas[i].port = port;
 
                 err = pthread_create(&tids[i], NULL, MsgThread, (void *)&(tas[i]));
                 if (err < 0)
