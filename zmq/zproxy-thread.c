@@ -38,8 +38,8 @@ void *MsgThread(void * arg)
 		frame = zmsg_first(msg);
 		if (frame == NULL)
 		{
-			perror("WooFMsgThread: couldn't get tag");
-			exit(1);
+			perror("MsgThread: couldn't get tag");
+			break;
 		}
 		/*
 		 * tag in the first frame
@@ -52,9 +52,40 @@ void *MsgThread(void * arg)
 		fflush(stdout);
 #endif
 
-		/*
-		 * process routines do not destroy request msg
-		 */
+		r_msg = zmsg_new();
+		if (r_msg == NULL)
+		{        
+			perror("MsgThread: couldn't get r_msg\n");
+			break;
+		}
+		memset(buffer, 0, sizeof(buffer));
+        	sprintf(buffer, "%lu", tag);
+        	r_frame = zframe_new(buffer, strlen(buffer));
+        	if (r_frame == NULL)
+		{       
+			perror("MsgThread: no reply frame");
+			zmsg_destroy(&r_msg);
+			break;
+		}
+        	err = zmsg_append(r_msg, &r_frame);
+
+		if (err != 0)   
+		{       
+			perror("WooFProcessPut: couldn't append to r_msg");
+			zframe_destroy(&r_frame);
+			zmsg_destroy(&r_msg);
+			break;
+		}       
+        	err = zmsg_send(&r_msg, receiver); 
+        	if (err != 0)   
+		{               
+			perror("WooFProcessGetElSize: couldn't send r_msg");
+			zmsg_destroy(&r_msg);
+			break;
+		}       
+
+
+		zmsg_destroy(&r_msg);
 		zmsg_destroy(&msg);
 
 		/*
