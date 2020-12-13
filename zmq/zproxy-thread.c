@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <czmq.h>
 
-#define TIMEOUT (120000)
+#define TIMEOUT (1000)
 #define DEBUG
 
 
