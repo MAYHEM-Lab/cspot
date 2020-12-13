@@ -2,7 +2,8 @@
 #include <unistd.h>
 #include <czmq.h>
 
-#define TIMEOUT (1000)
+#define TIMEOUT (120000)
+#define DEBUG
 
 
 #ifdef SERVER
@@ -62,6 +63,10 @@ void *MsgThread(void * arg)
 		}
 		memset(buffer, 0, sizeof(buffer));
         	sprintf(buffer, "%lu", tag);
+#ifdef DEBUG
+		printf("MsgThread: replying with tag: %s\n", buffer);
+		fflush(stdout);
+#endif
         	r_frame = zframe_new(buffer, strlen(buffer));
         	if (r_frame == NULL)
 		{       
