@@ -46,42 +46,45 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    FILE* fp = fopen(old_config, "r");
-    if (fp == NULL) {
-        fprintf(stderr, "can't read config file\n");
-        exit(1);
-    }
-    int timeout_min, timeout_max, replicate_delay;
-    char name[RAFT_NAME_LENGTH];
-    int members;
-    char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-    if (read_config(fp, &timeout_min, &timeout_max, &replicate_delay, name, &members, member_woofs) < 0) {
-        fprintf(stderr, "failed to read the config file\n");
-        fclose(fp);
-        exit(1);
-    }
-    if (raft_init_client(members, member_woofs) < 0) {
-        fprintf(stderr, "can't init client\n");
-        fclose(fp);
-        exit(1);
-    }
-    fclose(fp);
+    // FILE* fp = fopen(old_config, "r");
+    // if (fp == NULL) {
+    //     fprintf(stderr, "can't read config file\n");
+    //     exit(1);
+    // }
+    // int timeout_min, timeout_max, replicate_delay;
+    // char name[RAFT_NAME_LENGTH];
+    // int members;
+    // char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
+    // if (read_config(fp, &timeout_min, &timeout_max, &replicate_delay, name, &members, member_woofs) < 0) {
+    //     fprintf(stderr, "failed to read the config file\n");
+    //     fclose(fp);
+    //     exit(1);
+    // }
+    // if (raft_init_client(members, member_woofs) < 0) {
+    //     fprintf(stderr, "can't init client\n");
+    //     fclose(fp);
+    //     exit(1);
+    // }
+    // fclose(fp);
 
-    fp = fopen(new_config, "r");
-    if (fp == NULL) {
-        fprintf(stderr, "failed to open new config file %s\n", new_config);
-        exit(1);
-    }
-    if (read_config(fp, &timeout_min, &timeout_max, &replicate_delay, name, &members, member_woofs) < 0) {
-        fprintf(stderr, "failed to read the config file\n");
-        fclose(fp);
-        exit(1);
-    }
-    fclose(fp);
-    int err = raft_config_change(members, member_woofs, timeout);
-    while (err == RAFT_REDIRECTED) {
-        err = raft_config_change(members, member_woofs, timeout);
-    }
+    // fp = fopen(new_config, "r");
+    // if (fp == NULL) {
+    //     fprintf(stderr, "failed to open new config file %s\n", new_config);
+    //     exit(1);
+    // }
+    // if (read_config(fp, &timeout_min, &timeout_max, &replicate_delay, name, &members, member_woofs) < 0) {
+    //     fprintf(stderr, "failed to read the config file\n");
+    //     fclose(fp);
+    //     exit(1);
+    // }
+    // fclose(fp);
+    // int err = raft_config_change(members, member_woofs, timeout);
+    // while (err == RAFT_REDIRECTED) {
+    //     err = raft_config_change(members, member_woofs, timeout);
+    // }
 
-    return err;
+    // return err;
+
+    printf("not implemented yet");
+    return 0;
 }

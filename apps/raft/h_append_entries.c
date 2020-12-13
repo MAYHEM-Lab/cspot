@@ -15,7 +15,7 @@
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("append_entries");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
     RAFT_APPEND_ENTRIES_ARG request = {0};
@@ -33,14 +33,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     int warning_latency = server_state.timeout_min / 2;
 
-    RAFT_BLOCKED_NODES blocked_nodes = {0};
-    if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
-        log_error("failed to get blocked nodes");
-    }
-
     RAFT_APPEND_ENTRIES_RESULT result = {0};
     result.request_created_ts = request.created_ts;
     result.seqno = seq_no;
+    result.ack_seq = request.ack_seq;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
     if (get_milliseconds() - request.created_ts > warning_latency) {
         log_warn("request %lu took %" PRIu64 "ms to receive", seq_no, get_milliseconds() - request.created_ts);
@@ -163,7 +159,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     if (request.entries[i].term == 0) {
                         break; // no entry, finish append
                     }
-                    log_debug("processing entry[%d]", i);
+                    // log_debug("processing entry[%d]", i);
                     unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request.entries[i]);
                     if (WooFInvalid(seq)) {
                         log_error("failed to append entries[%d]", i);
@@ -246,7 +242,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                             log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
                             exit(1);
                         }
-                        log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
+                        // log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
                     }
                 }
                 unsigned long last_entry_seq = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
@@ -287,11 +283,11 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];
     sprintf(leader_result_woof, "%s/%s", request.leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
-    unsigned long seq = raft_checkedWooFPut(&blocked_nodes, server_state.woof_name, leader_result_woof, NULL, &result);
+    unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the append_entries result to %s", leader_result_woof);
     }
-    log_debug("returned result to %s", leader_result_woof);
+    log_debug("returned result to %s [%lu]", leader_result_woof, seq);
 
     return 1;
 }

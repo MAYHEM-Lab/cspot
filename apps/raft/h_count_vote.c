@@ -94,8 +94,9 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         for (i = 0; i < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++i) {
             server_state.next_index[i] = last_log_entry_seqno + 1;
             server_state.match_index[i] = 0;
-            server_state.last_sent_index[i] = 0;
             server_state.last_sent_timestamp[i] = 0;
+            server_state.last_sent_request_seq[i] = 0;
+            server_state.acked_request_seq[i] = 0;
         }
         unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
         if (WooFInvalid(seq)) {
@@ -104,9 +105,6 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         log_debug("promoted to leader for term %" PRIu64 "", result.term);
         log_info("state changed at term %" PRIu64 ": LEADER", server_state.current_term);
-        // #ifdef DEBUG
-        printf("elected as leader at %" PRIu64 " (%lu)\n", get_milliseconds(), WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF));
-        // #endif
 
         // start replicate_entries handlers
         unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
@@ -114,9 +112,14 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("failed to get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
             exit(1);
         }
+        unsigned long last_client_put_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
+        if (WooFInvalid(last_client_put_result_seqno)) {
+            log_error("failed to get the latest seqno from %s", RAFT_CLIENT_PUT_RESULT_WOOF);
+            exit(1);
+        }
+
         RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg = {0};
         replicate_entries_arg.term = server_state.current_term;
-        replicate_entries_arg.last_seen_result_seqno = last_append_result_seqno;
         replicate_entries_arg.last_ts = get_milliseconds();
         seq = monitor_put(
             RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &replicate_entries_arg, 1);
@@ -124,6 +127,36 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("failed to start h_replicate_entries handler");
             exit(1);
         }
+        log_debug("started h_replicate_entries");
+        RAFT_CHECK_APPEND_RESULT_ARG check_append_result_arg = {0};
+        check_append_result_arg.term = server_state.current_term;
+        check_append_result_arg.last_seen_result_seqno = last_append_result_seqno;
+        seq = monitor_put(
+            RAFT_MONITOR_NAME, RAFT_CHECK_APPEND_RESULT_WOOF, "h_check_append_result", &check_append_result_arg, 1);
+        if (WooFInvalid(seq)) {
+            log_error("failed to start h_check_append_result handler");
+            exit(1);
+        }
+        log_debug("started h_check_append_result");
+        RAFT_UPDATE_COMMIT_INDEX_ARG update_commit_index_arg = {0};
+        update_commit_index_arg.term = server_state.current_term;
+        seq = monitor_put(
+            RAFT_MONITOR_NAME, RAFT_UPDATE_COMMIT_INDEX_WOOF, "h_update_commit_index", &update_commit_index_arg, 1);
+        if (WooFInvalid(seq)) {
+            log_error("failed to start h_update_commit_index handler");
+            exit(1);
+        }
+        log_debug("started h_update_commit_index");
+        RAFT_INVOKE_COMMITTED_ARG invoke_committed_arg = {0};
+        invoke_committed_arg.term = server_state.current_term;
+        invoke_committed_arg.last_checked_client_put_result_seqno = last_client_put_result_seqno;
+        seq = monitor_put(
+            RAFT_MONITOR_NAME, RAFT_INVOKE_COMMITTED_WOOF, "h_invoke_committed", &invoke_committed_arg, 1);
+        if (WooFInvalid(seq)) {
+            log_error("failed to start h_invoke_committed handler");
+            exit(1);
+        }
+        log_debug("started h_invoke_committed");
     }
 
     log_debug(

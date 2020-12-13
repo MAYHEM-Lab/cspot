@@ -13,15 +13,10 @@
 int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_client_put");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
-    RAFT_CLIENT_PUT_ARG arg = {0};
-    if (monitor_cast(ptr, &arg, sizeof(RAFT_CLIENT_PUT_ARG)) < 0) {
-        log_error("failed to monitor_cast");
-        exit(1);
-    }
-    seq_no = monitor_seqno(ptr);
+    RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
 
     // get the server's current term
     RAFT_SERVER_STATE server_state = {0};
@@ -32,25 +27,39 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     // int client_put_delay = server_state.timeout_min / 10;
     int client_put_delay = 0;
 
-    unsigned long last_request = WooFGetLatestSeqno(RAFT_CLIENT_PUT_REQUEST_WOOF);
-    if (WooFInvalid(last_request)) {
-        log_error("failed to get the latest seqno from %s", RAFT_CLIENT_PUT_RESULT_WOOF);
+    unsigned long latest_request = WooFGetLatestSeqno(RAFT_CLIENT_PUT_REQUEST_WOOF);
+    if (WooFInvalid(latest_request)) {
+        log_error("failed to get the latest seqno from %s", RAFT_CLIENT_PUT_REQUEST_WOOF);
         exit(1);
+    }
+    if (latest_request > arg->last_seqno) {
+        log_debug("processing %lu requests, %lu to %lu",
+                  latest_request - arg->last_seqno,
+                  arg->last_seqno + 1,
+                  latest_request);
     }
 
     unsigned long i;
-    for (i = arg.last_seqno + 1; i <= last_request; ++i) {
+    for (i = arg->last_seqno + 1; i <= latest_request; ++i) {
         RAFT_CLIENT_PUT_REQUEST request = {0};
         if (WooFGet(RAFT_CLIENT_PUT_REQUEST_WOOF, &request, i) < 0) {
             log_error("failed to get client_put request at %lu", i);
             exit(1);
         }
         RAFT_CLIENT_PUT_RESULT result = {0};
+        memcpy(result.source, server_state.woof_name, sizeof(result.source));
+        memcpy(result.extra_woof, request.extra_woof, sizeof(result.extra_woof));
+        result.extra_seqno = request.extra_seqno;
         if (server_state.role != RAFT_LEADER) {
-            result.redirected = 1;
-            result.index = 0;
-            result.term = server_state.current_term;
-            memcpy(result.current_leader, server_state.current_leader, RAFT_NAME_LENGTH);
+            char redirected_woof[RAFT_NAME_LENGTH] = {0};
+            sprintf(redirected_woof, "%s/%s", server_state.current_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
+            strcpy(result.redirected_target, server_state.current_leader);
+            result.redirected_time = get_milliseconds() - request.created_ts;
+            result.redirected_seqno = WooFPut(redirected_woof, NULL, &request);
+            if (WooFInvalid(result.redirected_seqno)) {
+                log_error("failed to redirect client_put request to %s", redirected_woof);
+            }
+            log_debug("redirected request to leader %s[%lu]", result.redirected_target, result.redirected_seqno);
         } else {
             unsigned long entry_seqno;
             RAFT_LOG_ENTRY entry = {0};
@@ -63,8 +72,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to append raft log");
                 exit(1);
             }
-            // log_debug("appended entry[%lu] into log", entry_seqno);
-            result.redirected = 0;
+            log_debug("appended entry[%lu] into log", entry_seqno);
             result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;
             if (RAFT_SAMPLING_RATE > 0 && (entry_seqno % RAFT_SAMPLING_RATE == 0)) {
@@ -87,44 +95,33 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
                     log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
                     exit(1);
                 }
-                log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
+                // log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
             }
         }
         // make sure the result's seq_no matches with request's seq_no
         unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
-        if (latest_result_seqno < i - 1) {
-            log_warn("client_put_result at %lu, client_put_request at %lu, padding %lu results",
-                     latest_result_seqno,
-                     i,
-                     i - latest_result_seqno - 1);
-            unsigned long j;
-            for (j = latest_result_seqno + 1; j <= i - 1; ++j) {
-                RAFT_CLIENT_PUT_RESULT result = {0};
-                unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
-                if (WooFInvalid(result_seq)) {
-                    log_error("failed to put padded result");
-                    exit(1);
-                }
+        while (latest_result_seqno + 1 != i) {
+            log_warn("client_put_result seq_no %lu mismatches %lu", latest_result_seqno + 1, i);
+            RAFT_CLIENT_PUT_RESULT padding_result = {0};
+            if (WooFInvalid(WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &padding_result))) {
+                log_error("failed to pad client_put result for previous unresolved requests");
+                exit(1);
             }
+            ++latest_result_seqno;
         }
 
+        result.picked_ts = get_milliseconds();
         unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
-        while (WooFInvalid(result_seq)) {
+        if (WooFInvalid(result_seq)) {
             log_error("failed to write client_put_result");
             exit(1);
         }
-        if (result_seq != i) {
-            log_error("client_put_request seq_no %lu doesn't match result seq_no %lu", i, result_seq);
-            exit(1);
-        }
-        log_debug("put result for %" PRIu64 " to result woof", result.index);
-
-        arg.last_seqno = i;
+        // log_error("result.index: %lu [%lu]", result.index, result_seq);
+        arg->last_seqno = i;
     }
-    monitor_exit(ptr);
 
-    usleep(client_put_delay * 1000);
-    unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &arg, 0);
+    // usleep(client_put_delay * 1000);
+    unsigned long seq = WooFPut(RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_client_put handler");
         exit(1);

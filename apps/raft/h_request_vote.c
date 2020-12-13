@@ -30,10 +30,6 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the server state");
         exit(1);
     }
-    RAFT_BLOCKED_NODES blocked_nodes = {0};
-    if (WooFGet(RAFT_BLOCKED_NODES_WOOF, &blocked_nodes, WooFGetLatestSeqno(RAFT_BLOCKED_NODES_WOOF)) < 0) {
-        log_error("failed to get blocked nodes");
-    }
 
     if (server_state.role == RAFT_SHUTDOWN) {
         log_debug("server already shutdown");
@@ -146,8 +142,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     char candidate_result_woof[RAFT_NAME_LENGTH];
     sprintf(candidate_monitor, "%s/%s", request.candidate_woof, RAFT_MONITOR_NAME);
     sprintf(candidate_result_woof, "%s/%s", request.candidate_woof, RAFT_REQUEST_VOTE_RESULT_WOOF);
-    unsigned long seq = raft_checkedMonitorRemotePut(
-        &blocked_nodes, server_state.woof_name, candidate_monitor, candidate_result_woof, "h_count_vote", &result, 0);
+    unsigned long seq = monitor_remote_put(candidate_monitor, candidate_result_woof, "h_count_vote", &result, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the vote result to %s", candidate_result_woof);
     }

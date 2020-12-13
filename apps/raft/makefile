@@ -29,30 +29,36 @@ copy: handlers clients test
 	cp s_start_server ./cspot
 	cp d_interrupt ./cspot
 	cp h_append_entries ./cspot
+	cp h_check_append_result ./cspot
 	cp h_client_put ./cspot
 	cp h_config_change ./cspot
 	cp h_count_vote ./cspot
+	cp h_invoke_committed ./cspot
 	cp h_replicate_entries ./cspot
 	cp h_request_vote ./cspot
 	cp h_timeout_checker ./cspot
+	cp h_update_commit_index ./cspot
 	cp client_get ./cspot
 	cp client_interrupt ./cspot
 	cp client_node_info ./cspot
 	cp client_observe ./cspot
+	cp client_put_result ./cspot
 	cp client_put ./cspot
 	cp client_reconfig ./cspot
 	cp test_append_handler ./cspot
 	cp test_client ./cspot
 	cp test_config ./cspot
 	cp test_raft_handler ./cspot
+	cp test_throughput ./cspot
+	cp test_throughput_handler ./cspot
 	cp ../monitor/monitor_invoker ./cspot
 
-test: test_append_handler test_client test_config test_raft_handler raft.o raft_client.o raft_utils.o
+test: test_append_handler test_client test_config test_raft_handler test_throughput test_throughput_handler raft.o raft_client.o raft_utils.o
 
-clients: client_get client_interrupt client_node_info client_observe client_put client_reconfig
+clients: client_get client_interrupt client_node_info client_observe client_put_result client_put client_reconfig
 
 handlers: s_create_woofs s_start_server\
-d_interrupt h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker\
+d_interrupt h_append_entries h_check_append_result h_client_put h_config_change h_count_vote h_invoke_committed h_replicate_entries h_request_vote h_timeout_checker h_update_commit_index\
 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
@@ -74,6 +80,9 @@ client_node_info:  client_node_info.c raft.o raft_client.o raft_utils.o
 
 client_observe: client_observe.c raft.o raft_client.o raft_utils.o 
 	${CC} ${CFLAGS} -o client_observe client_observe.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+client_put_result: client_put_result.c raft.o raft_client.o raft_utils.o 
+	${CC} ${CFLAGS} -o client_put_result client_put_result.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_put: client_put.c raft.o raft_client.o raft_utils.o 
 	${CC} ${CFLAGS} -o client_put client_put.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -97,6 +106,11 @@ h_append_entries: h_append_entries.c raft.o raft_client.o raft_utils.o ${SHEP_SR
 	${CC} ${CFLAGS} -c h_append_entries_shepherd.c -o h_append_entries_shepherd.o
 	${CC} ${CFLAGS} -o h_append_entries h_append_entries.c h_append_entries_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+h_check_append_result: h_check_append_result.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_check_append_result/g' ${SHEP_SRC} > h_check_append_result_shepherd.c
+	${CC} ${CFLAGS} -c h_check_append_result_shepherd.c -o h_check_append_result_shepherd.o
+	${CC} ${CFLAGS} -o h_check_append_result h_check_append_result.c h_check_append_result_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 h_client_put: h_client_put.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_client_put/g' ${SHEP_SRC} > h_client_put_shepherd.c
 	${CC} ${CFLAGS} -c h_client_put_shepherd.c -o h_client_put_shepherd.o
@@ -111,6 +125,11 @@ h_count_vote: h_count_vote.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WIN
 	sed 's/WOOF_HANDLER_NAME/h_count_vote/g' ${SHEP_SRC} > h_count_vote_shepherd.c
 	${CC} ${CFLAGS} -c h_count_vote_shepherd.c -o h_count_vote_shepherd.o
 	${CC} ${CFLAGS} -o h_count_vote h_count_vote.c h_count_vote_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+h_invoke_committed: h_invoke_committed.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_invoke_committed/g' ${SHEP_SRC} > h_invoke_committed_shepherd.c
+	${CC} ${CFLAGS} -c h_invoke_committed_shepherd.c -o h_invoke_committed_shepherd.o
+	${CC} ${CFLAGS} -o h_invoke_committed h_invoke_committed.c h_invoke_committed_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_replicate_entries: h_replicate_entries.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_replicate_entries/g' ${SHEP_SRC} > h_replicate_entries_shepherd.c
@@ -127,6 +146,11 @@ h_timeout_checker: h_timeout_checker.c raft.o raft_client.o raft_utils.o ${SHEP_
 	${CC} ${CFLAGS} -c h_timeout_checker_shepherd.c -o h_timeout_checker_shepherd.o
 	${CC} ${CFLAGS} -o h_timeout_checker h_timeout_checker.c h_timeout_checker_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+h_update_commit_index: h_update_commit_index.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_update_commit_index/g' ${SHEP_SRC} > h_update_commit_index_shepherd.c
+	${CC} ${CFLAGS} -c h_update_commit_index_shepherd.c -o h_update_commit_index_shepherd.o
+	${CC} ${CFLAGS} -o h_update_commit_index h_update_commit_index.c h_update_commit_index_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 s_create_woofs: s_create_woofs.c raft.o raft_client.o raft_utils.o
 	${CC} ${CFLAGS} -o s_create_woofs s_create_woofs.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
@@ -141,9 +165,15 @@ test_raft_handler: test_raft_handler.c raft.o raft_client.o raft_utils.o ${SHEP_
 	${CC} ${CFLAGS} -c test_raft_handler_shepherd.c -o test_raft_handler_shepherd.o
 	${CC} ${CFLAGS} -o test_raft_handler test_raft_handler.c test_raft_handler_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+test_throughput: test_throughput.c raft.o raft_client.o raft_utils.o 
+	${CC} ${CFLAGS} -o test_throughput test_throughput.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+test_throughput_handler: test_throughput_handler.c raft.o raft_client.o raft_utils.o 
+	${CC} ${CFLAGS} -o test_throughput_handler test_throughput_handler.c raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 clean:
 	rm -rf ./cspot *.o 
-	rm -f test_append_handler test_client test_config test_raft_handler 
-	rm -f client_get client_interrupt client_node_info client_observe client_put client_reconfig d_interrupt
-	rm -f h_append_entries h_client_put h_config_change h_count_vote h_replicate_entries h_request_vote h_timeout_checker 
+	rm -f test_append_handler test_client test_config test_raft_handler test_throughput test_throughput_handler
+	rm -f client_get client_interrupt client_node_info client_observe client_put_result client_put client_reconfig d_interrupt
+	rm -f h_append_entries h_check_append_result h_client_put h_config_change h_count_vote h_invoke_committed h_replicate_entries h_request_vote h_timeout_checker h_update_commit_index
 	rm -f s_create_woofs s_start_server 

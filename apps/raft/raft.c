@@ -10,28 +10,21 @@
 #include <string.h>
 #include <time.h>
 
-char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_DEBUG_INTERRUPT_WOOF,
-                                                RAFT_LOG_ENTRIES_WOOF,
-                                                RAFT_SERVER_STATE_WOOF,
-                                                RAFT_HEARTBEAT_WOOF,
-                                                RAFT_TIMEOUT_CHECKER_WOOF,
-                                                RAFT_APPEND_ENTRIES_ARG_WOOF,
-                                                RAFT_APPEND_ENTRIES_RESULT_WOOF,
-                                                RAFT_LOG_HANDLER_ENTRIES_WOOF,
-                                                RAFT_CLIENT_PUT_REQUEST_WOOF,
-                                                RAFT_CLIENT_PUT_ARG_WOOF,
-                                                RAFT_CLIENT_PUT_RESULT_WOOF,
-                                                RAFT_CONFIG_CHANGE_ARG_WOOF,
-                                                RAFT_CONFIG_CHANGE_RESULT_WOOF,
-                                                RAFT_REPLICATE_ENTRIES_WOOF,
-                                                RAFT_REQUEST_VOTE_ARG_WOOF,
-                                                RAFT_REQUEST_VOTE_RESULT_WOOF};
+char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {
+    RAFT_DEBUG_INTERRUPT_WOOF,     RAFT_LOG_ENTRIES_WOOF,           RAFT_SERVER_STATE_WOOF,
+    RAFT_HEARTBEAT_WOOF,           RAFT_TIMEOUT_CHECKER_WOOF,       RAFT_APPEND_ENTRIES_ROUTINE_WOOF,
+    RAFT_APPEND_ENTRIES_ARG_WOOF,  RAFT_APPEND_ENTRIES_RESULT_WOOF, RAFT_LOG_HANDLER_ENTRIES_WOOF,
+    RAFT_CLIENT_PUT_REQUEST_WOOF,  RAFT_CLIENT_PUT_ARG_WOOF,        RAFT_CLIENT_PUT_RESULT_WOOF,
+    RAFT_CONFIG_CHANGE_ARG_WOOF,   RAFT_CONFIG_CHANGE_RESULT_WOOF,  RAFT_CHECK_APPEND_RESULT_WOOF,
+    RAFT_UPDATE_COMMIT_INDEX_WOOF, RAFT_INVOKE_COMMITTED_WOOF,      RAFT_REPLICATE_ENTRIES_WOOF,
+    RAFT_REQUEST_VOTE_ARG_WOOF,    RAFT_REQUEST_VOTE_RESULT_WOOF};
 
 unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
                                           sizeof(RAFT_LOG_ENTRY),
                                           sizeof(RAFT_SERVER_STATE),
                                           sizeof(RAFT_HEARTBEAT),
                                           sizeof(RAFT_TIMEOUT_CHECKER_ARG),
+                                          sizeof(RAFT_APPEND_ENTRIES_ROUTINE_ARG),
                                           sizeof(RAFT_APPEND_ENTRIES_ARG),
                                           sizeof(RAFT_APPEND_ENTRIES_RESULT),
                                           sizeof(RAFT_LOG_HANDLER_ENTRY),
@@ -40,26 +33,35 @@ unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
                                           sizeof(RAFT_CLIENT_PUT_RESULT),
                                           sizeof(RAFT_CONFIG_CHANGE_ARG),
                                           sizeof(RAFT_CONFIG_CHANGE_RESULT),
+                                          sizeof(RAFT_CHECK_APPEND_RESULT_ARG),
+                                          sizeof(RAFT_UPDATE_COMMIT_INDEX_ARG),
+                                          sizeof(RAFT_INVOKE_COMMITTED_ARG),
                                           sizeof(RAFT_REPLICATE_ENTRIES_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_RESULT)};
 
-unsigned long RAFT_WOOF_HISTORY_SIZE[] = {RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_LONG,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT,
-                                          RAFT_WOOF_HISTORY_SIZE_SHORT};
+unsigned long RAFT_WOOF_HISTORY_SIZE[] = {
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_DEBUG_INTERRUPT_ARG
+    RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_LOG_ENTRY
+    RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_SERVER_STATE
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_HEARTBEAT
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_TIMEOUT_CHECKER_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_APPEND_ENTRIES_ROUTINE_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_APPEND_ENTRIES_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_APPEND_ENTRIES_RESULT
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_LOG_HANDLER_ENTRY
+    RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_CLIENT_PUT_REQUEST
+    RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_CLIENT_PUT_ARG
+    RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_CLIENT_PUT_RESULT
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CONFIG_CHANGE_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CONFIG_CHANGE_RESULT
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CHECK_APPEND_RESULT_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_UPDATE_COMMIT_INDEX
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_INVOKE_COMMITTED_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_REPLICATE_ENTRIES_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_REQUEST_VOTE_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT  // RAFT_REQUEST_VOTE_RESULT
+};
 
 int get_server_state(RAFT_SERVER_STATE* server_state) {
     unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
@@ -157,10 +159,10 @@ int compute_joint_config(int old_members,
     return 0;
 }
 
-int threads_join(int members, pthread_t* pids) {
+int threads_join(int count, pthread_t* pids) {
     int cnt = 0;
     int i;
-    for (i = 0; i < members; ++i) {
+    for (i = 0; i < count; ++i) {
         if (pids[i] != 0) {
             int err = pthread_join(pids[i], NULL);
             if (err < 0) {
@@ -172,10 +174,10 @@ int threads_join(int members, pthread_t* pids) {
     return cnt;
 }
 
-int threads_cancel(int members, pthread_t* pids) {
+int threads_cancel(int count, pthread_t* pids) {
     int cnt = 0;
     int i;
-    for (i = 0; i < members; ++i) {
+    for (i = 0; i < count; ++i) {
         if (pids[i] != 0) {
             int err = pthread_cancel(pids[i]);
             if (err < 0) {
@@ -225,6 +227,7 @@ int raft_start_server(int members,
     server_state.replicate_delay = replicate_delay;
 
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+    printf("start_server server_state commit_index: %lu, %lu\n", server_state.commit_index, seq);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't initialize server state\n");
         return -1;
@@ -248,16 +251,22 @@ int raft_start_server(int members,
     heartbeat.timestamp = get_milliseconds();
     // experiment cheat
     // dht
-    if (strstr(woof_name, "169.231.23") != NULL) {
-        heartbeat.timestamp = get_milliseconds() - timeout_min;
-    }
+    // if (strstr(woof_name, "169.231.23") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
     // sed
     // if (strstr(woof_name, "128.111.39") != NULL) {
     //     heartbeat.timestamp = get_milliseconds() - timeout_min;
     // }
     // sed1
-    if (strstr(woof_name, "128.111.39.229") != NULL) {
-        heartbeat.timestamp = 0;
+    // if (strstr(woof_name, "128.111.39.229") != NULL) {
+    //     heartbeat.timestamp = 0;
+    // }
+    // raft_throught test: dht1, val1, sed1, dht4, dht5
+    if (strstr(woof_name, "169.231.234.163") != NULL || strstr(woof_name, "128.111.45.112") != NULL ||
+        strstr(woof_name, "128.111.39.229") != NULL || strstr(woof_name, "169.231.234.204") != NULL ||
+        strstr(woof_name, "169.231.234.220") != NULL) {
+        heartbeat.timestamp = get_milliseconds() - timeout_min;
     }
     seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
     if (WooFInvalid(seq)) {
@@ -268,9 +277,16 @@ int raft_start_server(int members,
 
     RAFT_CLIENT_PUT_ARG client_put_arg = {0};
     client_put_arg.last_seqno = 0;
-    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg, 1);
+    seq = WooFPut(RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't start h_client_put\n");
+        return -1;
+    }
+    RAFT_APPEND_ENTRIES_ROUTINE_ARG append_routine_arg = {0};
+    append_routine_arg.last_seqno = 0;
+    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_APPEND_ENTRIES_ROUTINE_WOOF, "h_append_entries", &append_routine_arg, 1);
+    if (WooFInvalid(seq)) {
+        fprintf(stderr, "Couldn't start h_append_entries\n");
         return -1;
     }
     if (!observer) {
@@ -284,78 +300,4 @@ int raft_start_server(int members,
     }
     printf("Started daemon functions\n");
     return 0;
-}
-
-int raft_is_blocked(char* target, char* self, RAFT_BLOCKED_NODES* blocked_nodes) {
-    int i;
-    for (i = 0; i < 64; ++i) {
-        if (blocked_nodes->blocked_nodes[i][0] == 0) {
-            break;
-        }
-        if (strncmp(target, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
-            if (rand() % 100 < blocked_nodes->failure_rate[i]) {
-                usleep(blocked_nodes->timeout[i] * 1000);
-                return -1;
-            }
-        }
-        if (strncmp(self, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
-            if (rand() % 100 < blocked_nodes->failure_rate[i]) {
-                return -2;
-            }
-        }
-    }
-    return 0;
-}
-
-int raft_checkedWooFGet(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq) {
-    int err = raft_is_blocked(woof, self, blocked_nodes);
-    if (err < 0) {
-        return err;
-    }
-    return WooFGet(woof, ptr, seq);
-}
-
-unsigned long raft_checkedWooFGetLatestSeq(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof) {
-    int err = raft_is_blocked(woof, self, blocked_nodes);
-    if (err < 0) {
-        return err;
-    }
-    return WooFGetLatestSeqno(woof);
-}
-
-unsigned long raft_checkedWooFPut(RAFT_BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr) {
-    int err = raft_is_blocked(woof, self, blocked_nodes);
-    if (err < 0) {
-        return err;
-    }
-    return WooFPut(woof, handler, ptr);
-}
-
-unsigned long raft_checkedMonitorRemotePut(RAFT_BLOCKED_NODES* blocked_nodes,
-                                           char* self,
-                                           char* callback_monitor,
-                                           char* callback_woof,
-                                           char* callback_handler,
-                                           void* ptr,
-                                           int idempotent) {
-    int err = raft_is_blocked(callback_woof, self, blocked_nodes);
-    if (err < 0) {
-        return err;
-    }
-    return monitor_remote_put(callback_monitor, callback_woof, callback_handler, ptr, idempotent);
-}
-
-unsigned long raft_checked_raft_sessionless_put_handler(RAFT_BLOCKED_NODES* blocked_nodes,
-                                                        char* self,
-                                                        char* replica,
-                                                        char* handler,
-                                                        void* ptr,
-                                                        unsigned long size,
-                                                        int monitored,
-                                                        int timeout) {
-    int err = raft_is_blocked(replica, self, blocked_nodes);
-    if (err < 0) {
-        return err;
-    }
-    return raft_sessionless_put_handler(replica, handler, ptr, size, monitored, timeout);
 }
