@@ -9,7 +9,7 @@
 #include <string.h>
 #include <time.h>
 
-#define MONITOR_THREAD_POOL_SIZE 32
+#define MONITOR_THREAD_POOL_SIZE 8
 
 typedef struct put_pool_item_thread_arg {
     char woof_name[256];
@@ -41,10 +41,12 @@ void* put_pool_item_thread(void* ptr) {
 }
 
 int get_next_available_thread() {
+    int id = next_available_thread % MONITOR_THREAD_POOL_SIZE;
     pthread_mutex_lock(&lock);
-    int id = next_available_thread;
     while (thread_id[id] != 0) {
+        pthread_mutex_unlock(&lock);
         id = (id + 1) % MONITOR_THREAD_POOL_SIZE;
+        pthread_mutex_lock(&lock);
     }
     pthread_mutex_unlock(&lock);
     return id;
