@@ -21,7 +21,7 @@ int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-
+    uint64_t begin = get_milliseconds();
     // zsys_init() is called automatically when a socket is created
     // not thread safe and can only be called in main thread
     // call it here to avoid being called concurrently in the threads
@@ -131,12 +131,12 @@ int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
+
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     if (WooFInvalid(seq)) {
         log_error("failed to update server state");
         exit(1);
     }
-
     monitor_exit(ptr);
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_UPDATE_COMMIT_INDEX_WOOF, "h_update_commit_index", &arg, 1);
     if (WooFInvalid(seq)) {
@@ -145,5 +145,6 @@ int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     monitor_join();
+    // printf("handler h_update_commit_index took %lu\n", get_milliseconds() - begin);
     return 1;
 }

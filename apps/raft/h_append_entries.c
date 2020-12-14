@@ -15,9 +15,10 @@
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("append_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
 
+    uint64_t begin = get_milliseconds();
     RAFT_APPEND_ENTRIES_ARG request = {0};
     if (monitor_cast(ptr, &request, sizeof(RAFT_APPEND_ENTRIES_ARG)) < 0) {
         log_error("failed to monitor_cast");
@@ -44,6 +45,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     int m_id = member_id(request.leader_woof, server_state.member_woofs);
     if (m_id == -1 || m_id >= server_state.members) {
         log_debug("disregard a request from a server not in the config");
+        log_debug("request.leader_woof: %s", request.leader_woof);
         monitor_exit(ptr);
         monitor_join();
         return 1;
@@ -290,5 +292,6 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     log_debug("returned result to %s [%lu]", leader_result_woof, seq);
     monitor_join();
+    // printf("handler h_append_entries took %lu\n", get_milliseconds() - begin);
     return 1;
 }

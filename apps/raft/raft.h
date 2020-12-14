@@ -34,6 +34,7 @@
 #define RAFT_CHECK_APPEND_RESULT_WOOF  "raft_check_append_result.woof"
 #define RAFT_UPDATE_COMMIT_INDEX_WOOF "raft_update_commit_index.woof"
 #define RAFT_INVOKE_COMMITTED_WOOF "raft_invoke_committed.woof"
+#define RAFT_COMMIT_HANDLER_WOOF "raft_commit_handler.woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
@@ -180,10 +181,15 @@ typedef struct raft_update_commit_index_arg {
     uint64_t term;
 } RAFT_UPDATE_COMMIT_INDEX_ARG;
 
-typedef struct raft_invoke_committed {
+typedef struct raft_invoke_committed_arg {
     uint64_t term;
     uint64_t last_checked_client_put_result_seqno;
 } RAFT_INVOKE_COMMITTED_ARG;
+
+typedef struct raft_commit_handler_arg {
+    uint64_t term;
+    uint64_t last_index;
+} RAFT_COMMIT_HANDLER_ARG;
 
 typedef struct raft_replicate_entries {
     uint64_t term;

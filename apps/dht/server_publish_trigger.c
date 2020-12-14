@@ -21,11 +21,13 @@ void* resolve_thread(void* arg) {
         log_error("failed to get trigger_arg from %s at %lu", put_result.extra_woof, put_result.extra_seqno);
         return;
     }
+    trigger_arg.data = get_milliseconds();
+    trigger_arg.element_seqno = put_result.index;
     trigger_arg.mapped = get_milliseconds();
 
     unsigned long seq = WooFPut(DHT_TRIGGER_WOOF, NULL, &trigger_arg);
     if (WooFInvalid(seq)) {
-        log_error("failed to invoke h_trigger");
+        log_error("failed to queue trigger to %s", DHT_TRIGGER_WOOF);
         return;
     }
     return;
@@ -33,7 +35,6 @@ void* resolve_thread(void* arg) {
 
 int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
-
     log_set_tag("server_publish_trigger");
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
@@ -67,7 +68,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (count != 0) {
         if (get_milliseconds() - begin > 200)
-        log_debug("took %lu ms to process %lu publish_trigger", get_milliseconds() - begin, count);
+            log_debug("took %lu ms to process %lu publish_trigger", get_milliseconds() - begin, count);
     }
     routine_arg->last_seqno = latest_seq;
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", routine_arg);
@@ -75,5 +76,6 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to queue the next server_publish_trigger");
         exit(1);
     }
+    // printf("handler server_publish_trigger took %lu\n", get_milliseconds() - begin);
     return 1;
 }

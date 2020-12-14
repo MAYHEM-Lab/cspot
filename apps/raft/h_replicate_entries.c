@@ -30,8 +30,6 @@ void* replicate_thread(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
-    log_debug(
-        "%lu thread[%d] calling monitor_remote_put", replicate_thread_arg->seq_no, replicate_thread_arg->member_id);
     unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 0);
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
@@ -52,8 +50,7 @@ void* replicate_thread(void* arg) {
         }
     } else {
         if (replicate_thread_arg->num_entries > 0) {
-            log_debug("%lu: sent %d entries to member %d [%lu], prev_index: %" PRIu64 ", ack_seq: %lu",
-                      replicate_thread_arg->seq_no,
+            log_debug("sent %d entries to member %d [%lu], prev_index: %" PRIu64 ", ack_seq: %lu",
                       replicate_thread_arg->num_entries,
                       replicate_thread_arg->member_id,
                       seq,
@@ -76,7 +73,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-
+uint64_t begin = get_milliseconds();
     RAFT_REPLICATE_ENTRIES_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_REPLICATE_ENTRIES_ARG)) < 0) {
         log_error("failed to monitor_cast");
@@ -112,9 +109,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
         exit(1);
     }
-    // if (last_log_entry_seqno - server_state.commit_index >= RAFT_MAX_ENTRIES_PER_REQUEST / 2) {
-    //     log_warn("commit lag: %lu entries", last_log_entry_seqno - server_state.commit_index);
-    // }
+    if (last_log_entry_seqno - server_state.commit_index > 0) {
+        log_warn("commit lag: %lu entries", last_log_entry_seqno - server_state.commit_index);
+    }
 
     // send entries to members and observers
     memset(thread_id, 0, sizeof(pthread_t) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
@@ -193,5 +190,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     threads_join(RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS, thread_id);
     monitor_join();
+    // printf("handler h_replicate_entries took %lu\n", get_milliseconds() - begin);
     return 1;
 }

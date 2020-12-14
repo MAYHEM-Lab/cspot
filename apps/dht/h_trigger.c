@@ -8,17 +8,17 @@
 #include <string.h>
 
 void* resolve_thread(void* arg) {
-    DHT_TRIGGER_ARG* thrigger_arg = (DHT_TRIGGER_ARG*)arg;
+    DHT_TRIGGER_ARG* trigger_arg = (DHT_TRIGGER_ARG*)arg;
     DHT_SUBSCRIPTION_LIST list = {0};
-    if (get_latest_element(thrigger_arg->subscription_woof, &list) < 0) {
-        log_error("failed to get the latest subscription list of %s: %s", thrigger_arg->topic_name, dht_error_msg);
-        exit(1);
+    if (get_latest_element(trigger_arg->subscription_woof, &list) < 0) {
+        log_error("failed to get the latest subscription list of %s: %s", trigger_arg->topic_name, dht_error_msg);
+        return;
     }
 
     DHT_INVOCATION_ARG invocation_arg = {0};
-    strcpy(invocation_arg.woof_name, thrigger_arg->element_woof);
-    strcpy(invocation_arg.topic_name, thrigger_arg->topic_name);
-    invocation_arg.seq_no = thrigger_arg->element_seqno;
+    strcpy(invocation_arg.woof_name, trigger_arg->element_woof);
+    strcpy(invocation_arg.topic_name, trigger_arg->topic_name);
+    invocation_arg.seq_no = trigger_arg->element_seqno;
 
     int i, j, k;
     for (i = 0; i < list.size; ++i) {
@@ -37,7 +37,7 @@ void* resolve_thread(void* arg) {
                 log_debug("triggered handler %s/%s", list.replica_namespaces[i][k], list.handlers[i]);
                 if (k != list.last_successful_replica[i]) {
                     list.last_successful_replica[i] = k;
-                    seq = WooFPut(thrigger_arg->subscription_woof, NULL, &list);
+                    seq = WooFPut(trigger_arg->subscription_woof, NULL, &list);
                     if (WooFInvalid(seq)) {
                         log_error("failed to update last_successful_replica[%d] to %d", i, k);
                     } else {
@@ -49,11 +49,11 @@ void* resolve_thread(void* arg) {
                 // log_debug("mapped: %lu", thrigger_arg->mapped - thrigger_arg->data);
                 // log_debug("triggered: %lu", get_milliseconds() - thrigger_arg->mapped);
                 // log_debug("total: %lu", get_milliseconds() - thrigger_arg->requested);
-                uint64_t found = thrigger_arg->found - thrigger_arg->requested;
-                uint64_t data = thrigger_arg->data - thrigger_arg->found;
-                uint64_t mapped = thrigger_arg->mapped - thrigger_arg->data;
-                uint64_t triggered = get_milliseconds() - thrigger_arg->mapped;
-                uint64_t total = get_milliseconds() - thrigger_arg->requested;
+                uint64_t found = trigger_arg->found - trigger_arg->requested;
+                uint64_t data = trigger_arg->data - trigger_arg->found;
+                uint64_t mapped = trigger_arg->mapped - trigger_arg->data;
+                uint64_t triggered = get_milliseconds() - trigger_arg->mapped;
+                uint64_t total = get_milliseconds() - trigger_arg->requested;
                 printf("TRIGGERED: found: %lu data: %lu mapped: %lu triggered: %lu total: %lu\n",
                        found,
                        data,
@@ -64,15 +64,13 @@ void* resolve_thread(void* arg) {
             }
         }
     }
-    return 0;
 }
 
 int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
-
     log_set_tag("h_trigger");
     log_set_level(DHT_LOG_INFO);
-    // log_set_level(DHT_LOG_DEBUG);
+    log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     uint64_t begin = get_milliseconds();
@@ -114,5 +112,6 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to queue the next h_trigger");
         exit(1);
     }
+    // printf("handler h_trigger took %lu\n", get_milliseconds() - begin);
     return 1;
 }

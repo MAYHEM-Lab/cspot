@@ -93,7 +93,7 @@ int server_publish_map(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (count != 0) {
         if (get_milliseconds() - begin > 200)
-        log_debug("took %lu ms to process %lu publish_map", get_milliseconds() - begin, count);
+            log_debug("took %lu ms to process %lu publish_map", get_milliseconds() - begin, count);
     }
     routine_arg->last_seqno = latest_seq;
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_map", routine_arg);
@@ -101,6 +101,6 @@ int server_publish_map(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to queue the next server_publish_map");
         exit(1);
     }
-
+    // printf("handler server_publish_map took %lu\n", get_milliseconds() - begin);
     return 1;
 }

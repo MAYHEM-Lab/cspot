@@ -296,11 +296,12 @@ void* resolve_thread(void* ptr) {
 
 int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
-
     log_set_tag("h_find_successor");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+
+    uint64_t begin = get_milliseconds();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
@@ -351,5 +352,6 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     monitor_join();
+    // printf("handler h_find_successor took %lu\n", get_milliseconds() - begin);
     return 1;
 }

@@ -15,7 +15,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-
+uint64_t begin = get_milliseconds();
     RAFT_REQUEST_VOTE_ARG request = {0};
     if (monitor_cast(ptr, &request, sizeof(RAFT_REQUEST_VOTE_ARG)) < 0) {
         log_error("failed to monitor_cast");
@@ -150,5 +150,6 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     monitor_exit(ptr);
     monitor_join();
+    // printf("handler h_request_vote took %lu\n", get_milliseconds() - begin);
     return 1;
 }

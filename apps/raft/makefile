@@ -31,6 +31,7 @@ copy: handlers clients test
 	cp h_append_entries ./cspot
 	cp h_check_append_result ./cspot
 	cp h_client_put ./cspot
+	cp h_commit_handler ./cspot
 	cp h_config_change ./cspot
 	cp h_count_vote ./cspot
 	cp h_invoke_committed ./cspot
@@ -58,7 +59,7 @@ test: test_append_handler test_client test_config test_raft_handler test_through
 clients: client_get client_interrupt client_node_info client_observe client_put_result client_put client_reconfig
 
 handlers: s_create_woofs s_start_server\
-d_interrupt h_append_entries h_check_append_result h_client_put h_config_change h_count_vote h_invoke_committed h_replicate_entries h_request_vote h_timeout_checker h_update_commit_index\
+d_interrupt h_append_entries h_check_append_result h_client_put h_commit_handler h_config_change h_count_vote h_invoke_committed h_replicate_entries h_request_vote h_timeout_checker h_update_commit_index\
 
 raft.o: raft.c raft.h
 	${CC} ${CFLAGS} -c raft.c
@@ -115,6 +116,11 @@ h_client_put: h_client_put.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WIN
 	sed 's/WOOF_HANDLER_NAME/h_client_put/g' ${SHEP_SRC} > h_client_put_shepherd.c
 	${CC} ${CFLAGS} -c h_client_put_shepherd.c -o h_client_put_shepherd.o
 	${CC} ${CFLAGS} -o h_client_put h_client_put.c h_client_put_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+h_commit_handler: h_commit_handler.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_commit_handler/g' ${SHEP_SRC} > h_commit_handler_shepherd.c
+	${CC} ${CFLAGS} -c h_commit_handler_shepherd.c -o h_commit_handler_shepherd.o
+	${CC} ${CFLAGS} -o h_commit_handler h_commit_handler.c h_commit_handler_shepherd.o raft.o raft_client.o raft_utils.o ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_config_change: h_config_change.c raft.o raft_client.o raft_utils.o ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_config_change/g' ${SHEP_SRC} > h_config_change_shepherd.c
@@ -175,5 +181,5 @@ clean:
 	rm -rf ./cspot *.o 
 	rm -f test_append_handler test_client test_config test_raft_handler test_throughput test_throughput_handler
 	rm -f client_get client_interrupt client_node_info client_observe client_put_result client_put client_reconfig d_interrupt
-	rm -f h_append_entries h_check_append_result h_client_put h_config_change h_count_vote h_invoke_committed h_replicate_entries h_request_vote h_timeout_checker h_update_commit_index
+	rm -f h_append_entries h_check_append_result h_client_put h_commit_handler h_config_change h_count_vote h_invoke_committed h_replicate_entries h_request_vote h_timeout_checker h_update_commit_index
 	rm -f s_create_woofs s_start_server 
