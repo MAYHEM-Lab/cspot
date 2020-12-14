@@ -52,11 +52,11 @@ void* resolve_thread(void* arg) {
 
 int server_publish_map(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
-
     log_set_tag("server_publish_map");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    zsys_init();
 
     uint64_t begin = get_milliseconds();
 
@@ -76,7 +76,6 @@ int server_publish_map(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("processing %d publish_map", count);
     }
 
-    zsys_init();
     RESOLVE_THREAD_ARG thread_arg[count];
     pthread_t thread_id[count];
 
@@ -89,17 +88,18 @@ int server_publish_map(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
     }
-    threads_join(count, thread_id);
-
-    if (count != 0) {
-        if (get_milliseconds() - begin > 200)
-            log_debug("took %lu ms to process %lu publish_map", get_milliseconds() - begin, count);
-    }
+    
     routine_arg->last_seqno = latest_seq;
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_map", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_map");
         exit(1);
+    }
+
+    threads_join(count, thread_id);
+    if (count != 0) {
+        if (get_milliseconds() - begin > 200)
+            log_debug("took %lu ms to process %lu publish_map", get_milliseconds() - begin, count);
     }
     // printf("handler server_publish_map took %lu\n", get_milliseconds() - begin);
     return 1;

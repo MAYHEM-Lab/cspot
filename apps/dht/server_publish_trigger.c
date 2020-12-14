@@ -4,6 +4,8 @@
 #include "string.h"
 #include "woofc.h"
 
+#define MAX_PUBLISH_SIZE 64
+
 typedef struct resolve_thread_arg {
     unsigned long seq_no;
 } RESOLVE_THREAD_ARG;
@@ -39,6 +41,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    zsys_init();
 
     uint64_t begin = get_milliseconds();
 
@@ -48,11 +51,14 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     int count = latest_seq - routine_arg->last_seqno;
+    if (count > MAX_PUBLISH_SIZE) {
+        log_warn("publish_trigger lag: %d", count);
+        count = MAX_PUBLISH_SIZE;
+    }   
     if (count != 0) {
         log_debug("processing %d publish_trigger", count);
     }
 
-    zsys_init();
     RESOLVE_THREAD_ARG thread_arg[count];
     pthread_t thread_id[count];
 
@@ -64,17 +70,18 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
     }
-    threads_join(count, thread_id);
-
-    if (count != 0) {
-        if (get_milliseconds() - begin > 200)
-            log_debug("took %lu ms to process %lu publish_trigger", get_milliseconds() - begin, count);
-    }
-    routine_arg->last_seqno = latest_seq;
+    routine_arg->last_seqno += count;
+    
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_trigger");
         exit(1);
+    }
+
+    threads_join(count, thread_id);
+    if (count != 0) {
+        if (get_milliseconds() - begin > 200)
+            log_debug("took %lu ms to process %lu publish_trigger", get_milliseconds() - begin, count);
     }
     // printf("handler server_publish_trigger took %lu\n", get_milliseconds() - begin);
     return 1;

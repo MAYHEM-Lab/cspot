@@ -2,6 +2,8 @@
 #include "dht_utils.h"
 #include "woofc.h"
 
+#define MAX_PUBLISH_SIZE 512
+
 int resolve(DHT_NODE_INFO* node, unsigned long seq_no) {
     DHT_SERVER_PUBLISH_FIND_ARG find_arg = {0};
     if (WooFGet(DHT_SERVER_PUBLISH_FIND_WOOF, &find_arg, seq_no) < 0) {
@@ -34,7 +36,7 @@ int server_publish_find(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     log_set_tag("server_publish_find");
     log_set_level(DHT_LOG_INFO);
-    // log_set_level(DHT_LOG_DEBUG);
+    log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
     uint64_t begin = get_milliseconds();
@@ -50,18 +52,23 @@ int server_publish_find(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the latest seqno from %s", DHT_SERVER_PUBLISH_FIND_WOOF);
         exit(1);
     }
-    if (latest_seq != routine_arg->last_seqno) {
-        log_debug("processing %lu publish_find", latest_seq - routine_arg->last_seqno);
+    int count = latest_seq - routine_arg->last_seqno;
+    if (count > MAX_PUBLISH_SIZE) {
+        log_warn("publish_find lag: %d", count);
+        count = MAX_PUBLISH_SIZE;
+    }
+    if (count != 0) {
+        log_debug("processing %lu publish_find", count);
     }
 
-    unsigned long i;
-    for (i = routine_arg->last_seqno + 1; i <= latest_seq; ++i) {
-        if (resolve(&node, i) < 0) {
+    int i;
+    for (i = 0; i < count; ++i) {
+        if (resolve(&node, routine_arg->last_seqno + 1 + i) < 0) {
             log_error("failed to process publish_find at %lu", i);
             exit(1);
         }
     }
-    routine_arg->last_seqno = latest_seq;
+    routine_arg->last_seqno += count;
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_find", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_find");
