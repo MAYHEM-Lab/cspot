@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <czmq.h>
+#include <time.h>
 
 #define TIMEOUT (1000)
 #define DEBUG
@@ -206,6 +207,7 @@ struct arg_stc
 pthread_mutex_t Lock;
 unsigned long Counter;
 int Max;
+int Bytes;
 
 typedef struct arg_stc TARG;
 #define ARGS "a:t:p:m:"
@@ -415,6 +417,9 @@ int main (int argc, char **argv)
         int i;
 	int threads;
 	TARG *tas;
+	struct timeval start;
+	struct timeval end;
+	double elapsed;
 
 
 	memset(ip_addr,0,sizeof(ip_addr));
@@ -464,6 +469,7 @@ int main (int argc, char **argv)
 	Counter = (unsigned long)(Max*threads);
 
 	pthread_mutex_init(&Lock,NULL);
+	gettimeofday(&start,NULL);
 	for (i = 0; i < threads; i++) {
 		tas[i].tid = i;
 		tas[i].count = &Counter;
@@ -482,6 +488,19 @@ int main (int argc, char **argv)
 
 	for(i=0; i < threads; i++) {
 		pthread_join(tids[i],NULL);
+	}
+	gettimeofday(&end,NULL);
+
+	elapsed = ((double)end.tv_sec+(double)end.tv_usec/1000000.0) -
+		  ((double)start.tv_sec+(double)start.tv_usec/1000000.0);
+
+	Bytes = sizeof(unsigned long);
+	if(Counter == 0) {
+		printf("%f bytes in %f secs is %f MB/s\n",
+			(double)(Max*threads*Bytes),
+			elapsed,
+			(double)(Max*threads*Bytes)/(1000000.0*elapsed));
+		fflush(stdout);
 	}
 
 
