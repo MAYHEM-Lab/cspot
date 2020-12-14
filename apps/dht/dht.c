@@ -38,7 +38,6 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {
     DHT_SUCCESSOR_INFO_WOOF,
     DHT_SERVER_PUBLISH_FIND_WOOF,
     DHT_SERVER_PUBLISH_DATA_WOOF,
-    DHT_SERVER_PUBLISH_MAP_WOOF,
     DHT_SERVER_PUBLISH_TRIGGER_WOOF,
     DHT_SERVER_LOOP_ROUTINE_WOOF,
 #ifdef USE_RAFT
@@ -75,7 +74,6 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {
     sizeof(DHT_SUCCESSOR_INFO),
     sizeof(DHT_SERVER_PUBLISH_FIND_ARG),
     sizeof(DHT_SERVER_PUBLISH_DATA_ARG),
-    sizeof(DHT_SERVER_PUBLISH_MAP_ARG),
     sizeof(DHT_SERVER_PUBLISH_TRIGGER_ARG),
     sizeof(DHT_LOOP_ROUTINE_ARG),
 #ifdef USE_RAFT
@@ -111,9 +109,8 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_SHORT,      // DHT_PREDECESSOR_INFO_WOOF,
     DHT_HISTORY_LENGTH_SHORT,      // DHT_SUCCESSOR_INFO_WOOF,
     DHT_HISTORY_LENGTH_EXTRA_LONG, // DHT_SERVER_PUBLISH_FIND_WOOF
-    DHT_HISTORY_LENGTH_EXTRA_LONG,       // DHT_SERVER_PUBLISH_DATA_WOOF
-    DHT_HISTORY_LENGTH_EXTRA_LONG,       // DHT_SERVER_PUBLISH_MAP_WOOF
-    DHT_HISTORY_LENGTH_EXTRA_LONG,       // DHT_SERVER_PUBLISH_TRIGGER_ARG
+    DHT_HISTORY_LENGTH_EXTRA_LONG, // DHT_SERVER_PUBLISH_DATA_WOOF
+    DHT_HISTORY_LENGTH_EXTRA_LONG, // DHT_SERVER_PUBLISH_TRIGGER_ARG
     DHT_HISTORY_LENGTH_LONG,       // DHT_SERVER_LOOP_ROUTINE_WOOF,
 #ifdef USE_RAFT
     DHT_HISTORY_LENGTH_SHORT, // DHT_REPLICATE_STATE_WOOF,
@@ -164,11 +161,6 @@ int dht_start_app_server() {
     seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_data", &routine_arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to start server_publish_data\n");
-        return -1;
-    }
-    seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_map", &routine_arg);
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "failed to start server_publish_map\n");
         return -1;
     }
     seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", &routine_arg);

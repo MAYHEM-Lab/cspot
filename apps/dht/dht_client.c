@@ -143,19 +143,6 @@ int dht_register_topic(char* topic_name, int timeout) {
     }
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
     register_topic_arg.topic_leader = node_info.leader_id;
-    // initial raft index mapping woof
-    DHT_MAP_RAFT_INDEX_ARG map_raft_index_arg = {0};
-    strcpy(map_raft_index_arg.topic_name, topic_name);
-    unsigned long mapping_index = raft_put_handler(node_info.replicas[node_info.leader_id],
-                                                   "r_map_raft_index",
-                                                   &map_raft_index_arg,
-                                                   sizeof(DHT_MAP_RAFT_INDEX_ARG),
-                                                   1,
-                                                   NULL);
-    if (raft_is_error(mapping_index)) {
-        sprintf(dht_error_msg, "failed to map index to raft: %s", raft_error_msg);
-        return -1;
-    }
 #else
     strcpy(register_topic_arg.topic_namespace, local_namespace);
 #endif

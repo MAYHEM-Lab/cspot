@@ -42,14 +42,10 @@ extern "C" {
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
 #define DHT_SERVER_PUBLISH_FIND_WOOF "dht_server_publish_find.woof"
 #define DHT_SERVER_PUBLISH_DATA_WOOF "dht_server_publish_data.woof"
-#define DHT_SERVER_PUBLISH_MAP_WOOF "dht_server_publish_map.woof"
 #define DHT_SERVER_PUBLISH_TRIGGER_WOOF "dht_server_publish_trigger.woof"
 #define DHT_SERVER_LOOP_ROUTINE_WOOF "dht_server_loop_routine.woof"
 #define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
-
-#define DHT_SIM_SNAPSHOT_WOOF "dht_sim_snapshot.woof"
-#define DHT_SIM_ARG_WOOF "dht_sim_arg.woof"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
 #define DHT_HISTORY_LENGTH_SHORT 32
@@ -57,7 +53,6 @@ extern "C" {
 #define DHT_HISTORY_LENGTH_EXTRA_LONG 32768
 #define DHT_MAX_SUBSCRIPTIONS 8
 #define DHT_SUCCESSOR_LIST_R 3
-// #define DHT_REPLICA_NUMBER 3
 #define DHT_REPLICA_NUMBER 5
 #define DHT_REGISTER_TOPIC_REPLICA 3 // can't be greater than DHT_SUCCESSOR_LIST_R
 
@@ -266,11 +261,8 @@ typedef struct dht_invalidate_fingers_arg {
     unsigned char finger_hash[SHA_DIGEST_LENGTH];
 } DHT_INVALIDATE_FINGERS_ARG;
 
-// for raft
 typedef struct dht_map_raft_index_arg {
-    char topic_name[DHT_NAME_LENGTH];
     uint64_t raft_index;
-    uint64_t timestamp;
 } DHT_MAP_RAFT_INDEX_ARG;
 
 typedef struct dht_server_publish_find_arg {
@@ -285,11 +277,7 @@ typedef struct dht_server_publish_data_arg {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
     uint64_t find_arg_seqno;
-    // uint64_t created_ts;
-    // uint64_t find_ts;
 } DHT_SERVER_PUBLISH_DATA_ARG;
-
-typedef RAFT_CLIENT_PUT_RESULT DHT_SERVER_PUBLISH_MAP_ARG;
 
 typedef struct dht_sloop_routine_arg {
     uint64_t last_seqno;
@@ -319,33 +307,6 @@ int dht_join_cluster(char* node_woof,
                      int fix_finger_freq,
                      int update_leader_freq,
                      int daemon_wakeup_freq);
-
-// typedef struct blocked_nodes {
-//     char blocked_nodes[64][256];
-//     int failure_rate[64];
-//     int timeout[64];
-// } BLOCKED_NODES;
-
-// #define BLOCKED_NODES_WOOF "blocked_nodes.woof"
-// int is_blocked(char* target, char* self, BLOCKED_NODES* blocked_nodes);
-// int checkedWooFGet(BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq);
-// unsigned long checkedWooFGetLatestSeq(BLOCKED_NODES* blocked_nodes, char* self, char* woof);
-// unsigned long checkedWooFPut(BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr);
-// unsigned long checkedMonitorRemotePut(BLOCKED_NODES* blocked_nodes,
-//                                       char* self,
-//                                       char* callback_monitor,
-//                                       char* callback_woof,
-//                                       char* callback_handler,
-//                                       void* ptr,
-//                                       int idempotent);
-// unsigned long checked_raft_sessionless_put_handler(BLOCKED_NODES* blocked_nodes,
-//                                                    char* self,
-//                                                    char* replica,
-//                                                    char* handler,
-//                                                    void* ptr,
-//                                                    unsigned long size,
-//                                                    int monitored,
-//                                                    int timeout);
 #endif
 
 #ifdef __cplusplus

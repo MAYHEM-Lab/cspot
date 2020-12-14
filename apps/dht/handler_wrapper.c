@@ -11,7 +11,10 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+extern char WooF_dir[2048];
 
 extern int PUT_HANDLER_NAME(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr);
 
@@ -33,6 +36,43 @@ int get_client_addr(char* client_addr) {
     return -1;
 }
 
+unsigned long map_element(unsigned long raft_index) {
+    DHT_MAP_RAFT_INDEX_ARG arg = {0};
+    arg.raft_index = raft_index;
+
+    char map_index_woof[DHT_NAME_LENGTH] = {0};
+    sprintf(map_index_woof, "PUT_HANDLER_NAME_%s", DHT_MAP_RAFT_INDEX_WOOF_SUFFIX);
+    if (!WooFExist(map_index_woof)) {
+        if (WooFCreate(map_index_woof, sizeof(DHT_MAP_RAFT_INDEX_ARG), DHT_HISTORY_LENGTH_LONG) < 0) {
+            fprintf(stderr, "failed to create woof %s", map_index_woof);
+            return -1;
+        }
+        char woof_file[DHT_NAME_LENGTH] = {0};
+        sprintf(woof_file, "%s/%s", WooF_dir, map_index_woof);
+        if (chmod(woof_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
+            fprintf(stderr, "failed to change file %s's mode to 0666", map_index_woof);
+            return -1;
+        }
+    }
+    return WooFPut(map_index_woof, NULL, &arg);
+}
+
+int get_element(char* raft_addr, void* element, unsigned long seq_no) {
+    char map_index_woof[DHT_NAME_LENGTH] = {0};
+    sprintf(map_index_woof, "PUT_HANDLER_NAME_%s", DHT_MAP_RAFT_INDEX_WOOF_SUFFIX);
+    DHT_MAP_RAFT_INDEX_ARG arg = {0};
+    if (WooFGet(map_index_woof, &arg, seq_no) < 0) {
+        fprintf(stderr, "failed to get the index mapping at %lu from %s\n", seq_no, map_index_woof);
+        return -1;
+    }
+    // RAFT_DATA_TYPE raft_data = {0};
+    if (raft_get(raft_addr, element, arg.raft_index) < 0) {
+        fprintf(stderr, "failed to get the raft_data at %lu from %s\n", arg.raft_index, raft_addr);
+        return -1;
+    }
+    return 0;
+}
+
 int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_INVOCATION_ARG* arg = (DHT_INVOCATION_ARG*)ptr;
 
@@ -51,14 +91,17 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
 #ifdef USE_RAFT
     // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
-    uint64_t begin_get = get_milliseconds();
     if (raft_get(arg->woof_name, &raft_data, arg->seq_no) < 0) {
         log_error("failed to get raft data from %s at %" PRIu64 ": %s", arg->woof_name, arg->seq_no, raft_error_msg);
         exit(1);
     }
-    uint64_t end_get = get_milliseconds();
-    log_debug("raft_get took %" PRIu64 " ms", end_get - begin_get);
-    int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, raft_data.val);
+    unsigned long mapped_seqno = map_element(arg->seq_no);
+    if (WooFInvalid(mapped_seqno)) {
+        log_error("failed to map raft_index to seq_no");
+        exit(1);
+    }
+    log_debug("mapped raft_index %lu to seq_no %lu", arg->seq_no, mapped_seqno);
+    int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, mapped_seqno, raft_data.val);
 #else
     log_debug("using woof, getting seqno %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     unsigned long element_size = WooFMsgGetElSize(arg->woof_name);
