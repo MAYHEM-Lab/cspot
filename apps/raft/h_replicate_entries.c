@@ -109,7 +109,7 @@ uint64_t begin = get_milliseconds();
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
         exit(1);
     }
-    if (last_log_entry_seqno - server_state.commit_index > 0) {
+    if (last_log_entry_seqno - server_state.commit_index >= RAFT_MAX_ENTRIES_PER_REQUEST / 2) {
         log_warn("commit lag: %lu entries", last_log_entry_seqno - server_state.commit_index);
     }
 

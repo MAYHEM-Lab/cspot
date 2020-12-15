@@ -133,7 +133,7 @@ unsigned long raft_put(char* raft_leader, RAFT_DATA_TYPE* data, RAFT_CLIENT_PUT_
     return seq;
 }
 
-int raft_get(char* raft_leader, RAFT_DATA_TYPE* data, uint64_t index) {
+int raft_check_committed(char* raft_leader, uint64_t index) {
     char woof_name[RAFT_NAME_LENGTH] = {0};
     // check if it's committed
     if (raft_leader == NULL) {
@@ -157,8 +157,11 @@ int raft_get(char* raft_leader, RAFT_DATA_TYPE* data, uint64_t index) {
             raft_error_msg, "entry not committed yet: index %lu, commit_index %lu", index, server_state.commit_index);
         return RAFT_NOT_COMMITTED;
     }
+    return 0;
+}
 
-    // check log entry term
+int raft_get(char* raft_leader, RAFT_DATA_TYPE* data, uint64_t index) {
+    char woof_name[RAFT_NAME_LENGTH] = {0};
     RAFT_LOG_ENTRY entry = {0};
     if (raft_leader == NULL) {
         sprintf(woof_name, "%s", RAFT_LOG_ENTRIES_WOOF);

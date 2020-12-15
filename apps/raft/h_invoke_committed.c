@@ -31,10 +31,6 @@ void* invoke_thread(void* arg) {
         log_error("failed to put client_put_result to %s", invoke_thread_arg->request.callback_woof);
         exit(1);
     }
-    log_error("client_put took %lu ms to be processed and %lu ms to invoke (%lu)",
-              invoke_thread_arg->result.picked_ts - invoke_thread_arg->request.created_ts,
-              get_milliseconds() - invoke_thread_arg->result.picked_ts,
-              invoke_thread_arg->result.redirected_time);
 }
 
 int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
@@ -109,9 +105,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
             break;
         }
     }
-    if (count != 0) {
-        log_error("waiting for %d client_put callback to be sent", count);
-    }
+
     threads_join(count, invoke_thread_id);
     free(invoke_thread_arg);
     free(invoke_thread_id);
