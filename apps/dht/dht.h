@@ -36,7 +36,6 @@ extern "C" {
 #define DHT_PREDECESSOR_INFO_WOOF "dht_predecessor_info.woof"
 #define DHT_SUCCESSOR_INFO_WOOF "dht_successor_info.woof"
 #define DHT_FINGER_INFO_WOOF "dht_finger_info.woof"
-#define DHT_REPLICATE_STATE_WOOF "dht_replicate_state.woof"
 #define DHT_TRY_REPLICAS_WOOF "dht_try_replicas.woof"
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
@@ -104,7 +103,6 @@ typedef struct dht_find_successor_arg {
     int32_t query_count;
     int32_t message_count;
     int32_t failure_count;
-    uint64_t created_ts;
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
@@ -173,10 +171,8 @@ typedef struct dht_notify_callback_arg {
 typedef struct dht_register_topic_arg {
     char topic_name[DHT_NAME_LENGTH];
     char topic_namespace[DHT_NAME_LENGTH];
-#ifdef USE_RAFT
     char topic_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int topic_leader;
-#endif
 } DHT_REGISTER_TOPIC_ARG;
 
 typedef struct dht_shift_successor_arg {
@@ -204,7 +200,6 @@ typedef struct dht_trigger_arg {
     uint64_t requested;
     uint64_t found;
     uint64_t data;
-    uint64_t mapped;
 } DHT_TRIGGER_ARG;
 
 typedef struct dht_topic_registry {
@@ -220,10 +215,8 @@ typedef struct dht_daemon_arg {
     uint64_t last_stabilize;
     uint64_t last_check_predecessor;
     uint64_t last_fix_finger;
-#ifdef USE_RAFT
     uint64_t last_update_leader_id;
     uint64_t last_replicate_state;
-#endif
     int32_t stabilize_freq;
     int32_t chk_predecessor_freq;
     int32_t fix_finger_freq;
@@ -249,10 +242,6 @@ typedef struct dht_set_finger_arg {
     int32_t finger_index;
     DHT_FINGER_INFO finger;
 } DHT_SET_FINGER_ARG;
-
-typedef struct dht_replicate_state_arg {
-
-} DHT_REPLICATE_STATE_ARG;
 
 typedef struct dht_try_replicas_arg {
 } DHT_TRY_REPLICAS_ARG;

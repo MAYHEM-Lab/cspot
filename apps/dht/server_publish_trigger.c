@@ -25,7 +25,6 @@ void* resolve_thread(void* arg) {
     }
     trigger_arg.data = get_milliseconds();
     trigger_arg.element_seqno = put_result.index;
-    trigger_arg.mapped = get_milliseconds();
 
     unsigned long seq = WooFPut(DHT_TRIGGER_WOOF, NULL, &trigger_arg);
     if (WooFInvalid(seq)) {
@@ -54,7 +53,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (count > MAX_PUBLISH_SIZE) {
         log_warn("publish_trigger lag: %d", count);
         count = MAX_PUBLISH_SIZE;
-    }   
+    }
     if (count != 0) {
         log_debug("processing %d publish_trigger", count);
     }
@@ -71,7 +70,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
     routine_arg->last_seqno += count;
-    
+
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_trigger");

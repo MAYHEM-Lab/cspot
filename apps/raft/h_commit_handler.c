@@ -33,7 +33,7 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_COMMIT_HANDLER_ARG* arg = (RAFT_COMMIT_HANDLER_ARG*)ptr;
     log_set_tag("h_commit_handler");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
 

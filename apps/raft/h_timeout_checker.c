@@ -137,7 +137,6 @@ uint64_t begin = get_milliseconds();
             thread_arg[i].arg.candidate_vote_pool_seqno = vote_pool_seqno;
             thread_arg[i].arg.last_log_index = latest_log_entry;
             thread_arg[i].arg.last_log_term = last_log_entry.term;
-            thread_arg[i].arg.created_ts = get_milliseconds();
             if (pthread_create(&thread_id[i], NULL, request_vote, (void*)&thread_arg[i]) < 0) {
                 log_error("failed to create thread to send entries");
                 exit(1);

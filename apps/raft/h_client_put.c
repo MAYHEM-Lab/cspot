@@ -32,10 +32,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     int count = latest_request - arg->last_seqno;
     if (count > 0) {
-        log_debug("processing %lu requests, %lu to %lu",
-                  count,
-                  arg->last_seqno + 1,
-                  latest_request);
+        log_debug("processing %lu requests, %lu to %lu", count, arg->last_seqno + 1, latest_request);
     }
 
     unsigned long i;
@@ -57,7 +54,6 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             char redirected_woof[RAFT_NAME_LENGTH] = {0};
             sprintf(redirected_woof, "%s/%s", server_state.current_leader, RAFT_CLIENT_PUT_REQUEST_WOOF);
             strcpy(result.redirected_target, server_state.current_leader);
-            result.redirected_time = get_milliseconds() - request.created_ts;
             result.redirected_seqno = WooFPut(redirected_woof, NULL, &request);
             if (WooFInvalid(result.redirected_seqno)) {
                 log_error("failed to redirect client_put request to %s", redirected_woof);
@@ -78,9 +74,6 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_debug("appended entry[%lu] into log", entry_seqno);
             result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;
-            if (RAFT_SAMPLING_RATE > 0 && (entry_seqno % RAFT_SAMPLING_RATE == 0)) {
-                log_debug("entry %lu was created at %" PRIu64 "", entry_seqno, request.created_ts);
-            }
             // if it's a handler entry, invoke the handler
             if (request.is_handler) {
                 RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)(&request.data);
@@ -113,7 +106,6 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             ++latest_result_seqno;
         }
 
-        result.picked_ts = get_milliseconds();
         unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
         if (WooFInvalid(result_seq)) {
             log_error("failed to write client_put_result");

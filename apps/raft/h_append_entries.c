@@ -35,13 +35,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     int warning_latency = server_state.timeout_min / 2;
 
     RAFT_APPEND_ENTRIES_RESULT result = {0};
-    result.request_created_ts = request.created_ts;
     result.seqno = seq_no;
     result.ack_seq = request.ack_seq;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
-    if (get_milliseconds() - request.created_ts > warning_latency) {
-        log_warn("request %lu took %" PRIu64 "ms to receive", seq_no, get_milliseconds() - request.created_ts);
-    }
+
     int m_id = member_id(request.leader_woof, server_state.member_woofs);
     if (m_id == -1 || m_id >= server_state.members) {
         log_debug("disregard a request from a server not in the config");

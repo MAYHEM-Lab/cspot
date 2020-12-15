@@ -118,7 +118,6 @@ typedef struct raft_append_entries_arg {
     uint64_t prev_log_term;
     RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
     uint64_t leader_commit;
-    uint64_t created_ts;
     uint64_t ack_seq;
 } RAFT_APPEND_ENTRIES_ARG;
 
@@ -134,7 +133,6 @@ typedef struct raft_append_entries_result {
 
 typedef struct raft_client_put_request {
     RAFT_DATA_TYPE data;
-    uint64_t created_ts;
     int32_t is_handler;
     char callback_woof[RAFT_NAME_LENGTH];
     char callback_handler[RAFT_NAME_LENGTH];
@@ -147,8 +145,6 @@ typedef struct raft_client_put_arg {
 } RAFT_CLIENT_PUT_ARG;
 
 typedef struct raft_client_put_result {
-    uint64_t picked_ts;
-    uint64_t redirected_time;
     char source[RAFT_NAME_LENGTH];
     char redirected_target[RAFT_NAME_LENGTH];
     uint64_t redirected_seqno;
@@ -202,7 +198,6 @@ typedef struct raft_request_vote_arg {
     uint64_t candidate_vote_pool_seqno;
     uint64_t last_log_index;
     uint64_t last_log_term;
-    uint64_t created_ts;
 } RAFT_REQUEST_VOTE_ARG;
 
 typedef struct raft_request_vote_result {

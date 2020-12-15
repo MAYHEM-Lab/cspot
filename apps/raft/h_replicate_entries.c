@@ -56,12 +56,6 @@ void* replicate_thread(void* arg) {
                       seq,
                       replicate_thread_arg->arg.prev_log_index,
                       replicate_thread_arg->arg.ack_seq);
-            // log_debug("sent %d entries to member %d [%lu], prev_index: %" PRIu64 ", ack_seq: %lu",
-            //           replicate_thread_arg->num_entries,
-            //           replicate_thread_arg->member_id,
-            //           seq,
-            //           replicate_thread_arg->arg.prev_log_index,
-            //           replicate_thread_arg->arg.ack_seq);
         } else {
             log_debug("sent a heartbeat to member %d [%lu]", replicate_thread_arg->member_id, seq);
         }
@@ -71,9 +65,9 @@ void* replicate_thread(void* arg) {
 int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("replicate_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-uint64_t begin = get_milliseconds();
+    uint64_t begin = get_milliseconds();
     RAFT_REPLICATE_ENTRIES_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_REPLICATE_ENTRIES_ARG)) < 0) {
         log_error("failed to monitor_cast");
@@ -160,7 +154,6 @@ uint64_t begin = get_milliseconds();
                 }
             }
             thread_arg[m].arg.leader_commit = server_state.commit_index;
-            thread_arg[m].arg.created_ts = get_milliseconds();
             thread_arg[m].arg.ack_seq = server_state.last_sent_request_seq[m] + 1;
             thread_arg[m].seq_no = seq_no;
             if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)&thread_arg[m]) < 0) {

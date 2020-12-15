@@ -40,7 +40,6 @@ uint64_t begin = get_milliseconds();
 
     unsigned long i;
     RAFT_REQUEST_VOTE_RESULT result = {0};
-    result.request_created_ts = request.created_ts;
     result.candidate_vote_pool_seqno = request.candidate_vote_pool_seqno;
     // deny the request if not a member
     int m_id = member_id(request.candidate_woof, server_state.member_woofs);

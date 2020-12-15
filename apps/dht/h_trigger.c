@@ -44,22 +44,11 @@ void* resolve_thread(void* arg) {
                         log_debug("updated last_successful_replica[%d] to %d", i, k);
                     }
                 }
-                // log_debug("found: %lu", thrigger_arg->found - thrigger_arg->requested);
-                // log_debug("data: %lu", thrigger_arg->data - thrigger_arg->found);
-                // log_debug("mapped: %lu", thrigger_arg->mapped - thrigger_arg->data);
-                // log_debug("triggered: %lu", get_milliseconds() - thrigger_arg->mapped);
-                // log_debug("total: %lu", get_milliseconds() - thrigger_arg->requested);
                 uint64_t found = trigger_arg->found - trigger_arg->requested;
                 uint64_t data = trigger_arg->data - trigger_arg->found;
-                uint64_t mapped = trigger_arg->mapped - trigger_arg->data;
-                uint64_t triggered = get_milliseconds() - trigger_arg->mapped;
+                uint64_t triggered = get_milliseconds() - trigger_arg->data;
                 uint64_t total = get_milliseconds() - trigger_arg->requested;
-                printf("TRIGGERED: found: %lu data: %lu mapped: %lu triggered: %lu total: %lu\n",
-                       found,
-                       data,
-                       mapped,
-                       triggered,
-                       total);
+                printf("TRIGGERED: found: %lu data: %lu triggered: %lu total: %lu\n", found, data, triggered, total);
                 break;
             }
         }
@@ -70,8 +59,9 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
     log_set_tag("h_trigger");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    zsys_init();
 
     uint64_t begin = get_milliseconds();
 
@@ -85,7 +75,6 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("processing %d triggers", count);
     }
 
-    zsys_init();
     DHT_TRIGGER_ARG thread_arg[count];
     pthread_t thread_id[count];
 

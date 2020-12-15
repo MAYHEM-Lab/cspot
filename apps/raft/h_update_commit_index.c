@@ -19,13 +19,11 @@ int comp_index(const void* a, const void* b) {
 int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_update_commit_index");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    uint64_t begin = get_milliseconds();
-    // zsys_init() is called automatically when a socket is created
-    // not thread safe and can only be called in main thread
-    // call it here to avoid being called concurrently in the threads
     zsys_init();
+
+    uint64_t begin = get_milliseconds();
 
     RAFT_UPDATE_COMMIT_INDEX_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_UPDATE_COMMIT_INDEX_ARG)) < 0) {
