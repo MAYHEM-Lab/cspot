@@ -4,3 +4,9 @@
 [submodule "deps/pybind11"]
 	path = deps/pybind11
 	url = https://github.com/pybind/pybind11/
+[submodule "deps/czmq"]
+	path = deps/czmq
+	url = https://github.com/FatihBAKIR/czmq
+[submodule "deps/libzmq"]
+	path = deps/libzmq
+	url = https://github.com/FatihBAKIR/libzmq
