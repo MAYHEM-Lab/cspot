@@ -19,6 +19,7 @@ extern LOG* Name_log;
 }
 
 #include <string_view>
+#include <string>
 namespace cspot {
 struct context {
     std::string WooF_namespace;
