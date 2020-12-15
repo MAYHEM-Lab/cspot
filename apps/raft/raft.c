@@ -291,6 +291,14 @@ int raft_start_server(int members,
         fprintf(stderr, "Couldn't start h_append_entries\n");
         return -1;
     }
+    RAFT_COMMIT_HANDLER_ARG committed_handler_arg = {0};
+    committed_handler_arg.last_index = 0;
+    seq = WooFPut(RAFT_COMMIT_HANDLER_WOOF, "h_commit_handler", &committed_handler_arg);
+    if (WooFInvalid(seq)) {
+        fprintf(stderr, "failed to start h_commit_handler handler");
+        return -1;
+    }
+
     if (!observer) {
         RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
         timeout_checker_arg.timeout_value = random_timeout(get_milliseconds(), timeout_min, timeout_max);

@@ -31,7 +31,7 @@
 #define RAFT_CLIENT_PUT_RESULT_WOOF "raft_client_put_result.woof"
 #define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
 #define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
-#define RAFT_CHECK_APPEND_RESULT_WOOF  "raft_check_append_result.woof"
+#define RAFT_CHECK_APPEND_RESULT_WOOF "raft_check_append_result.woof"
 #define RAFT_UPDATE_COMMIT_INDEX_WOOF "raft_update_commit_index.woof"
 #define RAFT_INVOKE_COMMITTED_WOOF "raft_invoke_committed.woof"
 #define RAFT_COMMIT_HANDLER_WOOF "raft_commit_handler.woof"
@@ -183,7 +183,6 @@ typedef struct raft_invoke_committed_arg {
 } RAFT_INVOKE_COMMITTED_ARG;
 
 typedef struct raft_commit_handler_arg {
-    uint64_t term;
     uint64_t last_index;
 } RAFT_COMMIT_HANDLER_ARG;
 

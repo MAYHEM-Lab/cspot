@@ -63,22 +63,6 @@ int start_routines(RAFT_SERVER_STATE* server_state) {
         return -1;
     }
     log_debug("started h_invoke_committed");
-
-    RAFT_COMMIT_HANDLER_ARG committed_handler_arg = {0};
-    latest_seqno = WooFGetLatestSeqno(RAFT_COMMIT_HANDLER_WOOF);
-    if (latest_seqno > 0) {
-        if (WooFGet(RAFT_COMMIT_HANDLER_WOOF, &committed_handler_arg, latest_seqno) < 0) {
-            log_error("failed to get the last h_commit_handler status");
-            return -1;
-        }
-    }
-    committed_handler_arg.term = server_state->current_term;
-    seq = WooFPut(RAFT_COMMIT_HANDLER_WOOF, "h_commit_handler", &committed_handler_arg);
-    if (WooFInvalid(seq)) {
-        log_error("failed to start h_commit_handler handler");
-        return -1;
-    }
-    log_debug("started h_commit_handler");
     return 0;
 }
 

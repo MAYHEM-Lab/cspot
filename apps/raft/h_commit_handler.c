@@ -46,13 +46,6 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
-    if (server_state.current_term != arg->term || server_state.role != RAFT_LEADER) {
-        log_debug("not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "",
-                  arg->term,
-                  server_state.current_term);
-        return 1;
-    }
-
     int pending = server_state.commit_index - arg->last_index;
     RAFT_LOG_ENTRY* invoke_thread_arg = malloc(sizeof(RAFT_LOG_ENTRY) * pending);
     pthread_t* invoke_thread_id = malloc(sizeof(pthread_t) * pending);
