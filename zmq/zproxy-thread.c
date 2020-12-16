@@ -10,7 +10,7 @@
 #ifdef SERVER
 #define ARGS "t:p:q"
 char *Usage = "zproxy-thread -p port -t threads -q <quiet>\n";
-Quiet = 0;
+int Quiet = 0;
 
 void *MsgThread(void * arg)
 {
