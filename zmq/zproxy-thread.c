@@ -5,9 +5,6 @@
 
 #define TIMEOUT (1000)
 
-#define DEBUG
-
-
 #ifdef SERVER
 #define ARGS "t:p:q"
 char *Usage = "zproxy-thread -p port -t threads -q <quiet>\n";
@@ -258,10 +255,16 @@ unsigned long shash(unsigned char *str)
  */ 
 zsock_t *SocketCacheFind(char *endpoint)
 {
-	unsigned long hash = shash(endpoint);
+	unsigned long hash;
 	int start = hash % SCACHESIZE;
 	int curr;
 	zsock_t *s;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
 
 	pthread_mutex_lock(&Lock);
 	curr = start;
@@ -291,9 +294,15 @@ zsock_t *SocketCacheFind(char *endpoint)
 
 void SocketCacheInsert(char *endpoint, zsock_t *s)
 {
-	unsigned long hash = shash(endpoint);
-	int start = hash % SCACHESIZE;
+	unsigned long hash;
+	int start;
 	int curr;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
 
 	pthread_mutex_lock(&Lock);
 	curr=start;
@@ -328,9 +337,15 @@ void SocketCacheInsert(char *endpoint, zsock_t *s)
 
 void SocketCacheRemove(char *endpoint)
 {
-	unsigned long hash = shash(endpoint);
-	int start = hash % SCACHESIZE;
+	unsigned long hash;
+	int start;
 	int curr;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
 
 	pthread_mutex_lock(&Lock);
 	curr=start;
@@ -606,9 +621,6 @@ void *MsgThread(void *arg)
 		printf("thread: %d sent %d requests\n",ta->tid,reqcnt);
 		fflush(stdout);
 	}
-	if(UseCache == 1) {
-		SocketCacheClear();
-	}
 	pthread_exit(NULL);
 }
 
@@ -715,6 +727,9 @@ int main (int argc, char **argv)
 			(double)(Max*threads*Bytes)/(1000000.0*elapsed),
 			(double)(Max*threads)/elapsed);
 		fflush(stdout);
+	}
+	if(UseCache == 1) {
+		SocketCacheClear();
 	}
 
 
