@@ -8,8 +8,9 @@
 
 
 #ifdef SERVER
-#define ARGS "t:p:"
-char *Usage = "zproxy-thread -p port -t threads\n";
+#define ARGS "t:p:q"
+char *Usage = "zproxy-thread -p port -t threads -q <quiet>\n";
+Quiet = 0;
 
 void *MsgThread(void * arg)
 {
@@ -50,10 +51,6 @@ void *MsgThread(void * arg)
 		 */
 		str = (char *)zframe_data(frame);
 		tag = strtoul(str, (char **)NULL, 10);
-#ifdef DEBUG
-		printf("MsgThread: received msg tag: %d\n", tag);
-		fflush(stdout);
-#endif
 
 		r_msg = zmsg_new();
 		if (r_msg == NULL)
@@ -63,10 +60,10 @@ void *MsgThread(void * arg)
 		}
 		memset(buffer, 0, sizeof(buffer));
         	sprintf(buffer, "%lu", tag);
-#ifdef DEBUG
-		printf("MsgThread: replying with tag: %s\n", buffer);
-		fflush(stdout);
-#endif
+		if(Quiet == 0) {
+			printf("MsgThread: replying with tag: %s\n", buffer);
+			fflush(stdout);
+		}
         	r_frame = zframe_new(buffer, strlen(buffer));
         	if (r_frame == NULL)
 		{       
@@ -116,6 +113,7 @@ int main (int argc, char **argv)
         pthread_t *tids;
         int i;
 	int threads;
+	int quiet;
 
         zsock_t *frontend;
         zsock_t *workers;
@@ -123,6 +121,7 @@ int main (int argc, char **argv)
 
 	threads = 0;
 	port = 0;
+	Quiet = 0;
 	while((c=getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 't':
@@ -130,6 +129,9 @@ int main (int argc, char **argv)
 				break;
 			case 'p':
 				port = atoi(optarg);
+				break;
+			case 'q':
+				Quiet = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -210,9 +212,10 @@ int Max;
 int Bytes;
 
 typedef struct arg_stc TARG;
-#define ARGS "a:t:p:m:"
-char *Usage = "zproxy-thread-client -a ip_addr_for_server -p port -t threads -m maxcount\n";
+#define ARGS "a:t:p:m:q"
+char *Usage = "zproxy-thread-client -a ip_addr_for_server -p port -t threads -m maxcount -q <quiet>\n";
 
+int Quiet;
 
 zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 {
@@ -353,10 +356,10 @@ void *MsgThread(void *arg)
 
 		memset(buffer, 0, sizeof(buffer));
         	sprintf(buffer, "%lu", value);
-#ifdef DEBUG
-		printf("MsgThread(%d) sending %s (%lu) len: %d\n",ta->tid,buffer,value,strlen(buffer));
-		fflush(stdout);
-#endif
+		if(Quiet == 0) {
+			printf("MsgThread(%d) sending %s (%lu) len: %d\n",ta->tid,buffer,value,strlen(buffer));
+			fflush(stdout);
+		}
 		frame = zframe_new(buffer, strlen(buffer));
 		if (frame == NULL)
 		{       
@@ -401,8 +404,10 @@ void *MsgThread(void *arg)
 		zmsg_destroy(&r_msg);
 		reqcnt++;
 	}
-	printf("thread: %d sent %d requests\n",ta->tid,reqcnt);
-	fflush(stdout);
+	if(Quiet == 0) {
+		printf("thread: %d sent %d requests\n",ta->tid,reqcnt);
+		fflush(stdout);
+	}
 	pthread_exit(NULL);
 }
 
@@ -439,6 +444,9 @@ int main (int argc, char **argv)
 				break;
 			case 'm':
 				Max = atoi(optarg);
+				break;
+			case 'q':
+				Quiet = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -496,10 +504,12 @@ int main (int argc, char **argv)
 
 	Bytes = sizeof(unsigned long);
 	if(Counter == 0) {
-		printf("%f bytes in %f secs is %f MB/s\n",
+		printf("%f msgs %f bytes in %f secs is %f MB/s %f msg/s\n",
+			(double)Max*threads,
 			(double)(Max*threads*Bytes),
 			elapsed,
-			(double)(Max*threads*Bytes)/(1000000.0*elapsed));
+			(double)(Max*threads*Bytes)/(1000000.0*elapsed),
+			(double)(Max*threads)/elapsed);
 		fflush(stdout);
 	}
 
