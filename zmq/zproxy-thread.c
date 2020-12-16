@@ -69,7 +69,7 @@ void *MsgThread(void * arg)
 			printf("MsgThread: replying with tag: %s, len: %d\n", buffer, strlen(buffer));
 			fflush(stdout);
 		}
-        	r_frame = zframe_new(buffer, strlen(buffer));
+        	r_frame = zframe_new(buffer, strlen(buffer)+1);
         	if (r_frame == NULL)
 		{       
 			perror("MsgThread: no reply frame");
@@ -543,8 +543,7 @@ void *MsgThread(void *arg)
 			printf("MsgThread(%d) sending %s (%lu) len: %d\n",ta->tid,buffer,value,strlen(buffer));
 			fflush(stdout);
 		}
-//		frame = zframe_new(buffer, strlen(buffer));
-		frame = zframe_from(buffer);
+		frame = zframe_new(buffer, strlen(buffer)+1);
 		if (frame == NULL)
 		{       
 			fprintf(stderr, "MsgThred(%d): no frame for msg %d\n",
