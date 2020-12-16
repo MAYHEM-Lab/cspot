@@ -4,7 +4,6 @@
 #include <time.h>
 
 #define TIMEOUT (1000)
-#define DEBUG
 
 
 #ifdef SERVER
