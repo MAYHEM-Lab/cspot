@@ -51,6 +51,10 @@ void *MsgThread(void * arg)
 		 * tag in the first frame
 		 */
 		str = (char *)zframe_data(frame);
+		if(Quiet == 0) {
+			printf("MsgThread: received str %s\n",str);
+			fflush(stdout);
+		}
 		tag = strtoul(str, (char **)NULL, 10);
 
 		r_msg = zmsg_new();
