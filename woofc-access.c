@@ -26,7 +26,7 @@ WOOF_CACHE *WooF_cache;
  */
 int UseCache;
 #define SCACHESIZE 500
-pthread_mutex_t Lock;
+pthread_mutex_t CacheLock;
 
 struct scache_stc
 {
@@ -71,7 +71,7 @@ zsock_t *SocketCacheFind(char *endpoint)
 	hash = shash(buffer);
 	start = hash % SCACHESIZE;
 
-	pthread_mutex_lock(&Lock);
+	pthread_mutex_lock(&CacheLock);
 	curr = start;
 	while((SocketCache[curr].hash != 0) && (SocketCache[curr].hash != hash)) {
 		curr++;
@@ -79,20 +79,20 @@ zsock_t *SocketCacheFind(char *endpoint)
 			curr = 0;
 		}
 		if(curr == start) {
-			pthread_mutex_unlock(&Lock);
+			pthread_mutex_unlock(&CacheLock);
 			return(NULL);
 		}
 	}
 	if(SocketCache[curr].hash == 0) {
-		pthread_mutex_unlock(&Lock);
+		pthread_mutex_unlock(&CacheLock);
 		return(NULL);
 	}
 	if(SocketCache[curr].hash == hash) {
 		s = SocketCache[curr].s;
-		pthread_mutex_unlock(&Lock);
+		pthread_mutex_unlock(&CacheLock);
 		return(s);
 	} else {
-		pthread_mutex_unlock(&Lock);
+		pthread_mutex_unlock(&CacheLock);
 		return(NULL);
 	}
 }
@@ -109,14 +109,14 @@ void SocketCacheInsert(char *endpoint, zsock_t *s)
 	hash = shash(buffer);
 	start = hash % SCACHESIZE;
 
-	pthread_mutex_lock(&Lock);
+	pthread_mutex_lock(&CacheLock);
 	curr=start;
 	while(SocketCache[curr].hash != 0) {
 		/*
 	 	 * make insert idempotent.  If endpoint is here, no need to insert
 	 	 */
 		if(SocketCache[curr].hash == hash) {
-			pthread_mutex_unlock(&Lock);
+			pthread_mutex_unlock(&CacheLock);
 			return;
 		}
 		curr++;
@@ -135,7 +135,7 @@ void SocketCacheInsert(char *endpoint, zsock_t *s)
 	
 	SocketCache[curr].hash = hash;
 	SocketCache[curr].s = s;
-	pthread_mutex_unlock(&Lock);
+	pthread_mutex_unlock(&CacheLock);
 
 	return;
 }
@@ -152,7 +152,7 @@ void SocketCacheRemove(char *endpoint)
 	hash = shash(buffer);
 	start = hash % SCACHESIZE;
 
-	pthread_mutex_lock(&Lock);
+	pthread_mutex_lock(&CacheLock);
 	curr=start;
 	while(SocketCache[curr].hash != hash) {
 		curr++;
@@ -160,7 +160,7 @@ void SocketCacheRemove(char *endpoint)
 			curr = 0;
 		}
 		if(curr == start) {
-			pthread_mutex_unlock(&Lock);
+			pthread_mutex_unlock(&CacheLock);
 			return;
 		}
 	}
@@ -168,7 +168,7 @@ void SocketCacheRemove(char *endpoint)
 	SocketCache[curr].hash = 0;
 	SocketCache[curr].s = 0;
 
-	pthread_mutex_unlock(&Lock);
+	pthread_mutex_unlock(&CacheLock);
 	return;
 }	
 
@@ -193,7 +193,7 @@ void WooFMsgCacheInit()
 #ifdef DEBUG
 	printf("WoofMsgCacheInit called\n");
 #endif
-	pthread_mutex_init(&Lock,NULL);
+	pthread_mutex_init(&CacheLock,NULL);
 	UseCache = 1;
 	atexit(WooFMsgCacheClear);
 	return;

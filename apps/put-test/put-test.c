@@ -8,8 +8,9 @@
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "c:f:s:N:H:Lt:S"
+#define ARGS "Cc:f:s:N:H:Lt:S"
 char *Usage = "put-test -f woof_name for experiment (matching recv side)\n\
+\t-C use-socket-cache\n\
 \t-H namelog-path\n\
 \t-s size (payload size)\n\
 \t-c count (number of payloads to send)\n\
@@ -35,6 +36,7 @@ int Curr;
 int Size;
 int Count;
 unsigned long Max_seq_no;
+int EnableCache;
 
 void *PutThread(void *arg)
 {
@@ -140,6 +142,9 @@ int main(int argc, char **argv)
 			case 'S':
 				Simple = 1;
 				break;
+			case 'C':
+				EnableCache = 1;
+				break;
 			default:
 				fprintf(stderr,
 				"unrecognized command %c\n",(char)c);
@@ -180,6 +185,10 @@ int main(int argc, char **argv)
 	if(Namelog_dir[0] != 0) {
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
+	}
+
+	if(EnableCache == 1) {
+		WooFMsgCacheInit();
 	}
 
 	if(UseLocal == 1) {
@@ -360,6 +369,10 @@ int main(int argc, char **argv)
 			arg_name,elapsed,Max_seq_no,bw,(double)Max_seq_no/elapsed);
 	}
 	fflush(stdout);
+
+	if(EnableCache == 1) {
+		WooFMsgCacheShutdown();
+	}
 
 	return(1);
 }
