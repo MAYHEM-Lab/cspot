@@ -14,6 +14,10 @@ int WooFMsgServer(char *namespace);
 
 int WooFURINameSpace(char *woof_uri_str, char *woof_namespace, int len);
 
+void WooFMsgCacheInit(); /* zermomq socket caching */
+void WooFMsgCacheShutdown(); /* zermomq socket caching */
+
+
 /*
  * 2 minute timeout
  */
