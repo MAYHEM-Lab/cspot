@@ -575,7 +575,15 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 	/*
 	 * get a socket to the server
 	 */
-	server = zsock_new_req(endpoint);
+	if(UseCache == 1) {
+		server = SocketCacheFind(endpoint);
+		if(server == NULL) {
+			server = zsock_new_req(endpoint);
+		}
+	} else {
+		server = zsock_new_req(endpoint);
+	}
+
 	if (server == NULL)
 	{
 		fprintf(stderr, "ServerRequest: no server connection to %s\n",
@@ -596,6 +604,9 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zmsg_destroy(&msg);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
 		return (NULL);
 	}
 
@@ -608,9 +619,12 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 		fprintf(stderr, "ServerRequest: msg send to %s failed\n",
 				endpoint);
 		fflush(stderr);
-		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		zmsg_destroy(&msg);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
 		return (NULL);
 	}
 
@@ -626,11 +640,18 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 			fprintf(stderr, "ServerRequest: msg recv from %s failed\n",
 					endpoint);
 			fflush(stderr);
-			zsock_destroy(&server);
 			zpoller_destroy(&resp_poll);
+			if(UseCache == 1) {
+				SocketCacheRemove(endpoint);
+			}
+			zsock_destroy(&server);
 			return (NULL);
 		}
-		zsock_destroy(&server);
+		if(UseCache == 1) {
+			SocketCacheInsert(endpoint,server);
+		} else {
+			zsock_destroy(&server);
+		}
 		zpoller_destroy(&resp_poll);
 		return (r_msg);
 	}
@@ -639,8 +660,11 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 		fprintf(stderr, "ServerRequest: msg recv timeout from %s after %d msec\n",
 				endpoint, WOOF_MSG_REQ_TIMEOUT);
 		fflush(stderr);
-		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
 		return (NULL);
 	}
 	else if (zpoller_terminated(resp_poll))
@@ -648,8 +672,11 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 		fprintf(stderr, "ServerRequest: msg recv interrupted from %s\n",
 				endpoint);
 		fflush(stderr);
-		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
 		return (NULL);
 	}
 	else
@@ -657,8 +684,11 @@ static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 		fprintf(stderr, "ServerRequest: msg recv failed from %s\n",
 				endpoint);
 		fflush(stderr);
-		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
 		return (NULL);
 	}
 }
