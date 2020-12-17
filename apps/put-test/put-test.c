@@ -213,7 +213,7 @@ int main(int argc, char **argv)
 	sprintf(remote_log,"%s/%s.%s",NameSpace,Fname,"log");
 	sprintf(el.log_name,"%s.%s",Fname,"log");
 	el.element_size = Size;
-	el.history_size = Count;
+	el.history_size = Count+10;
 	
 
 	/*
