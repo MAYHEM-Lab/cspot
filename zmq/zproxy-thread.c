@@ -231,8 +231,6 @@ typedef struct scache_stc SCACHE;
 
 SCACHE SocketCache[SCACHESIZE];
 	
-int SocketCacheInit;
-
 
 unsigned long shash(unsigned char *str)
 {
@@ -244,6 +242,8 @@ unsigned long shash(unsigned char *str)
 
     return hash;
 }
+
+	
 
 /*
  * there is a race condition in this code.  If one thread gets
@@ -367,7 +367,7 @@ void SocketCacheRemove(char *endpoint)
 	return;
 }	
 
-void SocketCacheClear()
+void SocketCacheClear(int status, void *arg)
 {
 	int i;
 	for(i=0; i < SCACHESIZE; i++) {
@@ -379,6 +379,11 @@ void SocketCacheClear()
 	return;
 }
 	
+void SocketCacheInit()
+{
+	on_exit(SocketCacheClear,NULL);
+	return;
+}
 zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
 {
 	zsock_t *server;
@@ -532,7 +537,7 @@ void *MsgThread(void *arg)
 	for(i=0; i < ta->max; i++) {
 		if(*(ta->count) == 0) {
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
 		}
@@ -543,7 +548,7 @@ void *MsgThread(void *arg)
 			fprintf(stderr, "MsgThread(%d): msg new %d failed\n",ta->tid,i);
 			fflush(stderr);
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
 		}
@@ -566,7 +571,7 @@ void *MsgThread(void *arg)
 			fflush(stderr);
 			zmsg_destroy(&msg);
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
 		}
@@ -578,7 +583,7 @@ void *MsgThread(void *arg)
 			zframe_destroy(&frame);
 			zmsg_destroy(&msg);
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
 		}
@@ -588,7 +593,7 @@ void *MsgThread(void *arg)
 			fprintf(stderr, "MsgThread(%d): couldn't recv msg for %d\n",
 				ta->tid, i);
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
 		}       
@@ -599,7 +604,7 @@ void *MsgThread(void *arg)
                                         ta->tid, i);
                         zmsg_destroy(&r_msg);
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
                 }
@@ -610,7 +615,7 @@ void *MsgThread(void *arg)
 				ta->tid,value,r_val,i);
                 	zmsg_destroy(&r_msg);
 			if(UseCache == 1) {
-				SocketCacheClear();
+				SocketCacheClear(0,NULL);
 			}
 			pthread_exit(NULL);
 		}
@@ -679,6 +684,9 @@ int main (int argc, char **argv)
 	if(port == 0) {
 		port = 50000;
 	}
+	if(UseCache == 1) {
+		SocketCacheInit();
+	}
 
 	tids = (pthread_t *)malloc(threads*sizeof(pthread_t));
 	if(tids == NULL) {
@@ -728,9 +736,11 @@ int main (int argc, char **argv)
 			(double)(Max*threads)/elapsed);
 		fflush(stdout);
 	}
+#if 0
 	if(UseCache == 1) {
 		SocketCacheClear();
 	}
+#endif
 
 
 	return 0;
