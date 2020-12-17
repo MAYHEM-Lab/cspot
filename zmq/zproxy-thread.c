@@ -5,6 +5,8 @@
 
 #define TIMEOUT (1000)
 
+#define DEBUG
+
 #ifdef SERVER
 #define ARGS "t:p:q"
 char *Usage = "zproxy-thread -p port -t threads -q <quiet>\n";
@@ -367,9 +369,13 @@ void SocketCacheRemove(char *endpoint)
 	return;
 }	
 
-void SocketCacheClear(int status, void *arg)
+void SocketCacheClear()
 {
 	int i;
+#ifdef DEBUG
+	printf("SocketCacheClear called\n");
+	fflush(stdout);
+#endif
 	for(i=0; i < SCACHESIZE; i++) {
 		if(SocketCache[i].hash != 0) {
 			zsock_destroy(&SocketCache[i].s);
@@ -381,7 +387,10 @@ void SocketCacheClear(int status, void *arg)
 	
 void SocketCacheInit()
 {
-	on_exit(SocketCacheClear,NULL);
+#ifdef DEBUG
+	printf("SocketCacheInit called\n");
+#endif
+	atexit(SocketCacheClear);
 	return;
 }
 zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
@@ -743,6 +752,7 @@ int main (int argc, char **argv)
 #endif
 
 
+	exit(0);
 	return 0;
 }
 
