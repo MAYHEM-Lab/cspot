@@ -54,6 +54,7 @@ jobs:
 
     - name: Archive production artifacts
       uses: actions/upload-artifact@v2
+      working-directory: ${{runner.workspace}}/build
       with:
         name: packages
         path: |
