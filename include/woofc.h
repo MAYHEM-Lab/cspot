@@ -25,6 +25,8 @@ int WooFInvalid(unsigned long seq_no);
 
 int WooFValidURI(const char* str);
 
+int WooFLocalIP(char* ip_str, int len);
+
 #if defined (__cplusplus)
 }
 #endif
