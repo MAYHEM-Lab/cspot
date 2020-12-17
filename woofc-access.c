@@ -22,6 +22,191 @@ extern char Host_ip[25];
 WOOF_CACHE *WooF_cache;
 
 /*
+ * socket caching hack for zeromq
+ */
+int UseCache;
+#define SCACHESIZE 500
+pthread_mutex_t Lock;
+
+struct scache_stc
+{
+	unsigned long hash;
+	zsock_t *s;
+};
+
+typedef struct scache_stc SCACHE;
+
+SCACHE SocketCache[SCACHESIZE];
+
+unsigned long shash(unsigned char *str)
+{
+	unsigned long hash = 5381;
+	int c;
+
+	while (c = *str++)
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+	return hash;
+}
+	
+
+/*
+ * there is a race condition in this code.  If one thread gets
+ * an open socket and another does an insert to a full cache, the
+ * socket that has been evicted may get closed.  The fix is either to
+ * track sockets in use (and return them to the hash list when not used) or
+ * to restrict the max number of differet endpoints to the size of the
+ * cache
+ */ 
+zsock_t *SocketCacheFind(char *endpoint)
+{
+	unsigned long hash;
+	int start = hash % SCACHESIZE;
+	int curr;
+	zsock_t *s;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
+
+	pthread_mutex_lock(&Lock);
+	curr = start;
+	while((SocketCache[curr].hash != 0) && (SocketCache[curr].hash != hash)) {
+		curr++;
+		if(curr == SCACHESIZE) {
+			curr = 0;
+		}
+		if(curr == start) {
+			pthread_mutex_unlock(&Lock);
+			return(NULL);
+		}
+	}
+	if(SocketCache[curr].hash == 0) {
+		pthread_mutex_unlock(&Lock);
+		return(NULL);
+	}
+	if(SocketCache[curr].hash == hash) {
+		s = SocketCache[curr].s;
+		pthread_mutex_unlock(&Lock);
+		return(s);
+	} else {
+		pthread_mutex_unlock(&Lock);
+		return(NULL);
+	}
+}
+
+void SocketCacheInsert(char *endpoint, zsock_t *s)
+{
+	unsigned long hash;
+	int start;
+	int curr;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
+
+	pthread_mutex_lock(&Lock);
+	curr=start;
+	while(SocketCache[curr].hash != 0) {
+		/*
+	 	 * make insert idempotent.  If endpoint is here, no need to insert
+	 	 */
+		if(SocketCache[curr].hash == hash) {
+			pthread_mutex_unlock(&Lock);
+			return;
+		}
+		curr++;
+		if(curr == SCACHESIZE) {
+			curr = 0;
+		}
+		if(curr == start) {
+			break;
+		}
+	}
+	if(SocketCache[curr].hash != 0) {
+		zsock_destroy(&SocketCache[curr].s);
+		SocketCache[curr].hash = 0;
+		SocketCache[curr].s = NULL;
+	}
+	
+	SocketCache[curr].hash = hash;
+	SocketCache[curr].s = s;
+	pthread_mutex_unlock(&Lock);
+
+	return;
+}
+
+void SocketCacheRemove(char *endpoint)
+{
+	unsigned long hash;
+	int start;
+	int curr;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
+
+	pthread_mutex_lock(&Lock);
+	curr=start;
+	while(SocketCache[curr].hash != hash) {
+		curr++;
+		if(curr == SCACHESIZE) {
+			curr = 0;
+		}
+		if(curr == start) {
+			pthread_mutex_unlock(&Lock);
+			return;
+		}
+	}
+	
+	SocketCache[curr].hash = 0;
+	SocketCache[curr].s = 0;
+
+	pthread_mutex_unlock(&Lock);
+	return;
+}	
+
+void WooFMsgCacheClear()
+{
+	int i;
+#ifdef DEBUG
+	printf("SocketCacheClear called\n");
+	fflush(stdout);
+#endif
+	for(i=0; i < SCACHESIZE; i++) {
+		if(SocketCache[i].hash != 0) {
+			zsock_destroy(&SocketCache[i].s);
+			SocketCache[i].hash = 0;
+		}
+	}
+	return;
+}
+	
+void WooFMsgCacheInit()
+{
+#ifdef DEBUG
+	printf("WoofMsgCacheInit called\n");
+#endif
+	pthread_mutex_init(&Lock,NULL);
+	UseCache = 1;
+	atexit(WooFMsgCacheClear);
+	return;
+}
+
+void WooFMsgCacheShutdown()
+{
+	WooFMsgCacheClear();
+	UseCache = 0;
+}
+
+
+/*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
 unsigned int WooFPortHash(char *namespace)
