@@ -16,7 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      submodules: recursive
+      with:
+        submodules: recursive
     
     - name: Install ninja
       run: sudo apt-get update && sudo apt-get -y install ninja-build
