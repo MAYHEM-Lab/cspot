@@ -1,9 +1,0 @@
-#include "woofc.h"
-
-extern "C" {
-int @name@(WOOF* wf, unsigned long seq_no, void* ptr);
-
-int handler(WOOF* wf, unsigned long seq_no, void* ptr) {
-    return @name@(wf, seq_no, ptr);
-}
-}

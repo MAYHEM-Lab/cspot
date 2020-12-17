@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(cspot)
+project(cspot VERSION 2.0.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -10,6 +10,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(ENABLE_PYCSPOT "Enable cspot python bindings" OFF)
 option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    message(STATUS "Emitting static binaries")
+    set(CMAKE_C_FLAGS "-static -static-libgcc")
+    set(CMAKE_CXX_FLAGS "-static -static-libgcc -static-libstdc++")
+endif ()
 
 add_subdirectory(deps)
 add_subdirectory(src)
@@ -35,10 +41,17 @@ add_library(woof
         src/global.cpp
         src/include/woofc-priv.h)
 
+target_include_directories(woof PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+        )
+
+target_include_directories(woof PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+
 find_package(Threads REQUIRED)
 
-target_include_directories(woof PRIVATE src/include)
-target_include_directories(woof PUBLIC include)
 target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2 fmt::fmt)
 target_compile_features(woof PUBLIC cxx_std_17)
 
@@ -67,28 +80,57 @@ target_include_directories(woofc-namespace-platform PRIVATE src/include)
 add_executable(woofc-container src/woofc-container.cpp)
 target_link_libraries(woofc-container PRIVATE woof)
 target_include_directories(woofc-container PRIVATE src/include)
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    message(STATUS "Static linking libgcc and libstdc++")
-    target_link_options(woofc-container PUBLIC -static)
-    target_link_options(woofc-container PRIVATE -static-libgcc)
-    target_link_options(woofc-container PRIVATE -static-libstdc++)
-endif ()
 
 add_library(woofc-shepherd src/woofc-shepherd.c)
 target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_link_options(woofc-shepherd PUBLIC -static)
-    target_link_options(woofc-shepherd PUBLIC -static-libgcc)
-    target_link_options(woofc-shepherd PUBLIC -static-libstdc++)
-endif ()
 
-set(ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 function (add_handler name)
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp
+"#include \"woofc.h\"\n \
+\
+extern \"C\" { \
+int ${name}(WOOF* wf, unsigned long seq_no, void* ptr); \
+ \
+int handler(WOOF* wf, unsigned long seq_no, void* ptr) { \
+    return ${name}(wf, seq_no, ptr); \
+} \
+} \
+")
     add_executable(${name} ${ARGV})
     target_link_libraries(${name} PRIVATE woofc-shepherd)
-    configure_file(${ROOT_PATH}/src/handler_fwd.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp)
     target_sources(${name} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp")
 endfunction()
 
 add_subdirectory(apps)
+
+set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+install(
+    TARGETS woof woofc-host mio euca_utils uriparser2 fmt
+    EXPORT woof
+    DESTINATION lib
+)
+install(
+    TARGETS woofc-shepherd woofc-container woofc-namespace-platform
+    EXPORT woof
+    DESTINATION bin
+)
+#install(TARGETS czmq-static EXPORT woof DESTINATION lib)
+
+install(EXPORT woof DESTINATION lib/cmake/woof)
+#install(EXPORT czmq-targets DESTINATION lib)
+#install(EXPORT ZeroMQ-targets DESTINATION lib)
+
+install(FILES include/woofc.h DESTINATION include)
+install(FILES woof-config.cmake DESTINATION lib/cmake/woof)
+
+set(CPACK_GENERATOR "DEB;RPM;TGZ;STGZ")
+set(CPACK_PACKAGE_VENDOR "Mayhem Lab")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Cspot")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Fatih")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/Readme.adoc")
+include(CPack)
