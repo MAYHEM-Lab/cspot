@@ -28,10 +28,6 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         monitor_exit(ptr);
         exit(1);
     }
-    // BLOCKED_NODES blocked_nodes = {0};
-    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-    //     log_error("failed to get blocked nodes");
-    // }
 
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {

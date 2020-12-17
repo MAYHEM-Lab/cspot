@@ -76,7 +76,7 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_SHORT,      // DHT_DAEMON_WOOF,
     DHT_HISTORY_LENGTH_LONG,       // DHT_FIND_NODE_RESULT_WOOF,
     DHT_HISTORY_LENGTH_SHORT,      // DHT_FIND_SUCCESSOR_ROUTINE_WOOF,
-    DHT_HISTORY_LENGTH_LONG,       // DHT_FIND_SUCCESSOR_WOOF,
+    DHT_HISTORY_LENGTH_EXTRA_LONG, // DHT_FIND_SUCCESSOR_WOOF,
     DHT_HISTORY_LENGTH_LONG,       // DHT_FIX_FINGER_WOOF,
     DHT_HISTORY_LENGTH_LONG,       // DHT_FIX_FINGER_CALLBACK_WOOF,
     DHT_HISTORY_LENGTH_LONG,       // DHT_GET_PREDECESSOR_WOOF,
@@ -91,8 +91,8 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_SHORT,      // DHT_STABILIZE_CALLBACK_WOOF,
     DHT_HISTORY_LENGTH_LONG,       // DHT_SUBSCRIBE_WOOF,
     DHT_HISTORY_LENGTH_LONG,       // DHT_TRIGGER_ROUTINE_WOOF,
-    DHT_HISTORY_LENGTH_LONG,       // DHT_PARTIAL_TRIGGER_WOOF,
-    DHT_HISTORY_LENGTH_LONG,       // DHT_TRIGGER_WOOF,
+    DHT_HISTORY_LENGTH_EXTRA_LONG, // DHT_PARTIAL_TRIGGER_WOOF,
+    DHT_HISTORY_LENGTH_EXTRA_LONG, // DHT_TRIGGER_WOOF,
     DHT_HISTORY_LENGTH_SHORT,      // DHT_NODE_INFO_WOOF,
     DHT_HISTORY_LENGTH_SHORT,      // DHT_PREDECESSOR_INFO_WOOF,
     DHT_HISTORY_LENGTH_SHORT,      // DHT_SUCCESSOR_INFO_WOOF,
@@ -152,6 +152,11 @@ int dht_start_app_server() {
         fprintf(stderr, "failed to start server_publish_trigger\n");
         return -1;
     }
+    // seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_single", &routine_arg);
+    // if (WooFInvalid(seq)) {
+    //     fprintf(stderr, "failed to start server_publish_single\n");
+    //     return -1;
+    // }
 }
 
 int dht_start_daemon(

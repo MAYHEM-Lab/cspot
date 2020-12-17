@@ -11,6 +11,35 @@ typedef struct resolve_thread_arg {
     unsigned long seq_no;
 } RESOLVE_THREAD_ARG;
 
+int update_topic_entry(char* registration_woof, DHT_REGISTER_TOPIC_ARG* register_arg) {
+    char reg_ipaddr[DHT_NAME_LENGTH] = {0};
+    if (WooFIPAddrFromURI(registration_woof, reg_ipaddr, DHT_NAME_LENGTH) < 0) {
+        log_error("failed to extract woof ip address from %s", registration_woof);
+        return -1;
+    }
+    int reg_port = 0;
+    WooFPortFromURI(registration_woof, &reg_port);
+    char reg_namespace[DHT_NAME_LENGTH] = {0};
+    if (WooFNameSpaceFromURI(registration_woof, reg_namespace, DHT_NAME_LENGTH) < 0) {
+        log_error("failed to extract woof namespace from %s", registration_woof);
+        return -1;
+    }
+    char reg_monitor[DHT_NAME_LENGTH] = {0};
+    char reg_woof[DHT_NAME_LENGTH] = {0};
+    if (reg_port > 0) {
+        sprintf(reg_monitor, "woof://%s:%d%s/%s", reg_ipaddr, reg_port, reg_namespace, DHT_MONITOR_NAME);
+        sprintf(reg_woof, "woof://%s:%d%s/%s", reg_ipaddr, reg_port, reg_namespace, DHT_REGISTER_TOPIC_WOOF);
+    } else {
+        sprintf(reg_monitor, "woof://%s%s/%s", reg_ipaddr, reg_namespace, DHT_MONITOR_NAME);
+        sprintf(reg_woof, "woof://%s%s/%s", reg_ipaddr, reg_namespace, DHT_REGISTER_TOPIC_WOOF);
+    }
+    unsigned long seq = monitor_remote_put(reg_monitor, reg_woof, "r_register_topic", register_arg, 0);
+    if (WooFInvalid(seq)) {
+        return -1;
+    }
+    return 0;
+}
+
 void* resolve_thread(void* arg) {
     RESOLVE_THREAD_ARG* thread_arg = (RESOLVE_THREAD_ARG*)arg;
     DHT_SERVER_PUBLISH_DATA_ARG data_arg = {0};
@@ -18,9 +47,6 @@ void* resolve_thread(void* arg) {
         log_error("failed to get server_data_find_arg at %lu", thread_arg->seq_no);
         return;
     }
-    // log_error("data_arg.created_ts: %lu", data_arg.created_ts);
-    // log_error("data_arg.find_ts: %lu (%lu)", data_arg.find_ts, data_arg.find_ts - data_arg.created_ts);
-    // log_error("data_arg.processed: %lu (%lu)", get_milliseconds(), get_milliseconds() - data_arg.find_ts);
 
     DHT_SERVER_PUBLISH_FIND_ARG find_arg = {0};
     if (WooFGet(DHT_SERVER_PUBLISH_FIND_WOOF, &find_arg, data_arg.find_arg_seqno) < 0) {
@@ -59,21 +85,19 @@ void* resolve_thread(void* arg) {
     sprintf(
         partial_trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 
-    char trigger_woof[DHT_NAME_LENGTH] = {0};
+    unsigned long trigger_seq = WooFPut(DHT_PARTIAL_TRIGGER_WOOF, NULL, &partial_trigger_arg);
+    if (WooFInvalid(trigger_seq)) {
+        log_error("failed to store partial trigger to %s", DHT_PARTIAL_TRIGGER_WOOF);
+        return;
+    }
+
     // put data to raft
-    int working_replica_id = -1;
     char* topic_replica;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
         sprintf(partial_trigger_arg.element_woof, "%s", topic_replica);
         RAFT_DATA_TYPE raft_data = {0};
         memcpy(raft_data.val, find_arg.element, find_arg.element_size);
-
-        unsigned long trigger_seq = WooFPut(DHT_PARTIAL_TRIGGER_WOOF, NULL, &partial_trigger_arg);
-        if (WooFInvalid(trigger_seq)) {
-            log_error("failed to store partial trigger to %s", DHT_PARTIAL_TRIGGER_WOOF);
-            return;
-        }
 
         RAFT_CLIENT_PUT_OPTION opt = {0};
         sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);
@@ -82,14 +106,27 @@ void* resolve_thread(void* arg) {
         unsigned long seq = raft_put(topic_replica, &raft_data, &opt);
         if (raft_is_error(seq)) {
             log_error("failed to put data to raft: %s", raft_error_msg);
-            return;
+            continue;
         }
         // log_debug("requested to put data to raft, client_put seqno: %lu", seq);
         break;
     }
     if (i == DHT_REPLICA_NUMBER) {
-        log_error("failed to put data to raft: %s", "none of replicas is working leader");
+        log_error("failed to put data to raft: %s", "none of replicas is working");
         return;
+    }
+    if (i != 0) {
+        // update last_leader
+        DHT_REGISTER_TOPIC_ARG register_arg = {0};
+        memcpy(register_arg.topic_name, topic_entry.topic_name, sizeof(register_arg.topic_name));
+        memcpy(register_arg.topic_namespace, topic_entry.topic_namespace, sizeof(register_arg.topic_namespace));
+        memcpy(register_arg.topic_replicas, topic_entry.topic_replicas, sizeof(register_arg.topic_replicas));
+        register_arg.topic_leader = topic_entry.last_leader + i;
+        if (update_topic_entry(registration_woof, &register_arg) < 0) {
+            log_error("failed to update registry's last leader to %d", topic_entry.last_leader + i);
+        } else {
+            log_debug("updated registry's last leader to %d", topic_entry.last_leader + i);
+        }
     }
 }
 

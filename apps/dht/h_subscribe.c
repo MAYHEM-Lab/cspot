@@ -42,7 +42,16 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     int i, j;
     for (i = 0; i < list.size; ++i) {
         if (strcmp(list.handlers[i], arg.handler) == 0) {
-            log_info("%s has already subscribed to topic %s", arg.handler, arg.topic_name);
+            log_info("%s has already subscribed to topic %s, updating entry", arg.handler, arg.topic_name);
+            memcpy(list.replica_namespaces[i], arg.replica_namespaces, sizeof(list.replica_namespaces[i]));
+            list.last_successful_replica[i] = arg.replica_leader;
+            unsigned long seq = WooFPut(subscription_woof, NULL, &list);
+            if (WooFInvalid(seq)) {
+                log_error("failed to update subscription list %s", subscription_woof);
+                monitor_exit(ptr);
+                exit(1);
+            }
+            log_info("subsctiprion list updated");
             monitor_exit(ptr);
             return 1;
         }
@@ -50,7 +59,7 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     memcpy(list.handlers[list.size], arg.handler, sizeof(list.handlers[list.size]));
     memcpy(list.replica_namespaces[list.size], arg.replica_namespaces, sizeof(list.replica_namespaces[list.size]));
-    list.last_successful_replica[list.size] = 0;
+    list.last_successful_replica[list.size] = arg.replica_leader;
     list.size += 1;
     log_debug("number of subscription: %d", list.size);
     for (i = 0; i < list.size; ++i) {
@@ -61,7 +70,7 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     unsigned long seq = WooFPut(subscription_woof, NULL, &list);
     if (WooFInvalid(seq)) {
-        log_error("failed to update subscription list %s", arg.topic_name);
+        log_error("failed to update subscription list %s", subscription_woof);
         monitor_exit(ptr);
         exit(1);
     }

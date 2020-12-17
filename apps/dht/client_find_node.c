@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
                 query_count = result.find_successor_query_count;
                 message_count = result.find_successor_message_count;
                 failure_count = result.find_successor_failure_count;
-                return 0;
+                break;
             }
         }
         last_checked_result = latest_result;

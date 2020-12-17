@@ -7,6 +7,35 @@
 #include <stdlib.h>
 #include <string.h>
 
+int update_subscription_list(char* subscription_woof, DHT_SUBSCRIBE_ARG* subscribe_arg) {
+    char sub_ipaddr[DHT_NAME_LENGTH] = {0};
+    if (WooFIPAddrFromURI(subscription_woof, sub_ipaddr, DHT_NAME_LENGTH) < 0) {
+        log_error("failed to extract woof ip address from %s", subscription_woof);
+        return -1;
+    }
+    int sub_port = 0;
+    WooFPortFromURI(subscription_woof, &sub_port);
+    char sub_namespace[DHT_NAME_LENGTH] = {0};
+    if (WooFNameSpaceFromURI(subscription_woof, sub_namespace, DHT_NAME_LENGTH) < 0) {
+        log_error("failed to extract woof namespace from %s", subscription_woof);
+        return -1;
+    }
+    char sub_monitor[DHT_NAME_LENGTH] = {0};
+    char sub_woof[DHT_NAME_LENGTH] = {0};
+    if (sub_port > 0) {
+        sprintf(sub_monitor, "woof://%s:%d%s/%s", sub_ipaddr, sub_port, sub_namespace, DHT_MONITOR_NAME);
+        sprintf(sub_woof, "woof://%s:%d%s/%s", sub_ipaddr, sub_port, sub_namespace, DHT_SUBSCRIBE_WOOF);
+    } else {
+        sprintf(sub_monitor, "woof://%s%s/%s", sub_ipaddr, sub_namespace, DHT_MONITOR_NAME);
+        sprintf(sub_woof, "woof://%s%s/%s", sub_ipaddr, sub_namespace, DHT_SUBSCRIBE_WOOF);
+    }
+    unsigned long seq = monitor_remote_put(sub_monitor, sub_woof, "r_subscribe", subscribe_arg, 0);
+    if (WooFInvalid(seq)) {
+        return -1;
+    }
+    return 0;
+}
+
 void* resolve_thread(void* arg) {
     DHT_TRIGGER_ARG* trigger_arg = (DHT_TRIGGER_ARG*)arg;
     DHT_SUBSCRIPTION_LIST list = {0};
@@ -29,21 +58,26 @@ void* resolve_thread(void* arg) {
             }
             char invocation_woof[DHT_NAME_LENGTH];
             sprintf(invocation_woof, "%s/%s", list.replica_namespaces[i][k], DHT_INVOCATION_WOOF);
-            // tmp = get_milliseconds();
             unsigned long seq = WooFPut(invocation_woof, list.handlers[i], &invocation_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to trigger handler %s in %s", list.handlers[i], list.replica_namespaces[i][k]);
             } else {
                 log_debug("triggered handler %s/%s", list.replica_namespaces[i][k], list.handlers[i]);
                 if (k != list.last_successful_replica[i]) {
-                    list.last_successful_replica[i] = k;
-                    seq = WooFPut(trigger_arg->subscription_woof, NULL, &list);
-                    if (WooFInvalid(seq)) {
+                    DHT_SUBSCRIBE_ARG subscribe_arg = {0};
+                    memcpy(subscribe_arg.handler, list.handlers[i], sizeof(subscribe_arg.handler));
+                    subscribe_arg.replica_leader = k;
+                    memcpy(subscribe_arg.replica_namespaces,
+                           list.replica_namespaces[i],
+                           sizeof(subscribe_arg.replica_namespaces));
+                    memcpy(subscribe_arg.topic_name, invocation_arg.topic_name, sizeof(subscribe_arg.topic_name));
+                    if (update_subscription_list(trigger_arg->subscription_woof, &subscribe_arg) < 0) {
                         log_error("failed to update last_successful_replica[%d] to %d", i, k);
                     } else {
                         log_debug("updated last_successful_replica[%d] to %d", i, k);
                     }
                 }
+
                 uint64_t found = trigger_arg->found - trigger_arg->requested;
                 uint64_t data = trigger_arg->data - trigger_arg->found;
                 uint64_t triggered = get_milliseconds() - trigger_arg->data;

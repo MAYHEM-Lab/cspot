@@ -190,6 +190,7 @@ typedef struct dht_subscribe_arg {
     char topic_name[DHT_NAME_LENGTH];
     char handler[DHT_NAME_LENGTH];
     char replica_namespaces[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t replica_leader;
 } DHT_SUBSCRIBE_ARG;
 
 typedef struct dht_trigger_arg {

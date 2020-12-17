@@ -83,12 +83,12 @@ int main(int argc, char** argv) {
     }
 
     char result_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-    int result_leader;
+    int result_leader = -1;
     int query_count;
     int message_count;
     int failure_count;
 
-    while (1) {
+    while (result_leader == -1) {
         if (timeout > 0 && get_milliseconds() - begin > timeout) {
             fprintf(stderr, "timeout after %d ms", timeout);
             exit(1);
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
                 query_count = result.find_successor_query_count;
                 message_count = result.find_successor_message_count;
                 failure_count = result.find_successor_failure_count;
-                return 0;
+                break;
             }
         }
         last_checked_result = latest_result;
@@ -139,6 +139,7 @@ int main(int argc, char** argv) {
         if (get_latest_element(registration_woof, &topic_entry) < 0) {
             sprintf(
                 dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
+            continue;
         }
         break;
     }

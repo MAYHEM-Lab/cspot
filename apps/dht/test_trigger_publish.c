@@ -12,7 +12,7 @@
 
 #define TEST_HANDLER "test_dht_handler"
 #define ARGS "t:m:i:"
-char* Usage = "test_trigger_publish -t topic -m message -i client_addr)\n";
+char* Usage = "test_trigger_publish -t topic -m message -i client_addr\n";
 
 typedef struct test_stc {
     char msg[256 - 8];
@@ -48,7 +48,6 @@ int main(int argc, char** argv) {
     }
 
     if (arg.topic_name[0] == 0 || message[0] == 0) {
-        fprintf(stderr, "unrecognized command %c\n", (char)c);
         fprintf(stderr, "%s", Usage);
         exit(1);
     }

@@ -63,7 +63,7 @@ int server_publish_find(WOOF* wf, unsigned long seq_no, void* ptr) {
     int i;
     for (i = 0; i < count; ++i) {
         if (resolve(&node, routine_arg->last_seqno + 1 + i) < 0) {
-            log_error("failed to process publish_find at %lu", i);
+            log_error("failed to process publish_find at %lu", routine_arg->last_seqno + 1 + i);
             exit(1);
         }
     }

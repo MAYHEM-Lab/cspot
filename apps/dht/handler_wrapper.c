@@ -91,9 +91,9 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
 #ifdef USE_RAFT
     // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
-    if (raft_get(arg->woof_name, &raft_data, arg->seq_no) < 0) {
-        log_error("failed to get raft data from %s at %" PRIu64 ": %s", arg->woof_name, arg->seq_no, raft_error_msg);
-        exit(1);
+    while (raft_get(arg->woof_name, &raft_data, arg->seq_no) < 0) {
+        log_warn("failed to get raft data from %s at %lu, probably not committed yet", arg->woof_name, arg->seq_no);
+        usleep(100 * 1000); // be patient my padawan
     }
     unsigned long mapped_seqno = map_element(arg->seq_no);
     if (WooFInvalid(mapped_seqno)) {
