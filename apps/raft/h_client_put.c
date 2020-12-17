@@ -35,6 +35,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("processing %lu requests, %lu to %lu", count, arg->last_seqno + 1, latest_request);
     }
 
+    int redirected = 0;
     unsigned long i;
     for (i = arg->last_seqno + 1; i <= latest_request; ++i) {
         RAFT_CLIENT_PUT_REQUEST request = {0};
@@ -59,6 +60,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
                 log_error("failed to redirect client_put request to %s", redirected_woof);
             }
             log_debug("redirected request to leader %s[%lu]", result.redirected_target, result.redirected_seqno);
+            ++redirected;
         } else {
             unsigned long entry_seqno;
             RAFT_LOG_ENTRY entry = {0};
@@ -98,6 +100,10 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (count == 0) {
         // usleep(100 * 1000);
+    }
+
+    if (redirected > 0) {
+        log_warn("redirected %d requests to the leader", redirected);
     }
 
     unsigned long seq = WooFPut(RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg);

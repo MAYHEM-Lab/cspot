@@ -21,9 +21,6 @@ typedef struct replicate_thread_arg {
     unsigned long seq_no;
 } REPLICATE_THREAD_ARG;
 
-pthread_t thread_id[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-REPLICATE_THREAD_ARG thread_arg[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-
 void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
     char monitor_name[RAFT_NAME_LENGTH];
@@ -103,13 +100,14 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
         exit(1);
     }
-    if (last_log_entry_seqno - server_state.commit_index > 0) {
+    if (last_log_entry_seqno - server_state.commit_index > 2) {
         log_warn("commit_lag: %lu entries %lu ", last_log_entry_seqno - server_state.commit_index, get_milliseconds());
     }
 
     // send entries to members and observers
+    pthread_t* thread_id = malloc(sizeof(pthread_t) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
     memset(thread_id, 0, sizeof(pthread_t) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
-    memset(thread_arg, 0, sizeof(REPLICATE_THREAD_ARG) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
+    REPLICATE_THREAD_ARG* thread_arg = malloc(sizeof(REPLICATE_THREAD_ARG) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
     int m;
     for (m = 0; m < RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS; ++m) {
         if ((m >= server_state.members && m < RAFT_MAX_MEMBERS) || (m >= RAFT_MAX_MEMBERS + server_state.observers)) {
@@ -138,6 +136,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 RAFT_LOG_ENTRY prev_entry = {0};
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &prev_entry, thread_arg[m].arg.prev_log_index) < 0) {
                     log_error("failed to get the previous log entry");
+                    threads_join(m, thread_id);
+                    free(thread_id);
+                    free(thread_arg);
                     exit(1);
                 }
                 thread_arg[m].arg.prev_log_term = prev_entry.term;
@@ -146,6 +147,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             for (i = 0; i < num_entries; ++i) {
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &thread_arg[m].arg.entries[i], server_state.next_index[m] + i) < 0) {
                     log_error("failed to get the log entries at %" PRIu64 "", server_state.next_index[m] + i);
+                    threads_join(m, thread_id);
+                    free(thread_id);
+                    free(thread_arg);
                     exit(1);
                 }
                 if (thread_arg[m].arg.entries[i].is_handler) {
@@ -158,6 +162,9 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             thread_arg[m].seq_no = seq_no;
             if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)&thread_arg[m]) < 0) {
                 log_error("failed to create thread to send entries");
+                threads_join(m, thread_id);
+                free(thread_id);
+                free(thread_arg);
                 exit(1);
             }
             server_state.last_sent_timestamp[m] = get_milliseconds();
@@ -182,6 +189,8 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     threads_join(RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS, thread_id);
+    free(thread_id);
+    free(thread_arg);
     monitor_join();
     // printf("handler h_replicate_entries took %lu\n", get_milliseconds() - begin);
     return 1;

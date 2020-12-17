@@ -23,9 +23,9 @@ void* invoke_thread(void* arg) {
     if (invoke_thread_arg->request.callback_handler[0] != 0) {
         result_seq = WooFPut(invoke_thread_arg->request.callback_woof,
                              invoke_thread_arg->request.callback_handler,
-                             &(invoke_thread_arg->result));
+                             &invoke_thread_arg->result);
     } else {
-        result_seq = WooFPut(invoke_thread_arg->request.callback_woof, NULL, &(invoke_thread_arg->result));
+        result_seq = WooFPut(invoke_thread_arg->request.callback_woof, NULL, &invoke_thread_arg->result);
     }
     if (WooFInvalid(result_seq)) {
         log_error("failed to put client_put_result to %s", invoke_thread_arg->request.callback_woof);
@@ -37,7 +37,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_INVOKE_COMMITTED_ARG* arg = (RAFT_INVOKE_COMMITTED_ARG*)ptr;
     log_set_tag("h_invoke_committed");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
 

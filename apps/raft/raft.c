@@ -252,10 +252,11 @@ int raft_start_server(int members,
     heartbeat.term = 0;
     heartbeat.timestamp = get_milliseconds();
     // experiment cheat
-    // dht
-    // if (strstr(woof_name, "169.231.23") != NULL) {
-    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
-    // }
+    // dht except dht9 and dht16
+    if (strstr(woof_name, "169.231.23") != NULL && strstr(woof_name, "169.231.235.132") == NULL &&
+        strstr(woof_name, "169.231.235.200") == NULL) {
+        heartbeat.timestamp = get_milliseconds() - timeout_min;
+    }
     // sed
     // if (strstr(woof_name, "128.111.39") != NULL) {
     //     heartbeat.timestamp = get_milliseconds() - timeout_min;
@@ -264,12 +265,16 @@ int raft_start_server(int members,
     // if (strstr(woof_name, "128.111.39.229") != NULL) {
     //     heartbeat.timestamp = 0;
     // }
-    // raft_throught test: dht1, val1, sed1, dht4, dht5
-    if (strstr(woof_name, "169.231.234.163") != NULL || strstr(woof_name, "128.111.45.112") != NULL ||
-        strstr(woof_name, "128.111.39.229") != NULL || strstr(woof_name, "169.231.234.204") != NULL ||
-        strstr(woof_name, "169.231.234.220") != NULL) {
+    // sed9
+    if (strstr(woof_name, "128.111.39.235") != NULL) {
         heartbeat.timestamp = get_milliseconds() - timeout_min;
     }
+    // raft_throught test: dht1, val1, sed1, dht4, dht5
+    // if (strstr(woof_name, "169.231.234.163") != NULL || strstr(woof_name, "128.111.45.112") != NULL ||
+    //     strstr(woof_name, "128.111.39.229") != NULL || strstr(woof_name, "169.231.234.204") != NULL ||
+    //     strstr(woof_name, "169.231.234.220") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
     seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't put the first heartbeat\n");
@@ -284,13 +289,7 @@ int raft_start_server(int members,
         fprintf(stderr, "Couldn't start h_client_put\n");
         return -1;
     }
-    RAFT_APPEND_ENTRIES_ROUTINE_ARG append_routine_arg = {0};
-    append_routine_arg.last_seqno = 0;
-    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_APPEND_ENTRIES_ROUTINE_WOOF, "h_append_entries", &append_routine_arg, 1);
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "Couldn't start h_append_entries\n");
-        return -1;
-    }
+
     RAFT_COMMIT_HANDLER_ARG committed_handler_arg = {0};
     committed_handler_arg.last_index = 0;
     seq = WooFPut(RAFT_COMMIT_HANDLER_WOOF, "h_commit_handler", &committed_handler_arg);
