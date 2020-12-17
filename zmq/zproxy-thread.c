@@ -546,7 +546,7 @@ void *MsgThread(void *arg)
 	for(i=0; i < ta->max; i++) {
 		if(*(ta->count) == 0) {
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
 		}
@@ -557,7 +557,7 @@ void *MsgThread(void *arg)
 			fprintf(stderr, "MsgThread(%d): msg new %d failed\n",ta->tid,i);
 			fflush(stderr);
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
 		}
@@ -580,7 +580,7 @@ void *MsgThread(void *arg)
 			fflush(stderr);
 			zmsg_destroy(&msg);
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
 		}
@@ -592,7 +592,7 @@ void *MsgThread(void *arg)
 			zframe_destroy(&frame);
 			zmsg_destroy(&msg);
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
 		}
@@ -602,7 +602,7 @@ void *MsgThread(void *arg)
 			fprintf(stderr, "MsgThread(%d): couldn't recv msg for %d\n",
 				ta->tid, i);
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
 		}       
@@ -613,7 +613,7 @@ void *MsgThread(void *arg)
                                         ta->tid, i);
                         zmsg_destroy(&r_msg);
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
                 }
@@ -624,7 +624,7 @@ void *MsgThread(void *arg)
 				ta->tid,value,r_val,i);
                 	zmsg_destroy(&r_msg);
 			if(UseCache == 1) {
-				SocketCacheClear(0,NULL);
+				SocketCacheClear();
 			}
 			pthread_exit(NULL);
 		}
