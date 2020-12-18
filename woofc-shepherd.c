@@ -387,8 +387,8 @@ int main(int argc, char** argv, char** envp) {
     }
 
 #ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: calling WooFDrop, seq_no: %lu\n", seq_no);
-    fflush(stdout);
+	fprintf(stdout, "WooFShepherd: calling WooFDrop, seq_no: %lu\n", seq_no);
+	fflush(stdout);
 #endif
     WooFDrop(wf);
     MIOClose(lmio);

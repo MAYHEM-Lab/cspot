@@ -300,89 +300,50 @@ WOOF* WooFOpen(char* name) {
     return (wf);
 }
 
-void WooFDrop(WOOF* wf) {
-    MIOClose(wf->mio);
-    free(wf);
-    return;
+void WooFDrop(WOOF *wf)
+{
+	MIOClose(wf->mio);
+	free(wf);
+	return;
 }
 
-int WooFTruncate(char* name, unsigned long seq_no) {
-    WOOF* wf = WooFOpen(name);
-    if (wf == NULL) {
-        return -1;
-    }
-    WOOF_SHARED* wfs = wf->shared;
+int WooFTruncate(char *name, unsigned long seq_no) {
+	WOOF *wf = WooFOpen(name);
+	if (wf == NULL) {
+		return -1;
+	}
+	WOOF_SHARED *wfs = wf->shared;
 
-    P(&wfs->tail_wait);
-    P(&wfs->mutex);
+	P(&wfs->tail_wait);
+	P(&wfs->mutex);
 
-    if (seq_no == 0) {
-        wfs->head = 0;
-        wfs->tail = 0;
-        wfs->seq_no = 1;
-    } else {
-        // if new seq_no is less than earliest seq_no, return -1
-        unsigned long earliest_seqno = (wfs->tail + 1) % wfs->history_size;
-        if (seq_no < earliest_seqno) {
-            fprintf(stderr, "WooFTruncate: seq_no %lu is less than the earliest seq_no %lu\n", seq_no, earliest_seqno);
-            fflush(stderr);
-            V(&wfs->mutex);
-            V(&wfs->tail_wait);
-            WooFDrop(wf);
-            return -1;
-        }
+	if (seq_no == 0) {
+		wfs->head = 0;
+		wfs->tail = 0;
+		wfs->seq_no = 1;
+	} else {
+		// if new seq_no is less than earliest seq_no, return -1
+		unsigned long earliest_seqno = (wfs->tail + 1) % wfs->history_size;
+		if (seq_no < earliest_seqno) {
+			fprintf(stderr, "WooFTruncate: seq_no %lu is less than the earliest seq_no %lu\n", seq_no, earliest_seqno);
+			fflush(stderr);
+			V(&wfs->mutex);
+			V(&wfs->tail_wait);
+			WooFDrop(wf);
+			return -1;
+		}
 
-        unsigned long latest_seqno = wfs->seq_no - 1;
-        unsigned long trunc_head = (wfs->head + wfs->history_size - (latest_seqno - seq_no)) % wfs->history_size;
-        wfs->head = trunc_head;
-        wfs->seq_no = seq_no + 1;
-    }
+		unsigned long latest_seqno = wfs->seq_no - 1;
+		unsigned long trunc_head = (wfs->head + wfs->history_size - (latest_seqno - seq_no)) % wfs->history_size;
+		wfs->head = trunc_head;
+		wfs->seq_no = seq_no + 1;
+	}
+	
+	V(&wfs->mutex);
+	V(&wfs->tail_wait);
+	WooFDrop(wf);
 
-    V(&wfs->mutex);
-    V(&wfs->tail_wait);
-    WooFDrop(wf);
-
-    return 1;
-}
-
-int WooFExist(char* name) {
-    WOOF* wf;
-    WOOF_SHARED* wfs;
-    MIO* mio;
-
-    char fname[4096];
-    int err;
-    struct stat sbuf;
-
-    if (name == NULL) {
-        return 0;
-    }
-
-    if (WooF_dir[0] == 0) {
-        fprintf(stderr, "WooFExist: must init system\n");
-        exit(1);
-    }
-
-    char local_name[4096];
-    memset(local_name, 0, sizeof(local_name));
-    strncpy(local_name, WooF_dir, sizeof(local_name));
-    if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 2);
-    }
-    if (WooFValidURI(name)) {
-        if (WooFNameFromURI(name, fname, sizeof(fname)) < 0) {
-            fprintf(stderr, "WooFExist: bad name in URI %s\n", name);
-            return 0;
-        }
-        strncat(local_name, fname, sizeof(fname));
-    } else {
-        strncat(local_name, name, sizeof(local_name));
-    }
-
-    if (stat(local_name, &sbuf) < 0) {
-        return 0;
-    }
-    return 1;
+	return 1;
 }
 
 unsigned long WooFAppend(WOOF* wf, char* hand_name, void* element) {
@@ -806,11 +767,9 @@ unsigned long WooFAppendWithCause(
     }
 #endif
 
-    V(&wfs->mutex);
-#ifdef DEBUG
-    printf("WooFAppendWithCause: out of element mutex\n");
-    fflush(stdout);
-#endif
+	WooFDrop(wf);
+	return (seq_no);
+}
 
     memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
     strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
@@ -985,46 +944,8 @@ unsigned long WooFPut(char* wf_name, char* hand_name, void* element) {
         return (-1);
     }
 
-#ifdef DEBUG
-    printf("WooFPut: WooF %s open\n", wf_name);
-    fflush(stdout);
-#endif
-    // seq_no = WooFAppend(wf, hand_name, element);
-    namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
-    if (namelog_seq_no != NULL) {
-        my_log_seq_no = strtoul(namelog_seq_no, (char**)NULL, 10);
-    } else {
-        my_log_seq_no = 0;
-    }
-    seq_no = WooFAppendWithCause(wf, hand_name, element, Name_id, my_log_seq_no);
-#ifdef REPAIR
-    if (wf->shared->repair_mode == REMOVE) {
-        memset(shadow_name, 0, sizeof(shadow_name));
-        strncpy(shadow_name, WooF_dir, sizeof(shadow_name));
-        if (shadow_name[strlen(shadow_name) - 1] != '/') {
-            strncat(shadow_name, "/", 2);
-        }
-        strncat(shadow_name, wf_name, sizeof(shadow_name));
-        strncat(shadow_name, "_shadow", 7);
-#ifdef DEBUG
-        printf("WooFPut: deleting shadow file %s\n", shadow_name);
-        fflush(stdout);
-#endif
-        WooFDrop(wf);
-        err = remove(shadow_name);
-        if (err < 0) {
-            fprintf(stderr, "WooFPut: couldn't delete shadow file %s\n", shadow_name);
-            fflush(stderr);
-        }
-#ifdef DEBUG
-        printf("WooFPut: deleted shadow file %s\n", shadow_name);
-        fflush(stdout);
-#endif
-        return (seq_no);
-    }
-#endif
-    WooFDrop(wf);
-    return (seq_no);
+	WooFDrop(wf);
+	return (err);
 }
 
 unsigned long WooFPutWithCause(
@@ -1283,18 +1204,8 @@ int WooFHandlerDone(char* wf_name, unsigned long seq_no) {
         return (-1);
     }
 
-#ifdef DEBUG
-    printf("WooFHandlerDone: WooF %s open\n", wf_name);
-    fflush(stdout);
-#endif
-    if (wf->shared->done == 1) {
-        retval = 1;
-    } else {
-        retval = 0;
-    }
-
-    WooFDrop(wf);
-    return (retval);
+	WooFDrop(wf);
+	return (retval);
 }
 
 #endif
@@ -1508,7 +1419,8 @@ unsigned long WooFGetTail(char* wf_name, void* elements, unsigned long element_c
     err = WooFReadTail(wf, elements, element_count);
     WooFDrop(wf);
 
-    return (err);
+	WooFDrop(wf);
+	return (latest_seq_no);
 }
 
 int WooFRead(WOOF* wf, void* element, unsigned long seq_no) {
@@ -1778,8 +1690,8 @@ int WooFReadWithCause(
     fflush(stdout);
 #endif
 
-    EventFree(ev);
-    return (1);
+	WooFDrop(wf);
+	return (err);
 }
 
 unsigned long WooFEarliest(WOOF* wf) {

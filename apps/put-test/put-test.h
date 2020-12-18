@@ -13,6 +13,14 @@ struct put_test_stc
 
 typedef struct put_test_stc PT_EL;
 
+struct arg_stc
+{
+	PT_EL *el;
+	char *target_name;
+};
+
+typedef struct arg_stc TARGS;
+
 struct payload_stc
 {
 	unsigned long exp_seq_no;

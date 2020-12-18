@@ -32,6 +32,191 @@ extern LOG* Name_log;
 WOOF_CACHE* WooF_cache;
 
 /*
+ * socket caching hack for zeromq
+ */
+int UseCache;
+#define SCACHESIZE 500
+pthread_mutex_t CacheLock;
+
+struct scache_stc
+{
+	unsigned long hash;
+	zsock_t *s;
+};
+
+typedef struct scache_stc SCACHE;
+
+SCACHE SocketCache[SCACHESIZE];
+
+unsigned long shash(unsigned char *str)
+{
+	unsigned long hash = 5381;
+	int c;
+
+	while (c = *str++)
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+	return hash;
+}
+	
+
+/*
+ * there is a race condition in this code.  If one thread gets
+ * an open socket and another does an insert to a full cache, the
+ * socket that has been evicted may get closed.  The fix is either to
+ * track sockets in use (and return them to the hash list when not used) or
+ * to restrict the max number of differet endpoints to the size of the
+ * cache
+ */ 
+zsock_t *SocketCacheFind(char *endpoint)
+{
+	unsigned long hash;
+	int start = hash % SCACHESIZE;
+	int curr;
+	zsock_t *s;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
+
+	pthread_mutex_lock(&CacheLock);
+	curr = start;
+	while((SocketCache[curr].hash != 0) && (SocketCache[curr].hash != hash)) {
+		curr++;
+		if(curr == SCACHESIZE) {
+			curr = 0;
+		}
+		if(curr == start) {
+			pthread_mutex_unlock(&CacheLock);
+			return(NULL);
+		}
+	}
+	if(SocketCache[curr].hash == 0) {
+		pthread_mutex_unlock(&CacheLock);
+		return(NULL);
+	}
+	if(SocketCache[curr].hash == hash) {
+		s = SocketCache[curr].s;
+		pthread_mutex_unlock(&CacheLock);
+		return(s);
+	} else {
+		pthread_mutex_unlock(&CacheLock);
+		return(NULL);
+	}
+}
+
+void SocketCacheInsert(char *endpoint, zsock_t *s)
+{
+	unsigned long hash;
+	int start;
+	int curr;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
+
+	pthread_mutex_lock(&CacheLock);
+	curr=start;
+	while(SocketCache[curr].hash != 0) {
+		/*
+	 	 * make insert idempotent.  If endpoint is here, no need to insert
+	 	 */
+		if(SocketCache[curr].hash == hash) {
+			pthread_mutex_unlock(&CacheLock);
+			return;
+		}
+		curr++;
+		if(curr == SCACHESIZE) {
+			curr = 0;
+		}
+		if(curr == start) {
+			break;
+		}
+	}
+	if(SocketCache[curr].hash != 0) {
+		zsock_destroy(&SocketCache[curr].s);
+		SocketCache[curr].hash = 0;
+		SocketCache[curr].s = NULL;
+	}
+	
+	SocketCache[curr].hash = hash;
+	SocketCache[curr].s = s;
+	pthread_mutex_unlock(&CacheLock);
+
+	return;
+}
+
+void SocketCacheRemove(char *endpoint)
+{
+	unsigned long hash;
+	int start;
+	int curr;
+	char buffer[30];
+
+	memset(buffer,0,sizeof(buffer));
+	sprintf(buffer,"%s%lu",endpoint,pthread_self());
+	hash = shash(buffer);
+	start = hash % SCACHESIZE;
+
+	pthread_mutex_lock(&CacheLock);
+	curr=start;
+	while(SocketCache[curr].hash != hash) {
+		curr++;
+		if(curr == SCACHESIZE) {
+			curr = 0;
+		}
+		if(curr == start) {
+			pthread_mutex_unlock(&CacheLock);
+			return;
+		}
+	}
+	
+	SocketCache[curr].hash = 0;
+	SocketCache[curr].s = 0;
+
+	pthread_mutex_unlock(&CacheLock);
+	return;
+}	
+
+void WooFMsgCacheClear()
+{
+	int i;
+#ifdef DEBUG
+	printf("SocketCacheClear called\n");
+	fflush(stdout);
+#endif
+	for(i=0; i < SCACHESIZE; i++) {
+		if(SocketCache[i].hash != 0) {
+			zsock_destroy(&SocketCache[i].s);
+			SocketCache[i].hash = 0;
+		}
+	}
+	return;
+}
+	
+void WooFMsgCacheInit()
+{
+#ifdef DEBUG
+	printf("WoofMsgCacheInit called\n");
+#endif
+	pthread_mutex_init(&CacheLock,NULL);
+	UseCache = 1;
+	atexit(WooFMsgCacheClear);
+	return;
+}
+
+void WooFMsgCacheShutdown()
+{
+	WooFMsgCacheClear();
+	UseCache = 0;
+}
+
+
+/*
  * from https://en.wikipedia.org/wiki/Universal_hashing
  */
 unsigned int WooFPortHash(char* namespace) {
@@ -342,85 +527,133 @@ int WooFLocalName(char* woof_name, char* local_name, int len) {
     return (WooFNameFromURI(woof_name, local_name, len));
 }
 
-static zmsg_t* ServerRequest(char* endpoint, zmsg_t* msg) {
-    zsock_t* server;
-    zpoller_t* resp_poll;
-    zsock_t* server_resp;
-    int err;
-    zmsg_t* r_msg;
+static zmsg_t *ServerRequest(char *endpoint, zmsg_t *msg)
+{
+	zsock_t *server;
+	zpoller_t *resp_poll;
+	zsock_t *server_resp;
+	int err;
+	zmsg_t *r_msg;
 
-    /*
-     * get a socket to the server
-     */
-    server = zsock_new_req(endpoint);
-    if (server == NULL) {
-        fprintf(stderr, "ServerRequest: no server connection to %s\n", endpoint);
-        fflush(stderr);
-        zmsg_destroy(&msg);
-        return (NULL);
-    }
+	/*
+	 * get a socket to the server
+	 */
+	if(UseCache == 1) {
+		server = SocketCacheFind(endpoint);
+		if(server == NULL) {
+			server = zsock_new_req(endpoint);
+		}
+	} else {
+		server = zsock_new_req(endpoint);
+	}
 
-    /*
-     * set up the poller for the reply
-     */
-    resp_poll = zpoller_new(server, NULL);
-    if (resp_poll == NULL) {
-        fprintf(stderr, "ServerRequest: no poller for reply from %s\n", endpoint);
-        fflush(stderr);
-        zsock_destroy(&server);
-        zmsg_destroy(&msg);
-        return (NULL);
-    }
+	if (server == NULL)
+	{
+		fprintf(stderr, "ServerRequest: no server connection to %s\n",
+				endpoint);
+		fflush(stderr);
+		zmsg_destroy(&msg);
+		return (NULL);
+	}
 
-    /*
-     * send the message to the server
-     */
-    err = zmsg_send(&msg, server);
-    if (err < 0) {
-        fprintf(stderr, "ServerRequest: msg send to %s failed\n", endpoint);
-        fflush(stderr);
-        zsock_destroy(&server);
-        zpoller_destroy(&resp_poll);
-        zmsg_destroy(&msg);
-        return (NULL);
-    }
+	/*
+	 * set up the poller for the reply
+	 */
+	resp_poll = zpoller_new(server, NULL);
+	if (resp_poll == NULL)
+	{
+		fprintf(stderr, "ServerRequest: no poller for reply from %s\n",
+				endpoint);
+		fflush(stderr);
+		zsock_destroy(&server);
+		zmsg_destroy(&msg);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		return (NULL);
+	}
 
-    /*
-     * wait for the reply, but not indefinitely
-     */
-    server_resp = zpoller_wait(resp_poll, WOOF_MSG_REQ_TIMEOUT);
-    if (server_resp != NULL) {
-        r_msg = zmsg_recv(server_resp);
-        if (r_msg == NULL) {
-            fprintf(stderr, "ServerRequest: msg recv from %s failed\n", endpoint);
-            fflush(stderr);
-            zsock_destroy(&server);
-            zpoller_destroy(&resp_poll);
-            return (NULL);
-        }
-        zsock_destroy(&server);
-        zpoller_destroy(&resp_poll);
-        return (r_msg);
-    }
-    if (zpoller_expired(resp_poll)) {
-        fprintf(stderr, "ServerRequest: msg recv timeout from %s after %d msec\n", endpoint, WOOF_MSG_REQ_TIMEOUT);
-        fflush(stderr);
-        zsock_destroy(&server);
-        zpoller_destroy(&resp_poll);
-        return (NULL);
-    } else if (zpoller_terminated(resp_poll)) {
-        fprintf(stderr, "ServerRequest: msg recv interrupted from %s\n", endpoint);
-        fflush(stderr);
-        zsock_destroy(&server);
-        zpoller_destroy(&resp_poll);
-        return (NULL);
-    } else {
-        fprintf(stderr, "ServerRequest: msg recv failed from %s\n", endpoint);
-        fflush(stderr);
-        zsock_destroy(&server);
-        zpoller_destroy(&resp_poll);
-        return (NULL);
-    }
+	/*
+	 * send the message to the server
+	 */
+	err = zmsg_send(&msg, server);
+	if (err < 0)
+	{
+		fprintf(stderr, "ServerRequest: msg send to %s failed\n",
+				endpoint);
+		fflush(stderr);
+		zpoller_destroy(&resp_poll);
+		zmsg_destroy(&msg);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
+		return (NULL);
+	}
+
+	/*
+	 * wait for the reply, but not indefinitely
+	 */
+	server_resp = zpoller_wait(resp_poll, WOOF_MSG_REQ_TIMEOUT);
+	if (server_resp != NULL)
+	{
+		r_msg = zmsg_recv(server_resp);
+		if (r_msg == NULL)
+		{
+			fprintf(stderr, "ServerRequest: msg recv from %s failed\n",
+					endpoint);
+			fflush(stderr);
+			zpoller_destroy(&resp_poll);
+			if(UseCache == 1) {
+				SocketCacheRemove(endpoint);
+			}
+			zsock_destroy(&server);
+			return (NULL);
+		}
+		if(UseCache == 1) {
+			SocketCacheInsert(endpoint,server);
+		} else {
+			zsock_destroy(&server);
+		}
+		zpoller_destroy(&resp_poll);
+		return (r_msg);
+	}
+	if (zpoller_expired(resp_poll))
+	{
+		fprintf(stderr, "ServerRequest: msg recv timeout from %s after %d msec\n",
+				endpoint, WOOF_MSG_REQ_TIMEOUT);
+		fflush(stderr);
+		zpoller_destroy(&resp_poll);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
+		return (NULL);
+	}
+	else if (zpoller_terminated(resp_poll))
+	{
+		fprintf(stderr, "ServerRequest: msg recv interrupted from %s\n",
+				endpoint);
+		fflush(stderr);
+		zpoller_destroy(&resp_poll);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
+		return (NULL);
+	}
+	else
+	{
+		fprintf(stderr, "ServerRequest: msg recv failed from %s\n",
+				endpoint);
+		fflush(stderr);
+		zpoller_destroy(&resp_poll);
+		if(UseCache == 1) {
+			SocketCacheRemove(endpoint);
+		}
+		zsock_destroy(&server);
+		return (NULL);
+	}
 }
 
 void WooFProcessPut(zmsg_t* req_msg, zsock_t* receiver) {
@@ -624,284 +857,237 @@ void WooFProcessPut(zmsg_t* req_msg, zsock_t* receiver) {
     return;
 }
 
-void WooFProcessGetElSize(zmsg_t* req_msg, zsock_t* receiver) {
-    zmsg_t* r_msg;
-    zframe_t* frame;
-    zframe_t* r_frame;
-    char* str;
-    char woof_name[2048];
-    char local_name[2048];
-    unsigned int copy_size;
-    void* element;
-    unsigned el_size;
-    char buffer[255];
-    int err;
-    WOOF* wf;
+void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	char local_name[2048];
+	unsigned int copy_size;
+	void *element;
+	unsigned el_size;
+	char buffer[255];
+	int err;
+	WOOF *wf;
 
 #ifdef DEBUG
-    printf("WooFProcessGetElSize: called\n");
-    fflush(stdout);
+	printf("WooFProcessGetElSize: called\n");
+	fflush(stdout);
 #endif
-    /*
-     * WooFElSize requires a woof_name
-     *
-     * first frame is the message type
-     */
-    frame = zmsg_first(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetElSize: couldn't set cursor in msg");
-        return;
-    }
+	/*
+	 * WooFElSize requires a woof_name
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetElSize: couldn't set cursor in msg");
+		return;
+	}
 
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetElSize: couldn't find woof_name in msg");
-        return;
-    }
-    /*
-     * woof_name in the first frame
-     */
-    memset(woof_name, 0, sizeof(woof_name));
-    str = (char*)zframe_data(frame);
-    copy_size = zframe_size(frame);
-    if (copy_size > (sizeof(woof_name) - 1)) {
-        copy_size = sizeof(woof_name) - 1;
-    }
-    strncpy(woof_name, str, copy_size);
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetElSize: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name, 0, sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if (copy_size > (sizeof(woof_name) - 1))
+	{
+		copy_size = sizeof(woof_name) - 1;
+	}
+	strncpy(woof_name, str, copy_size);
 
-    /*
-     * FIX ME: for now, make all Process requests local
-     */
-    memset(local_name, 0, sizeof(local_name));
-    err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+	/*
+	 * FIX ME: for now, make all Process requests local
+	 */
+	memset(local_name, 0, sizeof(local_name));
+	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
 
-    if (err < 0) {
-        wf = WooFOpen(local_name);
-    } else {
-        wf = WooFOpen(woof_name);
-    }
+	if (err < 0)
+	{
+		wf = WooFOpen(local_name);
+	}
+	else
+	{
+		wf = WooFOpen(woof_name);
+	}
 
-    if (wf == NULL) {
-        fprintf(stderr, "WooFProcessGetElSize: couldn't open %s (%s)\n", local_name, woof_name);
-        fflush(stderr);
-        el_size = -1;
-    } else {
-        el_size = wf->shared->element_size;
-        WooFDrop(wf);
-    }
+	if (wf == NULL)
+	{
+		fprintf(stderr, "WooFProcessGetElSize: couldn't open %s (%s)\n", local_name, woof_name);
+		fflush(stderr);
+		el_size = -1;
+	}
+	else
+	{
+		el_size = wf->shared->element_size;
+		WooFDrop(wf);
+	}
 
 #ifdef DEBUG
-    printf("WooFProcessGetElSize: woof_name %s has element size: %lu\n", woof_name, el_size);
-    fflush(stdout);
+	printf("WooFProcessGetElSize: woof_name %s has element size: %lu\n", woof_name, el_size);
+	fflush(stdout);
 #endif
 
-    /*
-     * send el_size back
-     */
-    r_msg = zmsg_new();
-    if (r_msg == NULL) {
-        perror("WooFProcessGetElSize: no reply message");
-        return;
-    }
-    memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu\0", el_size);
-    r_frame = zframe_new(buffer, strlen(buffer));
-    if (r_frame == NULL) {
-        perror("WooFProcessGetElSize: no reply frame");
-        zmsg_destroy(&r_msg);
-        return;
-    }
-    err = zmsg_append(r_msg, &r_frame);
-    if (err != 0) {
-        perror("WooFProcessPut: couldn't append to r_msg");
-        zframe_destroy(&r_frame);
-        zmsg_destroy(&r_msg);
-        return;
-    }
-    err = zmsg_send(&r_msg, receiver);
-    if (err != 0) {
-        perror("WooFProcessGetElSize: couldn't send r_msg");
-        zmsg_destroy(&r_msg);
-        return;
-    }
+	/*
+	 * send el_size back
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("WooFProcessGetElSize: no reply message");
+		return;
+	}
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", el_size);
+	r_frame = zframe_new(buffer, strlen(buffer));
+	if (r_frame == NULL)
+	{
+		perror("WooFProcessGetElSize: no reply frame");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("WooFProcessPut: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("WooFProcessGetElSize: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
 
-    return;
+	return;
 }
 
-void WooFProcessGetLatestSeqno(zmsg_t* req_msg, zsock_t* receiver) {
-    zmsg_t* r_msg;
-    zframe_t* frame;
-    zframe_t* r_frame;
-    char* str;
-    char woof_name[2048];
-    char local_name[2048];
-    unsigned int copy_size;
-    unsigned long cause_host;
-    unsigned long cause_seq_no;
-    char cause_woof[2048];
-    unsigned long cause_woof_latest_seq_no;
-    unsigned long latest_seq_no;
-    char buffer[255];
-    int err;
-    WOOF* wf;
+void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	char local_name[2048];
+	unsigned int copy_size;
+	unsigned latest_seq_no;
+	char buffer[255];
+	int err;
+	WOOF *wf;
 
 #ifdef DEBUG
-    printf("WooFProcessGetLatestSeqno: called\n");
-    fflush(stdout);
+	printf("WooFProcessGetLatestSeqno: called\n");
+	fflush(stdout);
 #endif
-    /*
-     * WooFLatestSeqno requires a woof_name
-     *
-     * first frame is the message type
-     */
-    frame = zmsg_first(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: couldn't set cursor in msg");
-        return;
-    }
+	/*
+	 * WooFLatestSeqno requires a woof_name
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetLatestSeqno: couldn't set cursor in msg");
+		return;
+	}
 
-    /*
-     * woof_name in the first frame
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: couldn't find woof_name in msg");
-        return;
-    }
-    memset(woof_name, 0, sizeof(woof_name));
-    str = (char*)zframe_data(frame);
-    copy_size = zframe_size(frame);
-    if (copy_size > (sizeof(woof_name) - 1)) {
-        copy_size = sizeof(woof_name) - 1;
-    }
-    strncpy(woof_name, str, copy_size);
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetLatestSeqno: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name, 0, sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if (copy_size > (sizeof(woof_name) - 1))
+	{
+		copy_size = sizeof(woof_name) - 1;
+	}
+	strncpy(woof_name, str, copy_size);
 
-    /*
-     * cause_host in the second frame
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: couldn't find cause_host in msg");
-        return;
-    }
-    copy_size = zframe_size(frame);
-    memset(buffer, 0, sizeof(buffer));
-    memcpy(buffer, zframe_data(frame), copy_size);
-    cause_host = strtoul(buffer, (char**)NULL, 10);
-#ifdef DEBUG
-    printf("WooFProcessGetLatestSeqno: received cause_host %lu\n", cause_host);
-    fflush(stdout);
-#endif
-
-    /*
-     * cause_seq_no in the third frame
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: couldn't find cause_seq_no in msg");
-        return;
-    }
-    copy_size = zframe_size(frame);
-    memset(buffer, 0, sizeof(buffer));
-    memcpy(buffer, zframe_data(frame), copy_size);
-    cause_seq_no = strtoul(buffer, (char**)NULL, 10);
-#ifdef DEBUG
-    printf("WooFProcessGetLatestSeqno: received cause_seq_no %lu\n", cause_seq_no);
-    fflush(stdout);
-#endif
-
-    /*
-     * cause_woof in the fourth frame
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: couldn't find cause_woof in msg");
-        return;
-    }
-    memset(cause_woof, 0, sizeof(cause_woof));
-    str = (char*)zframe_data(frame);
-    copy_size = zframe_size(frame);
-    if (copy_size > (sizeof(cause_woof) - 1)) {
-        copy_size = sizeof(cause_woof) - 1;
-    }
-    strncpy(cause_woof, str, copy_size);
-#ifdef DEBUG
-    printf("WooFProcessGetLatestSeqno: received cause_woof %s\n", cause_woof);
-    fflush(stdout);
-#endif
-
-    /*
-     * cause_woof_latest_seq_no in the fifth frame
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: couldn't find cause_woof_latest_seq_no in msg");
-        return;
-    }
-    copy_size = zframe_size(frame);
-    memset(buffer, 0, sizeof(buffer));
-    memcpy(buffer, zframe_data(frame), copy_size);
-    cause_woof_latest_seq_no = strtoul(buffer, (char**)NULL, 10);
-#ifdef DEBUG
-    printf("WooFProcessGetLatestSeqno: received cause_woof_latest_seq_no %lu\n", cause_woof_latest_seq_no);
-    fflush(stdout);
-#endif
-
-    /*
-     * FIX ME: for now, all process requests are local
-     */
-    memset(local_name, 0, sizeof(local_name));
-    err = WooFLocalName(woof_name, local_name, sizeof(local_name));
-    if (err < 0) {
-        wf = WooFOpen(woof_name);
-    } else {
-        wf = WooFOpen(local_name);
-    }
-    if (wf == NULL) {
-        fprintf(stderr, "WooFProcessGetLatestSeqno: couldn't open %s\n", woof_name);
-        fflush(stderr);
-        latest_seq_no = -1;
-    } else {
-        latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof, cause_woof_latest_seq_no);
-        WooFDrop(wf);
-    }
+	/*
+	 * FIX ME: for now, all process requests are local
+	 */
+	memset(local_name, 0, sizeof(local_name));
+	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+	if (err < 0)
+	{
+		wf = WooFOpen(woof_name);
+	}
+	else
+	{
+		wf = WooFOpen(local_name);
+	}
+	if (wf == NULL)
+	{
+		fprintf(stderr, "WooFProcessGetLatestSeqno: couldn't open %s\n", woof_name);
+		fflush(stderr);
+		latest_seq_no = -1;
+	}
+	else
+	{
+		latest_seq_no = WooFLatestSeqno(wf);
+		WooFDrop(wf);
+	}
 
 #ifdef DEBUG
-    printf("WooFProcessGetLatestSeqno: woof_name %s has latest seq_no: %lu\n", woof_name, latest_seq_no);
-    fflush(stdout);
+	printf("WooFProcessGetLatestSeqno: woof_name %s has latest seq_no: %lu\n", woof_name, latest_seq_no);
+	fflush(stdout);
 #endif
 
-    /*
-     * send latest_seq_no back
-     */
-    r_msg = zmsg_new();
-    if (r_msg == NULL) {
-        perror("WooFProcessGetLatestSeqno: no reply message");
-        return;
-    }
-    memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu\0", latest_seq_no);
-    r_frame = zframe_new(buffer, strlen(buffer));
-    if (r_frame == NULL) {
-        perror("WooFProcessGetLatestSeqno: no reply frame");
-        zmsg_destroy(&r_msg);
-        return;
-    }
-    err = zmsg_append(r_msg, &r_frame);
-    if (err != 0) {
-        perror("WooFProcessPut: couldn't append to r_msg");
-        zframe_destroy(&r_frame);
-        zmsg_destroy(&r_msg);
-        return;
-    }
-    err = zmsg_send(&r_msg, receiver);
-    if (err != 0) {
-        perror("WooFProcessGetLatestSeqno: couldn't send r_msg");
-        zmsg_destroy(&r_msg);
-        return;
-    }
+	/*
+	 * send latest_seq_no back
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("WooFProcessGetLatestSeqno: no reply message");
+		return;
+	}
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", latest_seq_no);
+	r_frame = zframe_new(buffer, strlen(buffer));
+	if (r_frame == NULL)
+	{
+		perror("WooFProcessGetLatestSeqno: no reply frame");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("WooFProcessPut: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("WooFProcessGetLatestSeqno: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
 
-    return;
+	return;
 }
 
 unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsigned long cause_woof_latest_seq_no) {
@@ -1252,392 +1438,534 @@ unsigned long WooFMsgGetLatestSeqno(char* woof_name, char* cause_woof_name, unsi
     return (lastest_seq_no);
 }
 
-void WooFProcessGetTail(zmsg_t* req_msg, zsock_t* receiver) {
-    zmsg_t* r_msg;
-    zframe_t* frame;
-    zframe_t* r_frame;
-    char* str;
-    char woof_name[2048];
-    char local_name[2048];
-    unsigned int copy_size;
-    void* element;
-    unsigned el_size;
-    char buffer[255];
-    int err;
-    WOOF* wf;
-    unsigned long el_read;
-    unsigned long el_count;
-    void* ptr;
+void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	char local_name[2048];
+	unsigned int copy_size;
+	void *element;
+	unsigned el_size;
+	char buffer[255];
+	int err;
+	WOOF *wf;
+	unsigned long el_read;
+	unsigned long el_count;
+	void *ptr;
 
 #ifdef DEBUG
-    printf("WooFProcessGetTail: called\n");
-    fflush(stdout);
+	printf("WooFProcessGetTail: called\n");
+	fflush(stdout);
 #endif
-    /*
-     * WooFElSize requires a woof_name
-     *
-     * first frame is the message type
-     */
-    frame = zmsg_first(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetTail: couldn't set cursor in msg");
-        return;
-    }
+	/*
+	 * WooFElSize requires a woof_name
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetTail: couldn't set cursor in msg");
+		return;
+	}
 
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetTail: couldn't find woof_name in msg");
-        return;
-    }
-    /*
-     * woof_name in the first frame
-     */
-    memset(woof_name, 0, sizeof(woof_name));
-    str = (char*)zframe_data(frame);
-    copy_size = zframe_size(frame);
-    if (copy_size > (sizeof(woof_name) - 1)) {
-        copy_size = sizeof(woof_name) - 1;
-    }
-    strncpy(woof_name, str, copy_size);
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetTail: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name, 0, sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if (copy_size > (sizeof(woof_name) - 1))
+	{
+		copy_size = sizeof(woof_name) - 1;
+	}
+	strncpy(woof_name, str, copy_size);
 
-    /*
-     * next frame is the number of elements
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGetTail: couldn't find element count in msg");
-        return;
-    }
-    el_count = strtoul(zframe_data(frame), (char**)NULL, 10);
+	/*
+	 * next frame is the number of elements
+	 */
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetTail: couldn't find element count in msg");
+		return;
+	}
+	el_count = strtoul(zframe_data(frame), (char **)NULL, 10);
 
-    /*
-     * FIX ME: for now, all process requests are local
-     */
-    memset(local_name, 0, sizeof(local_name));
-    err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+	/*
+	 * FIX ME: for now, all process requests are local
+	 */
+	memset(local_name, 0, sizeof(local_name));
+	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
 
-    if (err < 0) {
-        wf = WooFOpen(woof_name);
-    } else {
-        wf = WooFOpen(local_name);
-    }
-    if (wf == NULL) {
-        fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
-        fflush(stderr);
-        el_read = 0;
-    } else {
-        el_size = wf->shared->element_size;
-        //		WooFDrop(wf);
-    }
+	if (err < 0)
+	{
+		wf = WooFOpen(woof_name);
+	}
+	else
+	{
+		wf = WooFOpen(local_name);
+	}
+	if (wf == NULL)
+	{
+		fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
+		fflush(stderr);
+		el_read = 0;
+	}
+	else
+	{
+		el_size = wf->shared->element_size;
+//		WooFDrop(wf);
+	}
 
-    if (wf != NULL) {
-        ptr = malloc(el_size * el_count);
-        if (ptr == NULL) {
-            fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
-            fflush(stderr);
-            WooFDrop(wf);
-            return;
-        }
+	if (wf != NULL)
+	{
+		ptr = malloc(el_size * el_count);
+		if (ptr == NULL)
+		{
+			fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
+			fflush(stderr);
+			WooFDrop(wf);
+			return;
+		}
 
-        el_read = WooFReadTail(wf, ptr, el_count);
-        WooFDrop(wf);
-        wf = NULL;
-    }
+		el_read = WooFReadTail(wf, ptr, el_count);
+		WooFDrop(wf);
+		wf = NULL;
+	}
 
 #ifdef DEBUG
-    printf("WooFProcessGetTail: woof_name %s read %lu elements\n", woof_name, el_read);
-    fflush(stdout);
+	printf("WooFProcessGetTail: woof_name %s read %lu elements\n", woof_name, el_read);
+	fflush(stdout);
 #endif
 
-    /*
-     * send el_read and elements back
-     */
-    r_msg = zmsg_new();
-    if (r_msg == NULL) {
-        perror("WooFProcessGetElSize: no reply message");
-        if (ptr != NULL) {
-            free(ptr);
-        }
-        return;
-    }
-    memset(buffer, 0, sizeof(buffer));
-    sprintf(buffer, "%lu\0", el_read);
-    r_frame = zframe_new(buffer, strlen(buffer));
-    if (r_frame == NULL) {
-        perror("WooFProcessGetTail: no reply frame");
-        zmsg_destroy(&r_msg);
-        if (ptr != NULL) {
-            free(ptr);
-        }
-        return;
-    }
-    err = zmsg_append(r_msg, &r_frame);
-    if (err != 0) {
-        perror("WooFProcessGetTail: couldn't append to r_msg");
-        zframe_destroy(&r_frame);
-        zmsg_destroy(&r_msg);
-        if (ptr != NULL) {
-            free(ptr);
-        }
-        return;
-    }
+	/*
+	 * send el_read and elements back
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("WooFProcessGetElSize: no reply message");
+		if (ptr != NULL)
+		{
+			free(ptr);
+		}
+		return;
+	}
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "%lu", el_read);
+	r_frame = zframe_new(buffer, strlen(buffer));
+	if (r_frame == NULL)
+	{
+		perror("WooFProcessGetTail: no reply frame");
+		zmsg_destroy(&r_msg);
+		if (ptr != NULL)
+		{
+			free(ptr);
+		}
+		return;
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("WooFProcessGetTail: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		if (ptr != NULL)
+		{
+			free(ptr);
+		}
+		return;
+	}
 
-    r_frame = zframe_new(ptr, el_read * el_size);
-    if (r_frame == NULL) {
-        perror("WooFProcessGetTail: no second reply frame");
-        zmsg_destroy(&r_msg);
-        if (ptr != NULL) {
-            free(ptr);
-        }
-        return;
-    }
-    err = zmsg_append(r_msg, &r_frame);
-    if (err != 0) {
-        perror("WooFProcessGetTail: couldn't second append to r_msg");
-        zframe_destroy(&r_frame);
-        zmsg_destroy(&r_msg);
-        if (ptr != NULL) {
-            free(ptr);
-        }
-        return;
-    }
-    err = zmsg_send(&r_msg, receiver);
-    if (err != 0) {
-        perror("WooFProcessGetElSize: couldn't send r_msg");
-        zmsg_destroy(&r_msg);
-        if (ptr != NULL) {
-            free(ptr);
-        }
-        return;
-    }
+	r_frame = zframe_new(ptr, el_read * el_size);
+	if (r_frame == NULL)
+	{
+		perror("WooFProcessGetTail: no second reply frame");
+		zmsg_destroy(&r_msg);
+		if (ptr != NULL)
+		{
+			free(ptr);
+		}
+		return;
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("WooFProcessGetTail: couldn't second append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		if (ptr != NULL)
+		{
+			free(ptr);
+		}
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("WooFProcessGetElSize: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		if (ptr != NULL)
+		{
+			free(ptr);
+		}
+		return;
+	}
 
-    free(ptr);
+	free(ptr);
 
-    return;
+	return;
 }
 
-void WooFProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
-    zmsg_t* r_msg;
-    zframe_t* frame;
-    zframe_t* r_frame;
-    char* str;
-
-    char woof_name[2048];
-    char hand_name[2048];
-    char local_name[2048];
-    unsigned int copy_size;
-    void* element;
-    unsigned long el_size;
-    int count;
-    unsigned long seq_no;
-    char buffer[255];
-    int err;
-    WOOF* wf;
-    unsigned long cause_host;
-    unsigned long cause_seq_no;
+void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	char hand_name[2048];
+	char local_name[2048];
+	unsigned int copy_size;
+	void *element;
+	unsigned long el_size;
+	int count;
+	unsigned long seq_no;
+	char buffer[255];
+	int err;
+	WOOF *wf;
 
 #ifdef DEBUG
-    printf("WooFProcessGet: called\n");
-    fflush(stdout);
+	printf("WooFProcessGet: called\n");
+	fflush(stdout);
 #endif
-    /*
-     * WooFGet requires a woof_name, and the seq_no
-     *
-     * first frame is the message type
-     */
-    frame = zmsg_first(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGet: couldn't set cursor in msg");
-        return;
-    }
+	/*
+	 * WooFGet requires a woof_name, and the seq_no
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGet: couldn't set cursor in msg");
+		return;
+	}
 
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGet: couldn't find woof_name in msg");
-        return;
-    }
-    /*
-     * woof_name in the first frame
-     */
-    memset(woof_name, 0, sizeof(woof_name));
-    str = (char*)zframe_data(frame);
-    copy_size = zframe_size(frame);
-    if (copy_size > (sizeof(woof_name) - 1)) {
-        copy_size = sizeof(woof_name) - 1;
-    }
-    strncpy(woof_name, str, copy_size);
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGet: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name, 0, sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if (copy_size > (sizeof(woof_name) - 1))
+	{
+		copy_size = sizeof(woof_name) - 1;
+	}
+	strncpy(woof_name, str, copy_size);
 
 #ifdef DEBUG
-    printf("WooFProcessGet: received woof_name %s\n", woof_name);
-    fflush(stdout);
+	printf("WooFProcessGet: received woof_name %s\n", woof_name);
+	fflush(stdout);
 #endif
-    /*
-     * seq_no name in the second frame
-     */
-    frame = zmsg_next(req_msg);
-    if (frame == NULL) {
-        perror("WooFProcessGet: couldn't find seq_no in msg");
-        return;
-    }
-    copy_size = zframe_size(frame);
-    if (copy_size > 0) {
-        memset(buffer, 0, sizeof(buffer));
-        memcpy(buffer, zframe_data(frame), copy_size);
-        seq_no = strtoul(buffer, (char**)NULL, 10);
+	/*
+	 * seq_no name in the second frame
+	 */
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	if (copy_size > 0)
+	{
+		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
 #ifdef DEBUG
-        printf("WooFProcessGet: received seq_no %lu\n", seq_no);
-        fflush(stdout);
+		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
+		fflush(stdout);
 #endif
+		/*
+		 * FIX ME: for now, all process requests are local
+		 */
+		memset(local_name, 0, sizeof(local_name));
+		err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+		/*
+		 * attempt to get the element from the local woof_name
+		 */
+		if (err < 0)
+		{
+			wf = WooFOpen(woof_name);
+		}
+		else
+		{
+			wf = WooFOpen(local_name);
+		}
+		if (wf == NULL)
+		{
+			fprintf(stderr, "WooFProcessGet: couldn't open woof: %s\n",
+					woof_name);
+			fflush(stderr);
+			element = NULL;
+			el_size = 0;
+		}
+		else
+		{
+			el_size = wf->shared->element_size;
+			element = malloc(el_size);
+			if (element == NULL)
+			{
+				fprintf(stderr, "WooFProcessGet: no space woof: %s\n",
+						woof_name);
+				fflush(stderr);
+			}
+			else
+			{
+				err = WooFRead(wf, element, seq_no);
+				if (err < 0)
+				{
+					fprintf(stderr,
+							"WooFProcessGet: read failed: %s at %lu\n",
+							woof_name, seq_no);
+					free(element);
+					element = NULL;
+					el_size = 0;
+				}
+			}
+			WooFDrop(wf);
+		}
+	}
+	else
+	{ /* copy_size <= 0 */
+		fprintf(stderr, "WooFProcessGet: no seq_no frame data for %s\n",
+				woof_name);
+		fflush(stderr);
+		element = NULL;
+		el_size = 0;
+	}
 
-        /*
-         * cause_host in the third frame
-         */
-        frame = zmsg_next(req_msg);
-        if (frame == NULL) {
-            perror("WooFProcessGet: couldn't find cause_host in msg");
-            return;
-        }
-        copy_size = zframe_size(frame);
-        memset(buffer, 0, sizeof(buffer));
-        memcpy(buffer, zframe_data(frame), copy_size);
-        cause_host = strtoul(buffer, (char**)NULL, 10);
+	/*
+	 * send element back or empty frame indicating no dice
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("WooFProcessGet: no reply message");
+		if (element != NULL)
+		{
+			free(element);
+		}
+		return;
+	}
+	if (element != NULL)
+	{
 #ifdef DEBUG
-        printf("WooFProcessGet: received cause_host %lu\n", cause_host);
-        fflush(stdout);
+		printf("WooFProcessGet: creating frame for %lu bytes of element at seq_no %lu\n",
+			   el_size, seq_no);
+		fflush(stdout);
 #endif
 
-        /*
-         * cause_seq_no in the fourth frame
-         */
-        frame = zmsg_next(req_msg);
-        if (frame == NULL) {
-            perror("WooFProcessGet: couldn't find cause_seq_no in msg");
-            return;
-        }
-        copy_size = zframe_size(frame);
-        memset(buffer, 0, sizeof(buffer));
-        memcpy(buffer, zframe_data(frame), copy_size);
-        cause_seq_no = strtoul(buffer, (char**)NULL, 10);
+		r_frame = zframe_new(element, el_size);
+		if (r_frame == NULL)
+		{
+			perror("WooFProcessGet: no reply frame");
+			free(element);
+			zmsg_destroy(&r_msg);
+			return;
+		}
+	}
+	else
+	{
 #ifdef DEBUG
-        printf("WooFProcessGet: received cause_seq_no %lu\n", cause_seq_no);
-        fflush(stdout);
+		printf("WooFProcessGet: creating empty frame\n");
+		fflush(stdout);
 #endif
+		r_frame = zframe_new_empty();
+		if (r_frame == NULL)
+		{
+			perror("WooFProcessGet: no empty reply frame");
+			zmsg_destroy(&r_msg);
+			return;
+		}
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (element != NULL)
+	{
+		free(element);
+	}
+	if (err != 0)
+	{
+		perror("WooFProcessGet: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("WooFProcessGet: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
 
-        /*
-         * FIX ME: for now, all process requests are local
-         */
-        memset(local_name, 0, sizeof(local_name));
-        err = WooFLocalName(woof_name, local_name, sizeof(local_name));
-        /*
-         * attempt to get the element from the local woof_name
-         */
-        if (err < 0) {
-            wf = WooFOpen(woof_name);
-        } else {
-            wf = WooFOpen(local_name);
-        }
-        if (wf == NULL) {
-            fprintf(stderr, "WooFProcessGet: couldn't open woof: %s\n", woof_name);
-            fflush(stderr);
-            element = NULL;
-            el_size = 0;
-        } else {
-            el_size = wf->shared->element_size;
-            element = malloc(el_size);
-            if (element == NULL) {
-                fprintf(stderr, "WooFProcessGet: no space woof: %s\n", woof_name);
-                fflush(stderr);
-            } else {
-                err = WooFReadWithCause(wf, element, seq_no, cause_host, cause_seq_no);
-                if (err < 0) {
-                    fprintf(stderr, "WooFProcessGet: read failed: %s at %lu\n", woof_name, seq_no);
-                    free(element);
-                    element = NULL;
-                    el_size = 0;
-                }
-            }
-            WooFDrop(wf);
-        }
-    } else { /* copy_size <= 0 */
-        fprintf(stderr, "WooFProcessGet: no seq_no frame data for %s\n", woof_name);
-        fflush(stderr);
-        element = NULL;
-        el_size = 0;
-    }
-
-    /*
-     * send element back or empty frame indicating no dice
-     */
-    r_msg = zmsg_new();
-    if (r_msg == NULL) {
-        perror("WooFProcessGet: no reply message");
-        if (element != NULL) {
-            free(element);
-        }
-        return;
-    }
-    if (element != NULL) {
-#ifdef DEBUG
-        printf("WooFProcessGet: creating frame for %lu bytes of element at seq_no %lu\n", el_size, seq_no);
-        fflush(stdout);
-#endif
-
-        r_frame = zframe_new(element, el_size);
-        if (r_frame == NULL) {
-            perror("WooFProcessGet: no reply frame");
-            free(element);
-            zmsg_destroy(&r_msg);
-            return;
-        }
-    } else {
-#ifdef DEBUG
-        printf("WooFProcessGet: creating empty frame\n");
-        fflush(stdout);
-#endif
-        r_frame = zframe_new_empty();
-        if (r_frame == NULL) {
-            perror("WooFProcessGet: no empty reply frame");
-            zmsg_destroy(&r_msg);
-            return;
-        }
-    }
-    err = zmsg_append(r_msg, &r_frame);
-    if (element != NULL) {
-        free(element);
-    }
-    if (err != 0) {
-        perror("WooFProcessGet: couldn't append to r_msg");
-        zframe_destroy(&r_frame);
-        zmsg_destroy(&r_msg);
-        return;
-    }
-    err = zmsg_send(&r_msg, receiver);
-    if (err != 0) {
-        perror("WooFProcessGet: couldn't send r_msg");
-        zmsg_destroy(&r_msg);
-        return;
-    }
-
-    return;
+	return;
 }
 
 #ifdef DONEFLAG
-void WooFProcessGetDone(zmsg_t* req_msg, zsock_t* receiver) {
-    zmsg_t* r_msg;
-    zframe_t* frame;
-    zframe_t* r_frame;
-    char* str;
+void WooFProcessGetDone(zmsg_t *req_msg, zsock_t *receiver)
+{
+	zmsg_t *r_msg;
+	zframe_t *frame;
+	zframe_t *r_frame;
+	char *str;
+	char woof_name[2048];
+	char hand_name[2048];
+	char local_name[2048];
+	unsigned int copy_size;
+	int count;
+	unsigned long seq_no;
+	char buffer[255];
+	int err;
+	WOOF *wf;
+	unsigned long done;
 
-    char woof_name[2048];
-    char hand_name[2048];
-    char local_name[2048];
-    unsigned int copy_size;
-    int count;
-    unsigned long seq_no;
-    char buffer[255];
-    int err;
-    WOOF* wf;
-    unsigned long done;
+#ifdef DEBUG
+	printf("WooFProcessGetDone: called\n");
+	fflush(stdout);
+#endif
+	/*
+	 * WooFGetDone requires a woof_name, and the seq_no
+	 *
+	 * first frame is the message type
+	 */
+	frame = zmsg_first(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetDone: couldn't set cursor in msg");
+		return;
+	}
+
+	frame = zmsg_next(req_msg);
+	if (frame == NULL)
+	{
+		perror("WooFProcessGetDone: couldn't find woof_name in msg");
+		return;
+	}
+	/*
+	 * woof_name in the first frame
+	 */
+	memset(woof_name, 0, sizeof(woof_name));
+	str = (char *)zframe_data(frame);
+	copy_size = zframe_size(frame);
+	if (copy_size > (sizeof(woof_name) - 1))
+	{
+		copy_size = sizeof(woof_name) - 1;
+	}
+	strncpy(woof_name, str, copy_size);
+
+#ifdef DEBUG
+	printf("WooFProcessGetDone: received woof_name %s\n", woof_name);
+	fflush(stdout);
+#endif
+	/*
+	 * seq_no name in the second frame
+	 */
+	frame = zmsg_next(req_msg);
+	copy_size = zframe_size(frame);
+	if (copy_size > 0)
+	{
+		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
+#ifdef DEBUG
+		printf("WooFProcessGetDone: received seq_no name %lu\n", seq_no);
+		fflush(stdout);
+#endif
+		/*
+		 * FIX ME: for now, all process requests are local
+		 */
+		memset(local_name, 0, sizeof(local_name));
+		err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+		/*
+		 * attempt to get the element from the local woof_name
+		 */
+		if (err < 0)
+		{
+			wf = WooFOpen(woof_name);
+		}
+		else
+		{
+			wf = WooFOpen(local_name);
+		}
+		if (wf == NULL)
+		{
+			fprintf(stderr, "WooFProcessGetDone: couldn't open woof: %s\n",
+					woof_name);
+			fflush(stderr);
+			done = -1;
+		}
+		else
+		{
+			done = wf->shared->done;
+			WooFDrop(wf);
+		}
+	}
+	else
+	{ /* copy_size <= 0 */
+		fprintf(stderr, "WooFProcessGetDone: no seq_no frame data for %s\n",
+				woof_name);
+		fflush(stderr);
+		done = -1;
+	}
+
+	/*
+	 * send element back or empty frame indicating no dice
+	 */
+	r_msg = zmsg_new();
+	if (r_msg == NULL)
+	{
+		perror("WooFProcessGetDone: no reply message");
+		return;
+	}
+#ifdef DEBUG
+	printf("WooFProcessGetDone: creating frame for %lu bytes of element at seq_no %lu\n",
+		   sizeof(done), seq_no);
+	fflush(stdout);
+#endif
+
+	r_frame = zframe_new(&done, sizeof(done));
+	if (r_frame == NULL)
+	{
+		perror("WooFProcessGetDone: no reply frame");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_append(r_msg, &r_frame);
+	if (err != 0)
+	{
+		perror("WooFProcessGetDone: couldn't append to r_msg");
+		zframe_destroy(&r_frame);
+		zmsg_destroy(&r_msg);
+		return;
+	}
+	err = zmsg_send(&r_msg, receiver);
+	if (err != 0)
+	{
+		perror("WooFProcessGetDone: couldn't send r_msg");
+		zmsg_destroy(&r_msg);
+		return;
+	}
+
+	return;
+}
 
 #ifdef DEBUG
     printf("WooFProcessGetDone: called\n");

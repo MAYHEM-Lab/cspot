@@ -30,6 +30,10 @@ int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
 int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
+void WooFMsgCacheInit(); /* zermomq socket caching */
+void WooFMsgCacheShutdown(); /* zermomq socket caching */
+
+
 /*
  * 2 minute timeout
  */
