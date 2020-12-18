@@ -359,7 +359,7 @@ void* WooFForker(void* arg) {
                 (ev[first].seq_no > (unsigned long long)last_seq_no)) {
                 /* now walk forward looking for FIRING */
 #ifdef DEBUG
-                printf("WooFForker: considering %s %llu\n", ev[first].namespace, ev[first].seq_no);
+                printf("WooFForker: considering %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                 fflush(stdout);
 #endif
                 firing = (first - 1);
@@ -375,7 +375,7 @@ void* WooFForker(void* arg) {
                         /* found FIRING */
                         firing_found = 1;
 #ifdef DEBUG
-                        printf("WooFForker: found firing for %s %llu\n", ev[first].namespace, ev[first].seq_no);
+                        printf("WooFForker: found firing for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                         fflush(stdout);
 #endif
                         last_seq_no = (unsigned long)ev[first].seq_no;
@@ -388,7 +388,7 @@ void* WooFForker(void* arg) {
                 }
                 if (firing_found == 0) {
 #ifdef DEBUG
-                    printf("WooFForker: no firing found for %s %llu\n", ev[first].namespace, ev[first].seq_no);
+                    printf("WooFForker: no firing found for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                     fflush(stdout);
 #endif
                     /* there is a TRIGGER with no FIRING */
@@ -409,7 +409,7 @@ void* WooFForker(void* arg) {
                 printf("WooFForker: namespace: %s found trigger for evns: %s, name: %s, "
                        "first: %lu, head: %lu, tail: %lu\n",
                        WooF_namespace,
-                       ev[first].namespace,
+                       ev[first].woofc_namespace,
                        ev[first].woofc_name,
                        first,
                        log_tail->head,
@@ -475,7 +475,7 @@ void* WooFForker(void* arg) {
         memset(fev->woofc_namespace, 0, sizeof(fev->woofc_namespace));
         strncpy(fev->woofc_namespace, WooF_namespace, sizeof(fev->woofc_namespace));
 #ifdef DEBUG
-        printf("WooFForker: logging TRIGGER_FIRING for %s %llu\n", ev[first].namespace, ev[first].seq_no);
+        printf("WooFForker: logging TRIGGER_FIRING for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
         fflush(stdout);
 #endif
         /*
@@ -725,7 +725,7 @@ void* WooFForker(void* arg) {
                     WooF_dir,
                     ev[first].woofc_handler,
                     WooF_namespace,
-                    wf->shared->filename);
+                    ev[first].woofc_name);
             fflush(stderr);
             WooFDone = 1;
         } else { /* parent */

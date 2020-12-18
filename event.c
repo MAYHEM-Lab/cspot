@@ -37,7 +37,7 @@ int EventSetCause(EVENT* ev, unsigned long cause_host, unsigned long long cause_
     }
     ev->cause_host = cause_host;
     ev->cause_seq_no = cause_seq_no;
-    return (1);
+    return (0);
 }
 
 int64_t EventIndex(unsigned long host, unsigned long long seq_no) {

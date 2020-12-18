@@ -686,10 +686,16 @@ unsigned long WooFAppendWithCause(
         ev = EventCreate(APPEND, Name_id);
     }
     if (ev == NULL) {
-        fprintf(stderr, "WooFAppendWithCause: couldn't create log event\n");
+        fprintf(stderr, "WooFAppendWithCause: failed to create log event\n");
         exit(1);
     }
-    EventSetCause(ev, cause_host, cause_seq_no);
+    err = EventSetCause(ev, cause_host, cause_seq_no);
+    if (err != 0) {
+        fprintf(stderr, "WooFLatestSeqnoWithCause: failed to set event cause\n");
+        fflush(stderr);
+        EventFree(ev);
+        return (-1);
+    }
 
 #ifdef DEBUG
     printf("WooFAppendWithCause: checking for empty slot, ino: %lu\n", wf->ino);
@@ -1697,7 +1703,18 @@ int WooFReadWithCause(
     V(&wfs->mutex);
 
     ev = EventCreate(READ, Name_id);
-    EventSetCause(ev, cause_host, cause_seq_no);
+    if (ev == NULL) {
+        fprintf(stderr, "WooFReadWithCause: failed to create event\n");
+        fflush(stderr);
+        return (-1);
+    }
+    err = EventSetCause(ev, cause_host, cause_seq_no);
+    if (err != 0) {
+        fprintf(stderr, "WooFReadWithCause: failed to set event cause\n");
+        fflush(stderr);
+        EventFree(ev);
+        return (-1);
+    }
 
     memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
     strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
@@ -1843,6 +1860,7 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
     int mapping_count;
     unsigned long* seqno_mapping;
     int i;
+    int err;
     struct stat sbuf;
 
     wfs = wf->shared;
@@ -1913,7 +1931,19 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
 #endif
 
     ev = EventCreate(LATEST_SEQNO, Name_id);
-    EventSetCause(ev, cause_host, cause_seq_no);
+    if (ev == NULL) {
+        fprintf(stderr, "WooFLatestSeqnoWithCause: failed to create event\n");
+        fflush(stderr);
+        return (-1);
+    }
+    err = EventSetCause(ev, cause_host, cause_seq_no);
+    if (err != 0) {
+        fprintf(stderr, "WooFLatestSeqnoWithCause: failed to set event cause\n");
+        fflush(stderr);
+        EventFree(ev);
+        return (-1);
+    }
+    
     memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
     strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
 #ifdef DEBUG

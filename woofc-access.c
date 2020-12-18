@@ -480,6 +480,10 @@ void WooFProcessPut(zmsg_t* req_msg, zsock_t* receiver) {
      */
     memset(hand_name, 0, sizeof(hand_name));
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessPut: couldn't find handler_name in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     /*
      * could be zero if there is no handler
@@ -538,6 +542,10 @@ void WooFProcessPut(zmsg_t* req_msg, zsock_t* receiver) {
      * need a maximum size but for now see if we can malloc() the space
      */
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessPut: couldn't find element in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     element = malloc(copy_size);
     if (element == NULL) { /* element too big */
@@ -789,7 +797,6 @@ void WooFProcessGetLatestSeqno(zmsg_t* req_msg, zsock_t* receiver) {
      * cause_seq_no in the third frame
      */
     frame = zmsg_next(req_msg);
-    copy_size = zframe_size(frame);
     if (frame == NULL) {
         perror("WooFProcessGetLatestSeqno: couldn't find cause_seq_no in msg");
         return;
@@ -827,7 +834,6 @@ void WooFProcessGetLatestSeqno(zmsg_t* req_msg, zsock_t* receiver) {
      * cause_woof_latest_seq_no in the fifth frame
      */
     frame = zmsg_next(req_msg);
-    copy_size = zframe_size(frame);
     if (frame == NULL) {
         perror("WooFProcessGetLatestSeqno: couldn't find cause_woof_latest_seq_no in msg");
         return;
@@ -1469,6 +1475,10 @@ void WooFProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
      * seq_no name in the second frame
      */
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessGet: couldn't find seq_no in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
         memset(buffer, 0, sizeof(buffer));
@@ -1500,7 +1510,6 @@ void WooFProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
          * cause_seq_no in the fourth frame
          */
         frame = zmsg_next(req_msg);
-        copy_size = zframe_size(frame);
         if (frame == NULL) {
             perror("WooFProcessGet: couldn't find cause_seq_no in msg");
             return;
@@ -1669,6 +1678,10 @@ void WooFProcessGetDone(zmsg_t* req_msg, zsock_t* receiver) {
      * seq_no name in the second frame
      */
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessGetDone: couldn't find element in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
         memset(buffer, 0, sizeof(buffer));
@@ -1801,6 +1814,10 @@ void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
      * count in the second frame
      */
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessRepair: couldn't find count in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
         count = strtoul(zframe_data(frame), (char**)NULL, 10);
@@ -1818,6 +1835,10 @@ void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
      */
     seq_no = malloc(count * sizeof(unsigned long));
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessRepair: couldn't find seq_nos in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
         memcpy(seq_no, zframe_data(frame), copy_size);
@@ -1963,6 +1984,10 @@ void WooFProcessRepairProgress(zmsg_t* req_msg, zsock_t* receiver) {
      * cause_host in the second frame
      */
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessRepairProgress: couldn't find cause_host in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
         cause_host = strtoul(zframe_data(frame), (char**)NULL, 10);
@@ -1980,6 +2005,10 @@ void WooFProcessRepairProgress(zmsg_t* req_msg, zsock_t* receiver) {
      */
     memset(cause_woof, 0, sizeof(cause_woof));
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessRepairProgress: couldn't find cause_woof in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     str = (char*)zframe_data(frame);
     if (copy_size > (sizeof(cause_woof) - 1)) {
@@ -1991,6 +2020,10 @@ void WooFProcessRepairProgress(zmsg_t* req_msg, zsock_t* receiver) {
      * int mapping_count in the fourth frame
      */
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessRepairProgress: couldn't find mapping_count in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     mapping_count = atoi(zframe_data(frame));
 #ifdef DEBUG
@@ -2004,6 +2037,10 @@ void WooFProcessRepairProgress(zmsg_t* req_msg, zsock_t* receiver) {
      */
     mapping = malloc(2 * mapping_count * sizeof(unsigned long));
     frame = zmsg_next(req_msg);
+    if (frame == NULL) {
+        perror("WooFProcessRepairProgress: couldn't find mapping in msg");
+        return;
+    }
     copy_size = zframe_size(frame);
     if (copy_size > 0) {
         memcpy(mapping, zframe_data(frame), copy_size);
@@ -2291,7 +2328,9 @@ void* WooFMsgThread(void* arg) {
          */
         msg = zmsg_recv(receiver);
     }
-
+    printf("zsock_destroy\n");
+    fflush(stdout);
+    
     zsock_destroy(&receiver);
     pthread_exit(NULL);
 }
@@ -3234,7 +3273,7 @@ int WooFMsgGet(char* woof_name, void* element, unsigned long el_size, unsigned l
 #endif
 
     /*
-     * this is a put message
+     * this is a get message
      */
     memset(buffer, 0, sizeof(buffer));
     sprintf(buffer, "%02lu", WOOF_MSG_GET);
