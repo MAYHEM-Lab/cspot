@@ -25,7 +25,7 @@ WOOF_CACHE *WooF_cache;
  * socket caching hack for zeromq
  */
 int UseCache;
-#define SCACHESIZE 500
+#define SCACHESIZE 10000
 pthread_mutex_t CacheLock;
 
 struct scache_stc
@@ -123,15 +123,31 @@ void SocketCacheInsert(char *endpoint, zsock_t *s)
 		if(curr == SCACHESIZE) {
 			curr = 0;
 		}
+		/*
+		 * if we get here, we didn't find it
+		 */
 		if(curr == start) {
 			break;
 		}
 	}
+
+	/*
+	 * this creates a possible race condition because of the destroy.  For now, if cache is full,
+	 * simply return
+	 */
+#if 0
+	// NOT RIGHT NOW
 	if(SocketCache[curr].hash != 0) {
 		zsock_destroy(&SocketCache[curr].s);
 		SocketCache[curr].hash = 0;
 		SocketCache[curr].s = NULL;
 	}
+#else
+	if(SocketCache[curr].hash != 0) {
+		pthread_mutex_unlock(&CacheLock);
+		return;
+	}
+#endif
 	
 	SocketCache[curr].hash = hash;
 	SocketCache[curr].s = s;
