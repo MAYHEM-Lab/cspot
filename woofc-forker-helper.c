@@ -1,13 +1,16 @@
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
-int main(int argc,char **argv)
+#define DEBUG
+
+int main(int argc,char **argv, char **envp)
 {
 	int err;
-	char hbuff[4096];
+	char hbuff[1024];
 	int i;
 	char *fargv[2];
 	int pid;
@@ -15,8 +18,28 @@ int main(int argc,char **argv)
 	char *str;
 	char c;
 	int status;
+	int bad;
+	FILE *log;
+	char obuf[255];
+
+	memset(obuf,0,sizeof(obuf));
+	sprintf(obuf,"/pt/forker.%d.log",getpid());
+
+	log = fopen(obuf,"a+");
+	if(log == NULL) {
+		bad = open("/tmp/bad.txt",O_CREAT|O_RDWR,0600);
+		if(bad >= 0) {
+			write(bad,"log failed",strlen("log failed"));
+			close(bad);
+		}
+		exit(1);
+	}
 
 
+#ifdef DEBUG
+	fprintf(log,"woofc-forker-helper: running\n");
+	fflush(log);
+#endif
 
 	while(1) {
 		/*
@@ -26,9 +49,14 @@ int main(int argc,char **argv)
 		for(i=0; i < 11; i++) {
 			err = read(0,hbuff,sizeof(hbuff));
 			if(err <= 0) {
-				fprintf(stdout,"woofc-forker-helper read %d on %d\n",err,i);
+				fprintf(log,"woofc-forker-helper read %d on %d\n",err,i);
+				fflush(log);
 				exit(0);
 			}
+#ifdef DEBUG
+			fprintf(log,"woofc-forker-helper: received %s\n",hbuff);
+			fflush(log);
+#endif
 			str = (char *)malloc(strlen(hbuff)+1);
 			if(str == NULL) {
 				exit(1);
@@ -52,14 +80,14 @@ int main(int argc,char **argv)
 		fargv[1] = NULL;
 		pid = vfork();
 		if(pid < 0) {
-			fprintf(stderr,"woofc-forker-helper: vfork failed\n");
+			fprintf(log,"woofc-forker-helper: vfork failed\n");
+			fflush(log);
 			exit(1);
 		} else if(pid == 0) {
 			execve(hbuff,fargv,env);
-			fprintf(stdout,"execve of %s failed\n",hbuff);
+			fprintf(log,"execve of %s failed\n",hbuff);
+			fflush(log);
 			close(2);
-			dup2(1,2);
-			perror("woofc-forker-helper");
 			exit(0);
 		}
 		/*
@@ -79,13 +107,10 @@ int main(int argc,char **argv)
 		write(2,&c,1);
 	}
 
+	fprintf(log,"woofc-forker-helper exiting\n");	
+	fflush(log);
+	fclose(log);
 	exit(0);
 }
 
 		
-
-	
-
-	
-
-	

@@ -26,6 +26,8 @@ LOG *Name_log;
 
 static int WooFDone;
 
+#define DEBUG
+
 #define WOOF_CONTAINER_FORKERS (5)
 sema ForkerThrottle;
 pthread_mutex_t Tlock;
@@ -216,6 +218,7 @@ int WooFContainerInit()
 		pthread_detach(tid);
 	}
 
+#if 0
 	err = pthread_create(&tid, NULL, WooFReaper, NULL);
 	if (err < 0)
 	{
@@ -223,6 +226,7 @@ int WooFContainerInit()
 		exit(1);
 	}
 	pthread_detach(tid);
+#endif
 
 	signal(SIGHUP, WooFShutdown);
 	return (1);
@@ -313,7 +317,7 @@ void *WooFForker(void *arg)
 	int parenttochild[2];
 	int childtoparent[2];
 	char *fargv[2];
-	char hbuff[4096];
+	char hbuff[1024];
 	char c;
 
 	/*
@@ -360,6 +364,7 @@ void *WooFForker(void *arg)
 		 * child code here
 		 */
 		close(childtoparent[0]); // child will not read this end of its pipe
+		close(parenttochild[1]);
 		close(0); // getting ready to dup
 		dup2(parenttochild[0],0); // read end of parent to child in 0 in child
 		close(2); // getting ready to dup
@@ -368,19 +373,28 @@ void *WooFForker(void *arg)
 		sprintf(hbuff,"%s/%s",WooF_namespace,"woofc-forker-helper");
 		fargv[0] = hbuff;
 		fargv[1] = NULL;
+#ifdef DEBUG
+		printf("WooFForker child: about to exec %s\n",hbuff);
+		fflush(stdout);
+#endif
 		execve(hbuff,fargv,NULL);
-		fprintf(stderr,"WooFForker: child failed to exec\n");
+		fprintf(stdout,"WooFForker: child failed to exec\n");
+		fflush(stdout);
+		close(2);
+		dup2(1,2);
+		perror("WoofForker child");
 		pthread_exit(NULL);
 		/*
 		 * child ends here
 		 */
 	}
-	
+
 
 	/*
 	 * parent code starts here
 	 */
 	close(parenttochild[0]); // parent does not read this end
+	close(childtoparent[1]);
 	
 
 	while (WooFDone == 0)
@@ -664,7 +678,8 @@ void *WooFForker(void *arg)
 		sprintf(hbuff, "WOOFC_NAMESPACE=%s", WooF_namespace);
 		err = write(parenttochild[1],hbuff,sizeof(hbuff));
 		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+			fprintf(stderr,"WooFForker: failed to write [%d] %s\n",parenttochild[1],hbuff);
+			perror("WoofForker");
 			exit(1);
 		}
 
@@ -775,7 +790,7 @@ void *WooFForker(void *arg)
 
 		WooFDrop(wf);
 
-#if 0
+#ifdef DEBUG
 	sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
 		 export WOOFC_DIR=%s; \
 		 export WOOF_HOST_IP=%s; \
@@ -798,6 +813,8 @@ void *WooFForker(void *arg)
 			Namelog_name,
 			ev[first].seq_no,
 			WooF_dir,ev[first].woofc_handler);
+		printf("%s\n",launch_string);
+		fflush(stdout);
 #endif
 
 
