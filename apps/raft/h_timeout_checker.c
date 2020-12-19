@@ -2,6 +2,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -29,19 +30,22 @@ void* request_vote(void* arg) {
     if (WooFInvalid(seq)) {
         log_warn("failed to request vote from %s", thread_arg->member_woof);
     } else {
-        log_debug("reqested vote [%lu] from %s", seq, thread_arg->member_woof);
+        log_debug("requested vote [%lu] from %s", seq, thread_arg->member_woof);
     }
 }
 
 int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_timeout_checker");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-uint64_t begin = get_milliseconds();
+    WooFMsgCacheInit();
+
+    uint64_t begin = get_milliseconds();
     RAFT_TIMEOUT_CHECKER_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_TIMEOUT_CHECKER_ARG)) < 0) {
-        log_error("failed to monitor_cast");
+        log_error("failed to monitor_cast: %s", monitor_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -54,11 +58,13 @@ uint64_t begin = get_milliseconds();
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the latest sever state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     if (server_state.role == RAFT_LEADER || server_state.role == RAFT_OBSERVER || server_state.role == RAFT_SHUTDOWN) {
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
     int checker_delay = server_state.timeout_min / 5;
@@ -67,11 +73,13 @@ uint64_t begin = get_milliseconds();
     unsigned long latest_heartbeat_seqno = WooFGetLatestSeqno(RAFT_HEARTBEAT_WOOF);
     if (WooFInvalid(latest_heartbeat_seqno)) {
         log_error("failed to get the latest seqno from %s", RAFT_HEARTBEAT_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     RAFT_HEARTBEAT heartbeat = {0};
     if (WooFGet(RAFT_HEARTBEAT_WOOF, &heartbeat, latest_heartbeat_seqno) < 0) {
         log_error("failed to get the latest heartbeat");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -93,6 +101,7 @@ uint64_t begin = get_milliseconds();
         if (WooFInvalid(seq)) {
             log_error("failed to increment the server's term to %" PRIu64 " and initialize an election",
                       server_state.current_term);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_info("state changed at term %" PRIu64 ": CANDIDATE", server_state.current_term);
@@ -105,6 +114,7 @@ uint64_t begin = get_milliseconds();
         seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
         if (WooFInvalid(seq)) {
             log_error("failed to put a heartbeat for the election");
+            WooFMsgCacheShutdown();
             exit(1);
         }
 
@@ -113,6 +123,7 @@ uint64_t begin = get_milliseconds();
         unsigned long vote_pool_seqno = WooFGetLatestSeqno(RAFT_REQUEST_VOTE_RESULT_WOOF);
         if (WooFInvalid(vote_pool_seqno)) {
             log_error("failed to get the latest seqno from %s", RAFT_REQUEST_VOTE_RESULT_WOOF);
+            WooFMsgCacheShutdown();
             exit(1);
         }
 
@@ -120,11 +131,13 @@ uint64_t begin = get_milliseconds();
         unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
         if (WooFInvalid(latest_log_entry)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         RAFT_LOG_ENTRY last_log_entry = {0};
         if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry) < 0) {
             log_error("failed to get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
+            WooFMsgCacheShutdown();
             exit(1);
         }
 
@@ -139,6 +152,7 @@ uint64_t begin = get_milliseconds();
             thread_arg[i].arg.last_log_term = last_log_entry.term;
             if (pthread_create(&thread_id[i], NULL, request_vote, (void*)&thread_arg[i]) < 0) {
                 log_error("failed to create thread to send entries");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
         }
@@ -150,10 +164,12 @@ uint64_t begin = get_milliseconds();
     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_timeout_checker handler");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     threads_join(server_state.members, thread_id);
     monitor_join();
+    WooFMsgCacheShutdown();
     return 1;
 }

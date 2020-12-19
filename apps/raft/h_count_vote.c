@@ -1,6 +1,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -71,10 +72,13 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
+
     uint64_t begin = get_milliseconds();
     RAFT_REQUEST_VOTE_RESULT result = {0};
     if (monitor_cast(ptr, &result, sizeof(RAFT_REQUEST_VOTE_RESULT)) < 0) {
-        log_error("failed to monitor_cast");
+        log_error("failed to monitor_cast: %s", monitor_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
@@ -82,6 +86,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -91,11 +96,13 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
         if (WooFInvalid(seq)) {
             log_error("failed to shutdown");
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_info("server not in the leader config anymore: SHUTDOWN");
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
     // server's term is higher than the vote's term, ignore it
@@ -105,6 +112,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
                   result.term);
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
     // the server is already a leader at vote's term, ifnore the vote
@@ -112,6 +120,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("already a leader at term %" PRIu64 ", ignore the election", server_state.current_term);
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
 
@@ -127,6 +136,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     for (vote_seq = result.candidate_vote_pool_seqno + 1; vote_seq < seq_no; ++vote_seq) {
         if (WooFGet(RAFT_REQUEST_VOTE_RESULT_WOOF, &vote, vote_seq) < 0) {
             log_error("failed to get the vote result at seqno %lu", vote_seq);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         if (vote.granted == 1 && vote.term == result.term) {
@@ -144,6 +154,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
         if (WooFInvalid(last_log_entry_seqno)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         server_state.current_term = result.term;
@@ -161,6 +172,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
         if (WooFInvalid(seq)) {
             log_error("failed to promote itself to leader");
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_debug("promoted to leader for term %" PRIu64 "", result.term);
@@ -168,6 +180,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
 
         if (start_routines(&server_state) < 0) {
             log_error("failed to start leader routines");
+            WooFMsgCacheShutdown();
             exit(1);
         }
     }
@@ -177,5 +190,6 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     monitor_exit(ptr);
     monitor_join();
     // printf("handler h_count_vote took %lu\n", get_milliseconds() - begin);
+    WooFMsgCacheShutdown();
     return 1;
 }

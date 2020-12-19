@@ -2,6 +2,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -24,7 +25,7 @@ void* invoke_thread(void* arg) {
     }
     if (WooFInvalid(invoked_seq)) {
         log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
-        exit(1);
+        return;
     }
     log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
 }
@@ -35,6 +36,7 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
     zsys_init();
 
     uint64_t begin = get_milliseconds();
@@ -43,6 +45,7 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -76,9 +79,11 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_COMMIT_HANDLER_WOOF, "h_commit_handler", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke the next h_commit_handler handler");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     monitor_join();
+    WooFMsgCacheShutdown();
     return 1;
 }

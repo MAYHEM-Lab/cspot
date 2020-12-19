@@ -2,6 +2,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -34,7 +35,7 @@ void* replicate_thread(void* arg) {
         unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
         if (WooFInvalid(last_log_entry_seqno)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
-            exit(1);
+            return;
         }
         RAFT_APPEND_ENTRIES_RESULT result = {0};
         memcpy(result.server_woof, replicate_thread_arg->member_woof, sizeof(result.server_woof));
@@ -64,10 +65,13 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
+
     uint64_t begin = get_milliseconds();
     RAFT_REPLICATE_ENTRIES_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_REPLICATE_ENTRIES_ARG)) < 0) {
-        log_error("failed to monitor_cast");
+        log_error("failed to monitor_cast: %s", monitor_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
@@ -81,6 +85,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int heartbeat_rate = server_state.timeout_min / 2;
@@ -91,6 +96,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
 
@@ -98,6 +104,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
     if (WooFInvalid(last_log_entry_seqno)) {
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     if (last_log_entry_seqno - server_state.commit_index > 2) {
@@ -139,6 +146,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     threads_join(m, thread_id);
                     free(thread_id);
                     free(thread_arg);
+                    WooFMsgCacheShutdown();
                     exit(1);
                 }
                 thread_arg[m].arg.prev_log_term = prev_entry.term;
@@ -150,6 +158,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     threads_join(m, thread_id);
                     free(thread_id);
                     free(thread_arg);
+                    WooFMsgCacheShutdown();
                     exit(1);
                 }
                 if (thread_arg[m].arg.entries[i].is_handler) {
@@ -165,6 +174,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 threads_join(m, thread_id);
                 free(thread_id);
                 free(thread_arg);
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             server_state.last_sent_timestamp[m] = get_milliseconds();
@@ -175,6 +185,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     if (WooFInvalid(seq)) {
         log_error("failed to update server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -185,6 +196,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_replicate_entries handler");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -193,5 +205,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     free(thread_arg);
     monitor_join();
     // printf("handler h_replicate_entries took %lu\n", get_milliseconds() - begin);
+    WooFMsgCacheShutdown();
     return 1;
 }

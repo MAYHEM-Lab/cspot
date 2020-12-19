@@ -1,6 +1,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -15,10 +16,12 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     RAFT_CONFIG_CHANGE_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_CONFIG_CHANGE_ARG)) < 0) {
-        log_error("failed to monitor_cast");
+        log_error("failed to monitor_cast: %s", monitor_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
@@ -26,6 +29,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the latest server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int client_put_delay = server_state.timeout_min / 10;
@@ -43,6 +47,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to add observer to server at term %" PRIu64 "", server_state.current_term);
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             log_info("%s starts observing", arg.observer_woof);
@@ -74,6 +79,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
                                      &joint_members,
                                      joint_member_woofs) < 0) {
                 log_error("failed to compute the joint config");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             log_debug("there are %d members in the joint config", joint_members);
@@ -85,15 +91,18 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             entry.is_handler = 0;
             if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
                 log_error("failed to encode the joint config to a log entry");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             if (encode_config(entry.data.val + strlen(entry.data.val), arg.members, arg.member_woofs) < 0) {
                 log_error("failed to encode the new config to a log entry");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             unsigned long entry_seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
             if (WooFInvalid(entry_seq)) {
                 log_error("failed to put the joint config as log entry");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             log_debug("appended the joint config as a log entry");
@@ -131,6 +140,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to update server config at term %" PRIu64 "", server_state.current_term);
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             log_info("start using joint config with %d members at term %" PRIu64 "",
@@ -162,8 +172,10 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (result_seq != seq_no) {
         log_error("config_change seqno %lu doesn't match result seno %lu", seq_no, result_seq);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
+    WooFMsgCacheShutdown();
     return 1;
 }

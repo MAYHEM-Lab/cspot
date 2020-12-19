@@ -2,6 +2,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -29,7 +30,7 @@ void* invoke_thread(void* arg) {
     }
     if (WooFInvalid(result_seq)) {
         log_error("failed to put client_put_result to %s", invoke_thread_arg->request.callback_woof);
-        exit(1);
+        return;
     }
 }
 
@@ -39,6 +40,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
     zsys_init();
 
     uint64_t begin = get_milliseconds();
@@ -47,6 +49,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -54,6 +57,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "",
                   arg->term,
                   server_state.current_term);
+        WooFMsgCacheShutdown();
         return 1;
     }
 
@@ -61,6 +65,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
     if (WooFInvalid(latest_result_seqno)) {
         log_error("failed to get the latest seqno of %s", RAFT_CLIENT_PUT_RESULT_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -76,6 +81,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
             threads_join(count, invoke_thread_id);
             free(invoke_thread_arg);
             free(invoke_thread_id);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         // log_debug("checking result %lu", i);
@@ -85,6 +91,7 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
             threads_join(count, invoke_thread_id);
             free(invoke_thread_arg);
             free(invoke_thread_id);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         if (result->index == 0 || request->callback_woof[0] == 0) {
@@ -116,8 +123,10 @@ int h_invoke_committed(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_INVOKE_COMMITTED_WOOF, "h_invoke_committed", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke the next h_invoke_committed handler");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
+    WooFMsgCacheShutdown();
     return 1;
 }

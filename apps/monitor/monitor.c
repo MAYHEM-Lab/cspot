@@ -34,6 +34,7 @@ void* put_pool_item_thread(void* ptr) {
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to WooFPut to %s", arg->woof_name);
     }
+    // printf("put_pool_item_thread(%s): %lu\n", arg->woof_name, seq); fflush(stdout);
     pthread_mutex_lock(&lock);
     thread_id[arg->thread_id] = 0;
     next_available_thread = arg->thread_id;
@@ -168,11 +169,13 @@ unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handle
         return -1;
     }
 
+    printf("monitor_remote_put(%s): begin\n", woof_uri); fflush(stdout);
     unsigned long woof_seq = WooFPut(woof_uri, NULL, ptr);
     if (WooFInvalid(woof_seq)) {
         sprintf(monitor_error_msg, "failed to WooFPut to %s", woof_uri);
         return -1;
     }
+    printf("monitor_remote_put(%s): %lu\n", woof_uri, woof_seq); fflush(stdout);
 
     int tid = get_next_available_thread();
     thread_arg[tid].thread_id = tid;

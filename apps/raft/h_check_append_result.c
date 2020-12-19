@@ -2,6 +2,7 @@
 #include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
+#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -17,10 +18,13 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
+
     uint64_t begin = get_milliseconds();
     RAFT_CHECK_APPEND_RESULT_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(RAFT_CHECK_APPEND_RESULT_ARG)) < 0) {
-        log_error("failed to monitor_cast");
+        log_error("failed to monitor_cast: %s", monitor_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
@@ -34,6 +38,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (get_server_state(&server_state) < 0) {
         log_error("failed to get the server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -42,6 +47,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
 
@@ -49,6 +55,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long last_append_result_seqno = WooFGetLatestSeqno(RAFT_APPEND_ENTRIES_RESULT_WOOF);
     if (WooFInvalid(last_append_result_seqno)) {
         log_error("failed to get the latest seqno from %s", RAFT_APPEND_ENTRIES_RESULT_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = last_append_result_seqno - arg.last_seen_result_seqno;
@@ -61,6 +68,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
         RAFT_APPEND_ENTRIES_RESULT result = {0};
         if (WooFGet(RAFT_APPEND_ENTRIES_RESULT_WOOF, &result, result_seq) < 0) {
             log_error("failed to get append_entries result at %lu", result_seq);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         if (RAFT_SAMPLING_RATE > 0 && (result_seq % RAFT_SAMPLING_RATE == 0)) {
@@ -88,6 +96,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to fall back to follower at term %" PRIu64 "", result.term);
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             log_info("state changed at term %" PRIu64 ": FOLLOWER", server_state.current_term);
@@ -97,6 +106,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
             if (WooFInvalid(seq)) {
                 log_error("failed to put a heartbeat when falling back to follower");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
@@ -106,10 +116,12 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
                 monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
+                WooFMsgCacheShutdown();
                 exit(1);
             }
             monitor_exit(ptr);
             monitor_join();
+            WooFMsgCacheShutdown();
             return 1;
         }
         if (result.term == arg.term) {
@@ -125,6 +137,7 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     if (WooFInvalid(seq)) {
         log_error("failed to update server state");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -132,10 +145,12 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_CHECK_APPEND_RESULT_WOOF, "h_check_append_result", &arg, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_check_append_result handler");
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     monitor_join();
     // printf("handler h_check_append_result took %lu\n", get_milliseconds() - begin);
+    WooFMsgCacheShutdown();
     return 1;
 }
