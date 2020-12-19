@@ -852,7 +852,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", seq_no);
-	r_frame = zframe_new(buffer, strlen(buffer));
+	r_frame = zframe_new(buffer, strlen(buffer)+1);
 	if (r_frame == NULL)
 	{
 		perror("WooFProcessPut: no reply frame");
@@ -970,7 +970,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", el_size);
-	r_frame = zframe_new(buffer, strlen(buffer));
+	r_frame = zframe_new(buffer, strlen(buffer)+1);
 	if (r_frame == NULL)
 	{
 		perror("WooFProcessGetElSize: no reply frame");
@@ -1085,7 +1085,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", latest_seq_no);
-	r_frame = zframe_new(buffer, strlen(buffer));
+	r_frame = zframe_new(buffer, strlen(buffer)+1);
 	if (r_frame == NULL)
 	{
 		perror("WooFProcessGetLatestSeqno: no reply frame");
@@ -1186,7 +1186,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", WOOF_MSG_GET_LATEST_SEQNO);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no frame for WOOF_MSG_GET_LATEST_SEQNO command in to server at %s\n",
@@ -1215,7 +1215,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	/*
 	 * make a frame for the woof_name
 	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
+	frame = zframe_new(woof_name, strlen(woof_name)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no frame for woof_name to server at %s\n",
@@ -1414,7 +1414,7 @@ void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
 	}
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", el_read);
-	r_frame = zframe_new(buffer, strlen(buffer));
+	r_frame = zframe_new(buffer, strlen(buffer)+1);
 	if (r_frame == NULL)
 	{
 		perror("WooFProcessGetTail: no reply frame");
@@ -2118,7 +2118,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", WOOF_MSG_GET_EL_SIZE);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetElSize: woof: %s no frame for WOOF_MSG_GET_EL_SIZE command in to server at %s\n",
@@ -2147,7 +2147,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	/*
 	 * make a frame for the woof_name
 	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
+	frame = zframe_new(woof_name, strlen(woof_name)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetElSize: woof: %s no frame for woof_name to server at %s\n",
@@ -2318,7 +2318,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", WOOF_MSG_GET_TAIL);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetTail: woof: %s no frame for WOOF_MSG_GET_TAIL command in to server at %s\n",
@@ -2347,7 +2347,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	/*
 	 * make a frame for the woof_name
 	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
+	frame = zframe_new(woof_name, strlen(woof_name)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetTail: woof: %s no frame for woof_name to server at %s\n",
@@ -2384,7 +2384,7 @@ unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_s
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", el_count);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetTail: woof: %s no frame for el_count to server at %s\n",
@@ -2565,7 +2565,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", WOOF_MSG_PUT);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgPut: woof: %s no frame for WOOF_MSG_PUT command in to server at %s\n",
@@ -2594,7 +2594,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	/*
 	 * make a frame for the woof_name
 	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
+	frame = zframe_new(woof_name, strlen(woof_name)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgPut: woof: %s no frame for woof_name to server at %s\n",
@@ -2635,7 +2635,7 @@ unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsign
 	{
 		memset(buffer, 0, sizeof(buffer));
 		strncpy(buffer, hand_name, sizeof(buffer));
-		frame = zframe_new(buffer, strlen(buffer));
+		frame = zframe_new(buffer, strlen(buffer)+1);
 	}
 	else
 	{ /* czmq indicate this will work */
@@ -2822,7 +2822,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", WOOF_MSG_GET);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGet: woof: %s no frame for WOOF_MSG_GET command in to server at %s\n",
@@ -2851,7 +2851,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	/*
 	 * make a frame for the woof_name
 	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
+	frame = zframe_new(woof_name, strlen(woof_name)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGet: woof: %s no frame for woof_name to server at %s\n",
@@ -2889,7 +2889,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", seq_no);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 
 	if (frame == NULL)
 	{
@@ -3060,7 +3060,7 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", WOOF_MSG_GET_DONE);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetDone: woof: %s no frame for WOOF_MSG_GET_DONE command in to server at %s\n",
@@ -3089,7 +3089,7 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 	/*
 	 * make a frame for the woof_name
 	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
+	frame = zframe_new(woof_name, strlen(woof_name)+1);
 	if (frame == NULL)
 	{
 		fprintf(stderr, "WooFMsgGetDone: woof: %s no frame for woof_name to server at %s\n",
@@ -3127,7 +3127,7 @@ int WooFMsgGetDone(char *woof_name, unsigned long seq_no)
 
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", seq_no);
-	frame = zframe_new(buffer, strlen(buffer));
+	frame = zframe_new(buffer, strlen(buffer)+1);
 
 	if (frame == NULL)
 	{
