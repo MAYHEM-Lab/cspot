@@ -573,8 +573,8 @@ int main(int argc, char **argv, char **envp)
 	char name_space[2048];
 	int err;
 
-	//	signal(SIGINT,sig_int_handler);
-	//	signal(SIGTERM,sig_int_handler);
+//		signal(SIGINT,sig_int_handler);
+//		signal(SIGTERM,sig_int_handler);
 
 	min_containers = 1;
 	max_containers = 1;
