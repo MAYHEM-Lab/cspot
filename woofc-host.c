@@ -28,7 +28,7 @@ struct cont_arg_stc
 
 typedef struct cont_arg_stc CA;
 
-// #define DEBUG
+#define DEBUG
 
 /*
  * from https://en.wikipedia.org/wiki/Universal_hashing
@@ -232,7 +232,7 @@ static int WooFHostInit(int min_containers, int max_containers)
 	 * (which sounds like a bug in Linux).  Sleeping forever, however, allows SIGINT to
 	 * be caught which then triggers a clean up of the docker container
 	 */
-	sleep(86400 * 365 * 10);
+//	sleep(86400 * 365 * 10);
 	pthread_join(tid, NULL);
 
 	exit(0);
@@ -245,6 +245,18 @@ void WooFExit()
 	pthread_exit(NULL);
 }
 
+static void ThreadSigBlock()
+{
+	sigset_t mask;
+	sigemptyset(&mask); 
+        sigaddset(&mask, SIGINT); 
+        sigaddset(&mask, SIGHUP); 
+        sigaddset(&mask, SIGTERM); 
+                
+        pthread_sigmask(SIG_BLOCK, &mask, NULL);
+	return;
+        
+}
 /*
  * FIX ME: it would be better if the TRIGGER seq_no gets 
  * retired after the launch is successful  Right now, the last_seq_no 
@@ -254,6 +266,8 @@ void WooFExit()
 void *WooFDockerThread(void *arg)
 {
 	char *launch_string = (char *)arg;
+
+	ThreadSigBlock();
 
 #ifdef DEBUG
 	fprintf(stdout, "LAUNCH: %s\n", launch_string);
@@ -269,6 +283,7 @@ void *WooFDockerThread(void *arg)
 
 	return (NULL);
 }
+
 
 void *WooFContainerLauncher(void *arg)
 {
@@ -287,6 +302,8 @@ void *WooFContainerLauncher(void *arg)
 	unsigned int port;
 	CA *ca = (CA *)arg;
 	pthread_t *tids;
+
+	ThreadSigBlock();
 
 	container_count = ca->container_count;
 	free(ca);
@@ -493,11 +510,20 @@ void CleanUpContainers(char **names) {
 
 void CleanUpDocker(int signal, void *arg)
 {
+#ifdef DEBUG
+	fprintf(stdout,"CleanUpDocker called on signal\n");
+	fflush(stdout);
+#endif
 	// simple guard, try to prevent two threads from making it in here at once
 	// no real harm is done however if two threads do make it in other than
 	// a possible double free, but the process is about to exit anyway
-	if (WooF_worker_containers == NULL) 
+	if (WooF_worker_containers == NULL)  {
+#ifdef DEBUG
+		fprintf(stdout,"CleanUpDocker: no containers, exiting\n");
+		fflush(stdout);
+#endif
 		return ;
+	}
 
 	char **names = WooF_worker_containers;
 	WooF_worker_containers = NULL;
@@ -516,7 +542,7 @@ void sig_int_handler(int signal)
 	fflush(stdout);
 
 	CleanUpDocker(0, NULL);
-	exit(0);
+//	exit(0);
 
 	return;
 }
@@ -528,9 +554,9 @@ void CatchSignals()
 	action.sa_handler = sig_int_handler;
 	action.sa_flags = 0;
 	sigemptyset(&action.sa_mask);
-	sigaddset(&action.sa_mask, SIGINT);
-	sigaddset(&action.sa_mask, SIGTERM);
-	sigaddset(&action.sa_mask, SIGHUP);
+//	sigaddset(&action.sa_mask, SIGINT);
+//	sigaddset(&action.sa_mask, SIGTERM);
+//	sigaddset(&action.sa_mask, SIGHUP);
 	sigaction(SIGINT, &action, NULL);
 	sigaction(SIGTERM, &action, NULL);
 	sigaction(SIGHUP, &action, NULL);
