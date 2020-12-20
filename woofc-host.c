@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/sysinfo.h>
 
 #include "log.h"
 #include "woofc.h"
@@ -372,6 +373,7 @@ void *WooFContainerLauncher(void *arg)
 				"docker run -t "
 				"--rm " // option tells the container that it shuold remove itself when stopped
 				"--name %s "
+				"--cpus=%d "
 				"-e LD_LIBRARY_PATH=/usr/local/lib "
 				"-e WOOFC_NAMESPACE=%s "
 				"-e WOOFC_DIR=%s "
@@ -379,6 +381,7 @@ void *WooFContainerLauncher(void *arg)
 				"-e WOOF_NAMELOG_NAME=%s "
 				"-e WOOF_HOST_IP=%s ",
 				WooF_worker_containers[count],
+				get_nprocs_conf(),
 				WooF_namespace,
 				pathp,
 				Name_id,

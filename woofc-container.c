@@ -27,7 +27,7 @@ LOG *Name_log;
 static int WooFDone;
 
 
-#define WOOF_CONTAINER_FORKERS (5)
+#define WOOF_CONTAINER_FORKERS (16)
 sema ForkerThrottle;
 pthread_mutex_t Tlock;
 int Tcount;
@@ -74,7 +74,7 @@ int WooFContainerInit()
 	int i;
 	FARG *tas;
 	char *cargv[2];
-	char hbuff[1024];
+	char hbuff[255];
 	int pid;
 
 	gettimeofday(&tm, NULL);
@@ -345,7 +345,7 @@ void *WooFForker(void *arg)
 	int parenttochild[2];
 	int childtoparent[2];
 	char *fargv[2];
-	char hbuff[1024];
+	char hbuff[255];
 	char c;
 
 	/*
@@ -586,11 +586,6 @@ void *WooFForker(void *arg)
 		fflush(stdout);
 #endif
 
-
-
-		/*
-		 * here, we need to fork a new process for the handler
-		 */
 
 
 		/*
