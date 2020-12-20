@@ -250,6 +250,10 @@ int WooFContainerInit()
 			/*
 			 * child code here
 			 */
+#ifdef DEBUG
+			fprintf(stdout,"WooFContainer: child %d with pid %d running\n",i,getpid());
+			fflush(stdout);
+#endif
 			
 			close(tas[i].parenttochild[1]); // this end, the parent writes
 			close(tas[i].childtoparent[0]); // this end, the parent reads
@@ -257,7 +261,12 @@ int WooFContainerInit()
 			dup2(tas[i].parenttochild[0],0); // child read end in stdin
 			close(2); // child will write back to parent on stderr
 			dup2(tas[i].childtoparent[1],2); // write end for child in stderr
-			execve(hbuff,cargv,NULL);
+#ifdef DEBUG
+			fprintf(stdout,"WooFContainer: child about to exec %s\n",hbuff);
+			fflush(stdout);
+#endif
+//			execve(hbuff,cargv,NULL);
+			system(hbuff);
 			fprintf(stdout,"WooFContainer: execve of %s failed\n",hbuff);
 			fflush(stdout);
 			close(2);
@@ -265,6 +274,10 @@ int WooFContainerInit()
 			perror("WooFContainer");
 			exit(1);
 		}
+#ifdef DEBUG
+		fprintf(stdout,"WooFContainer: parent %d continuing\n",i);
+		fflush(stdout);
+#endif
 
 		/*
 		 * parent code starts here
@@ -626,13 +639,17 @@ void *WooFForker(void *arg)
 		}
 
 		strncpy(woof_shepherd_dir, pathp, sizeof(woof_shepherd_dir));
+#ifdef DEBUG
+		fprintf(stdout,"WooFForker: sending env to helper\n");
+		fflush(stdout);
+#endif
 
 		/* 0 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOFC_NAMESPACE=%s", WooF_namespace);
 		err = write(ta->parenttochild[1],hbuff,sizeof(hbuff));
 		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write [%d] %s\n",parenttochild[1],hbuff);
+			fprintf(stderr,"WooFForker: failed to write [%d] %s\n",ta->parenttochild[1],hbuff);
 			perror("WoofForker");
 			exit(1);
 		}
@@ -744,7 +761,7 @@ void *WooFForker(void *arg)
 
 		WooFDrop(wf);
 
-#ifdef DEBUG
+#if 0
 	sprintf(launch_string, "export WOOFC_NAMESPACE=%s; \
 		 export WOOFC_DIR=%s; \
 		 export WOOF_HOST_IP=%s; \
@@ -783,6 +800,10 @@ void *WooFForker(void *arg)
 #endif
 		LogFree(log_tail);
 
+#ifdef DEBUG
+		fprintf(stdout,"WooFForker: about to wait for helper signal\n");
+		fflush(stdout);
+#endif
 		/*
 		 * wait for child to signal successful exec
 		 */
@@ -791,6 +812,10 @@ void *WooFForker(void *arg)
 			fprintf(stderr,"WooFForker: woofc-forker-helper closed\n");
 			exit(1);
 		}
+#ifdef DEBUG
+		fprintf(stdout,"WooFForker: helper signal received");
+		fflush(stdout);
+#endif
 		V(&ForkerThrottle);
 		pthread_mutex_lock(&Tlock);
 		Tcount++;
@@ -801,12 +826,6 @@ void *WooFForker(void *arg)
 		pthread_mutex_unlock(&Tlock);
 
 	}
-
-	/*
-	 * reap the helper
-	 */
-	waitpid(pid,&status,0);
-	
 
 	fprintf(stderr, "WooFForker namespace: %s exiting\n", WooF_namespace);
 	fflush(stderr);
@@ -819,6 +838,8 @@ int main(int argc, char **argv)
 	int err;
 	char c;
 	int message_server = 0;
+
+	signal(SIGPIPE, SIG_IGN);
 
 	WooFContainerInit();
 
