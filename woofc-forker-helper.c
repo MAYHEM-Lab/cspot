@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <signal.h>
 
+#define SPLAY (5)
+
 int main(int argc,char **argv, char **env)
 {
 	int err;
@@ -17,6 +19,7 @@ int main(int argc,char **argv, char **env)
 	char *str;
 	char c;
 	int status;
+	int splay_count = 0;
 
 	signal(SIGPIPE, SIG_IGN);
 
@@ -93,20 +96,23 @@ int main(int argc,char **argv, char **env)
 		/*
 		 * wait for handler to exit
 		 */
+		splay_count++;
+		if(splay_count >= SPLAY) {
 #ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: about to wait for %s as proc %d\n",hbuff,pid);
-		fflush(stdout);
-#endif
-		err = waitpid(pid,&status,0);
-		if(err < 0) {
-			fprintf(stdout,"woofc-forker-helper: wait for %d failed\n",pid);
+			fprintf(stdout,"woofc-forker-helper: about to wait for %s\n",hbuff);
 			fflush(stdout);
-		}
-
-#ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: completed wait for %s as proc %d\n",hbuff,pid);
-		fflush(stdout);
 #endif
+			/*
+			 * reap the zombie handlers
+			 */
+			while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
+				splay_count--;
+#ifdef DEBUG
+				fprintf(stdout,"woofc-forker-helper: completed wait for %s as proc %d\n",hbuff,pid);
+				fflush(stdout);
+#endif
+			}
+		}
 		/*
 		 * send WooFForker completion signal
 		 */
