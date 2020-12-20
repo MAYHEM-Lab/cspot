@@ -9,7 +9,7 @@
 int main(int argc,char **argv, char **env)
 {
 	int err;
-	char hbuff[1024];
+	char hbuff[255];
 	int i;
 	char *fargv[2];
 	int pid;
