@@ -237,7 +237,7 @@ int WooFContainerInit()
 			exit(1);
 		}
 
-		sprintf(hbuff,"%s/%s",WooF_namespace,"woofc-forker-helper");
+		sprintf(hbuff,"%s/%s",WooF_dir,"woofc-forker-helper");
 		cargv[0] = hbuff;
 		cargv[1] = NULL;
 		pid = fork();
