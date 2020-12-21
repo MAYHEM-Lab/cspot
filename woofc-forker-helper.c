@@ -70,12 +70,18 @@ int main(int argc,char **argv, char **env)
 
 		fargv[0] = hbuff;
 		fargv[1] = NULL;
+
 		pid = vfork();
 		if(pid < 0) {
 			fprintf(stdout,"woofc-forker-helper: vfork failed\n");
 			fflush(stdout);
 			exit(1);
 		} else if(pid == 0) {
+			/*
+		 	 * reset stderr for handler to use
+		 	 */
+			close(2);
+			dup2(1,2);
 			execve(hbuff,fargv,menv);
 			fprintf(stdout,"execve of %s failed\n",hbuff);
 			fflush(stdout);
