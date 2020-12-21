@@ -14,11 +14,13 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     DHT_REGISTER_TOPIC_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(DHT_REGISTER_TOPIC_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -28,6 +30,7 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFCreate(registration_woof, sizeof(DHT_TOPIC_REGISTRY), DHT_HISTORY_LENGTH_SHORT) < 0) {
             log_error("failed to create woof %s", registration_woof);
             monitor_exit(ptr);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_debug("created registration woof %s", registration_woof);
@@ -50,6 +53,7 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_error("failed to register topic");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 #ifdef USE_RAFT
@@ -64,6 +68,7 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFCreate(subscription_woof, sizeof(DHT_SUBSCRIPTION_LIST), DHT_HISTORY_LENGTH_SHORT) < 0) {
             log_error("failed to create %s", subscription_woof);
             monitor_exit(ptr);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_debug("created subscription woof %s", subscription_woof);
@@ -77,10 +82,12 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFInvalid(seq)) {
             log_error("failed to initialize subscription list %s", subscription_woof);
             monitor_exit(ptr);
+            WooFMsgCacheShutdown();
             exit(1);
         }
     }
 
     monitor_exit(ptr);
+    WooFMsgCacheShutdown();
     return 1;
 }

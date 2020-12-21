@@ -169,13 +169,11 @@ unsigned long monitor_remote_put(char* monitor_uri, char* woof_uri, char* handle
         return -1;
     }
 
-    printf("monitor_remote_put(%s): begin\n", woof_uri); fflush(stdout);
     unsigned long woof_seq = WooFPut(woof_uri, NULL, ptr);
     if (WooFInvalid(woof_seq)) {
         sprintf(monitor_error_msg, "failed to WooFPut to %s", woof_uri);
         return -1;
     }
-    printf("monitor_remote_put(%s): %lu\n", woof_uri, woof_seq); fflush(stdout);
 
     int tid = get_next_available_thread();
     thread_arg[tid].thread_id = tid;

@@ -31,8 +31,10 @@
 #define RAFT_CLIENT_PUT_RESULT_WOOF "raft_client_put_result.woof"
 #define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
 #define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
-#define RAFT_CHECK_APPEND_RESULT_WOOF  "raft_check_append_result.woof"
+#define RAFT_CHECK_APPEND_RESULT_WOOF "raft_check_append_result.woof"
 #define RAFT_UPDATE_COMMIT_INDEX_WOOF "raft_update_commit_index.woof"
+#define RAFT_INVOKE_COMMITTED_WOOF "raft_invoke_committed.woof"
+#define RAFT_COMMIT_HANDLER_WOOF "raft_commit_handler.woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
@@ -44,6 +46,7 @@
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST XXX_BATCH_SIZE
+// #define RAFT_DATA_TYPE_SIZE 8192
 #define RAFT_DATA_TYPE_SIZE (RAFT_NAME_LENGTH + sizeof(int32_t) + XXX_DATA_SIZE)
 
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
@@ -115,7 +118,6 @@ typedef struct raft_append_entries_arg {
     uint64_t prev_log_term;
     RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
     uint64_t leader_commit;
-    uint64_t created_ts;
     uint64_t ack_seq;
 } RAFT_APPEND_ENTRIES_ARG;
 
@@ -131,7 +133,6 @@ typedef struct raft_append_entries_result {
 
 typedef struct raft_client_put_request {
     RAFT_DATA_TYPE data;
-    uint64_t created_ts;
     int32_t is_handler;
     char callback_woof[RAFT_NAME_LENGTH];
     char callback_handler[RAFT_NAME_LENGTH];
@@ -144,7 +145,6 @@ typedef struct raft_client_put_arg {
 } RAFT_CLIENT_PUT_ARG;
 
 typedef struct raft_client_put_result {
-    uint64_t picked_ts;
     char source[RAFT_NAME_LENGTH];
     char redirected_target[RAFT_NAME_LENGTH];
     uint64_t redirected_seqno;
@@ -173,14 +173,22 @@ typedef struct raft_check_append_result_entries {
     uint64_t last_seen_result_seqno;
 } RAFT_CHECK_APPEND_RESULT_ARG;
 
-typedef struct raft_update_commit_index {
+typedef struct raft_update_commit_index_arg {
     uint64_t term;
-} RAFT_UPDATE_COMMIT_INDEX;
+} RAFT_UPDATE_COMMIT_INDEX_ARG;
+
+typedef struct raft_invoke_committed_arg {
+    uint64_t term;
+    uint64_t last_checked_client_put_result_seqno;
+} RAFT_INVOKE_COMMITTED_ARG;
+
+typedef struct raft_commit_handler_arg {
+    uint64_t last_index;
+} RAFT_COMMIT_HANDLER_ARG;
 
 typedef struct raft_replicate_entries {
     uint64_t term;
     uint64_t last_ts;
-    uint64_t last_checked_client_put_result_seqno;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {
@@ -189,7 +197,6 @@ typedef struct raft_request_vote_arg {
     uint64_t candidate_vote_pool_seqno;
     uint64_t last_log_index;
     uint64_t last_log_term;
-    uint64_t created_ts;
 } RAFT_REQUEST_VOTE_ARG;
 
 typedef struct raft_request_vote_result {

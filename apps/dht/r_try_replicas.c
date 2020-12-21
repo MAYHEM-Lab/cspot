@@ -17,22 +17,26 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     if (is_empty(successor.hash[0])) {
         log_debug("successor is nil");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         return 1;
     }
 
@@ -80,6 +84,7 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
                       replica_node.leader_id,
                       successor_addr(&successor, 0));
             monitor_exit(ptr);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_warn("updated successor to use replica[%d]: %s", replica_node.leader_id, successor_addr(&successor, 0));
@@ -89,10 +94,12 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (raft_is_error(index)) {
             log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
             monitor_exit(ptr);
+            WooFMsgCacheShutdown();
             exit(1);
         }
 #endif
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         return 1;
     }
     log_warn("none of successor replicas is responding, shifting successors");
@@ -110,6 +117,7 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_error("failed to shift successor list");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     log_warn("shifted new successor: %s", successor.replicas[0][successor.leader[0]]);
@@ -119,10 +127,12 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 #endif
 
     monitor_exit(ptr);
+    WooFMsgCacheShutdown();
     return 1;
 }

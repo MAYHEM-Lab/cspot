@@ -14,12 +14,11 @@
 
 int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_DAEMON_ARG* arg = (DHT_DAEMON_ARG*)ptr;
-
     log_set_tag("d_daemon");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-
+    WooFMsgCacheInit();
 
     uint64_t now = get_milliseconds();
 
@@ -29,6 +28,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         DHT_NODE_INFO node = {0};
         if (get_latest_node_info(&node) < 0) {
             log_error("couldn't get latest node info: %s", dht_error_msg);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         if (seq_no == 1) {
@@ -39,6 +39,7 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long seq = WooFPut(DHT_NODE_INFO_WOOF, NULL, &node);
         if (WooFInvalid(seq)) {
             log_error("failed to update replica's leader_id to %d", node.leader_id);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         log_debug("updated replica's leader_id to %d", node.leader_id);
@@ -49,9 +50,11 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
         if (WooFInvalid(seq)) {
             log_error("failed to invoke next d_daemon");
+            WooFMsgCacheShutdown();
             exit(1);
         }
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
 #endif
@@ -91,8 +94,10 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(DHT_DAEMON_WOOF, "d_daemon", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next d_daemon");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     monitor_join();
+    WooFMsgCacheShutdown();
     return 1;
 }

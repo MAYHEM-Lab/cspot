@@ -117,7 +117,7 @@ int get_latest_element(char* woof_name, void* element) {
         return -1;
     }
     if (WooFGet(woof_name, element, latest_seq) < 0) {
-        sprintf(dht_error_msg, "failed to get the latest woof element from %s", woof_name);
+        sprintf(dht_error_msg, "failed to get the latest woof element from %s[%lu]", woof_name, latest_seq);
         return -1;
     }
     return 0;
@@ -299,9 +299,6 @@ void dht_init_find_arg(DHT_FIND_SUCCESSOR_ARG* arg, char* key, char* hashed_key,
     memcpy(arg->key, key, sizeof(arg->key));
     memcpy(arg->hashed_key, hashed_key, sizeof(arg->hashed_key));
     strcpy(arg->callback_namespace, callback_namespace);
-    arg->query_count = 0;
-    arg->message_count = 0;
-    arg->failure_count = 0;
 }
 
 char* dht_hash(unsigned char* dst, char* src) {

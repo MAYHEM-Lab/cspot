@@ -174,23 +174,25 @@ void* resolve(void* ptr) {
 
 int server_publish_single(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
-
     log_set_tag("server_publish_single");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     uint64_t begin = get_milliseconds();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_SERVER_PUBLISH_FIND_WOOF);
     if (WooFInvalid(latest_seq)) {
         log_error("failed to get the latest seqno from %s", DHT_SERVER_PUBLISH_FIND_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = latest_seq - routine_arg->last_seqno;
@@ -210,6 +212,7 @@ int server_publish_single(WOOF* wf, unsigned long seq_no, void* ptr) {
         thread_args[i].seq_no = routine_arg->last_seqno + 1 + i;
         if (pthread_create(&tid[i], NULL, resolve, &thread_args[i]) < 0) {
             log_error("failed to create thread to process publish_find at %lu", routine_arg->last_seqno + 1 + i);
+            WooFMsgCacheShutdown();
             exit(1);
         }
     }
@@ -218,8 +221,10 @@ int server_publish_single(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_single", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_single");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     // printf("handler server_publish_single took %lu\n", get_milliseconds() - begin);
+    WooFMsgCacheShutdown();
     return 1;
 }

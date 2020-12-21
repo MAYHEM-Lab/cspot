@@ -6,16 +6,17 @@
 #include <string.h>
 
 int h_invalidate_fingers(WOOF* wf, unsigned long seq_no, void* ptr) {
-    log_set_tag("invalidate_fingers");
+    log_set_tag("h_invalidate_fingers");
     log_set_level(DHT_LOG_INFO);
-    log_set_level(DHT_LOG_DEBUG);
+    // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
-    log_error("triggered");
     DHT_INVALIDATE_FINGERS_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(DHT_INVALIDATE_FINGERS_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -44,5 +45,6 @@ int h_invalidate_fingers(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     log_debug("invalidated all fingers with hash %s: %s", hash_str, index_str);
     monitor_exit(ptr);
+    WooFMsgCacheShutdown();
     return 1;
 }

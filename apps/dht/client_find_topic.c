@@ -105,9 +105,6 @@ int main(int argc, char** argv) {
             if (memcmp(result.topic, topic, SHA_DIGEST_LENGTH) == 0) {
                 memcpy(result_replicas, result.node_replicas, sizeof(result.node_replicas));
                 result_leader = result.node_leader;
-                query_count = result.find_successor_query_count;
-                message_count = result.find_successor_message_count;
-                failure_count = result.find_successor_failure_count;
                 break;
             }
         }

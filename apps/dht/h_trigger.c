@@ -95,6 +95,7 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
     zsys_init();
 
     uint64_t begin = get_milliseconds();
@@ -102,6 +103,7 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_TRIGGER_WOOF);
     if (WooFInvalid(latest_seq)) {
         log_error("failed to get the latest seqno from %s", DHT_TRIGGER_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = latest_seq - routine_arg->last_seqno;
@@ -116,10 +118,12 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     for (i = 0; i < count; ++i) {
         if (WooFGet(DHT_TRIGGER_WOOF, &thread_arg[i], routine_arg->last_seqno + 1 + i) < 0) {
             log_error("failed to get trigger_arg at %lu", i);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create resolve_thread to process triggers");
+            WooFMsgCacheShutdown();
             exit(1);
         }
     }
@@ -133,8 +137,10 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(DHT_TRIGGER_ROUTINE_WOOF, "h_trigger", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_trigger");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     // printf("handler h_trigger took %lu\n", get_milliseconds() - begin);
+    WooFMsgCacheShutdown();
     return 1;
 }

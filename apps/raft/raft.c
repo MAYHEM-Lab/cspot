@@ -253,22 +253,22 @@ int raft_start_server(int members,
     heartbeat.timestamp = get_milliseconds();
     // experiment cheat
     // dht except dht9 and dht16
-    // if (strstr(woof_name, "169.231.23") != NULL && strstr(woof_name, "169.231.235.132") == NULL &&
-    //     strstr(woof_name, "169.231.235.200") == NULL) {
-    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
-    // }
-    // sed
-    if (strstr(woof_name, "128.111.39") != NULL) {
+    if (strstr(woof_name, "169.231.23") != NULL && strstr(woof_name, "169.231.235.132") == NULL &&
+        strstr(woof_name, "169.231.235.200") == NULL) {
         heartbeat.timestamp = get_milliseconds() - timeout_min;
     }
-    // sed1
-    // if (strstr(woof_name, "128.111.39.229") != NULL) {
-    //     heartbeat.timestamp = 0;
-    // }
-    // // sed9
-    // if (strstr(woof_name, "128.111.39.235") != NULL) {
+    // sed
+    // if (strstr(woof_name, "128.111.39") != NULL) {
     //     heartbeat.timestamp = get_milliseconds() - timeout_min;
     // }
+    // sed1
+    // if (strstr(woof_name, "128.111.39.229") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
+    // sed9
+    if (strstr(woof_name, "128.111.39.235") != NULL) {
+        heartbeat.timestamp = get_milliseconds() - timeout_min;
+    }
     // val1
     // if (strstr(woof_name, "128.111.45.112") != NULL) {
     //     heartbeat.timestamp = get_milliseconds() - timeout_min;

@@ -8,15 +8,17 @@
 #include <string.h>
 
 int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
-    log_set_tag("notify");
+    log_set_tag("h_notify");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     DHT_NOTIFY_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(DHT_NOTIFY_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -25,18 +27,21 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_PREDECESSOR_INFO predecessor = {0};
     if (get_latest_predecessor_info(&predecessor) < 0) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     // BLOCKED_NODES blocked_nodes = {0};
@@ -51,6 +56,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_debug("predecessor is the same, no need to update");
             monitor_exit(ptr);
             monitor_join();
+            WooFMsgCacheShutdown();
             return 1;
         }
         memcpy(predecessor.hash, arg.node_hash, sizeof(predecessor.hash));
@@ -60,6 +66,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFInvalid(seq)) {
             log_error("failed to update predecessor");
             monitor_exit(ptr);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         char hash_str[2 * SHA_DIGEST_LENGTH + 1];
@@ -71,6 +78,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (arg.callback_woof[0] == 0) {
         monitor_exit(ptr);
         monitor_join();
+        WooFMsgCacheShutdown();
         return 1;
     }
     log_debug("callback: %s@%s", arg.callback_handler, arg.callback_woof);
@@ -94,6 +102,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     char callback_ipaddr[DHT_NAME_LENGTH] = {0};
     if (WooFIPAddrFromURI(arg.callback_woof, callback_ipaddr, DHT_NAME_LENGTH) < 0) {
         log_error("failed to extract woof ip address from callback woof %s", arg.callback_woof);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int callback_port = 0;
@@ -101,6 +110,7 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     char callback_namespace[DHT_NAME_LENGTH] = {0};
     if (WooFNameSpaceFromURI(arg.callback_woof, callback_namespace, DHT_NAME_LENGTH) < 0) {
         log_error("failed to extract woof namespace from callback woof %s", arg.callback_woof);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     char callback_monitor[DHT_NAME_LENGTH] = {0};
@@ -118,10 +128,12 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_error("failed to put notify result to woof %s", arg.callback_woof);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     monitor_exit(ptr);
     monitor_join();
+    WooFMsgCacheShutdown();
     return 1;
 }

@@ -147,6 +147,7 @@ int dht_subscribe(char* topic_name, char* handler) {
 }
 
 unsigned long dht_publish(DHT_SERVER_PUBLISH_FIND_ARG* arg) {
+    arg->requested_ts = get_milliseconds();
     unsigned long seq = WooFPut(DHT_SERVER_PUBLISH_FIND_WOOF, NULL, arg);
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed put publish request to %s", DHT_SERVER_PUBLISH_FIND_WOOF);

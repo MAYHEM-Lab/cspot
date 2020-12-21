@@ -11,9 +11,8 @@
 #include "raft_client.h"
 #endif
 
-static int put_fail_rate = 0;
-static int self_forward_delay = 1000;
-static int wakeup_interval = 100;
+static int SELF_FORWARD_DELAY = 1000;
+static int MAX_RESOLVE_THREADS = 16;
 
 typedef struct resolve_thread_arg {
     DHT_FIND_SUCCESSOR_ARG arg;
@@ -26,18 +25,9 @@ void* resolve_thread(void* ptr) {
     DHT_FIND_SUCCESSOR_ARG* arg = &thread_arg->arg;
     DHT_NODE_INFO* node = thread_arg->node;
     DHT_SUCCESSOR_INFO* successor = thread_arg->successor;
-    log_set_level(DHT_LOG_INFO);
-    // sprintf(arg->path + strlen(arg->path), " %s", node->addr);
     char hash_str[2 * SHA_DIGEST_LENGTH + 1];
     print_node_hash(hash_str, arg->hashed_key);
-    log_debug("arg->action: %d, callback_namespace: %s, hashed_key: %s, query_count: %d, "
-              "message_count: %d, failure_count: %d",
-              arg->action,
-              arg->callback_namespace,
-              hash_str,
-              arg->query_count,
-              arg->message_count,
-              arg->failure_count);
+
     // if id in (n, successor]
     int i;
     for (i = 0; i < DHT_SUCCESSOR_LIST_R && !is_empty(successor->hash[i]); ++i) {
@@ -58,9 +48,6 @@ void* resolve_thread(void* ptr) {
                 memcpy(action_result.node_hash, successor->hash[i], sizeof(action_result.node_hash));
                 memcpy(action_result.node_replicas, successor->replicas[i], sizeof(action_result.node_replicas));
                 action_result.node_leader = successor->leader[i];
-                action_result.find_successor_query_count = arg->query_count;
-                action_result.find_successor_message_count = arg->message_count;
-                action_result.find_successor_failure_count = arg->failure_count;
                 // strcpy(action_result.path, arg->path);
 
                 log_info("found_node[%d]: %s", i, successor->replicas[i][action_result.node_leader]);
@@ -178,8 +165,10 @@ void* resolve_thread(void* ptr) {
                 action_arg.node_leader = successor->leader[i];
                 action_arg.find_arg_seqno = arg->action_seqno;
                 memcpy(action_arg.topic_name, arg->key, sizeof(action_arg.topic_name));
-                // action_arg.created_ts = arg->created_ts;
-                // action_arg.find_ts = get_milliseconds();
+                uint64_t found_ts = get_milliseconds();
+                printf("requested -> created: %lu\tcreated -> found: %lu\n",
+                       arg->created_ts - arg->requested_ts,
+                       found_ts - arg->created_ts);
 
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_SERVER_PUBLISH_DATA_WOOF);
@@ -217,16 +206,12 @@ void* resolve_thread(void* ptr) {
                 continue;
             }
             sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
-            ++arg->query_count;
-            ++arg->message_count;
             unsigned long seq = WooFPut(req_forward_woof, NULL, arg);
             if (seq == -2) {
                 log_debug("the node has failed");
                 return;
             }
             if (WooFInvalid(seq)) {
-                --arg->query_count;
-                ++arg->failure_count;
                 log_warn("failed to forward find_successor request to finger[%d] %s, ACTION: %d",
                          i,
                          req_forward_woof,
@@ -245,16 +230,12 @@ void* resolve_thread(void* ptr) {
     for (i = 0; i < DHT_SUCCESSOR_LIST_R; ++i) {
         if (!is_empty(successor->hash[i]) && in_range(successor->hash[i], node->hash, arg->hashed_key)) {
             sprintf(req_forward_woof, "%s/%s", successor_addr(successor, i), DHT_FIND_SUCCESSOR_WOOF);
-            ++arg->query_count;
-            ++arg->message_count;
             unsigned long seq = WooFPut(req_forward_woof, NULL, arg);
             if (seq == -2) {
                 log_debug("the node has failed");
                 return;
             }
             if (WooFInvalid(seq)) {
-                --arg->query_count;
-                ++arg->failure_count;
                 log_warn("failed to forward find_successor request to successor %s, ACTION: %d",
                          req_forward_woof,
                          arg->action);
@@ -285,7 +266,7 @@ void* resolve_thread(void* ptr) {
 
     // return n.find_succesor(id)
     log_warn("closest_preceding_node not found in finger table");
-    usleep(self_forward_delay * 1000);
+    usleep(SELF_FORWARD_DELAY * 1000);
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, arg);
     if (WooFInvalid(seq)) {
         log_error("failed to put woof to self");
@@ -300,23 +281,27 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     uint64_t begin = get_milliseconds();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_FIND_SUCCESSOR_WOOF);
     if (WooFInvalid(latest_seq)) {
         log_error("couldn't get latest seqno of %s", DHT_FIND_SUCCESSOR_WOOF);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = latest_seq - routine_arg->last_seqno;
@@ -334,11 +319,13 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         thread_arg[i].successor = &successor;
         if (WooFGet(DHT_FIND_SUCCESSOR_WOOF, &thread_arg[i].arg, routine_arg->last_seqno + 1 + i) < 0) {
             log_error("couldn't get h_find_successor query at %lu", routine_arg->last_seqno + 1 + i);
+            WooFMsgCacheShutdown();
             exit(1);
         }
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create thread to process h_find_successor query at %lu",
                       routine_arg->last_seqno + 1 + i);
+            WooFMsgCacheShutdown();
             exit(1);
         }
     }
@@ -349,9 +336,11 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_ROUTINE_WOOF, "h_find_successor", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next h_find_successor");
+        WooFMsgCacheShutdown();
         exit(1);
     }
     monitor_join();
     // printf("handler h_find_successor took %lu\n", get_milliseconds() - begin);
+    WooFMsgCacheShutdown();
     return 1;
 }

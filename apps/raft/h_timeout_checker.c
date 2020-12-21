@@ -37,7 +37,7 @@ void* request_vote(void* arg) {
 int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_timeout_checker");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
 

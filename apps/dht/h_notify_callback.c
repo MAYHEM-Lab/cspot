@@ -10,15 +10,17 @@
 #include <string.h>
 
 int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
-    log_set_tag("notify_callback");
+    log_set_tag("h_notify_callback");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     DHT_NOTIFY_CALLBACK_ARG result = {0};
     if (monitor_cast(ptr, &result, sizeof(DHT_NOTIFY_CALLBACK_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -26,6 +28,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -33,6 +36,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -53,6 +57,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error(
             "failed to invoke r_set_successor on %s using raft: %s", node.replicas[node.leader_id], raft_error_msg);
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 #else
@@ -60,11 +65,13 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_error("failed to update successor list");
         monitor_exit(ptr);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 #endif
     log_debug("set successor to %s...", successor.replicas[0][successor.leader[0]]);
 
     monitor_exit(ptr);
+    WooFMsgCacheShutdown();
     return 1;
 }

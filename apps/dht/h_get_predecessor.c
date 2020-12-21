@@ -9,21 +9,23 @@
 
 int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_GET_PREDECESSOR_ARG* arg = (DHT_GET_PREDECESSOR_ARG*)ptr;
-
-    log_set_tag("get_predecessor");
+    log_set_tag("h_get_predecessor");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
+    WooFMsgCacheInit();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
     DHT_PREDECESSOR_INFO predecessor = {0};
     if (get_latest_predecessor_info(&predecessor) < 0) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     // BLOCKED_NODES blocked_nodes = {0};
@@ -45,6 +47,7 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     char callback_ipaddr[DHT_NAME_LENGTH] = {0};
     if (WooFIPAddrFromURI(arg->callback_woof, callback_ipaddr, DHT_NAME_LENGTH) < 0) {
         log_error("failed to extract woof ip address from callback woof %s", arg->callback_woof);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     int callback_port = 0;
@@ -52,6 +55,7 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     char callback_namespace[DHT_NAME_LENGTH] = {0};
     if (WooFNameSpaceFromURI(arg->callback_woof, callback_namespace, DHT_NAME_LENGTH) < 0) {
         log_error("failed to extract woof namespace from callback woof %s", arg->callback_woof);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     char callback_monitor[DHT_NAME_LENGTH] = {0};
@@ -68,6 +72,7 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = monitor_remote_put(callback_monitor, arg->callback_woof, arg->callback_handler, &result, 1);
     if (WooFInvalid(seq)) {
         log_error("failed to put get_predecessor result to %s, monitor: %s", arg->callback_woof, callback_monitor);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     char hash_str[2 * SHA_DIGEST_LENGTH + 1];
@@ -76,5 +81,6 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_debug("returning predecessor_addr: %s", result.predecessor_replicas[result.predecessor_leader]);
 
     monitor_join();
+    WooFMsgCacheShutdown();
     return 1;
 }
