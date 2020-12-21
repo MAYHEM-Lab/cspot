@@ -166,7 +166,7 @@ void* resolve_thread(void* ptr) {
                 action_arg.find_arg_seqno = arg->action_seqno;
                 memcpy(action_arg.topic_name, arg->key, sizeof(action_arg.topic_name));
                 uint64_t found_ts = get_milliseconds();
-                printf("requested -> created: %lu\tcreated -> found: %lu\n",
+                printf("requested->created: %lu  created->found: %lu\n",
                        arg->created_ts - arg->requested_ts,
                        found_ts - arg->created_ts);
 

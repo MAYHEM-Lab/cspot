@@ -238,8 +238,8 @@ int WooFContainerInit() {
             fprintf(stdout, "WooFContainer: child about to exec %s\n", hbuff);
             fflush(stdout);
 #endif
-            execve(hbuff, cargv, NULL);
-            // system(hbuff);
+            // execve(hbuff, cargv, NULL);
+            system(hbuff);
             fprintf(stdout, "WooFContainer: execve of %s failed\n", hbuff);
             fflush(stdout);
             close(2);
