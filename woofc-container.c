@@ -26,6 +26,8 @@ LOG *Name_log;
 
 static int WooFDone;
 
+static int LastSeqNo;
+
 
 #define WOOF_CONTAINER_FORKERS (16)
 sema ForkerThrottle;
@@ -394,7 +396,12 @@ void *WooFForker(void *arg)
 				pthread_self(), WooF_namespace, Name_log->size, last_seq_no);
 		fflush(stdout);
 #endif
-		log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+		/*
+	 	 * in reverse order of Name_log
+		 * see log.c
+		 */
+//		log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+		log_tail = LogTail(Name_log, LastSeqNo, Name_log->size);
 
 		if (log_tail == NULL)
 		{
@@ -434,7 +441,8 @@ void *WooFForker(void *arg)
 			 */
 			if ((ev[first].type == TRIGGER) &&
 				(strncmp(ev[first].namespace, WooF_namespace, sizeof(ev[first].namespace)) == 0) &&
-				(ev[first].seq_no > (unsigned long long)last_seq_no))
+//				(ev[first].seq_no > (unsigned long long)last_seq_no))
+				(ev[first].seq_no > (unsigned long long)LastSeqNo))
 			{
 				/* now walk forward looking for FIRING */
 #ifdef DEBUG
@@ -442,7 +450,7 @@ void *WooFForker(void *arg)
 				fflush(stdout);
 #endif
 				firing = (first - 1);
-				if (firing >= log_tail->size)
+				if (firing < 0)
 				{
 					firing = log_tail->size - 1;
 				}
@@ -462,10 +470,11 @@ void *WooFForker(void *arg)
 						fflush(stdout);
 #endif
 						last_seq_no = (unsigned long)ev[first].seq_no;
+						LastSeqNo = (unsigned long)ev[first].seq_no;
 						break;
 					}
 					firing = firing - 1;
-					if (firing >= log_tail->size)
+					if (firing < 0)
 					{
 						firing = log_tail->size - 1;
 					}
@@ -503,7 +512,7 @@ void *WooFForker(void *arg)
 			}
 
 			first = (first - 1);
-			if (first >= log_tail->size)
+			if (first < 0)
 			{
 				first = log_tail->size - 1;
 			}
@@ -788,6 +797,7 @@ void *WooFForker(void *arg)
 		 * remember its sequence number for next time
 		 */
 		last_seq_no = (unsigned long)ev[first].seq_no; /* log seq_no */
+		LastSeqNo = (unsigned long)ev[first].seq_no; /* log seq_no */
 #ifdef DEBUG
 		fprintf(stdout, "WooFForker: namespace: %s seq_no: %llu, handler: %s\n",
 				WooF_namespace, ev[first].seq_no, ev[first].woofc_handler);
