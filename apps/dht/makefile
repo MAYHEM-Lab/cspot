@@ -29,7 +29,7 @@ all: handlers copy clients
 	@echo CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} ${MAKEOPT}
 
 copy: handlers clients
-	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot; cp ../../woofc-forker-helper ./cspot
 	cp d_check_predecessor ./cspot;
 	cp d_daemon ./cspot;
 	cp d_fix_finger ./cspot;

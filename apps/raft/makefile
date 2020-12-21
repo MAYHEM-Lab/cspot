@@ -24,7 +24,7 @@ CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${MONITORINC}
 all: handlers copy clients
 
 copy: handlers clients test
-	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot; cp ../../woofc-forker-helper ./cspot
 	cp s_create_woofs ./cspot
 	cp s_start_server ./cspot
 	cp d_interrupt ./cspot
