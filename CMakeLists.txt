@@ -39,7 +39,9 @@ add_library(woof
         src/include/debug.h
         src/include/global.h
         src/global.cpp
-        src/include/woofc-priv.h)
+        src/include/woofc-priv.h
+        src/net.cpp
+)
 
 target_include_directories(woof PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
@@ -52,7 +54,7 @@ target_include_directories(woof PUBLIC
 
 find_package(Threads REQUIRED)
 
-target_link_libraries(woof PUBLIC mio euca_utils czmq-static m Threads::Threads uriparser2 fmt::fmt)
+target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
@@ -106,7 +108,7 @@ add_subdirectory(apps)
 
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 install(
-    TARGETS woof woofc-host mio euca_utils uriparser2 fmt
+    TARGETS woof woofc-host mio euca_utils uriparser2 fmt woof_zmq_net
     EXPORT woof
     DESTINATION lib
 )

@@ -3,6 +3,7 @@ extern "C" {
 }
 
 
+#include <net.h>
 #include "debug.h"
 #include "global.h"
 #include "log.h"
@@ -471,6 +472,8 @@ void WooFForker() {
 
 int main(int argc, char** argv) {
     int message_server = 0;
+
+    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
 
     WooFContainerInit();
 

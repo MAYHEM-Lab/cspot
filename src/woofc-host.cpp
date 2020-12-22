@@ -7,6 +7,7 @@ extern "C" {
 #include "global.h"
 #include "woofc-access.h"
 #include "woofc-priv.h"
+#include "net.h"
 
 #include <atomic>
 #include <errno.h>
@@ -445,6 +446,8 @@ int main(int argc, char** argv) {
         fflush(stderr);
         exit(1);
     }
+
+    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
 
     setenv("LD_LIBRARY_PATH", "$LD_LIBRARY_PATH:/usr/local/lib", 1);
 

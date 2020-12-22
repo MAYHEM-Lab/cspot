@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <global.h>
 #include <pybind11/stl.h>
+#include <net.h>
 
 namespace py = pybind11;
 
@@ -42,6 +43,8 @@ std::unordered_map<std::string, std::pair<char*, size_t>> confs{
 }
 
 PYBIND11_MODULE(pycspot, m) {
+    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+
     m.def("Create", bind::WooFCreate);
     m.def("Put", bind::WooFPut);
     m.def("Get", bind::WooFGet);

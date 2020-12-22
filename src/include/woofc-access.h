@@ -4,8 +4,6 @@
 #include "dlist.h"
 #include "log.h"
 
-#include <czmq.h>
-
 #if defined(__cplusplus)
 extern "C" {
 #endif
