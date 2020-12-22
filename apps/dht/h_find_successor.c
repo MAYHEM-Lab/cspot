@@ -282,7 +282,7 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
-
+    monitor_init();
     WooFMsgCacheInit();
     uint64_t begin = get_milliseconds();
 

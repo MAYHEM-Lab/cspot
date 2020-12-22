@@ -302,6 +302,7 @@ int raft_start_server(int members,
         return -1;
     }
 
+    monitor_init();
     if (!observer) {
         RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
         timeout_checker_arg.timeout_value = random_timeout(get_milliseconds(), timeout_min, timeout_max);

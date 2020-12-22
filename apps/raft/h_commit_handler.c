@@ -36,8 +36,9 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
     zsys_init();
+    monitor_init();
+    WooFMsgCacheInit();
 
     uint64_t begin = get_milliseconds();
 

@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
     arg.microsecond = strtoul(argv[1], NULL, 10) * 1000;
 
     WooFInit();
-
+    monitor_init();
     unsigned long seq = monitor_put(RAFT_MONITOR_NAME, RAFT_DEBUG_INTERRUPT_WOOF, "d_interrupt", &arg, 0);
     if (WooFInvalid(seq)) {
         log_error("failed to put d_interrupt handler");

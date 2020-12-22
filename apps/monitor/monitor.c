@@ -20,6 +20,7 @@ typedef struct put_pool_item_thread_arg {
 pthread_mutex_t lock;
 PUT_POOL_ITEM_THREAD_ARG thread_arg[MONITOR_THREAD_POOL_SIZE];
 pthread_t thread_id[MONITOR_THREAD_POOL_SIZE];
+int thread_used[MONITOR_THREAD_POOL_SIZE];
 int next_available_thread;
 
 time_t gm() {
@@ -37,6 +38,7 @@ void* put_pool_item_thread(void* ptr) {
     // printf("put_pool_item_thread(%s): %lu\n", arg->woof_name, seq); fflush(stdout);
     pthread_mutex_lock(&lock);
     thread_id[arg->thread_id] = 0;
+    thread_used[arg->thread_id] = 0;
     next_available_thread = arg->thread_id;
     pthread_mutex_unlock(&lock);
 }
@@ -44,16 +46,17 @@ void* put_pool_item_thread(void* ptr) {
 int get_next_available_thread() {
     int id = next_available_thread % MONITOR_THREAD_POOL_SIZE;
     pthread_mutex_lock(&lock);
-    while (thread_id[id] != 0) {
+    while (thread_used[id] != 0) {
         pthread_mutex_unlock(&lock);
         id = (id + 1) % MONITOR_THREAD_POOL_SIZE;
         pthread_mutex_lock(&lock);
     }
+    thread_used[id] = 1;
     pthread_mutex_unlock(&lock);
     return id;
 }
 
-int monitor_create(char* monitor_name) {
+int monitor_init() {
     zsys_init();
     if (pthread_mutex_init(&lock, NULL) != 0) {
         sprintf(monitor_error_msg, "failed to initialize mutex");
@@ -61,8 +64,12 @@ int monitor_create(char* monitor_name) {
     }
     memset(thread_arg, 0, sizeof(PUT_POOL_ITEM_THREAD_ARG) * MONITOR_THREAD_POOL_SIZE);
     memset(thread_id, 0, sizeof(pthread_t) * MONITOR_THREAD_POOL_SIZE);
+    memset(thread_used, 0, sizeof(int) * MONITOR_THREAD_POOL_SIZE);
     next_available_thread = 0;
+    return 0;
+}
 
+int monitor_create(char* monitor_name) {
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
     sprintf(pool_woof, "%s_%s", monitor_name, MONITOR_POOL_WOOF);
     if (WooFCreate(pool_woof, sizeof(MONITOR_POOL_ITEM), MONITOR_HISTORY_LENGTH) < 0) {

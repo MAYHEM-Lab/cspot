@@ -65,6 +65,8 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
+    zsys_init();
+    monitor_init();
     WooFMsgCacheInit();
 
     uint64_t begin = get_milliseconds();
@@ -75,11 +77,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
-
-    // zsys_init() is called automatically when a socket is created
-    // not thread safe and can only be called in main thread
-    // call it here to avoid being called concurrently in the threads
-    zsys_init();
 
     // get the server's current term and cluster members
     RAFT_SERVER_STATE server_state = {0};

@@ -34,6 +34,7 @@ typedef struct monitor_invoker_arg {
     int32_t wasted_cycle;
 } MONITOR_INVOKER_ARG;
 
+int monitor_init();
 int monitor_create(char* monitor_name);
 unsigned long monitor_put(char* monitor_name, char* woof_name, char* handler, void* ptr, int idempotent);
 unsigned long monitor_queue(char* monitor_name, char* woof_name, char* handler, unsigned long seq_no);

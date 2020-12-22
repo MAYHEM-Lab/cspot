@@ -95,8 +95,9 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
     zsys_init();
+    monitor_init();
+    WooFMsgCacheInit();
 
     uint64_t begin = get_milliseconds();
 
