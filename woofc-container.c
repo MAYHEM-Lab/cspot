@@ -27,6 +27,8 @@ LOG* Name_log;
 
 static int WooFDone;
 
+static int LastSeqNo;
+
 
 #define WOOF_CONTAINER_FORKERS (16)
 sema ForkerThrottle;
@@ -185,44 +187,44 @@ int WooFContainerInit() {
     fflush(stdout);
 #endif
 
-    Name_id = name_id;
+	Name_id = name_id;
 
-    InitSem(&ForkerThrottle, WOOF_CONTAINER_FORKERS);
-    pthread_mutex_init(&Tlock, NULL);
-    Tcount = WOOF_CONTAINER_FORKERS;
+	InitSem(&ForkerThrottle, WOOF_CONTAINER_FORKERS);
+	pthread_mutex_init(&Tlock, NULL);
+	Tcount = WOOF_CONTAINER_FORKERS;
 
-    /*
-     * create pipes and spawn forker helper processes
-     */
-    tas = (FARG*)malloc(WOOF_CONTAINER_FORKERS * sizeof(FARG));
-    if (tas == NULL) {
-        exit(1);
-    }
+	/*
+	 * create pipes and spawn forker helper processes
+	 */
+	tas = (FARG *)malloc(WOOF_CONTAINER_FORKERS*sizeof(FARG));
+	if(tas == NULL) {
+		exit(1);
+	}
 
-    for (i = 0; i < WOOF_CONTAINER_FORKERS; i++) {
-        tas[i].tid = i;
-        err = pipe2(tas[i].parenttochild, O_DIRECT);
-        if (err < 0) {
-            exit(1);
-        }
-        err = pipe2(tas[i].childtoparent, O_DIRECT);
-        if (err < 0) {
-            exit(1);
-        }
+	for(i=0; i < WOOF_CONTAINER_FORKERS; i++) {
+		tas[i].tid = i;
+		err = pipe2(tas[i].parenttochild,O_DIRECT);
+		if(err < 0) {
+			exit(1);
+		}
+		err = pipe2(tas[i].childtoparent,O_DIRECT);
+		if(err < 0) {
+			exit(1);
+		}
 
-        sprintf(hbuff, "%s/%s", WooF_dir, "woofc-forker-helper");
-        cargv[0] = hbuff;
-        cargv[1] = NULL;
-        pid = fork();
-        if (pid < 0) {
-            fprintf(stderr, "WooFContainer: fork failed at %d\n", i);
-            perror("WooFContainer");
-            exit(0);
-        }
-        if (pid == 0) {
-            /*
-             * child code here
-             */
+		sprintf(hbuff,"%s/%s",WooF_dir,"woofc-forker-helper");
+		cargv[0] = hbuff;
+		cargv[1] = NULL;
+		pid = fork();
+		if(pid < 0) {
+			fprintf(stderr,"WooFContainer: fork failed at %d\n",i);
+			perror("WooFContainer");
+			exit(0);
+		}
+		if(pid == 0) {
+			/*
+			 * child code here
+			 */
 #ifdef DEBUG
             fprintf(stdout, "WooFContainer: child %d with pid %d running\n", i, getpid());
             fflush(stdout);
@@ -361,9 +363,12 @@ void* WooFForker(void* arg) {
                 last_seq_no);
         fflush(stdout);
 #endif
-        log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
-        // log_tail = LogTail(Name_log, last_seq_no, Name_log->seq_no -
-        // Name_log->last_trigger_seq_no);
+		/*
+	 	 * in reverse order of Name_log
+		 * see log.c
+		 */
+//		log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+		log_tail = LogTail(Name_log, LastSeqNo, Name_log->size);
 
         if (log_tail == NULL) {
 #ifdef DEBUG
@@ -382,58 +387,67 @@ void* WooFForker(void* arg) {
                     last_seq_no);
             fflush(stdout);
 #endif
-            V(&Name_log->mutex);
-            LogFree(log_tail);
-            continue;
-        }
+			V(&Name_log->mutex);
+			LogFree(log_tail);
+			continue;
+		}
 
-        ev = (EVENT*)(MIOAddr(log_tail->m_buf) + sizeof(LOG));
+		ev = (EVENT *)(MIOAddr(log_tail->m_buf) + sizeof(LOG));
 
-        /*
-         * find the first TRIGGER we haven't seen yet
-         * skip triggers for other name spaces but try and wake them up
-         */
-        none = 0;
-        first = log_tail->head;
+		/*
+		 * find the first TRIGGER we haven't seen yet
+		 * skip triggers for other name spaces but try and wake them up
+		 */
+		none = 0;
+		first = log_tail->head;
 
-        while (first != log_tail->tail) {
-            /*
-             * is this trigger in my namespace and unclaimed?
-             */
-            if ((ev[first].type == TRIGGER) &&
-                (strncmp(ev[first].woofc_namespace, WooF_namespace, sizeof(ev[first].woofc_namespace)) == 0) &&
-                (ev[first].seq_no > (unsigned long long)last_seq_no)) {
-                /* now walk forward looking for FIRING */
+		while (first != log_tail->tail)
+		{
+			/*
+			 * is this trigger in my namespace and unclaimed?
+			 */
+			if ((ev[first].type == TRIGGER) &&
+				(strncmp(ev[first].woofc_namespace, WooF_namespace, sizeof(ev[first].woofc_namespace)) == 0) &&
+//				(ev[first].seq_no > (unsigned long long)last_seq_no))
+				(ev[first].seq_no > (unsigned long long)LastSeqNo))
+			{
+				/* now walk forward looking for FIRING */
 #ifdef DEBUG
                 printf("WooFForker: considering %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                 fflush(stdout);
 #endif
-                firing = (first - 1);
-                if (firing >= log_tail->size) {
-                    firing = log_tail->size - 1;
-                }
-                trigger_seq_no = (unsigned long)ev[first].seq_no; /* for FIRING dependency */
-                firing_found = 0;
-                while (firing != log_tail->tail) {
-                    if ((ev[firing].type == TRIGGER_FIRING) &&
-                        (strncmp(ev[firing].woofc_namespace, WooF_namespace, sizeof(ev[firing].woofc_namespace)) ==
-                         0) &&
-                        (ev[firing].cause_seq_no == (unsigned long long)trigger_seq_no)) {
-                        /* found FIRING */
-                        firing_found = 1;
+				firing = (first - 1);
+				if (firing < 0)
+				{
+					firing = log_tail->size - 1;
+				}
+				trigger_seq_no = (unsigned long)ev[first].seq_no; /* for FIRING dependency */
+				firing_found = 0;
+				while (firing != log_tail->tail)
+				{
+					if ((ev[firing].type == TRIGGER_FIRING) &&
+						(strncmp(ev[firing].woofc_namespace, WooF_namespace, sizeof(ev[firing].woofc_namespace)) == 0) &&
+						(ev[firing].cause_seq_no ==
+						 (unsigned long long)trigger_seq_no))
+					{
+						/* found FIRING */
+						firing_found = 1;
 #ifdef DEBUG
                         printf("WooFForker: found firing for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                         fflush(stdout);
 #endif
-                        last_seq_no = (unsigned long)ev[first].seq_no;
-                        break;
-                    }
-                    firing = firing - 1;
-                    if (firing >= log_tail->size) {
-                        firing = log_tail->size - 1;
-                    }
-                }
-                if (firing_found == 0) {
+						last_seq_no = (unsigned long)ev[first].seq_no;
+						LastSeqNo = (unsigned long)ev[first].seq_no;
+						break;
+					}
+					firing = firing - 1;
+					if (firing < 0)
+					{
+						firing = log_tail->size - 1;
+					}
+				}
+				if (firing_found == 0)
+				{
 #ifdef DEBUG
                     printf("WooFForker: no firing found for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                     fflush(stdout);
@@ -463,25 +477,28 @@ void* WooFForker(void* arg) {
                        log_tail->tail);
                 fflush(stdout);
 #endif
-                exit(1);
-                memcpy(&last_event, &ev[first], sizeof(last_event));
-                V(&Name_log->tail_wait);
-            }
-            // TODO: only go back to latest triggered
-            first = (first - 1);
-            if (first >= log_tail->size) {
-                first = log_tail->size - 1;
-            }
-            if (first == log_tail->tail) {
-                none = 1;
-                break;
-            }
-        }
+				exit(1);
+				memcpy(&last_event, &ev[first], sizeof(last_event));
+				V(&Name_log->tail_wait);
+			}
 
-        /*
-         * if no TRIGGERS found
-         */
-        if (none == 1) {
+			first = (first - 1);
+			if (first < 0)
+			{
+				first = log_tail->size - 1;
+			}
+			if (first == log_tail->tail)
+			{
+				none = 1;
+				break;
+			}
+		}
+
+		/*
+		 * if no TRIGGERS found
+		 */
+		if (none == 1)
+		{
 #ifdef DEBUG
             fprintf(stdout, "WooFForker log tail empty, continuing\n");
             fflush(stdout);
@@ -746,10 +763,11 @@ void* WooFForker(void* arg) {
 #endif
 
 
-        /*
-         * remember its sequence number for next time
-         */
-        last_seq_no = (unsigned long)ev[first].seq_no; /* log seq_no */
+		/*
+		 * remember its sequence number for next time
+		 */
+		last_seq_no = (unsigned long)ev[first].seq_no; /* log seq_no */
+		LastSeqNo = (unsigned long)ev[first].seq_no; /* log seq_no */
 #ifdef DEBUG
         fprintf(stdout,
                 "WooFForker: namespace: %s seq_no: %llu, handler: %s\n",
