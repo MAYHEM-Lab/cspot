@@ -279,7 +279,7 @@ int WooFLocalIP(char* ip_str, int len) {
     exit(1);
 }
 
-int WooFLocalName(char* woof_name, char* local_name, int len) {
+int WooFLocalName(const char* woof_name, char* local_name, int len) {
     return (WooFNameFromURI(woof_name, local_name, len));
 }
 
