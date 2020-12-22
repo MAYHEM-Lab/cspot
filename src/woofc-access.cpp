@@ -4,7 +4,6 @@ extern "C" {
 #include "woofc-access.h"
 
 #include "dlist.h"
-#include "woofc-cache.h"
 #include "woofc.h" /* for WooFPut */
 }
 

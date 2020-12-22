@@ -27,8 +27,6 @@ add_library(woof
         include/woofc.h
         src/woofc-access.cpp
         src/include/woofc-access.h
-        src/woofc-cache.c
-        src/include/woofc-cache.h
         src/event.cpp
         src/include/event.h
         src/host.c

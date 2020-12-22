@@ -7,7 +7,6 @@
 extern "C" {
 #include "log.h"
 #include "woofc-access.h"
-#include "woofc-cache.h"
 #include "woofc.h"
 #ifdef REPAIR
 #include "repair.h"
