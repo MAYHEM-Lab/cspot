@@ -127,7 +127,6 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
             exit(1);
         }
     }
-    threads_join(count, thread_id);
 
     if (count != 0) {
         if (get_milliseconds() - begin > 200)
@@ -140,6 +139,8 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
+    threads_join(count, thread_id);
+    monitor_join();
     // printf("handler h_trigger took %lu\n", get_milliseconds() - begin);
     WooFMsgCacheShutdown();
     return 1;

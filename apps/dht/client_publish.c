@@ -50,7 +50,6 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    arg.requested_ts = get_milliseconds();
     if (server_namespace[0] != 0) {
         char server_woof[DHT_NAME_LENGTH] = {0};
         sprintf(server_woof, "%s/%s", server_namespace, DHT_SERVER_PUBLISH_FIND_WOOF);

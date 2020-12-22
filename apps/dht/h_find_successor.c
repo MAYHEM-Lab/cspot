@@ -165,10 +165,10 @@ void* resolve_thread(void* ptr) {
                 action_arg.node_leader = successor->leader[i];
                 action_arg.find_arg_seqno = arg->action_seqno;
                 memcpy(action_arg.topic_name, arg->key, sizeof(action_arg.topic_name));
-                uint64_t found_ts = get_milliseconds();
-                printf("requested->created: %lu  created->found: %lu\n",
-                       arg->created_ts - arg->requested_ts,
-                       found_ts - arg->created_ts);
+                action_arg.ts_a = arg->ts_a;
+                action_arg.ts_b = arg->ts_b;
+                action_arg.ts_c = arg->ts_c;
+                action_arg.ts_d = get_milliseconds();
 
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_SERVER_PUBLISH_DATA_WOOF);
@@ -281,8 +281,9 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
+    zsys_init();
 
+    WooFMsgCacheInit();
     uint64_t begin = get_milliseconds();
 
     DHT_NODE_INFO node = {0};
@@ -308,10 +309,8 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (count != 0) {
         log_debug("%lu queued find_successor queries", count);
     }
-
-    zsys_init();
-    RESOLVE_THREAD_ARG thread_arg[count];
-    pthread_t thread_id[count];
+    RESOLVE_THREAD_ARG* thread_arg = malloc(sizeof(RESOLVE_THREAD_ARG) * count);
+    pthread_t* thread_id = malloc(sizeof(pthread_t) * count);
 
     int i;
     for (i = 0; i < count; ++i) {
@@ -319,28 +318,39 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         thread_arg[i].successor = &successor;
         if (WooFGet(DHT_FIND_SUCCESSOR_WOOF, &thread_arg[i].arg, routine_arg->last_seqno + 1 + i) < 0) {
             log_error("couldn't get h_find_successor query at %lu", routine_arg->last_seqno + 1 + i);
+            free(thread_arg);
+            free(thread_id);
             WooFMsgCacheShutdown();
             exit(1);
+        }
+        if (thread_arg[i].arg.ts_c == 0) {
+            thread_arg[i].arg.ts_c = get_milliseconds();
         }
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create thread to process h_find_successor query at %lu",
                       routine_arg->last_seqno + 1 + i);
+            free(thread_arg);
+            free(thread_id);
             WooFMsgCacheShutdown();
             exit(1);
         }
     }
     routine_arg->last_seqno = latest_seq;
 
-    threads_join(count, thread_id);
-    // usleep(wakeup_interval * 1000);
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_ROUTINE_WOOF, "h_find_successor", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke next h_find_successor");
+        free(thread_arg);
+        free(thread_id);
         WooFMsgCacheShutdown();
         exit(1);
     }
+
+    threads_join(count, thread_id);
     monitor_join();
     // printf("handler h_find_successor took %lu\n", get_milliseconds() - begin);
+    free(thread_arg);
+    free(thread_id);
     WooFMsgCacheShutdown();
     return 1;
 }

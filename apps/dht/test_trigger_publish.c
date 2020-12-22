@@ -58,8 +58,7 @@ int main(int argc, char** argv) {
     sprintf(el->msg, message);
     el->sent = get_milliseconds();
     arg.element_size = sizeof(TEST_EL);
-    arg.requested_ts = get_milliseconds();
-
+    
     if (client_ip[0] != 0) {
         printf("set client ip to %s\n", client_ip);
         fflush(stdout);

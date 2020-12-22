@@ -100,8 +100,9 @@ typedef struct dht_find_successor_arg {
     uint64_t action_seqno;                  // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
                            // if action == DHT_ACTION_PUBLISH_FIND, this servers as publish request seqno
     char callback_namespace[DHT_NAME_LENGTH];
-    uint64_t requested_ts;
-    uint64_t created_ts;
+    uint64_t ts_a;
+    uint64_t ts_b;
+    uint64_t ts_c;
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
@@ -197,6 +198,7 @@ typedef struct dht_trigger_arg {
     uint64_t requested;
     uint64_t found;
     uint64_t data;
+    uint64_t ts_e;
 } DHT_TRIGGER_ARG;
 
 typedef struct dht_topic_registry {
@@ -255,7 +257,7 @@ typedef struct dht_server_publish_find_arg {
     char topic_name[DHT_NAME_LENGTH];
     char element[RAFT_DATA_TYPE_SIZE];
     uint64_t element_size;
-    uint64_t requested_ts;
+    uint64_t ts_a;
 } DHT_SERVER_PUBLISH_FIND_ARG;
 
 typedef struct dht_server_publish_data_arg {
@@ -263,6 +265,10 @@ typedef struct dht_server_publish_data_arg {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
     uint64_t find_arg_seqno;
+    uint64_t ts_a;
+    uint64_t ts_b;
+    uint64_t ts_c;
+    uint64_t ts_d;
 } DHT_SERVER_PUBLISH_DATA_ARG;
 
 typedef struct dht_sloop_routine_arg {

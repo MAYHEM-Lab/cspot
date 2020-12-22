@@ -21,8 +21,9 @@ int resolve(DHT_NODE_INFO* node, unsigned long seq_no) {
     dht_init_find_arg(&arg, find_arg.topic_name, hashed_key, node->addr);
     arg.action_seqno = seq_no;
     arg.action = DHT_ACTION_PUBLISH_FIND;
-    arg.requested_ts = find_arg.requested_ts;
-    arg.created_ts = get_milliseconds();
+    arg.ts_a = find_arg.ts_a;
+    arg.ts_b = get_milliseconds();
+    arg.ts_c = 0;
 
     unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
     if (WooFInvalid(seq)) {

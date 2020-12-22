@@ -78,24 +78,34 @@ void* resolve_thread(void* arg) {
         log_error("failed to get topic registration info from %s: %s", node_addr, err_msg);
         return;
     }
-    DHT_TRIGGER_ARG partial_trigger_arg = {0};
-    partial_trigger_arg.requested = find_arg.requested_ts;
-    partial_trigger_arg.found = get_milliseconds();
-    strcpy(partial_trigger_arg.topic_name, data_arg.topic_name);
-    sprintf(
-        partial_trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
+    DHT_TRIGGER_ARG trigger_arg = {0};
+    trigger_arg.requested = find_arg.ts_a;
+    trigger_arg.ts_e = get_milliseconds();
+    trigger_arg.found = get_milliseconds();
+    strcpy(trigger_arg.topic_name, data_arg.topic_name);
+    sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 
-    unsigned long trigger_seq = WooFPut(DHT_PARTIAL_TRIGGER_WOOF, NULL, &partial_trigger_arg);
+    unsigned long trigger_seq = WooFPut(DHT_PARTIAL_TRIGGER_WOOF, NULL, &trigger_arg);
     if (WooFInvalid(trigger_seq)) {
         log_error("failed to store partial trigger to %s", DHT_PARTIAL_TRIGGER_WOOF);
         return;
     }
+    // log_warn("[%lu] trigger: %lu", thread_arg->seq_no, get_milliseconds() - t); t = get_milliseconds();
+
+
+    printf("FOUND_PROFILE a->b: %lu, b->c: %lu, c->d: %lu, d->e: %lu, total: %lu\n",
+           data_arg.ts_b - data_arg.ts_a,
+           data_arg.ts_c - data_arg.ts_b,
+           data_arg.ts_d - data_arg.ts_c,
+           trigger_arg.ts_e - data_arg.ts_d,
+           trigger_arg.ts_e - data_arg.ts_a);
+
 
     // put data to raft
     char* topic_replica;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
-        sprintf(partial_trigger_arg.element_woof, "%s", topic_replica);
+        sprintf(trigger_arg.element_woof, "%s", topic_replica);
         RAFT_DATA_TYPE raft_data = {0};
         memcpy(raft_data.val, find_arg.element, find_arg.element_size);
 
