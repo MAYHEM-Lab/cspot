@@ -828,7 +828,7 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
 }
 
 unsigned long WooFPutWithCause(
-    char* wf_name, char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
+    const char* wf_name, const char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
     WOOF* wf;
     unsigned long seq_no;
     unsigned long el_size;
@@ -1456,7 +1456,7 @@ unsigned long WooFLatestSeqno(WOOF* wf) {
 unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
                                        unsigned long cause_host,
                                        unsigned long long cause_seq_no,
-                                       char* cause_woof_name,
+                                       const char* cause_woof_name,
                                        unsigned long cause_woof_latest_seq_no) {
     WOOF_SHARED* wfs;
     unsigned long latest_seq_no;

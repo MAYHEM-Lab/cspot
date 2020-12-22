@@ -62,7 +62,7 @@ unsigned long WooFLatestSeqno(WOOF* wf);
 unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
                                        unsigned long cause_host,
                                        unsigned long long cause_seq_no,
-                                       char* cause_woof_name,
+                                       const char* cause_woof_name,
                                        unsigned long cause_woof_latest_seq_no);
 unsigned long WooFEarliest(WOOF* wf);
 unsigned long WooFLatest(WOOF* wf);
