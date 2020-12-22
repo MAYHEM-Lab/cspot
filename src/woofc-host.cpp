@@ -5,9 +5,9 @@ extern "C" {
 
 #include "debug.h"
 #include "global.h"
+#include "net.h"
 #include "woofc-access.h"
 #include "woofc-priv.h"
-#include "net.h"
 
 #include <atomic>
 #include <errno.h>
@@ -22,7 +22,9 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <thread>
 #include <time.h>
 #include <unistd.h>

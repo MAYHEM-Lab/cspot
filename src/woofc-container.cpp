@@ -3,13 +3,12 @@ extern "C" {
 }
 
 
-#include <net.h>
 #include "debug.h"
 #include "global.h"
 #include "log.h"
 #include "woofc-access.h"
-#include "woofc.h"
 #include "woofc-priv.h"
+#include "woofc.h"
 
 #include <atomic>
 #include <cerrno>
@@ -20,6 +19,11 @@ extern "C" {
 #include <ctime>
 #include <fmt/format.h>
 #include <mutex>
+#include <net.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 
