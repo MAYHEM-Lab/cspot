@@ -4,6 +4,7 @@
 #include "woofc-priv.h"
 #include "log.h"
 #include "global.h"
+#include "net.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -17,9 +18,13 @@
 
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
+extern "C" {
 extern int handler(WOOF* wf, unsigned long seq_no, void* farg);
+}
 
 int main(int argc, char** argv, char** envp) {
+    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+
     char* wnld;
     char* wf_ns;
     char* wf_dir;
