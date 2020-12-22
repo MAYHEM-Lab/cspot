@@ -14,8 +14,7 @@ option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Emitting static binaries")
-    set(CMAKE_C_FLAGS "-static -static-libgcc")
-    set(CMAKE_CXX_FLAGS "-static -static-libgcc -static-libstdc++")
+    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
 endif ()
 
 add_subdirectory(deps)
