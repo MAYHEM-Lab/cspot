@@ -1,11 +1,6 @@
-// #define DEBUG
-
-extern "C" {
 #include "woofc-access.h"
 
-#include "dlist.h"
 #include "woofc.h" /* for WooFPut */
-}
 
 #include <arpa/inet.h>
 #include <debug.h>

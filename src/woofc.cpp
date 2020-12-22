@@ -1,19 +1,17 @@
-// #define DEBUG
-#include "event.h"
-
-#include <debug.h>
-#include <fmt/format.h>
-#include <global.h>
 extern "C" {
-#include "log.h"
-#include "woofc-access.h"
-#include "woofc.h"
 #ifdef REPAIR
 #include "repair.h"
 #endif
 }
+#include "event.h"
+#include "log.h"
+#include "woofc-access.h"
+#include "woofc.h"
 
+#include <debug.h>
 #include <errno.h>
+#include <fmt/format.h>
+#include <global.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -728,55 +726,54 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     return (seq_no);
 }
 
-unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element) {
-    WOOF* wf;
-    unsigned long seq_no;
-    unsigned long el_size;
-    char wf_namespace[2048];
-    char shadow_name[2048];
-    char ns_ip[25];
-    char my_ip[25];
-    int err;
-    char* namelog_seq_no;
-    unsigned long my_log_seq_no;
-    struct timeval t1, t2;
-    double elapsedTime;
-
-    DEBUG_LOG("WooFPut: called %s %s\n", wf_name, wf_handler);
-
-    memset(ns_ip, 0, sizeof(ns_ip));
-    err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+namespace {
+bool IsRemoteWoof(const char* wf_name) {
+    auto ns_ip = cspot::ip_from_uri(wf_name);
     /*
      * if there is no IP address in the URI, use the local IP address
      */
-    if (err < 0) {
-        err = WooFLocalIP(ns_ip, sizeof(ns_ip));
-        DEBUG_FATAL_IF(err < 0, "WooFPut: no local IP\n");
+    if (!ns_ip) {
+        ns_ip = cspot::local_ip();
+        DEBUG_FATAL_IF(!ns_ip, "WooFPut: no local IP\n");
     }
 
-    memset(my_ip, 0, sizeof(my_ip));
-    err = WooFLocalIP(my_ip, sizeof(my_ip));
-    DEBUG_FATAL_IF(err < 0, "WooFPut: no local IP\n");
+    auto my_ip = cspot::local_ip();
+    DEBUG_FATAL_IF(!my_ip, "WooFPut: no local IP\n");
 
-    memset(wf_namespace, 0, sizeof(wf_namespace));
-    err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
+    auto wf_namespace = cspot::ns_from_uri(wf_name);
+
     /*
      * if this isn't for my namespace, try and remote put
-     *
-     * err < 0 implies that name is local name
      *
      * if namespace paths do not match or they do match but the IP addresses do not match,
      * this is a remote put
      */
-    if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
-        el_size = WooFMsgGetElSize(wf_name);
-        if (el_size != (unsigned long)-1) {
-            seq_no = WooFMsgPut(wf_name, wf_handler, element, el_size);
-            return (seq_no);
-        } else {
+    if (wf_namespace && (WooF_namespace != *wf_namespace || *my_ip != *ns_ip)) {
+        return true;
+    }
+
+    return false;
+}
+} // namespace
+
+unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element) {
+    DEBUG_LOG("WooFPut: called %s %s\n", wf_name, wf_handler);
+
+    /*
+     * if this isn't for my namespace, try and remote put
+     *
+     * if namespace paths do not match or they do match but the IP addresses do not match,
+     * this is a remote put
+     */
+    if (IsRemoteWoof(wf_name)) {
+        auto el_size = WooFMsgGetElSize(wf_name);
+        if (el_size == (unsigned long)-1) {
             DEBUG_WARN("WooFPut: couldn't get element size for %s\n", wf_name);
-            return (-1);
+            return -1;
         }
+
+        auto seq_no = WooFMsgPut(wf_name, wf_handler, element, el_size);
+        return seq_no;
     }
 
     if (WooF_dir[0] == 0) {
@@ -785,23 +782,28 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
     }
 
     DEBUG_LOG("WooFPut: namespace: %s,  WooF_dir: %s, name: %s\n", WooF_namespace, WooF_dir, wf_name);
-    wf = WooFOpen(wf_name);
+    auto wf = WooFOpen(wf_name);
 
-    if (wf == NULL) {
+    if (!wf) {
         return (-1);
     }
 
     DEBUG_LOG("WooFPut: WooF %s open\n", wf_name);
     // seq_no = WooFAppend(wf, hand_name, element);
-    namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+
+    unsigned long my_log_seq_no;
+    auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
     if (namelog_seq_no != NULL) {
         my_log_seq_no = strtoul(namelog_seq_no, (char**)NULL, 10);
     } else {
         my_log_seq_no = 0;
     }
-    seq_no = WooFAppendWithCause(wf, wf_handler, element, Name_id, my_log_seq_no);
+    auto seq_no = WooFAppendWithCause(wf, wf_handler, element, Name_id, my_log_seq_no);
 
 #ifdef REPAIR
+    struct timeval t1, t2;
+    double elapsedTime;
+
     if (wf->shared->repair_mode == REMOVE) {
         memset(shadow_name, 0, sizeof(shadow_name));
         strncpy(shadow_name, WooF_dir, sizeof(shadow_name));
@@ -826,41 +828,18 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
     return (seq_no);
 }
 
-unsigned long WooFPutWithCause(
-    const char* wf_name, const char* hand_name, void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
+unsigned long WooFPutWithCause(const char* wf_name,
+                               const char* hand_name,
+                               void* element,
+                               unsigned long cause_host,
+                               unsigned long long cause_seq_no) {
     WOOF* wf;
     unsigned long seq_no;
     unsigned long el_size;
-    char wf_namespace[2048];
     char shadow_name[2048];
-    char ns_ip[25];
-    char my_ip[25];
     int err;
 
     DEBUG_LOG("WooFPutWithCause: called %s %s\n", wf_name, hand_name);
-
-    memset(ns_ip, 0, sizeof(ns_ip));
-    err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
-    /*
-     * if there is no IP address in the URI, use the local IP address
-     */
-    if (err < 0) {
-        err = WooFLocalIP(ns_ip, sizeof(ns_ip));
-        if (err < 0) {
-            fprintf(stderr, "WooFPut: no local IP\n");
-            exit(1);
-        }
-    }
-
-    memset(my_ip, 0, sizeof(my_ip));
-    err = WooFLocalIP(my_ip, sizeof(my_ip));
-    if (err < 0) {
-        fprintf(stderr, "WooFPutWithCause: no local IP\n");
-        exit(1);
-    }
-
-    memset(wf_namespace, 0, sizeof(wf_namespace));
-    err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
     /*
      * if this isn't for my namespace, try and remote put
      *
@@ -869,7 +848,7 @@ unsigned long WooFPutWithCause(
      * if namespace paths do not match or they do match but the IP addresses do not match,
      * this is a remote put
      */
-    if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
+    if (IsRemoteWoof(wf_name)) {
         el_size = WooFMsgGetElSize(wf_name);
         if (el_size != (unsigned long)-1) {
             seq_no = WooFMsgPut(wf_name, hand_name, element, el_size);
@@ -1274,7 +1253,6 @@ int WooFReadWithCause(
     unsigned long last_valid;
     unsigned long ndx;
     ELID* el_id;
-    char log_name[4096];
     EVENT* ev;
     unsigned long ls;
 
@@ -1332,26 +1310,21 @@ int WooFReadWithCause(
      * yes, compute ndx forward from last_valid ndx
      */
     ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
-#ifdef DEBUG
-    fprintf(stdout,
-            "WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
-            "%lu old: %lu young: %lu ndx: %lu\n",
-            wfs->head,
-            wfs->tail,
-            wfs->history_size,
-            last_valid,
-            seq_no,
-            oldest,
-            youngest,
-            ndx);
-    fflush(stdout);
-#endif
+
+    DEBUG_LOG("WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
+              "%lu old: %lu young: %lu ndx: %lu\n",
+              wfs->head,
+              wfs->tail,
+              wfs->history_size,
+              last_valid,
+              seq_no,
+              oldest,
+              youngest,
+              ndx);
+
     ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
-#ifdef DEBUG
-    fprintf(stdout, "WooFReadWithCause: seq_no: %lu, found seq_no: %lu\n", seq_no, el_id->seq_no);
-    fflush(stdout);
-#endif
+    DEBUG_LOG("WooFReadWithCause: seq_no: %lu, found seq_no: %lu\n", seq_no, el_id->seq_no);
     memcpy(element, ptr, wfs->element_size);
     V(&wfs->mutex);
 
@@ -1380,14 +1353,12 @@ int WooFReadWithCause(
     /*
      * log the event so that it can be triggered
      */
-    memset(log_name, 0, sizeof(log_name));
-    sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
-    DEBUG_LOG("WooFReadWithCause: logging event to %s\n", log_name);
+    auto log_name = fmt::format("{}/{}", WooF_namelog_dir, Namelog_name);
+    DEBUG_LOG("WooFReadWithCause: logging event to %s\n", log_name.c_str());
 
     ls = LogEvent(Name_log, ev);
     if (ls == 0) {
-        fprintf(stderr, "WooFReadWithCause: couldn't log event to log %s\n", log_name);
-        fflush(stderr);
+        DEBUG_WARN("WooFReadWithCause: couldn't log event to log %s\n", log_name.c_str());
         EventFree(ev);
     }
 

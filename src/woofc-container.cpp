@@ -1,7 +1,3 @@
-extern "C" {
-}
-
-
 #include "debug.h"
 #include "global.h"
 #include "log.h"
