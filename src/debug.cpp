@@ -4,9 +4,14 @@
 #include <debug.h>
 #include <exception>
 #include <iostream>
+#include <unistd.h>
+
+namespace {
+auto cur_pid = getpid();
+}
 
 void cspot_print_debug(const char* format, ...) {
-    std::cerr << "[debug] ";
+    std::cerr << "[" << cur_pid << "] " << "[debug] ";
     va_list myargs;
     va_start(myargs, format);
     [[maybe_unused]] auto ret = vfprintf(stderr, format, myargs);
@@ -19,7 +24,7 @@ void cspot_print_debug(const char* format, ...) {
 
 
 void cspot_print_fatal(const char* format, ...) {
-    std::cerr << "[fatal] ";
+    std::cerr << "[" << cur_pid << "] " << "[fatal] ";
     va_list myargs;
     va_start(myargs, format);
     [[maybe_unused]] auto ret = vfprintf(stderr, format, myargs);
@@ -33,7 +38,7 @@ void cspot_print_fatal(const char* format, ...) {
 
 void cspot_print_fatal_if(bool val, const char* format, ...) {
     if (val) {
-        std::cerr << "[fatal] ";
+        std::cerr << "[" << cur_pid << "] " << "[fatal] ";
         va_list myargs;
         va_start(myargs, format);
         [[maybe_unused]] auto ret = vfprintf(stderr, format, myargs);
