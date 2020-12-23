@@ -156,7 +156,7 @@ void* resolve_thread(void* ptr) {
                     log_warn("failed to invoke r_subscribe on %s", successor_woof);
                     continue;
                 }
-                log_debug("found successor_addr[%d] %s for action %s", i, successor_leader, "REGISTER_TOPIC");
+                log_debug("found successor_addr[%d] %s for action %s", i, successor_leader, "SUBSCRIBE");
                 break;
             }
             case DHT_ACTION_PUBLISH_FIND: {
@@ -207,10 +207,6 @@ void* resolve_thread(void* ptr) {
             }
             sprintf(req_forward_woof, "%s/%s", finger_replicas_leader, DHT_FIND_SUCCESSOR_WOOF);
             unsigned long seq = WooFPut(req_forward_woof, NULL, arg);
-            if (seq == -2) {
-                log_debug("the node has failed");
-                return;
-            }
             if (WooFInvalid(seq)) {
                 log_warn("failed to forward find_successor request to finger[%d] %s, ACTION: %d",
                          i,
@@ -231,10 +227,6 @@ void* resolve_thread(void* ptr) {
         if (!is_empty(successor->hash[i]) && in_range(successor->hash[i], node->hash, arg->hashed_key)) {
             sprintf(req_forward_woof, "%s/%s", successor_addr(successor, i), DHT_FIND_SUCCESSOR_WOOF);
             unsigned long seq = WooFPut(req_forward_woof, NULL, arg);
-            if (seq == -2) {
-                log_debug("the node has failed");
-                return;
-            }
             if (WooFInvalid(seq)) {
                 log_warn("failed to forward find_successor request to successor %s, ACTION: %d",
                          req_forward_woof,

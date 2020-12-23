@@ -291,11 +291,6 @@ int dht_join_cluster(char* node_woof,
                          fix_finger_freq,
                          update_leader_freq,
                          daemon_wakeup_freq);
-    // printf("stabilize_freq: %d\n", stabilize_freq);
-    // printf("chk_predecessor_freq: %d\n", chk_predecessor_freq);
-    // printf("fix_finger_freq: %d\n", fix_finger_freq);
-    // printf("update_leader_freq: %d\n", update_leader_freq);
-    // printf("daemon_wakeup_freq: %d\n", daemon_wakeup_freq);
     arg.action = DHT_ACTION_JOIN;
     if (node_woof[strlen(node_woof) - 1] == '/') {
         sprintf(node_woof, "%s%s", node_woof, DHT_FIND_SUCCESSOR_WOOF);
@@ -310,77 +305,3 @@ int dht_join_cluster(char* node_woof,
 
     return 0;
 }
-
-// int is_blocked(char* target, char* self, BLOCKED_NODES* blocked_nodes) {
-//     int i;
-//     for (i = 0; i < 64; ++i) {
-//         if (blocked_nodes->blocked_nodes[i][0] == 0) {
-//             break;
-//         }
-//         if (strncmp(target, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
-//             if (rand() % 100 < blocked_nodes->failure_rate[i]) {
-//                 usleep(blocked_nodes->timeout[i] * 1000);
-//                 return -1;
-//             }
-//         }
-//         if (strncmp(self, blocked_nodes->blocked_nodes[i], strlen(blocked_nodes->blocked_nodes[i])) == 0) {
-//             if (rand() % 100 < blocked_nodes->failure_rate[i]) {
-//                 return -2;
-//             }
-//         }
-//     }
-//     return 0;
-// }
-
-// int checkedWooFGet(BLOCKED_NODES* blocked_nodes, char* self, char* woof, void* ptr, unsigned long seq) {
-//     int err = is_blocked(woof, self, blocked_nodes);
-//     if (err < 0) {
-//         return err;
-//     }
-//     return WooFGet(woof, ptr, seq);
-// }
-
-// unsigned long checkedWooFGetLatestSeq(BLOCKED_NODES* blocked_nodes, char* self, char* woof) {
-//     int err = is_blocked(woof, self, blocked_nodes);
-//     if (err < 0) {
-//         return err;
-//     }
-//     return WooFGetLatestSeqno(woof);
-// }
-
-// unsigned long checkedWooFPut(BLOCKED_NODES* blocked_nodes, char* self, char* woof, char* handler, void* ptr) {
-//     int err = is_blocked(woof, self, blocked_nodes);
-//     if (err < 0) {
-//         return err;
-//     }
-//     return WooFPut(woof, handler, ptr);
-// }
-
-// unsigned long checkedMonitorRemotePut(BLOCKED_NODES* blocked_nodes,
-//                                       char* self,
-//                                       char* callback_monitor,
-//                                       char* callback_woof,
-//                                       char* callback_handler,
-//                                       void* ptr,
-//                                       int idempotent) {
-//     int err = is_blocked(callback_woof, self, blocked_nodes);
-//     if (err < 0) {
-//         return err;
-//     }
-//     return monitor_remote_put(callback_monitor, callback_woof, callback_handler, ptr, idempotent);
-// }
-
-// unsigned long checked_raft_sessionless_put_handler(BLOCKED_NODES* blocked_nodes,
-//                                                    char* self,
-//                                                    char* replica,
-//                                                    char* handler,
-//                                                    void* ptr,
-//                                                    unsigned long size,
-//                                                    int monitored,
-//                                                    int timeout) {
-//     int err = is_blocked(replica, self, blocked_nodes);
-//     if (err < 0) {
-//         return err;
-//     }
-//     return raft_sessionless_put_handler(replica, handler, ptr, size, monitored, timeout);
-// }
