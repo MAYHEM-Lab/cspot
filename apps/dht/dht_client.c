@@ -3,10 +3,10 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
-#include "woofc-access.h"
-#include "woofc.h"
 #include "raft.h"
 #include "raft_client.h"
+#include "woofc-access.h"
+#include "woofc.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -137,12 +137,63 @@ int dht_subscribe(char* topic_name, char* handler) {
     return 0;
 }
 
-unsigned long dht_publish(DHT_SERVER_PUBLISH_FIND_ARG* arg) {
-    arg->ts_a = get_milliseconds();
-    unsigned long seq = WooFPut(DHT_SERVER_PUBLISH_FIND_WOOF, NULL, arg);
-    if (WooFInvalid(seq)) {
-        sprintf(dht_error_msg, "failed put publish request to %s", DHT_SERVER_PUBLISH_FIND_WOOF);
+int dht_publish(char* topic_name, void* element, size_t element_size) {
+    return dht_remote_publish(NULL, topic_name, element, element_size);
+}
+
+int dht_remote_publish(char* server_namespace, char* topic_name, void* element, size_t element_size) {
+    if (element_size > sizeof(DHT_SERVER_PUBLISH_ELEMENT)) {
+        sprintf(dht_error_msg,
+                "element size %lu exceeds the maximum size %lu",
+                element_size,
+                sizeof(DHT_SERVER_PUBLISH_ELEMENT));
         return -1;
     }
-    return seq;
+    DHT_SERVER_PUBLISH_ELEMENT publish_element = {0};
+    memcpy(&publish_element, element, element_size);
+
+    char server_woof[DHT_NAME_LENGTH] = {0};
+    if (server_namespace == NULL) {
+        strcpy(server_woof, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
+    } else {
+        sprintf(server_woof, "%s/%s", server_namespace, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
+    }
+    unsigned long seq = WooFPut(server_woof, NULL, &publish_element);
+    if (WooFInvalid(seq)) {
+        sprintf(dht_error_msg, "failed put element to %s", server_woof);
+        return -1;
+    }
+
+    char node_addr[DHT_NAME_LENGTH] = {0};
+    if (server_namespace == NULL) {
+        DHT_NODE_INFO node_info = {0};
+        if (WooFGet(DHT_NODE_INFO_WOOF, &node_info, 0) < 0) {
+            sprintf(dht_error_msg, "failed to get node info");
+            return -1;
+        }
+        strcpy(node_addr, node_info.addr);
+    } else {
+        strcpy(node_addr, server_namespace);
+    }
+    char hashed_key[SHA_DIGEST_LENGTH];
+    dht_hash(hashed_key, topic_name);
+    DHT_FIND_SUCCESSOR_ARG arg = {0};
+    dht_init_find_arg(&arg, topic_name, hashed_key, node_addr);
+    arg.action_seqno = seq;
+    arg.action = DHT_ACTION_PUBLISH;
+    arg.ts_a = get_milliseconds();
+    arg.ts_b = get_milliseconds();
+    arg.ts_c = 0;
+
+    if (server_namespace == NULL) {
+        strcpy(server_woof, DHT_FIND_SUCCESSOR_WOOF);
+    } else {
+        sprintf(server_woof, "%s/%s", server_namespace, DHT_FIND_SUCCESSOR_WOOF);
+    }
+    seq = WooFPut(server_woof, NULL, &arg);
+    if (WooFInvalid(seq)) {
+        log_error("failed to invoke h_find_successor");
+        return -1;
+    }
+    return 0;
 }

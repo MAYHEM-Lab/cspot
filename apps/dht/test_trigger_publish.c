@@ -20,7 +20,7 @@ typedef struct test_stc {
 } TEST_EL;
 
 int main(int argc, char** argv) {
-    DHT_SERVER_PUBLISH_FIND_ARG arg = {0};
+    char topic_name[DHT_NAME_LENGTH] = {0};
     char message[256 - 8] = {0};
     char client_ip[DHT_NAME_LENGTH] = {0};
 
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
         switch (c) {
         case 't': {
-            strncpy(arg.topic_name, optarg, sizeof(arg.topic_name));
+            strncpy(topic_name, optarg, sizeof(topic_name));
             break;
         }
         case 'm': {
@@ -47,26 +47,25 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (arg.topic_name[0] == 0 || message[0] == 0) {
+    if (topic_name[0] == 0 || message[0] == 0) {
         fprintf(stderr, "%s", Usage);
         exit(1);
     }
 
     WooFInit();
 
-    TEST_EL* el = (TEST_EL*)arg.element;
-    sprintf(el->msg, message);
-    el->sent = get_milliseconds();
-    arg.element_size = sizeof(TEST_EL);
-    
+    TEST_EL el = {0};
+    sprintf(el.msg, message);
+    el.sent = get_milliseconds();
+
     if (client_ip[0] != 0) {
         printf("set client ip to %s\n", client_ip);
         fflush(stdout);
         dht_set_client_ip(client_ip);
     }
 
-    unsigned long seq = dht_publish(&arg);
-    if (WooFInvalid(seq)) {
+    int err = dht_publish(topic_name, &el, sizeof(TEST_EL));
+    if (err < 0) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
         exit(1);
     }

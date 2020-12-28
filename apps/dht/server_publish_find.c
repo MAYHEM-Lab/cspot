@@ -5,31 +5,31 @@
 #define MAX_PUBLISH_SIZE 512
 
 int resolve(DHT_NODE_INFO* node, unsigned long seq_no) {
-    DHT_SERVER_PUBLISH_FIND_ARG find_arg = {0};
-    if (WooFGet(DHT_SERVER_PUBLISH_FIND_WOOF, &find_arg, seq_no) < 0) {
-        log_error("failed to get find_arg at %lu", seq_no);
-        return -1;
-    }
-    if (find_arg.element_size > RAFT_DATA_TYPE_SIZE) {
-        log_error("element_size %lu exceeds RAFT_DATA_TYPE_SIZE %lu", find_arg.element_size, RAFT_DATA_TYPE_SIZE);
-        return -1;
-    }
+    // DHT_SERVER_PUBLISH_FIND_ARG find_arg = {0};
+    // if (WooFGet(DHT_SERVER_PUBLISH_FIND_WOOF, &find_arg, seq_no) < 0) {
+    //     log_error("failed to get find_arg at %lu", seq_no);
+    //     return -1;
+    // }
+    // if (find_arg.element_size > RAFT_DATA_TYPE_SIZE) {
+    //     log_error("element_size %lu exceeds RAFT_DATA_TYPE_SIZE %lu", find_arg.element_size, RAFT_DATA_TYPE_SIZE);
+    //     return -1;
+    // }
 
-    char hashed_key[SHA_DIGEST_LENGTH];
-    dht_hash(hashed_key, find_arg.topic_name);
-    DHT_FIND_SUCCESSOR_ARG arg = {0};
-    dht_init_find_arg(&arg, find_arg.topic_name, hashed_key, node->addr);
-    arg.action_seqno = seq_no;
-    arg.action = DHT_ACTION_PUBLISH_FIND;
-    arg.ts_a = find_arg.ts_a;
-    arg.ts_b = get_milliseconds();
-    arg.ts_c = 0;
+    // char hashed_key[SHA_DIGEST_LENGTH];
+    // dht_hash(hashed_key, find_arg.topic_name);
+    // DHT_FIND_SUCCESSOR_ARG arg = {0};
+    // dht_init_find_arg(&arg, find_arg.topic_name, hashed_key, node->addr);
+    // arg.action_seqno = seq_no;
+    // arg.action = DHT_ACTION_PUBLISH_FIND;
+    // arg.ts_a = find_arg.ts_a;
+    // arg.ts_b = get_milliseconds();
+    // arg.ts_c = 0;
 
-    unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
-    if (WooFInvalid(seq)) {
-        log_error("failed to invoke h_find_successor");
-        return -1;
-    }
+    // unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+    // if (WooFInvalid(seq)) {
+    //     log_error("failed to invoke h_find_successor");
+    //     return -1;
+    // }
     return 0;
 }
 

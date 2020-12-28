@@ -83,14 +83,14 @@ void* resolve_thread(void* arg) {
         return;
     }
 
-    DHT_SERVER_PUBLISH_FIND_ARG find_arg = {0};
-    if (WooFGet(DHT_SERVER_PUBLISH_FIND_WOOF, &find_arg, data_arg.find_arg_seqno) < 0) {
-        log_error("failed to get server_publish_find_arg at %lu", data_arg.find_arg_seqno);
+    DHT_SERVER_PUBLISH_ELEMENT element = {0};
+    if (WooFGet(DHT_SERVER_PUBLISH_ELEMENT_WOOF, &element, data_arg.element_seqno) < 0) {
+        log_error("failed to get stored element at %lu from %s", data_arg.element_seqno, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
         return;
     }
 
     DHT_TRIGGER_ARG trigger_arg = {0};
-    trigger_arg.requested = find_arg.ts_a;
+    trigger_arg.requested = data_arg.ts_a;
     trigger_arg.ts_e = get_milliseconds();
 
     char registration_woof[DHT_NAME_LENGTH] = {0};
@@ -103,7 +103,7 @@ void* resolve_thread(void* arg) {
             continue;
         }
         // get the topic namespace
-        sprintf(registration_woof, "%s/%s_%s", node_addr, find_arg.topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+        sprintf(registration_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_TOPIC_REGISTRATION_WOOF);
         pthread_mutex_lock(&cache_lock);
         int cache_id = get_registry(registration_woof);
         if (cache_id != -1) {
@@ -161,7 +161,7 @@ void* resolve_thread(void* arg) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
         sprintf(trigger_arg.element_woof, "%s", topic_replica);
         RAFT_DATA_TYPE raft_data = {0};
-        memcpy(raft_data.val, find_arg.element, find_arg.element_size);
+        memcpy(raft_data.val, &element, sizeof(DHT_SERVER_PUBLISH_ELEMENT));
 
         RAFT_CLIENT_PUT_OPTION opt = {0};
         sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);

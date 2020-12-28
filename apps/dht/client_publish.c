@@ -9,12 +9,14 @@
 #include <string.h>
 #include <unistd.h>
 
+#define MESSAGE_SIZE 4096
 #define ARGS "s:t:d:o:"
 char* Usage = "client_publish -s server_namespace -t topic -d data -o timeout)\n";
 
 int main(int argc, char** argv) {
     int timeout = 0;
-    DHT_SERVER_PUBLISH_FIND_ARG arg = {0};
+    char topic_name[DHT_NAME_LENGTH] = {0};
+    char message[MESSAGE_SIZE] = {0};
     char server_namespace[DHT_NAME_LENGTH] = {0};
 
     int c;
@@ -25,12 +27,11 @@ int main(int argc, char** argv) {
             break;
         }
         case 't': {
-            strncpy(arg.topic_name, optarg, sizeof(arg.topic_name));
+            strncpy(topic_name, optarg, sizeof(topic_name));
             break;
         }
         case 'd': {
-            strncpy(arg.element, optarg, sizeof(arg.element));
-            arg.element_size = 4096;
+            strncpy(message, optarg, sizeof(message));
             break;
         }
         case 'o': {
@@ -45,24 +46,20 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (arg.topic_name[0] == 0 || arg.element[0] == 0) {
+    if (topic_name[0] == 0 || message[0] == 0) {
         fprintf(stderr, "%s", Usage);
         exit(1);
     }
 
     if (server_namespace[0] != 0) {
-        char server_woof[DHT_NAME_LENGTH] = {0};
-        sprintf(server_woof, "%s/%s", server_namespace, DHT_SERVER_PUBLISH_FIND_WOOF);
-        unsigned long seq = WooFPut(server_woof, NULL, &arg);
-        if (WooFInvalid(seq)) {
-            fprintf(stderr, "failed put publish request to %s", DHT_SERVER_PUBLISH_FIND_WOOF);
+        if (dht_remote_publish(server_namespace, topic_name, message, MESSAGE_SIZE) < 0) {
+            fprintf(stderr, "failed to publish message: %s", dht_error_msg);
             exit(1);
         }
     } else {
         WooFInit();
-        unsigned long seq = WooFPut(DHT_SERVER_PUBLISH_FIND_WOOF, NULL, &arg);
-        if (WooFInvalid(seq)) {
-            fprintf(stderr, "failed put publish request to %s", DHT_SERVER_PUBLISH_FIND_WOOF);
+        if (dht_publish(topic_name, message, MESSAGE_SIZE) < 0) {
+            fprintf(stderr, "failed to publish message: %s", dht_error_msg);
             exit(1);
         }
     }

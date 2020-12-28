@@ -42,6 +42,7 @@ extern "C" {
 #define DHT_SERVER_PUBLISH_FIND_WOOF "dht_server_publish_find.woof"
 #define DHT_SERVER_PUBLISH_DATA_WOOF "dht_server_publish_data.woof"
 #define DHT_SERVER_PUBLISH_TRIGGER_WOOF "dht_server_publish_trigger.woof"
+#define DHT_SERVER_PUBLISH_ELEMENT_WOOF "dht_server_publish_element.woof"
 #define DHT_SERVER_LOOP_ROUTINE_WOOF "dht_server_loop_routine.woof"
 #define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
@@ -61,7 +62,7 @@ extern "C" {
 #define DHT_ACTION_FIX_FINGER 3
 #define DHT_ACTION_REGISTER_TOPIC 4
 #define DHT_ACTION_SUBSCRIBE 5
-#define DHT_ACTION_PUBLISH_FIND 6
+#define DHT_ACTION_PUBLISH 6
 
 char dht_error_msg[256];
 
@@ -253,8 +254,7 @@ typedef struct dht_map_raft_index_arg {
 
 typedef struct dht_server_publish_find_arg {
     char topic_name[DHT_NAME_LENGTH];
-    char element[RAFT_DATA_TYPE_SIZE];
-    uint64_t element_size;
+    uint64_t element_seqno;
     uint64_t ts_a;
 } DHT_SERVER_PUBLISH_FIND_ARG;
 
@@ -262,14 +262,18 @@ typedef struct dht_server_publish_data_arg {
     char topic_name[DHT_NAME_LENGTH];
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
-    uint64_t find_arg_seqno;
+    uint64_t element_seqno;
     uint64_t ts_a;
     uint64_t ts_b;
     uint64_t ts_c;
     uint64_t ts_d;
 } DHT_SERVER_PUBLISH_DATA_ARG;
 
-typedef struct dht_sloop_routine_arg {
+typedef struct dht_server_publish_element {
+    char data[RAFT_DATA_TYPE_SIZE];
+} DHT_SERVER_PUBLISH_ELEMENT;
+
+typedef struct dht_loop_routine_arg {
     uint64_t last_seqno;
 } DHT_LOOP_ROUTINE_ARG;
 

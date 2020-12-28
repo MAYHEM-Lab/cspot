@@ -11,7 +11,8 @@ void dht_set_client_ip(char* ip);
 int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long history_size);
 int dht_register_topic(char* topic_name, int timeout);
 int dht_subscribe(char* topic_name, char* handler);
-unsigned long dht_publish(DHT_SERVER_PUBLISH_FIND_ARG* arg);
+int dht_publish(char* topic_name, void* element, size_t element_size);
+int dht_remote_publish(char* server_namespace, char* topic_name, void* element, size_t element_size);
 
 #endif
 

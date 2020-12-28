@@ -157,11 +157,11 @@ void* resolve_thread(void* ptr) {
                 log_debug("found successor_addr[%d] %s for action %s", i, successor_leader, "SUBSCRIBE");
                 break;
             }
-            case DHT_ACTION_PUBLISH_FIND: {
+            case DHT_ACTION_PUBLISH: {
                 DHT_SERVER_PUBLISH_DATA_ARG action_arg = {0};
                 memcpy(action_arg.node_replicas, successor->replicas[i], sizeof(action_arg.node_replicas));
                 action_arg.node_leader = successor->leader[i];
-                action_arg.find_arg_seqno = arg->action_seqno;
+                action_arg.element_seqno = arg->action_seqno;
                 memcpy(action_arg.topic_name, arg->key, sizeof(action_arg.topic_name));
                 action_arg.ts_a = arg->ts_a;
                 action_arg.ts_b = arg->ts_b;
