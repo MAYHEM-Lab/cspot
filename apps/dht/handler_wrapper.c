@@ -1,12 +1,10 @@
 #include "dht.h"
 #include "dht_client.h"
 #include "dht_utils.h"
-#include "woofc-access.h"
-#include "woofc.h"
-#ifdef USE_RAFT
 #include "raft.h"
 #include "raft_client.h"
-#endif
+#include "woofc-access.h"
+#include "woofc.h"
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -88,7 +86,6 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     dht_set_client_ip(client_addr);
 
-#ifdef USE_RAFT
     // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
     while (raft_get(arg->woof_name, &raft_data, arg->seq_no) < 0) {
@@ -102,28 +99,6 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     log_debug("mapped raft_index %lu to seq_no %lu", arg->seq_no, mapped_seqno);
     int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, mapped_seqno, raft_data.val);
-#else
-    log_debug("using woof, getting seqno %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
-    unsigned long element_size = WooFMsgGetElSize(arg->woof_name);
-    if (WooFInvalid(element_size)) {
-        log_error("failed to get element size of %s", arg->woof_name);
-        exit(1);
-    }
-
-    void* element = malloc(element_size);
-    if (element == NULL) {
-        log_error("failed to malloc element with size %lu", element_size);
-        exit(1);
-    }
-    if (WooFGet(arg->woof_name, element, arg->seq_no) < 0) {
-        log_error("failed to read element from %s at %" PRIu64 "", arg->woof_name, arg->seq_no);
-        free(element);
-        exit(1);
-    }
-
-    int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, arg->seq_no, element);
-    free(element);
-#endif
 
     return err;
 }

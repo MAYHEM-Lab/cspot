@@ -65,23 +65,6 @@ unsigned long RAFT_WOOF_HISTORY_SIZE[] = {
     RAFT_WOOF_HISTORY_SIZE_SHORT  // RAFT_REQUEST_VOTE_RESULT
 };
 
-int get_server_state(RAFT_SERVER_STATE* server_state) {
-    unsigned long last_server_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-    if (WooFInvalid(last_server_state)) {
-        sprintf(raft_error_msg, "failed to get the latest seqno of server_state");
-        return -1;
-    }
-    if (last_server_state == 0) {
-        sprintf(raft_error_msg, "server_state is not initialized yet, latest seq_no is 0");
-        return -1;
-    }
-    if (WooFGet(RAFT_SERVER_STATE_WOOF, server_state, last_server_state) < 0) {
-        sprintf(raft_error_msg, "failed to get the latest server_state");
-        return -1;
-    }
-    return 0;
-}
-
 uint64_t random_timeout(unsigned long seed, int min, int max) {
     srand(seed);
     return (uint64_t)(min + (rand() % (max - min)));

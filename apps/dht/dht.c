@@ -165,10 +165,8 @@ int dht_start_daemon(
     arg.last_stabilize = 0;
     arg.last_check_predecessor = 0;
     arg.last_fix_finger = 0;
-#ifdef USE_RAFT
     arg.last_update_leader_id = 0;
     arg.last_replicate_state = 0;
-#endif
     arg.stabilize_freq = stabilize_freq;
     arg.chk_predecessor_freq = chk_predecessor_freq;
     arg.fix_finger_freq = fix_finger_freq;

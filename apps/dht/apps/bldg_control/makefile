@@ -20,7 +20,7 @@ RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o
 MONITORINC=${WOOFC}/apps/monitor/
 MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC} -DUSE_RAFT
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC}
 
 all: h_bldg_total h_floor_total h_hourly_change init_1f_total init_2f_total init_bldg_gate init_bldg_total init_hourly_change init_room_101 init_room_102 init_room_103 init_room_201 init_room_202 show traffic
 

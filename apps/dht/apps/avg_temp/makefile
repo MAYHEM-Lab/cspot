@@ -20,7 +20,7 @@ RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o
 MONITORINC=${WOOFC}/apps/monitor/
 MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC} -DUSE_RAFT
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC}
 
 all: avg_temp init_avg_topic init_room_topic latest_avg_temp list_topic_data publish_temp
 

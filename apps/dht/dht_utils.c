@@ -1,10 +1,8 @@
 #include "dht_utils.h"
 
 #include "dht.h"
-#ifdef USE_RAFT
 #include "raft.h"
 #include "raft_client.h"
-#endif
 
 #include <openssl/sha.h>
 #include <stdarg.h>
@@ -108,19 +106,6 @@ void log_error(const char* message, ...) {
     vfprintf(log_output, message, argptr);
     fprintf(log_output, "\033[0m\n");
     va_end(argptr);
-}
-
-int get_latest_element(char* woof_name, void* element) {
-    unsigned long latest_seq = WooFGetLatestSeqno(woof_name);
-    if (WooFInvalid(latest_seq)) {
-        sprintf(dht_error_msg, "failed to get the latest seqno from %s", woof_name);
-        return -1;
-    }
-    if (WooFGet(woof_name, element, latest_seq) < 0) {
-        sprintf(dht_error_msg, "failed to get the latest woof element from %s[%lu]", woof_name, latest_seq);
-        return -1;
-    }
-    return 0;
 }
 
 int read_raft_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
@@ -332,21 +317,21 @@ int in_range(unsigned char* n, unsigned char* lower, unsigned char* upper) {
 }
 
 int get_latest_node_info(DHT_NODE_INFO* element) {
-    return get_latest_element(DHT_NODE_INFO_WOOF, element);
+    return WooFGet(DHT_NODE_INFO_WOOF, element, 0);
 }
 
 int get_latest_predecessor_info(DHT_PREDECESSOR_INFO* element) {
-    return get_latest_element(DHT_PREDECESSOR_INFO_WOOF, element);
+    return WooFGet(DHT_PREDECESSOR_INFO_WOOF, element, 0);
 }
 
 int get_latest_successor_info(DHT_SUCCESSOR_INFO* element) {
-    return get_latest_element(DHT_SUCCESSOR_INFO_WOOF, element);
+    return WooFGet(DHT_SUCCESSOR_INFO_WOOF, element, 0);
 }
 
 int get_latest_finger_info(int finger_id, DHT_FINGER_INFO* element) {
     char woof_name[DHT_NAME_LENGTH];
     sprintf(woof_name, "%s%d", DHT_FINGER_INFO_WOOF, finger_id);
-    return get_latest_element(woof_name, element);
+    return WooFGet(woof_name, element, 0);
 }
 
 unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO* element) {
@@ -367,7 +352,6 @@ char* finger_addr(DHT_FINGER_INFO* info) {
     return info->replicas[info->leader];
 }
 
-#ifdef USE_RAFT
 int raft_leader_id() {
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
@@ -376,7 +360,7 @@ int raft_leader_id() {
     }
 
     RAFT_SERVER_STATE raft_state = {0};
-    if (get_server_state(&raft_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &raft_state, 0) < 0) {
         sprintf(dht_error_msg, "failed to get RAFT's server_state: %s", raft_error_msg);
         return -1;
     }
@@ -416,4 +400,3 @@ int invalidate_fingers(char hash[SHA_DIGEST_LENGTH]) {
     }
     return 0;
 }
-#endif

@@ -49,13 +49,8 @@ int main(int argc, char** argv) {
     }
 
     while (1) {
-        unsigned long latest_state = WooFGetLatestSeqno(RAFT_SERVER_STATE_WOOF);
-        if (WooFInvalid(latest_state)) {
-            fprintf(stderr, "failed to get the latest server state seqno\n");
-            exit(1);
-        }
         RAFT_SERVER_STATE server_state = {0};
-        if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, latest_state) < 0) {
+        if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
             fprintf(stderr, "failed to get the latest server state\n");
             exit(1);
         }

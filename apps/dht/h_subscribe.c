@@ -30,7 +30,7 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     DHT_SUBSCRIPTION_LIST list = {0};
-    if (get_latest_element(subscription_woof, &list) < 0) {
+    if (WooFGet(subscription_woof, &list, 0) < 0) {
         log_error("failed to get latest subscription list of %s: %s", subscription_woof, dht_error_msg);
         monitor_exit(ptr);
         WooFMsgCacheShutdown();

@@ -1,7 +1,3 @@
-#ifndef USE_RAFT
-#define USE_RAFT
-#endif
-
 #include "dht_client.h"
 #include "dht_utils.h"
 #include "multi_regression.h"

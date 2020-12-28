@@ -25,7 +25,6 @@ void log_info(const char* message, ...);
 void log_warn(const char* message, ...);
 void log_error(const char* message, ...);
 
-int get_latest_element(char* woof_name, void* element);
 int read_raft_config(FILE* fp, char* name, int* len, char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
 int read_dht_config(FILE* fp,
                     int* stabilize_freq,

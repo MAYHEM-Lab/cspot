@@ -1,15 +1,13 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
+#include "raft_client.h"
 #include "woofc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef USE_RAFT
-#include "raft_client.h"
-#endif
 
 static int SELF_FORWARD_DELAY = 1000;
 static int MAX_RESOLVE_THREADS = 16;
@@ -231,7 +229,6 @@ void* resolve_thread(void* ptr) {
                 log_warn("failed to forward find_successor request to successor %s, ACTION: %d",
                          req_forward_woof,
                          arg->action);
-#ifdef USE_RAFT
                 DHT_TRY_REPLICAS_ARG try_replicas_arg;
                 seq = monitor_put(DHT_MONITOR_NAME, DHT_TRY_REPLICAS_WOOF, "r_try_replicas", &try_replicas_arg, 1);
                 if (WooFInvalid(seq)) {
@@ -239,16 +236,6 @@ void* resolve_thread(void* ptr) {
                     return;
                 }
                 log_debug("trying successor replicas, forward query to the next successor in line");
-#else
-                DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
-                unsigned long seq = monitor_put(
-                    DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
-                if (WooFInvalid(seq)) {
-                    log_error("failed to shift successor");
-                    return;
-                }
-                log_warn("called h_shift_successor to use the next successor in line");
-#endif
             } else {
                 log_debug("forwarded find_succesor request to successor: %s", successor_addr(successor, i));
                 return;

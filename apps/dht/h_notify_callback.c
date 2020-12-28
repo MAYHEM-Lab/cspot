@@ -2,9 +2,7 @@
 #include "dht_utils.h"
 #include "monitor.h"
 #include "woofc.h"
-#ifdef USE_RAFT
 #include "raft_client.h"
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -50,7 +48,6 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     memcpy(successor.hash, result.successor_hash, sizeof(successor.hash));
     memcpy(successor.replicas, result.successor_replicas, sizeof(successor.replicas));
     memcpy(successor.leader, result.successor_leader, sizeof(successor.leader));
-#ifdef USE_RAFT
     unsigned long index = raft_put_handler(
         node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
     if (raft_is_error(index)) {
@@ -60,15 +57,6 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-#else
-    unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
-    if (WooFInvalid(seq)) {
-        log_error("failed to update successor list");
-        monitor_exit(ptr);
-        WooFMsgCacheShutdown();
-        exit(1);
-    }
-#endif
     log_debug("set successor to %s...", successor.replicas[0][successor.leader[0]]);
 
     monitor_exit(ptr);

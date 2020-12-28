@@ -1,11 +1,8 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
-#include "woofc.h"
-
-#ifdef USE_RAFT
 #include "raft_client.h"
-#endif
+#include "woofc.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -32,10 +29,6 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-    // BLOCKED_NODES blocked_nodes = {0};
-    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-    //     log_error("failed to get blocked nodes");
-    // }
 
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
@@ -70,7 +63,6 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         memcpy(successor.replicas[0], arg.node_replicas, sizeof(successor.replicas[0]));
         successor.leader[0] = arg.node_leader;
     }
-#ifdef USE_RAFT
     unsigned long index = raft_put_handler(
         node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
     if (raft_is_error(index)) {
@@ -80,15 +72,6 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     log_info("set successor to %s", successor.replicas[0][successor.leader[0]]);
-#else
-    unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
-    if (WooFInvalid(seq)) {
-        log_error("failed to update DHT table to woof %s", DHT_SUCCESSOR_INFO_WOOF);
-        monitor_exit(ptr);
-        WooFMsgCacheShutdown();
-        exit(1);
-    }
-#endif
 
     int stabilize_freq;
     int chk_predecessor_freq;

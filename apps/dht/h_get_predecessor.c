@@ -29,10 +29,6 @@ int h_get_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-    // BLOCKED_NODES blocked_nodes = {0};
-    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-    //     log_error("failed to get blocked nodes");
-    // }
 
     log_debug("callback_woof: %s", arg->callback_woof);
     log_debug("callback_handler: %s", arg->callback_handler);

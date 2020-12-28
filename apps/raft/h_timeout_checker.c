@@ -57,7 +57,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // check if it's leader, if so no need to timeout
     RAFT_SERVER_STATE server_state = {0};
-    if (get_server_state(&server_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the latest sever state");
         WooFMsgCacheShutdown();
         exit(1);
@@ -71,14 +71,8 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     int checker_delay = server_state.timeout_min / 5;
 
     // check if there's new heartbeat since went into sleep
-    unsigned long latest_heartbeat_seqno = WooFGetLatestSeqno(RAFT_HEARTBEAT_WOOF);
-    if (WooFInvalid(latest_heartbeat_seqno)) {
-        log_error("failed to get the latest seqno from %s", RAFT_HEARTBEAT_WOOF);
-        WooFMsgCacheShutdown();
-        exit(1);
-    }
     RAFT_HEARTBEAT heartbeat = {0};
-    if (WooFGet(RAFT_HEARTBEAT_WOOF, &heartbeat, latest_heartbeat_seqno) < 0) {
+    if (WooFGet(RAFT_HEARTBEAT_WOOF, &heartbeat, 0) < 0) {
         log_error("failed to get the latest heartbeat");
         WooFMsgCacheShutdown();
         exit(1);

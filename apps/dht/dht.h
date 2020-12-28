@@ -199,15 +199,13 @@ typedef struct dht_trigger_arg {
     uint64_t found;
     uint64_t data;
     uint64_t ts_e;
+    uint64_t ts_f;
 } DHT_TRIGGER_ARG;
 
 typedef struct dht_topic_registry {
     char topic_name[DHT_NAME_LENGTH];
-    char topic_namespace[DHT_NAME_LENGTH];
-#ifdef USE_RAFT
     char topic_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t last_leader;
-#endif
 } DHT_TOPIC_REGISTRY;
 
 typedef struct dht_daemon_arg {

@@ -43,7 +43,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
     int last_updated_index = 0;
     if (WooFGetLatestSeqno(DHT_FIX_FINGER_CALLBACK_WOOF) > 0) {
         DHT_FIX_FINGER_CALLBACK_ARG last_result = {0};
-        if (get_latest_element(DHT_FIX_FINGER_CALLBACK_WOOF, &last_result) < 0) {
+        if (WooFGet(DHT_FIX_FINGER_CALLBACK_WOOF, &last_result, 0) < 0) {
             log_error("failed to get the latest fix_finger_callback result: %s", dht_error_msg);
             monitor_exit(ptr);
             WooFMsgCacheShutdown();

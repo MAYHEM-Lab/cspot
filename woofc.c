@@ -1214,6 +1214,9 @@ int WooFGet(char* wf_name, void* element, unsigned long seq_no) {
     } else {
         my_log_seq_no = 0;
     }
+    if (seq_no == 0) {
+        seq_no = WooFLatestSeqno(wf);
+    }
     err = WooFReadWithCause(wf, element, seq_no, Name_id, my_log_seq_no);
 
     WooFDrop(wf);

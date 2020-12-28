@@ -32,7 +32,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // get the server's current term
     RAFT_SERVER_STATE server_state = {0};
-    if (get_server_state(&server_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server's latest state");
         WooFMsgCacheShutdown();
         exit(1);

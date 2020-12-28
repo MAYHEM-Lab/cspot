@@ -43,12 +43,9 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     DHT_TOPIC_REGISTRY topic_registry = {0};
     strcpy(topic_registry.topic_name, arg.topic_name);
-#ifdef USE_RAFT
     memcpy(topic_registry.topic_replicas, arg.topic_replicas, sizeof(topic_registry.topic_replicas));
     topic_registry.last_leader = arg.topic_leader;
-#else
-    memcpy(topic_registry.topic_namespace, arg.topic_namespace, sizeof(topic_registry.topic_namespace));
-#endif
+
     unsigned long seq = WooFPut(registration_woof, NULL, &topic_registry);
     if (WooFInvalid(seq)) {
         log_error("failed to register topic");
@@ -56,11 +53,7 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-#ifdef USE_RAFT
     log_info("registered topic %s/%s", topic_registry.topic_replicas[0], topic_registry.topic_name);
-#else
-    log_info("registered topic %s/%s", topic_registry.topic_namespace, topic_registry.topic_name);
-#endif
 
     char subscription_woof[DHT_NAME_LENGTH] = {0};
     sprintf(subscription_woof, "%s_%s", arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);

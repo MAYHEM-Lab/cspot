@@ -207,7 +207,6 @@ typedef struct raft_request_vote_result {
     char granter[RAFT_NAME_LENGTH];
 } RAFT_REQUEST_VOTE_RESULT;
 
-int get_server_state(RAFT_SERVER_STATE* server_state);
 uint64_t random_timeout(unsigned long seed, int min, int max);
 int32_t member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int encode_config(char* dst, int members, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);

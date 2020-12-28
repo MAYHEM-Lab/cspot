@@ -1,7 +1,3 @@
-#ifndef USE_RAFT
-#define USE_RAFT
-#endif
-
 #include "dht_client.h"
 #include "dht_utils.h"
 #include "multi_regression.h"
@@ -59,7 +55,7 @@ int get_topic_replica(char* topic_name, char* replica) {
     char registration_woof[DHT_NAME_LENGTH] = {0};
     sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
     DHT_TOPIC_REGISTRY topic_entry = {0};
-    if (get_latest_element(registration_woof, &topic_entry) < 0) {
+    if (WooFGet(registration_woof, &topic_entry, 0) < 0) {
         fprintf(stderr, "failed to get topic registration info from %s: %s\n", registration_woof, dht_error_msg);
         return -1;
     }

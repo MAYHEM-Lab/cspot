@@ -5,10 +5,8 @@
 #include "monitor.h"
 #include "woofc-access.h"
 #include "woofc.h"
-#ifdef USE_RAFT
 #include "raft.h"
 #include "raft_client.h"
-#endif
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -25,7 +23,6 @@ void dht_set_client_ip(char* ip) {
 
 // call this on the node hosting the topic
 int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long history_size) {
-#ifdef USE_RAFT
     if (element_size > RAFT_DATA_TYPE_SIZE) {
         sprintf(dht_error_msg, "element_size exceeds RAFT_DATA_TYPE_SIZE");
         return -1;
@@ -33,9 +30,6 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
 
     return 0;
     // when using raft, there's no need to create topic woof since the data is stored in raft log
-#else
-    return WooFCreate(topic_name, element_size, history_size);
-#endif
 }
 
 int dht_register_topic(char* topic_name, int timeout) {
@@ -55,7 +49,6 @@ int dht_register_topic(char* topic_name, int timeout) {
 
     DHT_REGISTER_TOPIC_ARG register_topic_arg = {0};
     strcpy(register_topic_arg.topic_name, topic_name);
-#ifdef USE_RAFT
     DHT_NODE_INFO node_info = {0};
     if (get_latest_node_info(&node_info) < 0) {
         char err_msg[DHT_NAME_LENGTH] = {0};
@@ -65,9 +58,7 @@ int dht_register_topic(char* topic_name, int timeout) {
     }
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
     register_topic_arg.topic_leader = node_info.leader_id;
-#else
-    strcpy(register_topic_arg.topic_namespace, local_namespace);
-#endif
+
     unsigned long action_seqno = WooFPut(DHT_REGISTER_TOPIC_WOOF, NULL, &register_topic_arg);
     if (WooFInvalid(action_seqno)) {
         sprintf(dht_error_msg, "failed to store subscribe arg");
@@ -95,7 +86,7 @@ int dht_subscribe(char* topic_name, char* handler) {
     }
 
     RAFT_SERVER_STATE raft_server_state;
-    if (get_server_state(&raft_server_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &raft_server_state, 0) < 0) {
         sprintf(dht_error_msg, "failed to get the latest RAFT server state");
         return -1;
     }

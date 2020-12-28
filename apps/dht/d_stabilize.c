@@ -1,10 +1,8 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
-#include "woofc.h"
-#ifdef USE_RAFT
 #include "raft_client.h"
-#endif
+#include "woofc.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -46,7 +44,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(successor.hash[0], predecessor.hash, sizeof(successor.hash[0]));
             memcpy(successor.replicas[0], predecessor.replicas, sizeof(successor.replicas[0]));
             successor.leader[0] = predecessor.leader;
-#ifdef USE_RAFT
             unsigned long index = raft_put_handler(
                 node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
             if (raft_is_error(index)) {
@@ -55,15 +52,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
                 WooFMsgCacheShutdown();
                 exit(1);
             }
-#else
-            unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
-            if (WooFInvalid(seq)) {
-                log_error("failed to update successor");
-                monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
-            }
-#endif
             log_info("updated successor to predecessor because the current successor is itself");
         }
 
@@ -86,7 +74,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         memcpy(successor.hash[0], node.hash, sizeof(successor.hash[0]));
         memcpy(successor.replicas[0], node.replicas, sizeof(successor.replicas[0]));
         successor.leader[0] = node.replica_id;
-#ifdef USE_RAFT
         unsigned long index = raft_put_handler(
             node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
         if (raft_is_error(index)) {
@@ -95,15 +82,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             WooFMsgCacheShutdown();
             exit(1);
         }
-#else
-        unsigned long seq = WooFPut(DHT_SUCCESSOR_INFO_WOOF, NULL, &successor);
-        if (WooFInvalid(seq)) {
-            log_error("failed to set successor back to self");
-            monitor_exit(ptr);
-            WooFMsgCacheShutdown();
-            exit(1);
-        }
-#endif
         log_info("successor set to self");
     } else {
         // x = successor.predecessor
@@ -115,7 +93,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         sprintf(successor_woof_name, "%s/%s", successor_addr(&successor, 0), DHT_GET_PREDECESSOR_WOOF);
         unsigned long seq = WooFPut(successor_woof_name, "h_get_predecessor", &get_predecessor_arg);
         if (WooFInvalid(seq)) {
-#ifdef USE_RAFT
             log_warn("current successor %s is not responding, calling r_tey_replicas to try other replicas",
                      successor_woof_name);
             DHT_TRY_REPLICAS_ARG try_replicas_arg;
@@ -126,18 +103,6 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
                 WooFMsgCacheShutdown();
                 exit(1);
             }
-#else
-            DHT_SHIFT_SUCCESSOR_ARG shift_successor_arg;
-            unsigned long seq =
-                monitor_put(DHT_MONITOR_NAME, DHT_SHIFT_SUCCESSOR_WOOF, "h_shift_successor", &shift_successor_arg, 0);
-            if (WooFInvalid(seq)) {
-                log_error("failed to shift successor");
-                monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
-            }
-            log_warn("called h_shift_successor to use the next successor in line");
-#endif
             monitor_exit(ptr);
             monitor_join();
             WooFMsgCacheShutdown();

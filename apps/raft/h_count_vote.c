@@ -85,7 +85,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     seq_no = monitor_seqno(ptr);
 
     RAFT_SERVER_STATE server_state = {0};
-    if (get_server_state(&server_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
         WooFMsgCacheShutdown();
         exit(1);

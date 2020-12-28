@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
         // get the topic namespace
         char registration_woof[DHT_NAME_LENGTH] = {0};
         sprintf(registration_woof, "%s/%s_%s", node_addr, topic, DHT_TOPIC_REGISTRATION_WOOF);
-        if (get_latest_element(registration_woof, &topic_entry) < 0) {
+        if (WooFGet(registration_woof, &topic_entry, 0) < 0) {
             sprintf(
                 dht_error_msg, "failed to get topic registration info from %s: %s", registration_woof, dht_error_msg);
             continue;

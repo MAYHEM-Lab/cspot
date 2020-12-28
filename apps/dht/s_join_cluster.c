@@ -1,12 +1,10 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
+#include "raft_client.h"
 #include "woofc-access.h"
 #include "woofc-host.h"
 #include "woofc.h"
-#ifdef USE_RAFT
-#include "raft_client.h"
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,7 +104,6 @@ int main(int argc, char** argv) {
     char woof_name[DHT_NAME_LENGTH] = {0};
     sprintf(woof_name, "woof://%s%s", ip, woof_namespace);
 
-#ifdef USE_RAFT
     if (raft_is_leader()) {
         if (dht_join_cluster(node_woof,
                              woof_name,
@@ -144,21 +141,6 @@ int main(int argc, char** argv) {
             }
         }
     }
-#else
-    if (dht_join_cluster(node_woof,
-                         woof_name,
-                         name,
-                         replicas,
-                         rejoin,
-                         stabilize_freq,
-                         chk_predecessor_freq,
-                         fix_finger_freq,
-                         update_leader_freq,
-                         daemon_wakeup_freq) < 0) {
-        fprintf(stderr, "failed to join cluster: %s\n", dht_error_msg);
-        exit(1);
-    }
-#endif
 
     return 0;
 }

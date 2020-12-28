@@ -1,6 +1,7 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
+#include "raft_client.h"
 #include "woofc.h"
 
 #include <stdlib.h>
@@ -20,10 +21,7 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-    // BLOCKED_NODES blocked_nodes = {0};
-    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-    //     log_error("failed to get blocked nodes");
-    // }
+
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
@@ -50,7 +48,6 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     log_warn("new successor: %s", successor.replicas[0][successor.leader[0]]);
-#ifdef USE_RAFT
     unsigned long index = raft_put_handler(
         node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
     if (raft_is_error(index)) {
@@ -59,7 +56,6 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-#endif
 
     monitor_exit(ptr);
     WooFMsgCacheShutdown();

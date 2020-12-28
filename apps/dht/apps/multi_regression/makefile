@@ -21,7 +21,7 @@ RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o
 MONITORINC=${WOOFC}/apps/monitor/
 MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC} -DUSE_RAFT
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${DHTDIR} -I${RAFTDIR} -I${MONITORINC}
 BOOSTFLAGS=-I/usr/include/boost169 -lmlpack -fopenmp
 
 all: h_publish h_regress h_train init_client init_topic publish_temp

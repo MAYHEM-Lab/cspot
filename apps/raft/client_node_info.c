@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
     WooFInit();
 
     RAFT_SERVER_STATE server_state = {0};
-    if (get_server_state(&server_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         fprintf(stderr, "failed to get the latest server state: %s\n", raft_error_msg);
         exit(1);
     }

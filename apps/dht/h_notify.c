@@ -45,10 +45,6 @@ int h_notify(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-    // BLOCKED_NODES blocked_nodes = {0};
-    // if (get_latest_element(BLOCKED_NODES_WOOF, &blocked_nodes) < 0) {
-    //     log_error("failed to get blocked nodes");
-    // }
 
     // if (predecessor is nil or n' ∈ (predecessor, n))
     if (is_empty(predecessor.hash) || memcmp(predecessor.hash, node.hash, SHA_DIGEST_LENGTH) == 0 ||

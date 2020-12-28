@@ -23,12 +23,6 @@ pthread_t thread_id[MONITOR_THREAD_POOL_SIZE];
 int thread_used[MONITOR_THREAD_POOL_SIZE];
 int next_available_thread;
 
-time_t gm() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (time_t)tv.tv_sec * 1000 + (time_t)tv.tv_usec / 1000;
-}
-
 void* put_pool_item_thread(void* ptr) {
     PUT_POOL_ITEM_THREAD_ARG* arg = (PUT_POOL_ITEM_THREAD_ARG*)ptr;
     unsigned long seq = WooFPut(arg->woof_name, NULL, &arg->pool_item);

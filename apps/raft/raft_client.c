@@ -43,13 +43,8 @@ int raft_check_committed(char* raft_leader, uint64_t index) {
     } else {
         sprintf(woof_name, "%s/%s", raft_leader, RAFT_SERVER_STATE_WOOF);
     }
-    unsigned long latest_server_state = WooFGetLatestSeqno(woof_name);
-    if (WooFInvalid(latest_server_state)) {
-        sprintf(raft_error_msg, "can't get the latest server state seqno");
-        return RAFT_ERROR;
-    }
     RAFT_SERVER_STATE server_state = {0};
-    int err = WooFGet(woof_name, &server_state, latest_server_state);
+    int err = WooFGet(woof_name, &server_state, 0);
     if (err < 0) {
         sprintf(raft_error_msg, "can't get the server state");
         return RAFT_ERROR;
@@ -139,7 +134,7 @@ int raft_is_error(uint64_t code) {
 
 int raft_is_leader() {
     RAFT_SERVER_STATE server_state = {0};
-    if (get_server_state(&server_state) < 0) {
+    if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         sprintf(raft_error_msg, "failed to get the current server_state");
         return -1;
     }

@@ -7,6 +7,42 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define SUBSCRIPTION_CACHE_SIZE 8
+
+typedef struct subscription_cache {
+    char woof_name[DHT_NAME_LENGTH];
+    DHT_SUBSCRIPTION_LIST subscription_list;
+} SUBSCRIPTION_CACHE;
+
+SUBSCRIPTION_CACHE subscription_cache[SUBSCRIPTION_CACHE_SIZE];
+pthread_mutex_t cache_lock;
+
+int get_subscription_list(char* woof_name) {
+    int i;
+    for (i = 0; i < SUBSCRIPTION_CACHE_SIZE && subscription_cache[i].woof_name[0] != 0; ++i) {
+        if (strcmp(subscription_cache[i].woof_name, woof_name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int get_free_cache() {
+    int i;
+    while (i < SUBSCRIPTION_CACHE_SIZE && subscription_cache[i].woof_name[0] != 0) {
+        ++i;
+    }
+    if (i == SUBSCRIPTION_CACHE_SIZE) {
+        return -1;
+    }
+    return i;
+}
+
+void put_subscription_list(int cache_id, char* woof_name, DHT_SUBSCRIPTION_LIST* list) {
+    memcpy(&subscription_cache[cache_id].woof_name, woof_name, sizeof(subscription_cache[cache_id].woof_name));
+    memcpy(&subscription_cache[cache_id].subscription_list, list, sizeof(DHT_SUBSCRIPTION_LIST));
+}
+
 int update_subscription_list(char* subscription_woof, DHT_SUBSCRIBE_ARG* subscribe_arg) {
     char sub_ipaddr[DHT_NAME_LENGTH] = {0};
     if (WooFIPAddrFromURI(subscription_woof, sub_ipaddr, DHT_NAME_LENGTH) < 0) {
@@ -39,10 +75,23 @@ int update_subscription_list(char* subscription_woof, DHT_SUBSCRIBE_ARG* subscri
 void* resolve_thread(void* arg) {
     DHT_TRIGGER_ARG* trigger_arg = (DHT_TRIGGER_ARG*)arg;
     DHT_SUBSCRIPTION_LIST list = {0};
-    if (get_latest_element(trigger_arg->subscription_woof, &list) < 0) {
-        log_error("failed to get the latest subscription list of %s: %s", trigger_arg->topic_name, dht_error_msg);
-        return;
+    pthread_mutex_lock(&cache_lock);
+    int cache_id = get_subscription_list(trigger_arg->subscription_woof);
+    if (cache_id != -1) {
+        log_debug("found subscription list in cache[%d] %s", cache_id, trigger_arg->subscription_woof);
+        memcpy(&list, &subscription_cache[cache_id].subscription_list, sizeof(DHT_SUBSCRIPTION_LIST));
+    } else {
+        cache_id = get_free_cache();
+        if (WooFGet(trigger_arg->subscription_woof, &list, 0) < 0) {
+            log_error("failed to get the latest subscription list of %s: %s", trigger_arg->topic_name, dht_error_msg);
+            pthread_mutex_unlock(&cache_lock);
+            return;
+        } else if (cache_id != -1) {
+            put_subscription_list(cache_id, trigger_arg->subscription_woof, &list);
+            log_debug("put subscription list into cache[%d] %s", cache_id, trigger_arg->subscription_woof);
+        }
     }
+    pthread_mutex_unlock(&cache_lock);
 
     DHT_INVOCATION_ARG invocation_arg = {0};
     strcpy(invocation_arg.woof_name, trigger_arg->element_woof);
@@ -114,6 +163,12 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     DHT_TRIGGER_ARG thread_arg[count];
     pthread_t thread_id[count];
+    memset(subscription_cache, 0, sizeof(SUBSCRIPTION_CACHE) * SUBSCRIPTION_CACHE_SIZE);
+    if (pthread_mutex_init(&cache_lock, NULL) < 0) {
+        log_error("failed to init mutex");
+        WooFMsgCacheShutdown();
+        exit(1);
+    }
 
     int i;
     for (i = 0; i < count; ++i) {

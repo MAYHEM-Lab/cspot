@@ -1,16 +1,14 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
+#include "raft.h"
+#include "raft_client.h"
 #include "woofc.h"
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef USE_RAFT
-#include "raft.h"
-#include "raft_client.h"
-#endif
 
 int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_DAEMON_ARG* arg = (DHT_DAEMON_ARG*)ptr;
@@ -23,7 +21,6 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     uint64_t now = get_milliseconds();
 
-#ifdef USE_RAFT
     if (now - arg->last_update_leader_id > arg->update_leader_freq) {
         int leader_id = raft_leader_id();
         DHT_NODE_INFO node = {0};
@@ -58,7 +55,6 @@ int d_daemon(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         return 1;
     }
-#endif
 
     log_debug("since last stabilize: %" PRIu64 " ms", now - arg->last_stabilize);
     log_debug("since last check_predecessor: %" PRIu64 " ms", now - arg->last_check_predecessor);

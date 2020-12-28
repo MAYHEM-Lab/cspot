@@ -1,10 +1,8 @@
 #include "dht.h"
 #include "dht_utils.h"
+#include "raft_client.h"
 #include "woofc-host.h"
 #include "woofc.h"
-#ifdef USE_RAFT
-#include "raft_client.h"
-#endif
 
 #include <openssl/sha.h>
 #include <stdio.h>
@@ -35,7 +33,6 @@ int main(int argc, char** argv) {
     char woof_name[DHT_NAME_LENGTH];
     char hash[DHT_NAME_LENGTH];
     // node
-#ifdef USE_RAFT
     int is_leader = raft_is_leader();
     if (is_leader < 0) {
         printf("leader: ???\n");
@@ -44,7 +41,7 @@ int main(int argc, char** argv) {
     } else {
         printf("leader: no\n");
     }
-#endif
+
     printf("node_name: %s\n", node.name);
     print_node_hash(hash, node.hash);
     printf("node_hash: %s\n", hash);

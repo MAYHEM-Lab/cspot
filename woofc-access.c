@@ -1768,6 +1768,9 @@ void WooFProcessGet(zmsg_t* req_msg, zsock_t* receiver) {
                 fprintf(stderr, "WooFProcessGet: no space woof: %s\n", woof_name);
                 fflush(stderr);
             } else {
+                if (seq_no == 0) {
+                    seq_no = WooFLatestSeqno(wf);
+                }
                 err = WooFReadWithCause(wf, element, seq_no, cause_host, cause_seq_no);
                 if (err < 0) {
                     fprintf(stderr, "WooFProcessGet: read failed: %s at %lu\n", woof_name, seq_no);
