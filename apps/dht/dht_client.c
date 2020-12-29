@@ -137,11 +137,7 @@ int dht_subscribe(char* topic_name, char* handler) {
     return 0;
 }
 
-int dht_publish(char* topic_name, void* element, size_t element_size) {
-    return dht_remote_publish(NULL, topic_name, element, element_size);
-}
-
-int dht_remote_publish(char* server_namespace, char* topic_name, void* element, size_t element_size) {
+int dht_publish(char* topic_name, void* element, uint64_t element_size) {
     if (element_size > sizeof(DHT_SERVER_PUBLISH_ELEMENT)) {
         sprintf(dht_error_msg,
                 "element size %lu exceeds the maximum size %lu",
@@ -152,45 +148,65 @@ int dht_remote_publish(char* server_namespace, char* topic_name, void* element, 
     DHT_SERVER_PUBLISH_ELEMENT publish_element = {0};
     memcpy(&publish_element, element, element_size);
 
-    char server_woof[DHT_NAME_LENGTH] = {0};
-    if (server_namespace == NULL) {
-        strcpy(server_woof, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
-    } else {
-        sprintf(server_woof, "%s/%s", server_namespace, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
-    }
-    unsigned long seq = WooFPut(server_woof, NULL, &publish_element);
+    unsigned long seq = WooFPut(DHT_SERVER_PUBLISH_ELEMENT_WOOF, NULL, &publish_element);
     if (WooFInvalid(seq)) {
-        sprintf(dht_error_msg, "failed put element to %s", server_woof);
+        sprintf(dht_error_msg, "failed put element to %s", DHT_SERVER_PUBLISH_ELEMENT_WOOF);
         return -1;
     }
 
-    char node_addr[DHT_NAME_LENGTH] = {0};
-    if (server_namespace == NULL) {
-        DHT_NODE_INFO node_info = {0};
-        if (WooFGet(DHT_NODE_INFO_WOOF, &node_info, 0) < 0) {
-            sprintf(dht_error_msg, "failed to get node info");
+    // see if the topic is in the cache
+    unsigned long i = WooFGetLatestSeqno(DHT_TOPIC_CACHE_WOOF);
+    if (WooFInvalid(i)) {
+        sprintf(dht_error_msg, "failed to get the latest seqno of topic cache");
+        return -1;
+    }
+    DHT_TOPIC_CACHE cache = {0};
+    while (i != 0) {
+        if (WooFGet(DHT_TOPIC_CACHE_WOOF, &cache, i) < 0) {
+            sprintf(dht_error_msg, "failed to get the topic cache at %lu", i);
             return -1;
         }
-        strcpy(node_addr, node_info.addr);
-    } else {
-        strcpy(node_addr, server_namespace);
+        if (strcmp(cache.topic_name, topic_name) == 0) {
+            if (cache.node_leader == -1) { // cache invalidated
+                break;
+            }
+            DHT_SERVER_PUBLISH_DATA_ARG publish_data_arg = {0};
+            publish_data_arg.element_seqno = seq;
+            publish_data_arg.node_leader = cache.node_leader;
+            memcpy(publish_data_arg.node_replicas, cache.node_replicas, sizeof(publish_data_arg.node_replicas));
+            strcpy(publish_data_arg.topic_name, topic_name);
+            publish_data_arg.ts_a = get_milliseconds();
+            publish_data_arg.ts_b = publish_data_arg.ts_a;
+            publish_data_arg.ts_c = publish_data_arg.ts_a;
+            publish_data_arg.ts_d = publish_data_arg.ts_a;
+            publish_data_arg.update_cache = 0;
+            unsigned long publish_data_seq = WooFPut(DHT_SERVER_PUBLISH_DATA_WOOF, NULL, &publish_data_arg);
+            if (WooFInvalid(publish_data_seq)) {
+                sprintf(dht_error_msg, "failed to invoke server_publish_data");
+                return -1;
+            }
+            return 0;
+        }
+        --i;
+    }
+
+    // not found in cache
+    DHT_NODE_INFO node_info = {0};
+    if (WooFGet(DHT_NODE_INFO_WOOF, &node_info, 0) < 0) {
+        sprintf(dht_error_msg, "failed to get node info");
+        return -1;
     }
     char hashed_key[SHA_DIGEST_LENGTH];
     dht_hash(hashed_key, topic_name);
     DHT_FIND_SUCCESSOR_ARG arg = {0};
-    dht_init_find_arg(&arg, topic_name, hashed_key, node_addr);
+    dht_init_find_arg(&arg, topic_name, hashed_key, node_info.addr);
     arg.action_seqno = seq;
     arg.action = DHT_ACTION_PUBLISH;
     arg.ts_a = get_milliseconds();
     arg.ts_b = get_milliseconds();
     arg.ts_c = 0;
 
-    if (server_namespace == NULL) {
-        strcpy(server_woof, DHT_FIND_SUCCESSOR_WOOF);
-    } else {
-        sprintf(server_woof, "%s/%s", server_namespace, DHT_FIND_SUCCESSOR_WOOF);
-    }
-    seq = WooFPut(server_woof, NULL, &arg);
+    seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke h_find_successor");
         return -1;

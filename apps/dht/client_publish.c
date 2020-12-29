@@ -52,10 +52,12 @@ int main(int argc, char** argv) {
     }
 
     if (server_namespace[0] != 0) {
-        if (dht_remote_publish(server_namespace, topic_name, message, MESSAGE_SIZE) < 0) {
-            fprintf(stderr, "failed to publish message: %s", dht_error_msg);
-            exit(1);
-        }
+        fprintf(stderr, "remote server publish not implemented yet, run it on a dht node instead");
+        exit(1);
+        // if (dht_remote_publish(server_namespace, topic_name, message, MESSAGE_SIZE) < 0) {
+        //     fprintf(stderr, "failed to publish message: %s", dht_error_msg);
+        //     exit(1);
+        // }
     } else {
         WooFInit();
         if (dht_publish(topic_name, message, MESSAGE_SIZE) < 0) {

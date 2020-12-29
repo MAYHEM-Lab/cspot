@@ -44,10 +44,12 @@ extern "C" {
 #define DHT_SERVER_PUBLISH_TRIGGER_WOOF "dht_server_publish_trigger.woof"
 #define DHT_SERVER_PUBLISH_ELEMENT_WOOF "dht_server_publish_element.woof"
 #define DHT_SERVER_LOOP_ROUTINE_WOOF "dht_server_loop_routine.woof"
+#define DHT_TOPIC_CACHE_WOOF "dht_topic_cache.woof"
 #define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
+#define DHT_HISTORY_LENGTH_EXTRA_SHORT 4
 #define DHT_HISTORY_LENGTH_SHORT 32
 #define DHT_HISTORY_LENGTH_LONG 512
 #define DHT_HISTORY_LENGTH_EXTRA_LONG 32768
@@ -261,6 +263,7 @@ typedef struct dht_server_publish_find_arg {
 typedef struct dht_server_publish_data_arg {
     char topic_name[DHT_NAME_LENGTH];
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t update_cache;
     int32_t node_leader;
     uint64_t element_seqno;
     uint64_t ts_a;
@@ -276,6 +279,12 @@ typedef struct dht_server_publish_element {
 typedef struct dht_loop_routine_arg {
     uint64_t last_seqno;
 } DHT_LOOP_ROUTINE_ARG;
+
+typedef struct dht_topic_cache {
+    char topic_name[DHT_NAME_LENGTH];
+    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t node_leader;
+} DHT_TOPIC_CACHE;
 
 typedef RAFT_CLIENT_PUT_RESULT DHT_SERVER_PUBLISH_TRIGGER_ARG;
 

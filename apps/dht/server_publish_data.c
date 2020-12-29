@@ -83,9 +83,22 @@ void* resolve_thread(void* arg) {
         return;
     }
 
+    if (data_arg.update_cache == 1) {
+        DHT_TOPIC_CACHE cache = {0};
+        strcpy(cache.topic_name, data_arg.topic_name);
+        memcpy(cache.node_replicas, data_arg.node_replicas, sizeof(cache.node_replicas));
+        cache.node_leader = data_arg.node_leader;
+        unsigned long seq = WooFPut(DHT_TOPIC_CACHE_WOOF, NULL, &cache);
+        if (WooFInvalid(seq)) {
+            log_error("failed to update topic cache of %s", data_arg.topic_name);
+        }
+        log_debug("updated topic cache of %s", data_arg.topic_name);
+    }
+
     DHT_SERVER_PUBLISH_ELEMENT element = {0};
     if (WooFGet(DHT_SERVER_PUBLISH_ELEMENT_WOOF, &element, data_arg.element_seqno) < 0) {
-        log_error("failed to get stored element at %lu from %s", data_arg.element_seqno, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
+        log_error(
+            "failed to get stored element at %lu from %s", data_arg.element_seqno, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
         return;
     }
 
@@ -130,6 +143,35 @@ void* resolve_thread(void* arg) {
         char err_msg[DHT_NAME_LENGTH] = {0};
         strcpy(err_msg, dht_error_msg);
         log_error("failed to get topic registration info from %s: %s", node_addr, err_msg);
+
+        // invalidate topic cache
+        if (data_arg.update_cache == 0) { // the topic cache only exists when update_cache == 0
+            DHT_TOPIC_CACHE cache = {0};
+            strcpy(cache.topic_name, data_arg.topic_name);
+            cache.node_leader = -1;
+            unsigned long invalidate_seq = WooFPut(DHT_TOPIC_CACHE_WOOF, NULL, &cache);
+            if (WooFInvalid(invalidate_seq)) {
+                log_error("failed to invalidate topic cache of %s", data_arg.topic_name);
+            }
+            log_debug("invalidated topic cache of %s", data_arg.topic_name);
+
+            // find the topic again
+            char hashed_key[SHA_DIGEST_LENGTH];
+            dht_hash(hashed_key, data_arg.topic_name);
+            DHT_FIND_SUCCESSOR_ARG arg = {0};
+            dht_init_find_arg(&arg, data_arg.topic_name, hashed_key, thread_arg->node_addr);
+            arg.action_seqno = data_arg.element_seqno;
+            arg.action = DHT_ACTION_PUBLISH;
+            arg.ts_a = data_arg.ts_a;
+            arg.ts_b = data_arg.ts_b;
+            arg.ts_c = data_arg.ts_c;
+
+            unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+            if (WooFInvalid(seq)) {
+                log_error("failed to invoke h_find_successor");
+                return;
+            }
+        }
         return;
     }
 
@@ -146,13 +188,13 @@ void* resolve_thread(void* arg) {
     // log_warn("[%lu] trigger: %lu", thread_arg->seq_no, get_milliseconds() - t); t = get_milliseconds();
 
 
-    printf("FOUND_PROFILE a->b: %lu, b->c: %lu, c->d: %lu, d->e: %lu, e->f: %lu, total: %lu\n",
-           data_arg.ts_b - data_arg.ts_a,
-           data_arg.ts_c - data_arg.ts_b,
-           data_arg.ts_d - data_arg.ts_c,
-           trigger_arg.ts_e - data_arg.ts_d,
-           trigger_arg.ts_f - trigger_arg.ts_e,
-           trigger_arg.ts_f - data_arg.ts_a);
+    // printf("FOUND_PROFILE a->b: %lu, b->c: %lu, c->d: %lu, d->e: %lu, e->f: %lu, total: %lu\n",
+    //        data_arg.ts_b - data_arg.ts_a,
+    //        data_arg.ts_c - data_arg.ts_b,
+    //        data_arg.ts_d - data_arg.ts_c,
+    //        trigger_arg.ts_e - data_arg.ts_d,
+    //        trigger_arg.ts_f - trigger_arg.ts_e,
+    //        trigger_arg.ts_f - data_arg.ts_a);
 
 
     // put data to raft

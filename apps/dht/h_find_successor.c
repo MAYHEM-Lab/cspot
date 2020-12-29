@@ -167,6 +167,7 @@ void* resolve_thread(void* ptr) {
                 action_arg.ts_b = arg->ts_b;
                 action_arg.ts_c = arg->ts_c;
                 action_arg.ts_d = get_milliseconds();
+                action_arg.update_cache = 1;
 
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_SERVER_PUBLISH_DATA_WOOF);
