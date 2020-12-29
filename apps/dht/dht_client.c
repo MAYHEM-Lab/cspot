@@ -138,14 +138,11 @@ int dht_subscribe(char* topic_name, char* handler) {
 }
 
 int dht_publish(char* topic_name, void* element, uint64_t element_size) {
-    if (element_size > sizeof(DHT_SERVER_PUBLISH_ELEMENT)) {
-        sprintf(dht_error_msg,
-                "element size %lu exceeds the maximum size %lu",
-                element_size,
-                sizeof(DHT_SERVER_PUBLISH_ELEMENT));
+    if (element_size > sizeof(RAFT_DATA_TYPE)) {
+        sprintf(dht_error_msg, "element size %lu exceeds the maximum size %lu", element_size, sizeof(RAFT_DATA_TYPE));
         return -1;
     }
-    DHT_SERVER_PUBLISH_ELEMENT publish_element = {0};
+    RAFT_DATA_TYPE publish_element = {0};
     memcpy(&publish_element, element, element_size);
 
     unsigned long seq = WooFPut(DHT_SERVER_PUBLISH_ELEMENT_WOOF, NULL, &publish_element);

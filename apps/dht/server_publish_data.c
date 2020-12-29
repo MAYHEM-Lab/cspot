@@ -95,7 +95,7 @@ void* resolve_thread(void* arg) {
         log_debug("updated topic cache of %s", data_arg.topic_name);
     }
 
-    DHT_SERVER_PUBLISH_ELEMENT element = {0};
+    RAFT_DATA_TYPE element = {0};
     if (WooFGet(DHT_SERVER_PUBLISH_ELEMENT_WOOF, &element, data_arg.element_seqno) < 0) {
         log_error(
             "failed to get stored element at %lu from %s", data_arg.element_seqno, DHT_SERVER_PUBLISH_ELEMENT_WOOF);
@@ -202,14 +202,12 @@ void* resolve_thread(void* arg) {
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
         sprintf(trigger_arg.element_woof, "%s", topic_replica);
-        RAFT_DATA_TYPE raft_data = {0};
-        memcpy(raft_data.val, &element, sizeof(DHT_SERVER_PUBLISH_ELEMENT));
 
         RAFT_CLIENT_PUT_OPTION opt = {0};
         sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);
         sprintf(opt.extra_woof, "%s", DHT_PARTIAL_TRIGGER_WOOF);
         opt.extra_seqno = trigger_seq;
-        unsigned long seq = raft_put(topic_replica, &raft_data, &opt);
+        unsigned long seq = raft_put(topic_replica, &element, &opt);
         if (raft_is_error(seq)) {
             log_error("failed to put data to raft: %s", raft_error_msg);
             continue;

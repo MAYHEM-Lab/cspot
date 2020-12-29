@@ -70,7 +70,7 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
                                          sizeof(DHT_SERVER_PUBLISH_FIND_ARG),
                                          sizeof(DHT_SERVER_PUBLISH_DATA_ARG),
                                          sizeof(DHT_SERVER_PUBLISH_TRIGGER_ARG),
-                                         sizeof(DHT_SERVER_PUBLISH_ELEMENT),
+                                         sizeof(RAFT_DATA_TYPE),
                                          sizeof(DHT_LOOP_ROUTINE_ARG),
                                          sizeof(DHT_TOPIC_CACHE),
                                          sizeof(DHT_TRY_REPLICAS_WOOF)};

@@ -272,10 +272,6 @@ typedef struct dht_server_publish_data_arg {
     uint64_t ts_d;
 } DHT_SERVER_PUBLISH_DATA_ARG;
 
-typedef struct dht_server_publish_element {
-    char data[RAFT_DATA_TYPE_SIZE];
-} DHT_SERVER_PUBLISH_ELEMENT;
-
 typedef struct dht_loop_routine_arg {
     uint64_t last_seqno;
 } DHT_LOOP_ROUTINE_ARG;
