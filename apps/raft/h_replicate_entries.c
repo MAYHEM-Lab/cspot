@@ -13,6 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define PROFILING
+
 typedef struct replicate_thread_arg {
     int member_id;
     char member_woof[RAFT_NAME_LENGTH];
@@ -28,7 +30,11 @@ void* replicate_thread(void* arg) {
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
+    replicate_thread_arg->arg.ts_d = get_milliseconds();
     unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 0);
+#ifdef PROFILING
+    printf("RAFT monitor_remote_put %lu\n", get_milliseconds() - replicate_thread_arg->arg.ts_d);
+#endif
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
                  replicate_thread_arg->member_id);
@@ -86,7 +92,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     int heartbeat_rate = server_state.timeout_min / 2;
-    int replicate_delay = server_state.replicate_delay;
 
     if (server_state.current_term != arg.term || server_state.role != RAFT_LEADER) {
         log_debug(
@@ -149,6 +154,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 thread_arg[m].arg.prev_log_term = prev_entry.term;
             }
             int i;
+            uint64_t get_entries_begin = get_milliseconds();
             for (i = 0; i < num_entries; ++i) {
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &thread_arg[m].arg.entries[i], server_state.next_index[m] + i) < 0) {
                     log_error("failed to get the log entries at %" PRIu64 "", server_state.next_index[m] + i);
@@ -162,7 +168,19 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     RAFT_LOG_HANDLER_ENTRY* handler_entry =
                         (RAFT_LOG_HANDLER_ENTRY*)(&thread_arg[m].arg.entries[i].data);
                 }
+                thread_arg[m].arg.entries[i].ts_c = get_milliseconds();
+#ifdef PROFILING
+                printf("RAFT a->b: %lu, b->c: %lu, created_to_sent: %lu\n",
+                       thread_arg[m].arg.entries[i].ts_b - thread_arg[m].arg.entries[i].ts_a,
+                       thread_arg[m].arg.entries[i].ts_c - thread_arg[m].arg.entries[i].ts_b,
+                       thread_arg[m].arg.entries[i].ts_c - thread_arg[m].arg.entries[i].ts_a);
+                printf("RAFT REPLICATE %lu at %lu\n", server_state.next_index[m] + i, get_milliseconds());
+#endif
             }
+// #ifdef PROFILING
+//             printf(
+//                 "RAFT WooFGet RAFT_LOG_ENTRIES_WOOF (%d) %lu\n", num_entries, get_milliseconds() - get_entries_begin);
+// #endif
             thread_arg[m].arg.leader_commit = server_state.commit_index;
             thread_arg[m].arg.ack_seq = server_state.last_sent_request_seq[m] + 1;
             thread_arg[m].seq_no = seq_no;
@@ -188,7 +206,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     monitor_exit(ptr);
 
-    // usleep(replicate_delay * 1000);
     arg.last_ts = get_milliseconds();
     seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &arg, 1);
     if (WooFInvalid(seq)) {

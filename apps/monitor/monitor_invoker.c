@@ -87,7 +87,6 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
         }
     } else {
-        usleep(arg->spinlock_delay * 1000);
         ++arg->wasted_cycle;
         unsigned long seq = WooFPut(wf->shared->filename, "monitor_invoker", arg);
         if (WooFInvalid(seq)) {

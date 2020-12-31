@@ -5,6 +5,7 @@
 #include "woofc.h"
 
 #define MAX_PUBLISH_SIZE 64
+#define PROFILING
 
 typedef struct resolve_thread_arg {
     unsigned long seq_no;
@@ -17,6 +18,13 @@ void* resolve_thread(void* arg) {
         log_error("failed to get put_result at %lu", thread_arg->seq_no);
         return;
     }
+    put_result.ts_c = get_milliseconds();
+#ifdef PROFILING
+    printf("RAFT CLIENT_PUT_RESULT a->b: %lu, b->c: %lu, total: %lu\n",
+           put_result.ts_b - put_result.ts_a,
+           put_result.ts_c - put_result.ts_b,
+           put_result.ts_c - put_result.ts_a);
+#endif
 
     DHT_TRIGGER_ARG trigger_arg = {0};
     if (WooFGet(put_result.extra_woof, &trigger_arg, put_result.extra_seqno) < 0) {

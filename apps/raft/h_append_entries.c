@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #define RAFT_WARNING_LATENCY(x) x / 2
+#define PROFILING
 
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_append_entries");
@@ -29,6 +30,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     seq_no = monitor_seqno(ptr);
+    uint64_t ts_e = get_milliseconds();
 
     // get the server's current term
     RAFT_SERVER_STATE server_state = {0};
@@ -174,6 +176,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         break; // no entry, finish append
                     }
                     // log_debug("processing entry[%d]", i);
+
+#ifdef PROFILING
+                    printf("RAFT c->d: %lu, d->e: %lu\n", request.ts_d - request.entries[i].ts_c, ts_e - request.ts_d);
+#endif
                     unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request.entries[i]);
                     if (WooFInvalid(seq)) {
                         log_error("failed to append entries[%d]", i);
@@ -284,10 +290,15 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];
     sprintf(leader_result_woof, "%s/%s", request.leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
+    result.ts_e = ts_e;
+    uint64_t result_begin = get_milliseconds();
     unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the append_entries result to %s", leader_result_woof);
     }
+#ifdef PROFILING
+    printf("RAFT return result %lu\n", get_milliseconds() - result_begin);
+#endif
     log_debug("returned result to %s [%lu]", leader_result_woof, seq);
     monitor_join();
     // printf("handler h_append_entries took %lu\n", get_milliseconds() - begin);

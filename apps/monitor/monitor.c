@@ -93,7 +93,6 @@ int monitor_create(char* monitor_name) {
     sprintf(invoker_arg.pool_woof, "%s_%s", monitor_name, MONITOR_POOL_WOOF);
     sprintf(invoker_arg.done_woof, "%s_%s", monitor_name, MONITOR_DONE_WOOF);
     sprintf(invoker_arg.handler_woof, "%s_%s", monitor_name, MONITOR_HANDLER_WOOF);
-    invoker_arg.spinlock_delay = MONITOR_SPINLOCK_DELAY;
     unsigned long seq = WooFPut(invoker_woof, "monitor_invoker", &invoker_arg);
     if (WooFInvalid(seq)) {
         sprintf(monitor_error_msg, "failed to invoke next monitor_invoker");
@@ -274,7 +273,6 @@ int monitor_exit(void* ptr) {
     sprintf(invoker_arg.pool_woof, "%s_%s", pool_item->monitor_name, MONITOR_POOL_WOOF);
     sprintf(invoker_arg.done_woof, "%s_%s", pool_item->monitor_name, MONITOR_DONE_WOOF);
     sprintf(invoker_arg.handler_woof, "%s_%s", pool_item->monitor_name, MONITOR_HANDLER_WOOF);
-    invoker_arg.spinlock_delay = MONITOR_SPINLOCK_DELAY;
     char invoker_woof[MONITOR_WOOF_NAME_LENGTH];
     sprintf(invoker_woof, "%s_%s", pool_item->monitor_name, MONITOR_INVOKER_WOOF);
     // if (strcmp(pool_item->monitor_name, "raft") == 0) {

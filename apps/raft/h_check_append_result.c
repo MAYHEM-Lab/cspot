@@ -13,6 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define PROFILING
+
 int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_check_append_result");
     log_set_level(RAFT_LOG_INFO);
@@ -72,6 +74,11 @@ int h_check_append_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             WooFMsgCacheShutdown();
             exit(1);
         }
+
+#ifdef PROFILING
+        printf("RAFT e->f: %lu\n", get_milliseconds() - result.ts_e);
+#endif
+
         if (RAFT_SAMPLING_RATE > 0 && (result_seq % RAFT_SAMPLING_RATE == 0)) {
             log_debug("request %lu took %" PRIu64 "ms to receive response",
                       result_seq,

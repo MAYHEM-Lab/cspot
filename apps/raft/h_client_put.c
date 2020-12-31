@@ -11,6 +11,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define PROFILING
+
 int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
     log_set_tag("h_client_put");
@@ -75,12 +77,17 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(&entry.data, &request.data, sizeof(RAFT_DATA_TYPE));
             entry.is_config = RAFT_CONFIG_ENTRY_NOT;
             entry.is_handler = request.is_handler;
+            entry.ts_a = request.ts_a;
+            entry.ts_b = get_milliseconds();
             entry_seqno = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
             if (WooFInvalid(entry_seqno)) {
                 log_error("failed to append raft log");
                 WooFMsgCacheShutdown();
                 exit(1);
             }
+// #ifdef PROFILING
+//             printf("RAFT WooFPut RAFT_LOG_ENTRIES_WOOF: %lu\n", get_milliseconds() - entry.ts_b);
+// #endif
             log_debug("appended entry[%lu] into log", entry_seqno);
             result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;
@@ -98,6 +105,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             ++latest_result_seqno;
         }
 
+        result.ts_a = get_milliseconds();
         unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
         if (WooFInvalid(result_seq)) {
             log_error("failed to write client_put_result");
@@ -107,11 +115,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         // log_error("result.index: %lu [%lu]", result.index, result_seq);
         arg->last_seqno = i;
     }
-
-    if (count == 0) {
-        // usleep(100 * 1000);
-    }
-
+    
     if (redirected > 0) {
         log_warn("redirected %d requests to the leader", redirected);
     }

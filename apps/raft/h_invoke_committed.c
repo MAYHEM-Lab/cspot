@@ -21,6 +21,7 @@ typedef struct invoke_thread_arg {
 void* invoke_thread(void* arg) {
     INVOKE_THREAD_ARG* invoke_thread_arg = (INVOKE_THREAD_ARG*)arg;
     unsigned long result_seq;
+    invoke_thread_arg->result.ts_b = get_milliseconds();
     if (invoke_thread_arg->request.callback_handler[0] != 0) {
         result_seq = WooFPut(invoke_thread_arg->request.callback_woof,
                              invoke_thread_arg->request.callback_handler,

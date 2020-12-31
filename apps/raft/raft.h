@@ -66,6 +66,9 @@ typedef struct raft_log_entry {
     RAFT_DATA_TYPE data;
     int32_t is_config;
     int32_t is_handler;
+    uint64_t ts_a;
+    uint64_t ts_b;
+    uint64_t ts_c;
 } RAFT_LOG_ENTRY;
 
 typedef struct raft_log_handler_entry {
@@ -119,6 +122,7 @@ typedef struct raft_append_entries_arg {
     RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
     uint64_t leader_commit;
     uint64_t ack_seq;
+    uint64_t ts_d;
 } RAFT_APPEND_ENTRIES_ARG;
 
 typedef struct raft_append_entries_result {
@@ -129,6 +133,7 @@ typedef struct raft_append_entries_result {
     uint64_t seqno;
     uint64_t request_created_ts;
     uint64_t ack_seq;
+    uint64_t ts_e;
 } RAFT_APPEND_ENTRIES_RESULT;
 
 typedef struct raft_client_put_request {
@@ -138,6 +143,7 @@ typedef struct raft_client_put_request {
     char callback_handler[RAFT_NAME_LENGTH];
     char extra_woof[RAFT_NAME_LENGTH];
     uint64_t extra_seqno;
+    uint64_t ts_a;
 } RAFT_CLIENT_PUT_REQUEST;
 
 typedef struct raft_client_put_arg {
@@ -152,6 +158,9 @@ typedef struct raft_client_put_result {
     uint64_t term;
     char extra_woof[RAFT_NAME_LENGTH];
     uint64_t extra_seqno;
+    uint64_t ts_a;
+    uint64_t ts_b;
+    uint64_t ts_c;
 } RAFT_CLIENT_PUT_RESULT;
 
 typedef struct raft_config_change_arg {

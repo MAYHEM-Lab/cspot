@@ -8,7 +8,6 @@
 #define MONITOR_INVOKER_WOOF "monitor_invoker.woof"
 #define MONITOR_WOOF_NAME_LENGTH 256
 #define MONITOR_HISTORY_LENGTH 1024
-#define MONITOR_SPINLOCK_DELAY 20
 #define MONITOR_WARNING_QUEUED_HANDLERS 0
 
 char monitor_error_msg[256];
@@ -30,7 +29,6 @@ typedef struct monitor_invoker_arg {
     char pool_woof[MONITOR_WOOF_NAME_LENGTH];
     char done_woof[MONITOR_WOOF_NAME_LENGTH];
     char handler_woof[MONITOR_WOOF_NAME_LENGTH];
-    int32_t spinlock_delay;
     int32_t wasted_cycle;
 } MONITOR_INVOKER_ARG;
 

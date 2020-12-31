@@ -7,6 +7,8 @@
 #define MAX_PUBLISH_SIZE 64
 #define REGISTRY_CACHE_SIZE 8
 
+// #define PROFILING
+
 typedef struct registry_cache {
     char woof_name[DHT_NAME_LENGTH];
     DHT_TOPIC_REGISTRY topic_entry;
@@ -188,14 +190,15 @@ void* resolve_thread(void* arg) {
     // log_warn("[%lu] trigger: %lu", thread_arg->seq_no, get_milliseconds() - t); t = get_milliseconds();
 
 
-    // printf("FOUND_PROFILE a->b: %lu, b->c: %lu, c->d: %lu, d->e: %lu, e->f: %lu, total: %lu\n",
-    //        data_arg.ts_b - data_arg.ts_a,
-    //        data_arg.ts_c - data_arg.ts_b,
-    //        data_arg.ts_d - data_arg.ts_c,
-    //        trigger_arg.ts_e - data_arg.ts_d,
-    //        trigger_arg.ts_f - trigger_arg.ts_e,
-    //        trigger_arg.ts_f - data_arg.ts_a);
-
+#ifdef PROFILING
+    printf("FOUND_PROFILE a->b: %lu, b->c: %lu, c->d: %lu, d->e: %lu, e->f: %lu, total: %lu\n",
+           data_arg.ts_b - data_arg.ts_a,
+           data_arg.ts_c - data_arg.ts_b,
+           data_arg.ts_d - data_arg.ts_c,
+           trigger_arg.ts_e - data_arg.ts_d,
+           trigger_arg.ts_f - trigger_arg.ts_e,
+           trigger_arg.ts_f - data_arg.ts_a);
+#endif
 
     // put data to raft
     char* topic_replica;

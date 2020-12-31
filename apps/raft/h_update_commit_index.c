@@ -13,6 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define PROFILING
+
 int comp_index(const void* a, const void* b) {
     return *(unsigned long*)b - *(unsigned long*)a;
 }
@@ -73,6 +75,9 @@ int h_update_commit_index(WOOF* wf, unsigned long seq_no, void* ptr) {
             server_state.commit_index = sorted_match_index[i];
             log_debug(
                 "updated commit_index to %" PRIu64 " at %" PRIu64 "", server_state.commit_index, get_milliseconds());
+#ifdef PROFILING
+            printf("RAFT COMMIT %lu at %lu\n", server_state.commit_index, get_milliseconds());
+#endif
 
             // check if joint config is commited
             if (server_state.current_config == RAFT_CONFIG_STATUS_JOINT &&
