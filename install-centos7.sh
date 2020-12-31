@@ -18,7 +18,7 @@ mkdir build
 cd build/
 echo "#!/bin/bash" > helper.sh
 echo "cmake -G Ninja .." >> helper.sh
-echo "help" >> helper.sh
+echo "ninja" >> helper.sh
 chmod 755 helper.sh
 scl enable devtoolset-9 ./helper.sh
 
