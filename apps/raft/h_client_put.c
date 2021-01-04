@@ -19,9 +19,8 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    monitor_init();
     WooFMsgCacheInit();
-
+    log_debug("enter");
     uint64_t begin = get_milliseconds();
 
     // get the server's current term
@@ -126,9 +125,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
-    monitor_join();
     // printf("handler h_client_put took %lu\n", get_milliseconds() - begin);
-    WooFMsgCacheShutdown();
     WooFMsgCacheShutdown();
     return 1;
 }

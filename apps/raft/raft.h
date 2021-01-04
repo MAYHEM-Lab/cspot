@@ -31,9 +31,7 @@
 #define RAFT_CLIENT_PUT_RESULT_WOOF "raft_client_put_result.woof"
 #define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
 #define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
-#define RAFT_CHECK_APPEND_RESULT_WOOF "raft_check_append_result.woof"
-#define RAFT_UPDATE_COMMIT_INDEX_WOOF "raft_update_commit_index.woof"
-#define RAFT_INVOKE_COMMITTED_WOOF "raft_invoke_committed.woof"
+#define RAFT_FORWARD_PUT_RESULT_WOOF "raft_invoke_committed.woof"
 #define RAFT_COMMIT_HANDLER_WOOF "raft_commit_handler.woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
@@ -97,8 +95,6 @@ typedef struct raft_server_state {
     uint64_t next_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
     uint64_t match_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
     uint64_t last_sent_timestamp[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-    uint64_t last_sent_request_seq[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
-    uint64_t acked_request_seq[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 } RAFT_SERVER_STATE;
 
 typedef struct raft_heartbeat {
@@ -121,7 +117,6 @@ typedef struct raft_append_entries_arg {
     uint64_t prev_log_term;
     RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
     uint64_t leader_commit;
-    uint64_t ack_seq;
     uint64_t ts_d;
 } RAFT_APPEND_ENTRIES_ARG;
 
@@ -132,7 +127,6 @@ typedef struct raft_append_entries_result {
     uint64_t last_entry_seq;
     uint64_t seqno;
     uint64_t request_created_ts;
-    uint64_t ack_seq;
     uint64_t ts_e;
 } RAFT_APPEND_ENTRIES_RESULT;
 
@@ -177,27 +171,19 @@ typedef struct raft_config_change_result {
     char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_RESULT;
 
-typedef struct raft_check_append_result_entries {
-    uint64_t term;
-    uint64_t last_seen_result_seqno;
-} RAFT_CHECK_APPEND_RESULT_ARG;
-
-typedef struct raft_update_commit_index_arg {
-    uint64_t term;
-} RAFT_UPDATE_COMMIT_INDEX_ARG;
-
 typedef struct raft_invoke_committed_arg {
     uint64_t term;
-    uint64_t last_checked_client_put_result_seqno;
-} RAFT_INVOKE_COMMITTED_ARG;
+    uint64_t last_forwarded_put_result;
+} RAFT_FORWARD_PUT_RESULT_ARG;
 
 typedef struct raft_commit_handler_arg {
-    uint64_t last_index;
+    uint64_t last_invoked_committed_handler;
 } RAFT_COMMIT_HANDLER_ARG;
 
 typedef struct raft_replicate_entries {
     uint64_t term;
     uint64_t last_ts;
+    uint64_t last_seen_result_seqno;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {

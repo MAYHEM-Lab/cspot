@@ -12,6 +12,14 @@
 
 int start_routines(RAFT_SERVER_STATE* server_state) {
     RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg = {0};
+    replicate_entries_arg.last_seen_result_seqno = 0;
+    unsigned long latest_seqno = WooFGetLatestSeqno(RAFT_REPLICATE_ENTRIES_WOOF);
+    if (latest_seqno > 0) {
+        if (WooFGet(RAFT_REPLICATE_ENTRIES_WOOF, &replicate_entries_arg, latest_seqno) < 0) {
+            log_error("failed to get the last h_check_append_result status");
+            return -1;
+        }
+    }
     replicate_entries_arg.term = server_state->current_term;
     replicate_entries_arg.last_ts = get_milliseconds();
     unsigned seq =
@@ -22,48 +30,22 @@ int start_routines(RAFT_SERVER_STATE* server_state) {
     }
     log_debug("started h_replicate_entries");
 
-    RAFT_CHECK_APPEND_RESULT_ARG check_append_result_arg = {0};
-    unsigned long latest_seqno = WooFGetLatestSeqno(RAFT_CHECK_APPEND_RESULT_WOOF);
+    RAFT_FORWARD_PUT_RESULT_ARG forward_put_result_arg = {0};
+    forward_put_result_arg.last_forwarded_put_result = 0;
+    latest_seqno = WooFGetLatestSeqno(RAFT_FORWARD_PUT_RESULT_WOOF);
     if (latest_seqno > 0) {
-        if (WooFGet(RAFT_CHECK_APPEND_RESULT_WOOF, &check_append_result_arg, latest_seqno) < 0) {
-            log_error("failed to get the last h_check_append_result status");
+        if (WooFGet(RAFT_FORWARD_PUT_RESULT_WOOF, &forward_put_result_arg, latest_seqno) < 0) {
+            log_error("failed to get the last h_forward_put_result status");
             return -1;
         }
     }
-    check_append_result_arg.term = server_state->current_term;
-    seq = monitor_put(
-        RAFT_MONITOR_NAME, RAFT_CHECK_APPEND_RESULT_WOOF, "h_check_append_result", &check_append_result_arg, 1);
+    forward_put_result_arg.term = server_state->current_term;
+    seq = WooFPut(RAFT_FORWARD_PUT_RESULT_WOOF, "h_forward_put_result", &forward_put_result_arg);
     if (WooFInvalid(seq)) {
-        log_error("failed to start h_check_append_result handler");
+        log_error("failed to start h_forward_put_result handler");
         return -1;
     }
-    log_debug("started h_check_append_result");
-
-    RAFT_UPDATE_COMMIT_INDEX_ARG update_commit_index_arg = {0};
-    update_commit_index_arg.term = server_state->current_term;
-    seq = monitor_put(
-        RAFT_MONITOR_NAME, RAFT_UPDATE_COMMIT_INDEX_WOOF, "h_update_commit_index", &update_commit_index_arg, 1);
-    if (WooFInvalid(seq)) {
-        log_error("failed to start h_update_commit_index handler");
-        return -1;
-    }
-    log_debug("started h_update_commit_index");
-
-    RAFT_INVOKE_COMMITTED_ARG invoke_committed_arg = {0};
-    latest_seqno = WooFGetLatestSeqno(RAFT_INVOKE_COMMITTED_WOOF);
-    if (latest_seqno > 0) {
-        if (WooFGet(RAFT_INVOKE_COMMITTED_WOOF, &invoke_committed_arg, latest_seqno) < 0) {
-            log_error("failed to get the last h_invoke_committed status");
-            return -1;
-        }
-    }
-    invoke_committed_arg.term = server_state->current_term;
-    seq = WooFPut(RAFT_INVOKE_COMMITTED_WOOF, "h_invoke_committed", &invoke_committed_arg);
-    if (WooFInvalid(seq)) {
-        log_error("failed to start h_invoke_committed handler");
-        return -1;
-    }
-    log_debug("started h_invoke_committed");
+    log_debug("started h_forward_put_result");
     return 0;
 }
 
@@ -167,8 +149,6 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             server_state.next_index[i] = last_log_entry_seqno + 1;
             server_state.match_index[i] = 0;
             server_state.last_sent_timestamp[i] = 0;
-            server_state.last_sent_request_seq[i] = 0;
-            server_state.acked_request_seq[i] = 0;
         }
         unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
         if (WooFInvalid(seq)) {

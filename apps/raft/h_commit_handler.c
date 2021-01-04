@@ -13,7 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
-void* invoke_thread(void* arg) {
+void* invoke_committed_handler_thread(void* arg) {
     RAFT_LOG_ENTRY* entry = (RAFT_LOG_ENTRY*)arg;
     RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&entry->data;
     unsigned long invoked_seq = -1;
@@ -39,7 +39,7 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     zsys_init();
     monitor_init();
     WooFMsgCacheInit();
-
+    log_debug("enter");
     uint64_t begin = get_milliseconds();
 
     // get the server's current term and cluster members
@@ -50,29 +50,32 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
-    int pending = server_state.commit_index - arg->last_index;
-    RAFT_LOG_ENTRY* invoke_thread_arg = malloc(sizeof(RAFT_LOG_ENTRY) * pending);
-    pthread_t* invoke_thread_id = malloc(sizeof(pthread_t) * pending);
+    int pending = server_state.commit_index - arg->last_invoked_committed_handler;
+    RAFT_LOG_ENTRY* invoke_committed_handler_thread_arg = malloc(sizeof(RAFT_LOG_ENTRY) * pending);
+    pthread_t* invoke_committed_handler_thread_id = malloc(sizeof(pthread_t) * pending);
     int count = 0;
     unsigned int i;
-    for (i = arg->last_index + 1; i <= server_state.commit_index; ++i) {
-        if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &invoke_thread_arg[count], i) < 0) {
+    for (i = arg->last_invoked_committed_handler + 1; i <= server_state.commit_index; ++i) {
+        if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &invoke_committed_handler_thread_arg[count], i) < 0) {
             log_error("failed to get log entry at %lu", i);
         }
-        if (invoke_thread_arg[count].is_handler) {
-            if (pthread_create(&invoke_thread_id[count], NULL, invoke_thread, &invoke_thread_arg[count]) < 0) {
+        if (invoke_committed_handler_thread_arg[count].is_handler) {
+            if (pthread_create(&invoke_committed_handler_thread_id[count],
+                               NULL,
+                               invoke_committed_handler_thread,
+                               &invoke_committed_handler_thread_arg[count]) < 0) {
                 log_error("failed to create thread to invoke committed handler entry");
             }
             ++count;
         }
-        arg->last_index = i;
+        arg->last_invoked_committed_handler = i;
     }
     if (count != 0) {
         log_debug("waiting for %d handler entries to be invoked", count);
     }
-    threads_join(count, invoke_thread_id);
-    free(invoke_thread_arg);
-    free(invoke_thread_id);
+    threads_join(count, invoke_committed_handler_thread_id);
+    free(invoke_committed_handler_thread_arg);
+    free(invoke_committed_handler_thread_id);
     if (count != 0) {
         log_debug("invoked %d handler entries: %lu ms", count, get_milliseconds() - begin);
     }

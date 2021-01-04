@@ -10,14 +10,25 @@
 #include <string.h>
 #include <time.h>
 
-char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {
-    RAFT_DEBUG_INTERRUPT_WOOF,     RAFT_LOG_ENTRIES_WOOF,           RAFT_SERVER_STATE_WOOF,
-    RAFT_HEARTBEAT_WOOF,           RAFT_TIMEOUT_CHECKER_WOOF,       RAFT_APPEND_ENTRIES_ROUTINE_WOOF,
-    RAFT_APPEND_ENTRIES_ARG_WOOF,  RAFT_APPEND_ENTRIES_RESULT_WOOF, RAFT_LOG_HANDLER_ENTRIES_WOOF,
-    RAFT_CLIENT_PUT_REQUEST_WOOF,  RAFT_CLIENT_PUT_ARG_WOOF,        RAFT_CLIENT_PUT_RESULT_WOOF,
-    RAFT_CONFIG_CHANGE_ARG_WOOF,   RAFT_CONFIG_CHANGE_RESULT_WOOF,  RAFT_CHECK_APPEND_RESULT_WOOF,
-    RAFT_UPDATE_COMMIT_INDEX_WOOF, RAFT_INVOKE_COMMITTED_WOOF,      RAFT_COMMIT_HANDLER_WOOF,
-    RAFT_REPLICATE_ENTRIES_WOOF,   RAFT_REQUEST_VOTE_ARG_WOOF,      RAFT_REQUEST_VOTE_RESULT_WOOF};
+char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_DEBUG_INTERRUPT_WOOF,
+                                                RAFT_LOG_ENTRIES_WOOF,
+                                                RAFT_SERVER_STATE_WOOF,
+                                                RAFT_HEARTBEAT_WOOF,
+                                                RAFT_TIMEOUT_CHECKER_WOOF,
+                                                RAFT_APPEND_ENTRIES_ROUTINE_WOOF,
+                                                RAFT_APPEND_ENTRIES_ARG_WOOF,
+                                                RAFT_APPEND_ENTRIES_RESULT_WOOF,
+                                                RAFT_LOG_HANDLER_ENTRIES_WOOF,
+                                                RAFT_CLIENT_PUT_REQUEST_WOOF,
+                                                RAFT_CLIENT_PUT_ARG_WOOF,
+                                                RAFT_CLIENT_PUT_RESULT_WOOF,
+                                                RAFT_CONFIG_CHANGE_ARG_WOOF,
+                                                RAFT_CONFIG_CHANGE_RESULT_WOOF,
+                                                RAFT_FORWARD_PUT_RESULT_WOOF,
+                                                RAFT_COMMIT_HANDLER_WOOF,
+                                                RAFT_REPLICATE_ENTRIES_WOOF,
+                                                RAFT_REQUEST_VOTE_ARG_WOOF,
+                                                RAFT_REQUEST_VOTE_RESULT_WOOF};
 
 unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
                                           sizeof(RAFT_LOG_ENTRY),
@@ -33,9 +44,7 @@ unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
                                           sizeof(RAFT_CLIENT_PUT_RESULT),
                                           sizeof(RAFT_CONFIG_CHANGE_ARG),
                                           sizeof(RAFT_CONFIG_CHANGE_RESULT),
-                                          sizeof(RAFT_CHECK_APPEND_RESULT_ARG),
-                                          sizeof(RAFT_UPDATE_COMMIT_INDEX_ARG),
-                                          sizeof(RAFT_INVOKE_COMMITTED_ARG),
+                                          sizeof(RAFT_FORWARD_PUT_RESULT_ARG),
                                           sizeof(RAFT_COMMIT_HANDLER_ARG),
                                           sizeof(RAFT_REPLICATE_ENTRIES_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_ARG),
@@ -56,9 +65,7 @@ unsigned long RAFT_WOOF_HISTORY_SIZE[] = {
     RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_CLIENT_PUT_RESULT
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CONFIG_CHANGE_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CONFIG_CHANGE_RESULT
-    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CHECK_APPEND_RESULT_ARG
-    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_UPDATE_COMMIT_INDEX
-    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_INVOKE_COMMITTED_ARG
+    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_FORWARD_PUT_RESULT_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_COMMIT_HANDLER_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_REPLICATE_ENTRIES_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_REQUEST_VOTE_ARG
@@ -278,7 +285,7 @@ int raft_start_server(int members,
     }
 
     RAFT_COMMIT_HANDLER_ARG committed_handler_arg = {0};
-    committed_handler_arg.last_index = 0;
+    committed_handler_arg.last_invoked_committed_handler = 0;
     seq = WooFPut(RAFT_COMMIT_HANDLER_WOOF, "h_commit_handler", &committed_handler_arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to start h_commit_handler handler");

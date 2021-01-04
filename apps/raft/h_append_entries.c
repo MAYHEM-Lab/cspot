@@ -17,12 +17,13 @@
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_tag("h_append_entries");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     monitor_init();
     WooFMsgCacheInit();
-
+    log_debug("enter");
     uint64_t begin = get_milliseconds();
+
     RAFT_APPEND_ENTRIES_ARG request = {0};
     if (monitor_cast(ptr, &request, sizeof(RAFT_APPEND_ENTRIES_ARG)) < 0) {
         log_error("failed to monitor_cast: %s", monitor_error_msg);
@@ -43,7 +44,6 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     RAFT_APPEND_ENTRIES_RESULT result = {0};
     result.seqno = seq_no;
-    result.ack_seq = request.ack_seq;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
 
     int m_id = member_id(request.leader_woof, server_state.member_woofs);
@@ -55,10 +55,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         return 1;
     } else if (request.term < server_state.current_term) {
+        log_warn("received a previous request [%lu]", seq_no);
         // fail the request from lower term
         result.term = server_state.current_term;
         result.success = 0;
-        log_debug("received a previous request [%lu]", seq_no);
     } else {
         if (request.term == server_state.current_term && server_state.role == RAFT_LEADER) {
             log_error("fatal error: receiving append_entries request at term %" PRIu64 " while being a leader",
@@ -130,7 +130,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         // check if the previous log matches with the leader
         unsigned long last_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
         if (last_entry_seqno < request.prev_log_index) {
-            log_debug("no log entry exists at prev_log_index %" PRIu64 ", latest: %lu",
+            log_warn("no log entry exists at prev_log_index %" PRIu64 ", latest: %lu",
                       request.prev_log_index,
                       last_entry_seqno);
             result.term = request.term;
@@ -148,7 +148,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             // term doesn't match
             if (request.prev_log_index > 0 && previous_entry.term != request.prev_log_term) {
-                log_debug("previous log entry at prev_log_index %lu doesn't match request.prev_log_term %" PRIu64
+                log_warn("previous log entry at prev_log_index %lu doesn't match request.prev_log_term %" PRIu64
                           ": %" PRIu64 " [%" PRIu64 "]",
                           request.prev_log_index,
                           request.prev_log_term,
@@ -167,7 +167,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         WooFMsgCacheShutdown();
                         exit(1);
                     }
-                    log_debug("log truncated to %" PRIu64 "", request.prev_log_index);
+                    log_warn("log truncated to %" PRIu64 "", request.prev_log_index);
                 }
                 // appending entries
                 int i;

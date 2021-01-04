@@ -73,9 +73,9 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
                     fprintf(stderr, "failed to invoke handler %s\n", pool_item[i].handler);
                     exit(1);
                 }
-                // if (strcmp(pool_item[i].monitor_name, "raft") == 0) {
-                //     printf("invoked %s\n", pool_item[i].handler);
-                // }
+                if (strcmp(pool_item[i].monitor_name, "raft") == 0) {
+                    printf("invoked %s\n", pool_item[i].handler);
+                }
 #ifdef PROCESS_TIME
                 struct timeval tv;
                 gettimeofday(&tv, NULL);
@@ -88,6 +88,9 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     } else {
         ++arg->wasted_cycle;
+        if (strstr(arg->handler_woof, "raft") != NULL) {
+            printf("nothing to invoke\n");
+        }
         unsigned long seq = WooFPut(wf->shared->filename, "monitor_invoker", arg);
         if (WooFInvalid(seq)) {
             fprintf(stderr, "failed to spinlock on %s\n", wf->shared->filename);
