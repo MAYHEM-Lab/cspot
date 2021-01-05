@@ -36,7 +36,8 @@
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
-#define RAFT_MONITOR_NAME "raft"
+#define RAFT_LOCK_SERVER "raft_server"
+#define RAFT_LOCK_LOG "raft_log"
 
 #define RAFT_WOOF_HISTORY_SIZE_SHORT 256
 #define RAFT_WOOF_HISTORY_SIZE_LONG 32768
@@ -62,8 +63,8 @@ typedef struct data_type {
 typedef struct raft_log_entry {
     uint64_t term;
     RAFT_DATA_TYPE data;
-    int32_t is_config;
-    int32_t is_handler;
+    int8_t is_config;
+    int8_t is_handler;
     uint64_t ts_a;
     uint64_t ts_b;
     uint64_t ts_c;
@@ -72,18 +73,16 @@ typedef struct raft_log_entry {
 typedef struct raft_log_handler_entry {
     char handler[RAFT_NAME_LENGTH];
     char ptr[RAFT_DATA_TYPE_SIZE - RAFT_NAME_LENGTH - sizeof(int32_t)];
-    int32_t monitored;
 } RAFT_LOG_HANDLER_ENTRY;
 
 typedef struct raft_server_state {
     char woof_name[RAFT_NAME_LENGTH];
-    int32_t role;
+    int8_t role;
     uint64_t current_term;
     char voted_for[RAFT_NAME_LENGTH];
     char current_leader[RAFT_NAME_LENGTH];
     int32_t timeout_min;
     int32_t timeout_max;
-    int32_t replicate_delay;
 
     int32_t members;
     int32_t observers;
@@ -123,7 +122,7 @@ typedef struct raft_append_entries_arg {
 typedef struct raft_append_entries_result {
     char server_woof[RAFT_NAME_LENGTH];
     uint64_t term;
-    int32_t success;
+    int8_t success;
     uint64_t last_entry_seq;
     uint64_t seqno;
     uint64_t request_created_ts;
@@ -132,7 +131,7 @@ typedef struct raft_append_entries_result {
 
 typedef struct raft_client_put_request {
     RAFT_DATA_TYPE data;
-    int32_t is_handler;
+    int8_t is_handler;
     char callback_woof[RAFT_NAME_LENGTH];
     char callback_handler[RAFT_NAME_LENGTH];
     char extra_woof[RAFT_NAME_LENGTH];
@@ -152,22 +151,19 @@ typedef struct raft_client_put_result {
     uint64_t term;
     char extra_woof[RAFT_NAME_LENGTH];
     uint64_t extra_seqno;
-    uint64_t ts_a;
-    uint64_t ts_b;
-    uint64_t ts_c;
 } RAFT_CLIENT_PUT_RESULT;
 
 typedef struct raft_config_change_arg {
     int32_t members;
     char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 
-    int32_t observe;
+    int8_t observe;
     char observer_woof[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_ARG;
 
 typedef struct raft_config_change_result {
-    int32_t redirected;
-    int32_t success;
+    int8_t redirected;
+    int8_t success;
     char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_RESULT;
 
@@ -196,11 +192,15 @@ typedef struct raft_request_vote_arg {
 
 typedef struct raft_request_vote_result {
     uint64_t term;
-    int32_t granted;
+    int8_t granted;
     uint64_t candidate_vote_pool_seqno;
     uint64_t request_created_ts;
     char granter[RAFT_NAME_LENGTH];
 } RAFT_REQUEST_VOTE_RESULT;
+
+typedef struct raft_lock_arg {
+
+} RAFT_LOCK;
 
 uint64_t random_timeout(unsigned long seed, int min, int max);
 int32_t member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
@@ -214,14 +214,15 @@ int compute_joint_config(int old_members,
                          char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int threads_join(int count, pthread_t* pids);
 int threads_cancel(int count, pthread_t* pids);
-
+int raft_init_lock(char* name);
+int raft_lock(char* name);
+int raft_unlock(char* name);
 int raft_create_woofs();
 int raft_start_server(int members,
                       char woof_name[RAFT_NAME_LENGTH],
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer,
                       int timeout_min,
-                      int timeout_max,
-                      int replicate_delay);
+                      int timeout_max);
 
 #endif

@@ -49,7 +49,7 @@ int h_notify_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     memcpy(successor.replicas, result.successor_replicas, sizeof(successor.replicas));
     memcpy(successor.leader, result.successor_leader, sizeof(successor.leader));
     unsigned long index = raft_put_handler(
-        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
     if (raft_is_error(index)) {
         log_error(
             "failed to invoke r_set_successor on %s using raft: %s", node.replicas[node.leader_id], raft_error_msg);

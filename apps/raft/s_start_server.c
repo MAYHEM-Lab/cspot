@@ -54,11 +54,11 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Can't open config file %s\n", config_file);
         exit(1);
     }
-    int timeout_min, timeout_max, replicate_delay;
+    int timeout_min, timeout_max;
     char name[RAFT_NAME_LENGTH];
     int members;
     char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-    if (read_config(fp, &timeout_min, &timeout_max, &replicate_delay, name, &members, member_woofs) < 0) {
+    if (read_config(fp, &timeout_min, &timeout_max, name, &members, member_woofs) < 0) {
         fprintf(stderr, "Can't read config file %s\n", config_file);
         fclose(fp);
         exit(1);
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
     char woof_name[RAFT_NAME_LENGTH] = {0};
     sprintf(woof_name, "woof://%s%s", host_ip, woof_namespace);
 
-    if (raft_start_server(members, woof_name, member_woofs, observer, timeout_min, timeout_max, replicate_delay) < 0) {
+    if (raft_start_server(members, woof_name, member_woofs, observer, timeout_min, timeout_max) < 0) {
         fprintf(stderr, "Can't start server\n");
         WooFMsgCacheShutdown();
         exit(1);

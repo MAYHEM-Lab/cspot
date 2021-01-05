@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     int i;
     for (i = 0; i < count; ++i) {
         sprintf(test_el.msg, "msg_%d", i + 1);
-        unsigned long seq = raft_put_handler(NULL, "test_raft_handler", &test_el, sizeof(TEST_EL), 0, NULL);
+        unsigned long seq = raft_put_handler(NULL, "test_raft_handler", &test_el, sizeof(TEST_EL), NULL);
         if (raft_is_error(seq)) {
             fprintf(stderr, "failed to send client_put request: %s\n", raft_error_msg);
             exit(1);

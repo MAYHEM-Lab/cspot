@@ -1,6 +1,5 @@
 #include "raft_client.h"
 
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc.h"
@@ -11,7 +10,7 @@
 #include <unistd.h>
 
 // return client_put request seqno
-unsigned long  raft_put(char* raft_leader, RAFT_DATA_TYPE* data, RAFT_CLIENT_PUT_OPTION* opt) {
+unsigned long raft_put(char* raft_leader, RAFT_DATA_TYPE* data, RAFT_CLIENT_PUT_OPTION* opt) {
     RAFT_CLIENT_PUT_REQUEST request = {0};
     request.ts_a = get_milliseconds();
     request.is_handler = 0;
@@ -74,8 +73,8 @@ int raft_get(char* raft_leader, RAFT_DATA_TYPE* data, uint64_t index) {
     return 0;
 }
 
-uint64_t raft_put_handler(
-    char* raft_leader, char* handler, void* data, unsigned long size, int monitored, RAFT_CLIENT_PUT_OPTION* opt) {
+uint64_t
+raft_put_handler(char* raft_leader, char* handler, void* data, unsigned long size, RAFT_CLIENT_PUT_OPTION* opt) {
     if (size > sizeof(RAFT_LOG_HANDLER_ENTRY) - RAFT_NAME_LENGTH) {
         sprintf(raft_error_msg,
                 "size %lu is greater than the maximum a log entry can support(%lu)",
@@ -97,7 +96,6 @@ uint64_t raft_put_handler(
     memset(handler_entry, 0, sizeof(RAFT_LOG_HANDLER_ENTRY));
     strcpy(handler_entry->handler, handler);
     memcpy(handler_entry->ptr, data, size);
-    handler_entry->monitored = monitored;
     char woof_name[RAFT_NAME_LENGTH] = {0};
     if (raft_leader == NULL) {
         sprintf(woof_name, "%s", RAFT_CLIENT_PUT_REQUEST_WOOF);

@@ -18,13 +18,6 @@ void* resolve_thread(void* arg) {
         log_error("failed to get put_result at %lu", thread_arg->seq_no);
         return;
     }
-    put_result.ts_c = get_milliseconds();
-#ifdef PROFILING
-    printf("RAFT CLIENT_PUT_RESULT a->b: %lu, b->c: %lu, total: %lu\n",
-           put_result.ts_b - put_result.ts_a,
-           put_result.ts_c - put_result.ts_b,
-           put_result.ts_c - put_result.ts_a);
-#endif
 
     DHT_TRIGGER_ARG trigger_arg = {0};
     if (WooFGet(put_result.extra_woof, &trigger_arg, put_result.extra_seqno) < 0) {
@@ -39,6 +32,7 @@ void* resolve_thread(void* arg) {
         log_error("failed to queue trigger to %s", DHT_TRIGGER_WOOF);
         return;
     }
+    log_debug("put to trigger woof [%lu]", trigger_arg.element_seqno);
     return;
 }
 
@@ -46,7 +40,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
     log_set_tag("server_publish_trigger");
     log_set_level(DHT_LOG_INFO);
-    // log_set_level(DHT_LOG_DEBUG);
+    log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
     zsys_init();

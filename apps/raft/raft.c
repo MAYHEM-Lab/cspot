@@ -1,6 +1,5 @@
 #include "raft.h"
 
-#include "monitor.h"
 #include "raft_utils.h"
 
 #include <inttypes.h>
@@ -181,6 +180,54 @@ int threads_cancel(int count, pthread_t* pids) {
     return cnt;
 }
 
+int raft_init_lock(char* name) {
+    RAFT_LOCK lock;
+    char woof_name[RAFT_NAME_LENGTH];
+    sprintf(woof_name, "%s.lock", name);
+    if (WooFCreate(woof_name, sizeof(RAFT_LOCK), RAFT_WOOF_HISTORY_SIZE_SHORT) < 0) {
+        sprintf(raft_error_msg, "failed to create woof %s", woof_name);
+        return -1;
+    }
+    sprintf(woof_name, "%s.unlock", name);
+    if (WooFCreate(woof_name, sizeof(RAFT_LOCK), RAFT_WOOF_HISTORY_SIZE_SHORT) < 0) {
+        sprintf(raft_error_msg, "failed to create woof %s", woof_name);
+        return -1;
+    }
+    if (WooFInvalid(WooFPut(woof_name, NULL, &lock))) {
+        sprintf(raft_error_msg, "failed to put to woof %s", woof_name);
+        return -1;
+    }
+    return 0;
+}
+
+int raft_lock(char* name) {
+    RAFT_LOCK lock;
+    char woof_name[RAFT_NAME_LENGTH];
+    sprintf(woof_name, "%s.lock", name);
+    unsigned long seq = WooFPut(woof_name, NULL, &lock);
+    if (WooFInvalid(seq)) {
+        sprintf(raft_error_msg, "failed to put to %s", woof_name);
+        return -1;
+    }
+    sprintf(woof_name, "%s.unlock", name);
+    while (WooFGetLatestSeqno(woof_name) != seq) {
+        // spinlock
+    }
+    return 0;
+}
+
+int raft_unlock(char* name) {
+    RAFT_LOCK lock;
+    char woof_name[RAFT_NAME_LENGTH];
+    sprintf(woof_name, "%s.unlock", name);
+    unsigned long seq = WooFPut(woof_name, NULL, &lock);
+    if (WooFInvalid(seq)) {
+        sprintf(raft_error_msg, "failed to put to %s", woof_name);
+        return -1;
+    }
+    return 0;
+}
+
 int raft_create_woofs() {
     int num_woofs = sizeof(RAFT_WOOF_TO_CREATE) / RAFT_NAME_LENGTH;
     int i;
@@ -198,8 +245,7 @@ int raft_start_server(int members,
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer,
                       int timeout_min,
-                      int timeout_max,
-                      int replicate_delay) {
+                      int timeout_max) {
     RAFT_SERVER_STATE server_state = {0};
     server_state.members = members;
     memcpy(server_state.member_woofs, member_woofs, sizeof(server_state.member_woofs));
@@ -216,7 +262,6 @@ int raft_start_server(int members,
     server_state.observers = 0;
     server_state.timeout_min = timeout_min;
     server_state.timeout_max = timeout_max;
-    server_state.replicate_delay = replicate_delay;
 
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     printf("start_server server_state commit_index: %lu, %lu\n", server_state.commit_index, seq);
@@ -225,8 +270,12 @@ int raft_start_server(int members,
         return -1;
     }
 
-    if (monitor_create(RAFT_MONITOR_NAME) < 0) {
-        fprintf(stderr, "Failed to create and start the handler monitor\n");
+    if (raft_init_lock(RAFT_LOCK_SERVER) < 0) {
+        fprintf(stderr, "Failed to initialize lock: %s\n", raft_error_msg);
+        return -1;
+    }
+    if (raft_init_lock(RAFT_LOCK_LOG) < 0) {
+        fprintf(stderr, "Failed to initialize lock: %s\n", raft_error_msg);
         return -1;
     }
 
@@ -292,17 +341,15 @@ int raft_start_server(int members,
         return -1;
     }
 
-    monitor_init();
     if (!observer) {
         RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
         timeout_checker_arg.timeout_value = random_timeout(get_milliseconds(), timeout_min, timeout_max);
-        seq = monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
+        seq = WooFPut(RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
         if (WooFInvalid(seq)) {
             fprintf(stderr, "Couldn't start h_timeout_checker\n");
             return -1;
         }
     }
-    monitor_join();
     printf("Started daemon functions\n");
     return 0;
 }

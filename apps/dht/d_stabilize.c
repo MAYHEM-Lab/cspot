@@ -45,7 +45,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(successor.replicas[0], predecessor.replicas, sizeof(successor.replicas[0]));
             successor.leader[0] = predecessor.leader;
             unsigned long index = raft_put_handler(
-                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+                node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
@@ -75,7 +75,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         memcpy(successor.replicas[0], node.replicas, sizeof(successor.replicas[0]));
         successor.leader[0] = node.replica_id;
         unsigned long index = raft_put_handler(
-            node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+            node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
         if (raft_is_error(index)) {
             log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
             monitor_exit(ptr);

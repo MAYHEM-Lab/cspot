@@ -64,7 +64,7 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         successor.leader[0] = arg.node_leader;
     }
     unsigned long index = raft_put_handler(
-        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);

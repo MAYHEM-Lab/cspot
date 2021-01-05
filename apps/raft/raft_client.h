@@ -26,8 +26,8 @@ unsigned long raft_put(char* raft_leader,
                        RAFT_CLIENT_PUT_OPTION* opt); // return client_put request seqno
 int raft_check_committed(char* raft_leader, uint64_t index);
 int raft_get(char* raft_leader, RAFT_DATA_TYPE* data, uint64_t index);
-uint64_t raft_put_handler(
-    char* raft_leader, char* handler, void* data, unsigned long size, int monitored, RAFT_CLIENT_PUT_OPTION* opt);
+uint64_t
+raft_put_handler(char* raft_leader, char* handler, void* data, unsigned long size, RAFT_CLIENT_PUT_OPTION* opt);
 int raft_client_put_result(char* raft_leader, RAFT_CLIENT_PUT_RESULT* result, unsigned long seq_no);
 int raft_is_error(uint64_t code);
 int raft_is_leader();

@@ -1,5 +1,4 @@
 #include "czmq.h"
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc-access.h"
@@ -16,13 +15,7 @@
 void* invoke_committed_handler_thread(void* arg) {
     RAFT_LOG_ENTRY* entry = (RAFT_LOG_ENTRY*)arg;
     RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&entry->data;
-    unsigned long invoked_seq = -1;
-    if (handler_entry->monitored) {
-        invoked_seq = monitor_put(
-            RAFT_MONITOR_NAME, RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr, 0);
-    } else {
-        invoked_seq = WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
-    }
+    unsigned long invoked_seq = WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
     if (WooFInvalid(invoked_seq)) {
         log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
         return;
@@ -37,7 +30,6 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
-    monitor_init();
     WooFMsgCacheInit();
     log_debug("enter");
     uint64_t begin = get_milliseconds();
@@ -87,7 +79,6 @@ int h_commit_handler(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
-    monitor_join();
     WooFMsgCacheShutdown();
     return 1;
 }

@@ -92,6 +92,7 @@ void* resolve_thread(void* arg) {
         }
     }
     pthread_mutex_unlock(&cache_lock);
+    uint64_t ts_subscription = get_milliseconds();
 
     DHT_INVOCATION_ARG invocation_arg = {0};
     strcpy(invocation_arg.woof_name, trigger_arg->element_woof);
@@ -129,9 +130,10 @@ void* resolve_thread(void* arg) {
 
                 uint64_t found = trigger_arg->found - trigger_arg->requested;
                 uint64_t data = trigger_arg->data - trigger_arg->found;
-                uint64_t triggered = get_milliseconds() - trigger_arg->data;
+                uint64_t subscription = ts_subscription - trigger_arg->data;
+                uint64_t triggered = get_milliseconds() - ts_subscription;
                 uint64_t total = get_milliseconds() - trigger_arg->requested;
-                printf("TRIGGERED: found: %lu data: %lu triggered: %lu total: %lu\n", found, data, triggered, total);
+                printf("TRIGGERED: found: %lu data: %lu subscription: %lu triggered: %lu total: %lu\n", found, data, subscription, triggered, total);
                 break;
             }
         }
@@ -142,13 +144,13 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     DHT_LOOP_ROUTINE_ARG* routine_arg = (DHT_LOOP_ROUTINE_ARG*)ptr;
     log_set_tag("h_trigger");
     log_set_level(DHT_LOG_INFO);
-    // log_set_level(DHT_LOG_DEBUG);
+    log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
     monitor_init();
     WooFMsgCacheInit();
-
     uint64_t begin = get_milliseconds();
+    log_debug("enter");
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_TRIGGER_WOOF);
     if (WooFInvalid(latest_seq)) {
@@ -177,6 +179,7 @@ int h_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
             WooFMsgCacheShutdown();
             exit(1);
         }
+        log_debug("got trigger [%lu]", thread_arg[i].element_seqno);
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create resolve_thread to process triggers");
             WooFMsgCacheShutdown();

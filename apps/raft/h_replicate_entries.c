@@ -1,5 +1,4 @@
 #include "czmq.h"
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc-access.h"
@@ -26,16 +25,16 @@ typedef struct replicate_thread_arg {
 
 void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
-    char monitor_name[RAFT_NAME_LENGTH];
     char woof_name[RAFT_NAME_LENGTH];
-    sprintf(monitor_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_MONITOR_NAME);
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
     replicate_thread_arg->arg.ts_d = get_milliseconds();
-    unsigned long seq = monitor_remote_put(monitor_name, woof_name, "h_append_entries", &replicate_thread_arg->arg, 0);
+    unsigned long seq = WooFPut(woof_name, "h_append_entries", &replicate_thread_arg->arg);
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
                  replicate_thread_arg->member_id);
+        raft_lock(RAFT_LOCK_LOG);
         unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+        raft_unlock(RAFT_LOCK_LOG);
         if (WooFInvalid(last_log_entry_seqno)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
             return;
@@ -115,7 +114,9 @@ int update_commit_index(RAFT_SERVER_STATE* server_state) {
                     log_error("failed to encode the new config to a log entry");
                     return -1;
                 }
+                raft_lock(RAFT_LOCK_LOG);
                 unsigned long entry_seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &new_config_entry);
+                raft_unlock(RAFT_LOCK_LOG);
                 if (WooFInvalid(entry_seq)) {
                     log_error("failed to put the new config as log entry");
                     return -1;
@@ -215,8 +216,7 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
             timeout_checker_arg.timeout_value =
                 random_timeout(get_milliseconds(), server_state->timeout_min, server_state->timeout_max);
-            seq =
-                monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
+            seq = WooFPut(RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
                 return -1;
@@ -239,44 +239,40 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
 }
 
 int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
+    RAFT_REPLICATE_ENTRIES_ARG* arg = (RAFT_REPLICATE_ENTRIES_ARG*)ptr;
     log_set_tag("replicate_entries");
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
-    monitor_init();
     WooFMsgCacheInit();
-    log_debug("enter");
+    // log_debug("enter");
     uint64_t begin = get_milliseconds();
 
-    RAFT_REPLICATE_ENTRIES_ARG arg = {0};
-    if (monitor_cast(ptr, &arg, sizeof(RAFT_REPLICATE_ENTRIES_ARG)) < 0) {
-        log_error("failed to monitor_cast: %s", monitor_error_msg);
-        WooFMsgCacheShutdown();
-        exit(1);
-    }
-    seq_no = monitor_seqno(ptr);
-
     // get the server's current term and cluster members
+    raft_lock(RAFT_LOCK_SERVER);
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
     int heartbeat_rate = server_state.timeout_min / 2;
 
-    if (server_state.current_term != arg.term || server_state.role != RAFT_LEADER) {
-        log_debug(
-            "not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "", arg.term, server_state.current_term);
-        monitor_exit(ptr);
-        monitor_join();
+    if (server_state.current_term != arg->term || server_state.role != RAFT_LEADER) {
+        log_debug("not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "",
+                  arg->term,
+                  server_state.current_term);
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
 
     // checking what entries need to be replicated
+    raft_lock(RAFT_LOCK_LOG);
     unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+    raft_unlock(RAFT_LOCK_LOG);
     if (WooFInvalid(last_log_entry_seqno)) {
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
         WooFMsgCacheShutdown();
@@ -310,7 +306,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             thread_arg[m].arg.term = server_state.current_term;
             strcpy(thread_arg[m].arg.leader_woof, server_state.woof_name);
             thread_arg[m].arg.prev_log_index = server_state.next_index[m] - 1;
-            thread_arg[m].term = arg.term;
+            thread_arg[m].term = arg->term;
             if (thread_arg[m].arg.prev_log_index == 0) {
                 thread_arg[m].arg.prev_log_term = 0;
             } else {
@@ -321,6 +317,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     free(thread_id);
                     free(thread_arg);
                     WooFMsgCacheShutdown();
+                    raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
                 thread_arg[m].arg.prev_log_term = prev_entry.term;
@@ -334,6 +331,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     free(thread_id);
                     free(thread_arg);
                     WooFMsgCacheShutdown();
+                    raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
                 if (thread_arg[m].arg.entries[i].is_handler) {
@@ -362,6 +360,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 free(thread_id);
                 free(thread_arg);
                 WooFMsgCacheShutdown();
+                raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
             server_state.last_sent_timestamp[m] = get_milliseconds();
@@ -369,20 +368,21 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
-    int err = check_append_result(&server_state, &arg);
+    int err = check_append_result(&server_state, arg);
     if (err < 0) {
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     } else if (err == 1) {
-        monitor_exit(ptr);
-        monitor_join();
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
 
     err = update_commit_index(&server_state);
     if (err < 0) {
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
 
@@ -390,13 +390,13 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_error("failed to update server state");
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
+    raft_unlock(RAFT_LOCK_SERVER);
 
-    monitor_exit(ptr);
-
-    arg.last_ts = get_milliseconds();
-    seq = monitor_put(RAFT_MONITOR_NAME, RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", &arg, 1);
+    arg->last_ts = get_milliseconds();
+    seq = WooFPut(RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_replicate_entries handler");
         WooFMsgCacheShutdown();
@@ -406,7 +406,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     threads_join(RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS, thread_id);
     free(thread_id);
     free(thread_arg);
-    monitor_join();
     // printf("handler h_replicate_entries took %lu\n", get_milliseconds() - begin);
     WooFMsgCacheShutdown();
     return 1;

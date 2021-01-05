@@ -1,4 +1,3 @@
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc-access.h"
@@ -17,10 +16,9 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
     log_set_tag("h_client_put");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
-    log_debug("enter");
     uint64_t begin = get_milliseconds();
 
     // get the server's current term
@@ -42,6 +40,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("processing %lu requests, %lu to %lu", count, arg->last_seqno + 1, latest_request);
     }
 
+    raft_lock(RAFT_LOCK_LOG);
     int redirected = 0;
     unsigned long i;
     for (i = arg->last_seqno + 1; i <= latest_request; ++i) {
@@ -49,6 +48,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFGet(RAFT_CLIENT_PUT_REQUEST_WOOF, &request, i) < 0) {
             log_error("failed to get client_put request at %lu", i);
             WooFMsgCacheShutdown();
+            raft_unlock(RAFT_LOCK_LOG);
             exit(1);
         }
         RAFT_CLIENT_PUT_RESULT result = {0};
@@ -82,11 +82,9 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (WooFInvalid(entry_seqno)) {
                 log_error("failed to append raft log");
                 WooFMsgCacheShutdown();
+                raft_unlock(RAFT_LOCK_LOG);
                 exit(1);
             }
-// #ifdef PROFILING
-//             printf("RAFT WooFPut RAFT_LOG_ENTRIES_WOOF: %lu\n", get_milliseconds() - entry.ts_b);
-// #endif
             log_debug("appended entry[%lu] into log", entry_seqno);
             result.index = (uint64_t)entry_seqno;
             result.term = server_state.current_term;
@@ -99,22 +97,24 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (WooFInvalid(WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &padding_result))) {
                 log_error("failed to pad client_put result for previous unresolved requests");
                 WooFMsgCacheShutdown();
+                raft_unlock(RAFT_LOCK_LOG);
                 exit(1);
             }
             ++latest_result_seqno;
         }
 
-        result.ts_a = get_milliseconds();
         unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
         if (WooFInvalid(result_seq)) {
             log_error("failed to write client_put_result");
             WooFMsgCacheShutdown();
+            raft_unlock(RAFT_LOCK_LOG);
             exit(1);
         }
         // log_error("result.index: %lu [%lu]", result.index, result_seq);
         arg->last_seqno = i;
     }
-    
+    raft_unlock(RAFT_LOCK_LOG);
+
     if (redirected > 0) {
         log_warn("redirected %d requests to the leader", redirected);
     }

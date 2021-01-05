@@ -38,7 +38,7 @@ int r_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     log_debug("calling h_register_topic for topic %s on self: %s", arg.topic_name, node.addr);
     unsigned long index =
-        raft_put_handler(node.addr, "h_register_topic", &arg, sizeof(DHT_REGISTER_TOPIC_ARG), 1, NULL);
+        raft_put_handler(node.addr, "h_register_topic", &arg, sizeof(DHT_REGISTER_TOPIC_ARG), NULL);
     if (raft_is_error(index)) {
         log_error("failed to invoke h_register_topic on %s: %s", node.addr, raft_error_msg);
         monitor_exit(ptr);
@@ -55,7 +55,7 @@ int r_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug(
             "replicating h_register_topic for topic %s on successor[%d]: %s", arg.topic_name, i, successor_leader);
         unsigned long index =
-            raft_put_handler(successor_leader, "h_register_topic", &arg, sizeof(DHT_REGISTER_TOPIC_ARG), 1, NULL);
+            raft_put_handler(successor_leader, "h_register_topic", &arg, sizeof(DHT_REGISTER_TOPIC_ARG), NULL);
         if (raft_is_error(index)) {
             log_error("failed to invoke h_register_topic on %s: %s", successor_leader, raft_error_msg);
             continue;

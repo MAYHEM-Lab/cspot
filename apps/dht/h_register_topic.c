@@ -1,6 +1,5 @@
 #include "dht.h"
 #include "dht_utils.h"
-#include "monitor.h"
 #include "woofc.h"
 
 #include <stdlib.h>
@@ -10,26 +9,18 @@
 extern char WooF_dir[2048];
 
 int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
+    DHT_REGISTER_TOPIC_ARG* arg = (DHT_REGISTER_TOPIC_ARG*)ptr;
     log_set_tag("h_register_topic");
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
 
-    DHT_REGISTER_TOPIC_ARG arg = {0};
-    if (monitor_cast(ptr, &arg, sizeof(DHT_REGISTER_TOPIC_ARG)) < 0) {
-        log_error("failed to call monitor_cast");
-        monitor_exit(ptr);
-        WooFMsgCacheShutdown();
-        exit(1);
-    }
-
     char registration_woof[DHT_NAME_LENGTH] = {0};
-    sprintf(registration_woof, "%s_%s", arg.topic_name, DHT_TOPIC_REGISTRATION_WOOF);
+    sprintf(registration_woof, "%s_%s", arg->topic_name, DHT_TOPIC_REGISTRATION_WOOF);
     if (!WooFExist(registration_woof)) {
         if (WooFCreate(registration_woof, sizeof(DHT_TOPIC_REGISTRY), DHT_HISTORY_LENGTH_SHORT) < 0) {
             log_error("failed to create woof %s", registration_woof);
-            monitor_exit(ptr);
             WooFMsgCacheShutdown();
             exit(1);
         }
@@ -42,25 +33,23 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     DHT_TOPIC_REGISTRY topic_registry = {0};
-    strcpy(topic_registry.topic_name, arg.topic_name);
-    memcpy(topic_registry.topic_replicas, arg.topic_replicas, sizeof(topic_registry.topic_replicas));
-    topic_registry.last_leader = arg.topic_leader;
+    strcpy(topic_registry.topic_name, arg->topic_name);
+    memcpy(topic_registry.topic_replicas, arg->topic_replicas, sizeof(topic_registry.topic_replicas));
+    topic_registry.last_leader = arg->topic_leader;
 
     unsigned long seq = WooFPut(registration_woof, NULL, &topic_registry);
     if (WooFInvalid(seq)) {
         log_error("failed to register topic");
-        monitor_exit(ptr);
         WooFMsgCacheShutdown();
         exit(1);
     }
     log_info("registered topic %s/%s", topic_registry.topic_replicas[0], topic_registry.topic_name);
 
     char subscription_woof[DHT_NAME_LENGTH] = {0};
-    sprintf(subscription_woof, "%s_%s", arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
+    sprintf(subscription_woof, "%s_%s", arg->topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
     if (!WooFExist(subscription_woof)) {
         if (WooFCreate(subscription_woof, sizeof(DHT_SUBSCRIPTION_LIST), DHT_HISTORY_LENGTH_SHORT) < 0) {
             log_error("failed to create %s", subscription_woof);
-            monitor_exit(ptr);
             WooFMsgCacheShutdown();
             exit(1);
         }
@@ -74,13 +63,11 @@ int h_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
         seq = WooFPut(subscription_woof, NULL, &list);
         if (WooFInvalid(seq)) {
             log_error("failed to initialize subscription list %s", subscription_woof);
-            monitor_exit(ptr);
             WooFMsgCacheShutdown();
             exit(1);
         }
     }
 
-    monitor_exit(ptr);
     WooFMsgCacheShutdown();
     return 1;
 }

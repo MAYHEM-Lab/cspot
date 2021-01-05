@@ -1,4 +1,3 @@
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc-access.h"
@@ -15,29 +14,24 @@
 #define PROFILING
 
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
+    RAFT_APPEND_ENTRIES_ARG* request = (RAFT_APPEND_ENTRIES_ARG*)ptr;
     log_set_tag("h_append_entries");
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    monitor_init();
     WooFMsgCacheInit();
     log_debug("enter");
     uint64_t begin = get_milliseconds();
 
-    RAFT_APPEND_ENTRIES_ARG request = {0};
-    if (monitor_cast(ptr, &request, sizeof(RAFT_APPEND_ENTRIES_ARG)) < 0) {
-        log_error("failed to monitor_cast: %s", monitor_error_msg);
-        WooFMsgCacheShutdown();
-        exit(1);
-    }
-    seq_no = monitor_seqno(ptr);
     uint64_t ts_e = get_milliseconds();
 
     // get the server's current term
+    raft_lock(RAFT_LOCK_SERVER);
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server's latest state");
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
     int warning_latency = server_state.timeout_min / 2;
@@ -46,52 +40,54 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     result.seqno = seq_no;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
 
-    int m_id = member_id(request.leader_woof, server_state.member_woofs);
+    int m_id = member_id(request->leader_woof, server_state.member_woofs);
     if (m_id == -1 || m_id >= server_state.members) {
         log_debug("disregard a request from a server not in the config");
-        log_debug("request.leader_woof: %s", request.leader_woof);
-        monitor_exit(ptr);
-        monitor_join();
+        log_debug("request->leader_woof: %s", request->leader_woof);
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         return 1;
-    } else if (request.term < server_state.current_term) {
+    } else if (request->term < server_state.current_term) {
         log_warn("received a previous request [%lu]", seq_no);
         // fail the request from lower term
         result.term = server_state.current_term;
         result.success = 0;
     } else {
-        if (request.term == server_state.current_term && server_state.role == RAFT_LEADER) {
+        if (request->term == server_state.current_term && server_state.role == RAFT_LEADER) {
             log_error("fatal error: receiving append_entries request at term %" PRIu64 " while being a leader",
                       server_state.current_term);
             WooFMsgCacheShutdown();
+            raft_unlock(RAFT_LOCK_SERVER);
             exit(1);
         }
         if (server_state.role == RAFT_OBSERVER) {
-            if (request.term > server_state.current_term) {
-                log_debug("observer enters term %" PRIu64 "", request.term);
-                server_state.current_term = request.term;
-                strcpy(server_state.current_leader, request.leader_woof);
+            if (request->term > server_state.current_term) {
+                log_debug("observer enters term %" PRIu64 "", request->term);
+                server_state.current_term = request->term;
+                strcpy(server_state.current_leader, request->leader_woof);
                 unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                 if (WooFInvalid(seq)) {
-                    log_error("failed to enter term %" PRIu64 "", request.term);
+                    log_error("failed to enter term %" PRIu64 "", request->term);
                     WooFMsgCacheShutdown();
+                    raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
             }
-        } else if (request.term > server_state.current_term ||
-                   (request.term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
+        } else if (request->term > server_state.current_term ||
+                   (request->term == server_state.current_term && server_state.role != RAFT_FOLLOWER)) {
             // fall back to follower
-            log_debug("request term %" PRIu64 " is higher, fall back to follower", request.term);
-            if (request.term > server_state.current_term) {
-                server_state.current_term = request.term;
+            log_debug("request term %" PRIu64 " is higher, fall back to follower", request->term);
+            if (request->term > server_state.current_term) {
+                server_state.current_term = request->term;
                 memset(server_state.voted_for, 0, RAFT_NAME_LENGTH);
             }
             server_state.role = RAFT_FOLLOWER;
-            strcpy(server_state.current_leader, request.leader_woof);
+            strcpy(server_state.current_leader, request->leader_woof);
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
-                log_error("failed to fall back to follower at term %" PRIu64 "", request.term);
+                log_error("failed to fall back to follower at term %" PRIu64 "", request->term);
                 WooFMsgCacheShutdown();
+                raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
             log_info("state changed at term %" PRIu64 ": FOLLOWER", server_state.current_term);
@@ -102,16 +98,17 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (WooFInvalid(seq)) {
                 log_error("failed to put a heartbeat when falling back to follower");
                 WooFMsgCacheShutdown();
+                raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
             timeout_checker_arg.timeout_value =
                 random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
-            seq =
-                monitor_put(RAFT_MONITOR_NAME, RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg, 1);
+            seq = WooFPut(RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
                 WooFMsgCacheShutdown();
+                raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
         }
@@ -121,85 +118,94 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         heartbeat.timestamp = get_milliseconds();
         unsigned long seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
         if (WooFInvalid(seq)) {
-            log_error("failed to put a new heartbeat from term %" PRIu64 "", request.term);
+            log_error("failed to put a new heartbeat from term %" PRIu64 "", request->term);
             WooFMsgCacheShutdown();
+            raft_unlock(RAFT_LOCK_SERVER);
             exit(1);
         }
         log_debug("received a heartbeat [%lu]", seq_no);
 
         // check if the previous log matches with the leader
         unsigned long last_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-        if (last_entry_seqno < request.prev_log_index) {
+        if (last_entry_seqno < request->prev_log_index) {
             log_warn("no log entry exists at prev_log_index %" PRIu64 ", latest: %lu",
-                      request.prev_log_index,
-                      last_entry_seqno);
-            result.term = request.term;
+                     request->prev_log_index,
+                     last_entry_seqno);
+            result.term = request->term;
             result.success = 0;
             result.last_entry_seq = last_entry_seqno;
         } else {
             // read the previous log entry
             RAFT_LOG_ENTRY previous_entry = {0};
-            if (request.prev_log_index > 0) {
-                if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &previous_entry, request.prev_log_index) < 0) {
-                    log_error("failed to get log entry at prev_log_index %" PRIu64 "", request.prev_log_index);
+            if (request->prev_log_index > 0) {
+                if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &previous_entry, request->prev_log_index) < 0) {
+                    log_error("failed to get log entry at prev_log_index %" PRIu64 "", request->prev_log_index);
                     WooFMsgCacheShutdown();
+                    raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
             }
             // term doesn't match
-            if (request.prev_log_index > 0 && previous_entry.term != request.prev_log_term) {
-                log_warn("previous log entry at prev_log_index %lu doesn't match request.prev_log_term %" PRIu64
-                          ": %" PRIu64 " [%" PRIu64 "]",
-                          request.prev_log_index,
-                          request.prev_log_term,
-                          previous_entry.term,
-                          seq_no);
-                result.term = request.term;
+            if (request->prev_log_index > 0 && previous_entry.term != request->prev_log_term) {
+                log_warn("previous log entry at prev_log_index %lu doesn't match request->prev_log_term %" PRIu64
+                         ": %" PRIu64 " [%" PRIu64 "]",
+                         request->prev_log_index,
+                         request->prev_log_term,
+                         previous_entry.term,
+                         seq_no);
+                result.term = request->term;
                 result.success = 0;
                 result.last_entry_seq = last_entry_seqno;
             } else {
                 // if the server has more entries that conflict with the leader, delete them
-                if (last_entry_seqno > request.prev_log_index) {
+                if (last_entry_seqno > request->prev_log_index) {
                     // TODO: check if the entries after prev_log_index match
                     // if so, we don't need to call WooFTruncate()
-                    if (WooFTruncate(RAFT_LOG_ENTRIES_WOOF, request.prev_log_index) < 0) {
+                    if (WooFTruncate(RAFT_LOG_ENTRIES_WOOF, request->prev_log_index) < 0) {
                         log_error("failed to truncate log entries woof");
                         WooFMsgCacheShutdown();
+                        raft_unlock(RAFT_LOCK_SERVER);
                         exit(1);
                     }
-                    log_warn("log truncated to %" PRIu64 "", request.prev_log_index);
+                    log_warn("log truncated to %" PRIu64 "", request->prev_log_index);
                 }
                 // appending entries
+                raft_lock(RAFT_LOCK_LOG);
                 int i;
                 for (i = 0; i < RAFT_MAX_ENTRIES_PER_REQUEST; ++i) {
-                    if (request.entries[i].term == 0) {
+                    if (request->entries[i].term == 0) {
                         break; // no entry, finish append
                     }
                     // log_debug("processing entry[%d]", i);
 
 #ifdef PROFILING
-                    printf("RAFT c->d: %lu, d->e: %lu\n", request.ts_d - request.entries[i].ts_c, ts_e - request.ts_d);
+                    printf(
+                        "RAFT c->d: %lu, d->e: %lu\n", request->ts_d - request->entries[i].ts_c, ts_e - request->ts_d);
 #endif
-                    unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request.entries[i]);
+                    unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request->entries[i]);
                     if (WooFInvalid(seq)) {
                         log_error("failed to append entries[%d]", i);
                         WooFMsgCacheShutdown();
+                        raft_unlock(RAFT_LOCK_SERVER);
+                        raft_unlock(RAFT_LOCK_LOG);
                         exit(1);
                     }
                     // if this entry is a config entry, update server config
-                    if (request.entries[i].is_config != RAFT_CONFIG_ENTRY_NOT) {
+                    if (request->entries[i].is_config != RAFT_CONFIG_ENTRY_NOT) {
                         int new_members;
                         char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-                        if (decode_config(request.entries[i].data.val, &new_members, new_member_woofs) < 0) {
+                        if (decode_config(request->entries[i].data.val, &new_members, new_member_woofs) < 0) {
                             log_error("failed to decode config from entry[%d]", i);
                             WooFMsgCacheShutdown();
+                            raft_unlock(RAFT_LOCK_SERVER);
+                            raft_unlock(RAFT_LOCK_LOG);
                             exit(1);
                         }
                         server_state.members = new_members;
                         server_state.last_config_seqno = seq;
-                        if (request.entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
+                        if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
                             server_state.current_config = RAFT_CONFIG_STATUS_JOINT;
-                        } else if (request.entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
+                        } else if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
                             server_state.current_config = RAFT_CONFIG_STATUS_STABLE;
                         }
                         memcpy(server_state.member_woofs,
@@ -216,19 +222,19 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                             if (WooFInvalid(seq)) {
                                 log_error("failed to put a heartbeat when falling back to follower");
                                 WooFMsgCacheShutdown();
+                                raft_unlock(RAFT_LOCK_SERVER);
+                                raft_unlock(RAFT_LOCK_LOG);
                                 exit(1);
                             }
                             RAFT_TIMEOUT_CHECKER_ARG timeout_checker_arg = {0};
                             timeout_checker_arg.timeout_value =
                                 random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
-                            seq = monitor_put(RAFT_MONITOR_NAME,
-                                              RAFT_TIMEOUT_CHECKER_WOOF,
-                                              "h_timeout_checker",
-                                              &timeout_checker_arg,
-                                              1);
+                            seq = WooFPut(RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
                             if (WooFInvalid(seq)) {
                                 log_error("failed to start the timeout checker");
                                 WooFMsgCacheShutdown();
+                                raft_unlock(RAFT_LOCK_SERVER);
+                                raft_unlock(RAFT_LOCK_LOG);
                                 exit(1);
                             }
                             log_info("the server was observing but now is in the new config, promoted to FOLLOWER");
@@ -237,13 +243,15 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         if (WooFInvalid(server_state_seq)) {
                             log_error("failed to update server config at term %" PRIu64 "", server_state.current_term);
                             WooFMsgCacheShutdown();
+                            raft_unlock(RAFT_LOCK_SERVER);
+                            raft_unlock(RAFT_LOCK_LOG);
                             exit(1);
                         }
-                        if (request.entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
+                        if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
                             log_info("start using joint config with %d members at term %" PRIu64 "",
                                      server_state.members,
                                      server_state.current_term);
-                        } else if (request.entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
+                        } else if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
                             log_info("start using new config with %d members at term %" PRIu64 "",
                                      server_state.members,
                                      server_state.current_term);
@@ -251,12 +259,14 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     }
                 }
                 unsigned long last_entry_seq = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+                raft_unlock(RAFT_LOCK_LOG);
                 if (WooFInvalid(last_entry_seq)) {
                     log_error("failed to get the latest seqno from", RAFT_LOG_ENTRIES_WOOF);
                     WooFMsgCacheShutdown();
+                    raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
-                result.term = request.term;
+                result.term = request->term;
                 result.success = 1;
                 result.last_entry_seq = last_entry_seq;
                 if (i > 0) {
@@ -264,9 +274,9 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 }
 
                 // check if there's new commit_index
-                if (request.leader_commit > server_state.commit_index) {
+                if (request->leader_commit > server_state.commit_index) {
                     // commit_index = min(leader_commit, index of last new entry)
-                    server_state.commit_index = request.leader_commit;
+                    server_state.commit_index = request->leader_commit;
                     if (last_entry_seq < server_state.commit_index) {
                         server_state.commit_index = last_entry_seq;
                     }
@@ -276,6 +286,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                                   server_state.commit_index,
                                   server_state.current_term);
                         WooFMsgCacheShutdown();
+                        raft_unlock(RAFT_LOCK_SERVER);
                         exit(1);
                     }
                     log_debug("updated commit_index to %" PRIu64 " at term %" PRIu64 "",
@@ -285,22 +296,18 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
         }
     }
+    raft_unlock(RAFT_LOCK_SERVER);
 
-    monitor_exit(ptr);
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];
-    sprintf(leader_result_woof, "%s/%s", request.leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
+    sprintf(leader_result_woof, "%s/%s", request->leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
     result.ts_e = ts_e;
     uint64_t result_begin = get_milliseconds();
     unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
     if (WooFInvalid(seq)) {
         log_warn("failed to return the append_entries result to %s", leader_result_woof);
     }
-#ifdef PROFILING
-    printf("RAFT return result %lu\n", get_milliseconds() - result_begin);
-#endif
     log_debug("returned result to %s [%lu]", leader_result_woof, seq);
-    monitor_join();
     // printf("handler h_append_entries took %lu\n", get_milliseconds() - begin);
     WooFMsgCacheShutdown();
     return 1;

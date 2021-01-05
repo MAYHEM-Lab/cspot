@@ -79,7 +79,7 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         log_warn("updated successor to use replica[%d]: %s", replica_node.leader_id, successor_addr(&successor, 0));
         unsigned long index = raft_put_handler(
-            node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+            node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
         if (raft_is_error(index)) {
             log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
             monitor_exit(ptr);
@@ -110,7 +110,7 @@ int r_try_replicas(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     log_warn("shifted new successor: %s", successor.replicas[0][successor.leader[0]]);
     unsigned long index = raft_put_handler(
-        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);

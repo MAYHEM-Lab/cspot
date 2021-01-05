@@ -49,7 +49,7 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
     log_warn("new successor: %s", successor.replicas[0][successor.leader[0]]);
     unsigned long index = raft_put_handler(
-        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), 0, NULL);
+        node.replicas[node.leader_id], "r_set_successor", &successor, sizeof(DHT_SUCCESSOR_INFO), NULL);
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);

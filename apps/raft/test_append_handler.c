@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
 
     TEST_EL test_el = {0};
     sprintf(test_el.msg, "test_append_handler");
-    unsigned long seq = raft_put_handler(NULL, "test_raft_handler", &test_el, sizeof(TEST_EL), 0, NULL);
+    unsigned long seq = raft_put_handler(NULL, "test_raft_handler", &test_el, sizeof(TEST_EL), NULL);
     if (raft_is_error(seq)) {
         fprintf(stderr, "failed to put %s: %s\n", test_el.msg, raft_error_msg);
     } else {

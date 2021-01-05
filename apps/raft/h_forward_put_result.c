@@ -1,5 +1,4 @@
 #include "czmq.h"
-#include "monitor.h"
 #include "raft.h"
 #include "raft_utils.h"
 #include "woofc-access.h"
@@ -21,7 +20,6 @@ typedef struct forward_result_thread_arg {
 void* forward_result_thread(void* arg) {
     FORWARD_RESULT_THREAD_ARG* forward_result_thread_arg = (FORWARD_RESULT_THREAD_ARG*)arg;
     unsigned long result_seq;
-    forward_result_thread_arg->result.ts_b = get_milliseconds();
     if (forward_result_thread_arg->request.callback_handler[0] != 0) {
         result_seq = WooFPut(forward_result_thread_arg->request.callback_woof,
                              forward_result_thread_arg->request.callback_handler,
@@ -48,10 +46,12 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     uint64_t begin = get_milliseconds();
 
     // get the server's current term and cluster members
+    raft_lock(RAFT_LOCK_SERVER);
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
 
@@ -60,8 +60,10 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
                   arg->term,
                   server_state.current_term);
         WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
+    raft_unlock(RAFT_LOCK_SERVER);
 
     // check previous append_entries_result
     unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
