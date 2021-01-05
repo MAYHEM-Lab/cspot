@@ -24,7 +24,6 @@ char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_DEBUG_INTERRUPT_WOOF,
                                                 RAFT_CONFIG_CHANGE_ARG_WOOF,
                                                 RAFT_CONFIG_CHANGE_RESULT_WOOF,
                                                 RAFT_FORWARD_PUT_RESULT_WOOF,
-                                                RAFT_COMMIT_HANDLER_WOOF,
                                                 RAFT_REPLICATE_ENTRIES_WOOF,
                                                 RAFT_REQUEST_VOTE_ARG_WOOF,
                                                 RAFT_REQUEST_VOTE_RESULT_WOOF};
@@ -44,7 +43,6 @@ unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
                                           sizeof(RAFT_CONFIG_CHANGE_ARG),
                                           sizeof(RAFT_CONFIG_CHANGE_RESULT),
                                           sizeof(RAFT_FORWARD_PUT_RESULT_ARG),
-                                          sizeof(RAFT_COMMIT_HANDLER_ARG),
                                           sizeof(RAFT_REPLICATE_ENTRIES_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_ARG),
                                           sizeof(RAFT_REQUEST_VOTE_RESULT)};
@@ -65,7 +63,6 @@ unsigned long RAFT_WOOF_HISTORY_SIZE[] = {
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CONFIG_CHANGE_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_CONFIG_CHANGE_RESULT
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_FORWARD_PUT_RESULT_ARG
-    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_COMMIT_HANDLER_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_REPLICATE_ENTRIES_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_REQUEST_VOTE_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT  // RAFT_REQUEST_VOTE_RESULT
@@ -330,14 +327,6 @@ int raft_start_server(int members,
     seq = WooFPut(RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", &client_put_arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't start h_client_put\n");
-        return -1;
-    }
-
-    RAFT_COMMIT_HANDLER_ARG committed_handler_arg = {0};
-    committed_handler_arg.last_invoked_committed_handler = 0;
-    seq = WooFPut(RAFT_COMMIT_HANDLER_WOOF, "h_commit_handler", &committed_handler_arg);
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "failed to start h_commit_handler handler");
         return -1;
     }
 

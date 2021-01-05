@@ -32,7 +32,6 @@
 #define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
 #define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
 #define RAFT_FORWARD_PUT_RESULT_WOOF "raft_invoke_committed.woof"
-#define RAFT_COMMIT_HANDLER_WOOF "raft_commit_handler.woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
@@ -172,14 +171,11 @@ typedef struct raft_invoke_committed_arg {
     uint64_t last_forwarded_put_result;
 } RAFT_FORWARD_PUT_RESULT_ARG;
 
-typedef struct raft_commit_handler_arg {
-    uint64_t last_invoked_committed_handler;
-} RAFT_COMMIT_HANDLER_ARG;
-
 typedef struct raft_replicate_entries {
     uint64_t term;
     uint64_t last_ts;
     uint64_t last_seen_result_seqno;
+    uint64_t last_invoked_committed_handler;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {

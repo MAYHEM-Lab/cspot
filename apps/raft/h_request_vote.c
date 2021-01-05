@@ -95,9 +95,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
         result.term = server_state.current_term;
         if (server_state.voted_for[0] == 0 || strcmp(server_state.voted_for, request->candidate_woof) == 0) {
             // check if the log is up-to-date
-            raft_lock(RAFT_LOCK_LOG);
             unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-            raft_unlock(RAFT_LOCK_LOG);
             if (WooFInvalid(latest_log_entry)) {
                 log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
                 WooFMsgCacheShutdown();

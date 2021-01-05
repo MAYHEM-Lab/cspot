@@ -236,6 +236,27 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
     return 0;
 }
 
+int invoke_commit_handler(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_ARG* arg) {
+    unsigned int i;
+    for (i = arg->last_invoked_committed_handler + 1; i <= server_state->commit_index; ++i) {
+        RAFT_LOG_ENTRY entry = {0};
+        if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, i) < 0) {
+            log_error("failed to get log entry at %lu", i);
+        }
+        if (entry.is_handler) {
+            RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&entry.data;
+            unsigned long seq = WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+            if (WooFInvalid(seq)) {
+                log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
+            }
+            log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
+        }
+        arg->last_invoked_committed_handler = i;
+    }
+    return 0;
+}
+
+
 int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_REPLICATE_ENTRIES_ARG* arg = (RAFT_REPLICATE_ENTRIES_ARG*)ptr;
     log_set_tag("replicate_entries");
@@ -375,6 +396,13 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     err = update_commit_index(&server_state);
+    if (err < 0) {
+        WooFMsgCacheShutdown();
+        raft_unlock(RAFT_LOCK_SERVER);
+        exit(1);
+    }
+
+    err = invoke_commit_handler(&server_state, arg);
     if (err < 0) {
         WooFMsgCacheShutdown();
         raft_unlock(RAFT_LOCK_SERVER);

@@ -12,6 +12,7 @@
 int start_routines(RAFT_SERVER_STATE* server_state) {
     RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg = {0};
     replicate_entries_arg.last_seen_result_seqno = 0;
+    replicate_entries_arg.last_invoked_committed_handler = 0;
     unsigned long latest_seqno = WooFGetLatestSeqno(RAFT_REPLICATE_ENTRIES_WOOF);
     if (latest_seqno > 0) {
         if (WooFGet(RAFT_REPLICATE_ENTRIES_WOOF, &replicate_entries_arg, latest_seqno) < 0) {
@@ -124,9 +125,7 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // if the majority granted, promoted to leader
     if (granted_votes > server_state.members / 2) {
-        raft_lock(RAFT_LOCK_LOG);
         unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-        raft_unlock(RAFT_LOCK_LOG);
         if (WooFInvalid(last_log_entry_seqno)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
             WooFMsgCacheShutdown();

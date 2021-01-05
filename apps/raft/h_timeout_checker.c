@@ -116,9 +116,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
 
         // get last log entry info
-        raft_lock(RAFT_LOCK_LOG);
         unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-        raft_unlock(RAFT_LOCK_LOG);
         if (WooFInvalid(latest_log_entry)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
             WooFMsgCacheShutdown();
