@@ -182,9 +182,9 @@ void* resolve_thread(void* arg) {
     strcpy(trigger_arg.topic_name, data_arg.topic_name);
     sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 
-    unsigned long trigger_seq = WooFPut(DHT_PARTIAL_TRIGGER_WOOF, NULL, &trigger_arg);
+    unsigned long trigger_seq = WooFPut(DHT_TRIGGER_WOOF, NULL, &trigger_arg);
     if (WooFInvalid(trigger_seq)) {
-        log_error("failed to store partial trigger to %s", DHT_PARTIAL_TRIGGER_WOOF);
+        log_error("failed to store partial trigger to %s", DHT_TRIGGER_WOOF);
         return;
     }
     // log_warn("[%lu] trigger: %lu", thread_arg->seq_no, get_milliseconds() - t); t = get_milliseconds();
@@ -208,7 +208,7 @@ void* resolve_thread(void* arg) {
 
         RAFT_CLIENT_PUT_OPTION opt = {0};
         sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);
-        sprintf(opt.extra_woof, "%s", DHT_PARTIAL_TRIGGER_WOOF);
+        sprintf(opt.extra_woof, "%s", DHT_TRIGGER_WOOF);
         opt.extra_seqno = trigger_seq;
         unsigned long seq = raft_put(topic_replica, &element, &opt);
         if (raft_is_error(seq)) {

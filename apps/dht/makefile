@@ -45,7 +45,6 @@ copy: handlers clients
 	cp h_shift_successor ./cspot;
 	cp h_stabilize_callback ./cspot;
 	cp h_subscribe ./cspot;
-	cp h_trigger ./cspot;
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
 	cp s_join_cluster ./cspot;
@@ -54,7 +53,6 @@ copy: handlers clients
 	cp r_subscribe ./cspot;
 	cp r_try_replicas ./cspot;
 	cp server_publish_data ./cspot;
-	cp server_publish_find ./cspot;
 	cp server_publish_trigger ./cspot;
 	cp client_find_node ./cspot;
 	cp client_find_topic ./cspot;
@@ -66,9 +64,9 @@ copy: handlers clients
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 	h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
-	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger \
+	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe \
 	r_register_topic r_set_successor r_subscribe r_try_replicas \
-	server_publish_data server_publish_find server_publish_trigger
+	server_publish_data server_publish_trigger
 
 clients: s_create_cluster s_create_woofs s_join_cluster \
 	client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
@@ -185,11 +183,6 @@ h_subscribe: h_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC
 	${CC} ${CFLAGS} -c h_subscribe_shepherd.c -o h_subscribe_shepherd.o
 	${CC} ${CFLAGS} -o h_subscribe h_subscribe.c h_subscribe_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
-h_trigger: h_trigger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/h_trigger/g' ${SHEP_SRC} > h_trigger_shepherd.c
-	${CC} ${CFLAGS} -c h_trigger_shepherd.c -o h_trigger_shepherd.o
-	${CC} ${CFLAGS} -o h_trigger h_trigger.c h_trigger_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
 r_register_topic: r_register_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_register_topic/g' ${SHEP_SRC} > r_register_topic_shepherd.c
 	${CC} ${CFLAGS} -c r_register_topic_shepherd.c -o r_register_topic_shepherd.o
@@ -223,11 +216,6 @@ server_publish_data: server_publish_data.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${
 	sed 's/WOOF_HANDLER_NAME/server_publish_data/g' ${SHEP_SRC} > server_publish_data_shepherd.c
 	${CC} ${CFLAGS} -c server_publish_data_shepherd.c -o server_publish_data_shepherd.o
 	${CC} ${CFLAGS} -o server_publish_data server_publish_data.c server_publish_data_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-
-server_publish_find: server_publish_find.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
-	sed 's/WOOF_HANDLER_NAME/server_publish_find/g' ${SHEP_SRC} > server_publish_find_shepherd.c
-	${CC} ${CFLAGS} -c server_publish_find_shepherd.c -o server_publish_find_shepherd.o
-	${CC} ${CFLAGS} -o server_publish_find server_publish_find.c server_publish_find_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 server_publish_trigger: server_publish_trigger.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/server_publish_trigger/g' ${SHEP_SRC} > server_publish_trigger_shepherd.c
@@ -267,8 +255,8 @@ clean:
 	rm -f client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
 	rm -f h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
-	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe h_trigger
+	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe
 	rm -f r_register_topic r_set_successor r_subscribe r_try_replicas
-	rm -f server_publish_data server_publish_find server_publish_trigger
+	rm -f server_publish_data server_publish_trigger
 	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish
 

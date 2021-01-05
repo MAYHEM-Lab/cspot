@@ -32,9 +32,7 @@ void* replicate_thread(void* arg) {
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
                  replicate_thread_arg->member_id);
-        raft_lock(RAFT_LOCK_LOG);
         unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-        raft_unlock(RAFT_LOCK_LOG);
         if (WooFInvalid(last_log_entry_seqno)) {
             log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
             return;
@@ -242,11 +240,10 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_REPLICATE_ENTRIES_ARG* arg = (RAFT_REPLICATE_ENTRIES_ARG*)ptr;
     log_set_tag("replicate_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
     WooFMsgCacheInit();
-    // log_debug("enter");
     uint64_t begin = get_milliseconds();
 
     // get the server's current term and cluster members
@@ -270,9 +267,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     // checking what entries need to be replicated
-    raft_lock(RAFT_LOCK_LOG);
     unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
-    raft_unlock(RAFT_LOCK_LOG);
     if (WooFInvalid(last_log_entry_seqno)) {
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
         WooFMsgCacheShutdown();

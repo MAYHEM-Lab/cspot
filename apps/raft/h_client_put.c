@@ -16,7 +16,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
     log_set_tag("h_client_put");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
     uint64_t begin = get_milliseconds();

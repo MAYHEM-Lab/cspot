@@ -29,13 +29,10 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF,
                                               DHT_STABILIZE_WOOF,
                                               DHT_STABILIZE_CALLBACK_WOOF,
                                               DHT_SUBSCRIBE_WOOF,
-                                              DHT_TRIGGER_ROUTINE_WOOF,
-                                              DHT_PARTIAL_TRIGGER_WOOF,
                                               DHT_TRIGGER_WOOF,
                                               DHT_NODE_INFO_WOOF,
                                               DHT_PREDECESSOR_INFO_WOOF,
                                               DHT_SUCCESSOR_INFO_WOOF,
-                                              DHT_SERVER_PUBLISH_FIND_WOOF,
                                               DHT_SERVER_PUBLISH_DATA_WOOF,
                                               DHT_SERVER_PUBLISH_TRIGGER_WOOF,
                                               DHT_SERVER_PUBLISH_ELEMENT_WOOF,
@@ -52,7 +49,7 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
                                          sizeof(DHT_FIX_FINGER_CALLBACK_ARG),
                                          sizeof(DHT_GET_PREDECESSOR_ARG),
                                          sizeof(DHT_INVALIDATE_FINGERS_ARG),
-                                         sizeof(DHT_INVOCATION_ARG),
+                                         sizeof(DHT_TRIGGER_ARG),
                                          sizeof(DHT_JOIN_ARG),
                                          sizeof(DHT_NOTIFY_CALLBACK_ARG),
                                          sizeof(DHT_NOTIFY_ARG),
@@ -61,13 +58,10 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
                                          sizeof(DHT_STABILIZE_ARG),
                                          sizeof(DHT_STABILIZE_CALLBACK_ARG),
                                          sizeof(DHT_SUBSCRIBE_ARG),
-                                         sizeof(DHT_LOOP_ROUTINE_ARG),
-                                         sizeof(DHT_TRIGGER_ARG),
                                          sizeof(DHT_TRIGGER_ARG),
                                          sizeof(DHT_NODE_INFO),
                                          sizeof(DHT_PREDECESSOR_INFO),
                                          sizeof(DHT_SUCCESSOR_INFO),
-                                         sizeof(DHT_SERVER_PUBLISH_FIND_ARG),
                                          sizeof(DHT_SERVER_PUBLISH_DATA_ARG),
                                          sizeof(DHT_SERVER_PUBLISH_TRIGGER_ARG),
                                          sizeof(RAFT_DATA_TYPE),
@@ -94,13 +88,10 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_SHORT,       // DHT_STABILIZE_WOOF,
     DHT_HISTORY_LENGTH_SHORT,       // DHT_STABILIZE_CALLBACK_WOOF,
     DHT_HISTORY_LENGTH_LONG,        // DHT_SUBSCRIBE_WOOF,
-    DHT_HISTORY_LENGTH_LONG,        // DHT_TRIGGER_ROUTINE_WOOF,
-    DHT_HISTORY_LENGTH_EXTRA_LONG,  // DHT_PARTIAL_TRIGGER_WOOF,
     DHT_HISTORY_LENGTH_EXTRA_LONG,  // DHT_TRIGGER_WOOF,
     DHT_HISTORY_LENGTH_SHORT,       // DHT_NODE_INFO_WOOF,
     DHT_HISTORY_LENGTH_SHORT,       // DHT_PREDECESSOR_INFO_WOOF,
     DHT_HISTORY_LENGTH_SHORT,       // DHT_SUCCESSOR_INFO_WOOF,
-    DHT_HISTORY_LENGTH_EXTRA_LONG,  // DHT_SERVER_PUBLISH_FIND_WOOF
     DHT_HISTORY_LENGTH_EXTRA_LONG,  // DHT_SERVER_PUBLISH_DATA_WOOF
     DHT_HISTORY_LENGTH_EXTRA_LONG,  // DHT_SERVER_PUBLISH_TRIGGER_ARG
     DHT_HISTORY_LENGTH_LONG,        // DHT_SERVER_PUBLISH_ELEMENT_WOOF
@@ -138,17 +129,7 @@ int dht_create_woofs() {
 int dht_start_app_server() {
     DHT_LOOP_ROUTINE_ARG routine_arg = {0};
     routine_arg.last_seqno = 0;
-    unsigned long seq = WooFPut(DHT_TRIGGER_ROUTINE_WOOF, "h_trigger", &routine_arg);
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "failed to start h_trigger\n");
-        return -1;
-    }
-    seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_find", &routine_arg);
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "failed to start server_publish_find\n");
-        return -1;
-    }
-    seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_data", &routine_arg);
+    unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_data", &routine_arg);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "failed to start server_publish_data\n");
         return -1;
@@ -158,11 +139,6 @@ int dht_start_app_server() {
         fprintf(stderr, "failed to start server_publish_trigger\n");
         return -1;
     }
-    // seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_single", &routine_arg);
-    // if (WooFInvalid(seq)) {
-    //     fprintf(stderr, "failed to start server_publish_single\n");
-    //     return -1;
-    // }
 }
 
 int dht_start_daemon(

@@ -29,7 +29,6 @@ extern "C" {
 #define DHT_STABILIZE_WOOF "dht_stabilize.woof"
 #define DHT_STABILIZE_CALLBACK_WOOF "dht_stabilize_callback.woof"
 #define DHT_SUBSCRIBE_WOOF "dht_subscribe.woof"
-#define DHT_TRIGGER_ROUTINE_WOOF "dht_trigger_routine.woof"
 #define DHT_PARTIAL_TRIGGER_WOOF "dht_partial_trigger.woof"
 #define DHT_TRIGGER_WOOF "dht_trigger.woof"
 #define DHT_NODE_INFO_WOOF "dht_node_info.woof"
@@ -39,7 +38,6 @@ extern "C" {
 #define DHT_TRY_REPLICAS_WOOF "dht_try_replicas.woof"
 #define DHT_SUBSCRIPTION_LIST_WOOF "subscription_list.woof"
 #define DHT_TOPIC_REGISTRATION_WOOF "topic_registaration.woof"
-#define DHT_SERVER_PUBLISH_FIND_WOOF "dht_server_publish_find.woof"
 #define DHT_SERVER_PUBLISH_DATA_WOOF "dht_server_publish_data.woof"
 #define DHT_SERVER_PUBLISH_TRIGGER_WOOF "dht_server_publish_trigger.woof"
 #define DHT_SERVER_PUBLISH_ELEMENT_WOOF "dht_server_publish_element.woof"
@@ -114,12 +112,6 @@ typedef struct dht_find_node_result {
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     int32_t node_leader;
 } DHT_FIND_NODE_RESULT;
-
-typedef struct dht_invocation_arg {
-    char woof_name[DHT_NAME_LENGTH];
-    char topic_name[DHT_NAME_LENGTH];
-    uint64_t seq_no;
-} DHT_INVOCATION_ARG;
 
 typedef struct dht_join_arg {
     unsigned char node_hash[SHA_DIGEST_LENGTH];
@@ -232,12 +224,6 @@ typedef struct dht_check_predecessor_arg {
 
 } DHT_CHECK_PREDECESSOR_ARG;
 
-typedef struct dht_create_topic_arg {
-    char topic_name[DHT_NAME_LENGTH];
-    uint64_t element_size;
-    uint64_t history_size;
-} DHT_CREATE_TOPIC_ARG;
-
 typedef struct dht_set_finger_arg {
     int32_t finger_index;
     DHT_FINGER_INFO finger;
@@ -253,12 +239,6 @@ typedef struct dht_invalidate_fingers_arg {
 typedef struct dht_map_raft_index_arg {
     uint64_t raft_index;
 } DHT_MAP_RAFT_INDEX_ARG;
-
-typedef struct dht_server_publish_find_arg {
-    char topic_name[DHT_NAME_LENGTH];
-    uint64_t element_seqno;
-    uint64_t ts_a;
-} DHT_SERVER_PUBLISH_FIND_ARG;
 
 typedef struct dht_server_publish_data_arg {
     char topic_name[DHT_NAME_LENGTH];

@@ -72,7 +72,7 @@ int get_element(char* raft_addr, void* element, unsigned long seq_no) {
 }
 
 int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
-    DHT_INVOCATION_ARG* arg = (DHT_INVOCATION_ARG*)ptr;
+    DHT_TRIGGER_ARG* arg = (DHT_TRIGGER_ARG*)ptr;
 
     log_set_tag("PUT_HANDLER_NAME");
     log_set_level(DHT_LOG_INFO);
@@ -88,17 +88,16 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
-    while (raft_get(arg->woof_name, &raft_data, arg->seq_no) < 0) {
-        log_warn("failed to get raft data from %s at %lu, probably not committed yet", arg->woof_name, arg->seq_no);
-        usleep(100 * 1000); // be patient my padawan
+    while (raft_get(arg->element_woof, &raft_data, arg->element_seqno) < 0) {
+        log_warn("failed to get raft data from %s at %lu, probably not committed yet", arg->element_woof, arg->element_seqno);
     }
-    unsigned long mapped_seqno = map_element(arg->seq_no);
+    unsigned long mapped_seqno = map_element(arg->element_seqno);
     if (WooFInvalid(mapped_seqno)) {
         log_error("failed to map raft_index to seq_no");
         exit(1);
     }
-    log_debug("mapped raft_index %lu to seq_no %lu", arg->seq_no, mapped_seqno);
-    int err = PUT_HANDLER_NAME(arg->woof_name, arg->topic_name, mapped_seqno, raft_data.val);
+    log_debug("mapped raft_index %lu to seq_no %lu", arg->element_seqno, mapped_seqno);
+    int err = PUT_HANDLER_NAME(arg->element_woof, arg->topic_name, mapped_seqno, raft_data.val);
 
     return err;
 }
