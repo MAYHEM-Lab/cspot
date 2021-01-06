@@ -176,6 +176,7 @@ void* resolve_thread(void* arg) {
         return;
     }
 
+    strcpy(trigger_arg.element_woof, topic_entry.topic_replicas[(topic_entry.last_leader)]);
     trigger_arg.ts_registry = get_milliseconds();
     strcpy(trigger_arg.topic_name, data_arg.topic_name);
     sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
@@ -185,7 +186,6 @@ void* resolve_thread(void* arg) {
         log_error("failed to store partial trigger to %s", DHT_TRIGGER_WOOF);
         return;
     }
-    // log_warn("[%lu] trigger: %lu", thread_arg->seq_no, get_milliseconds() - t); t = get_milliseconds();
 
 #ifdef PROFILING
     printf("FOUND_PROFILE created->found: %lu found->returned: %lu returned->registry: %lu total: %lu\n",
