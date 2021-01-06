@@ -59,8 +59,6 @@ int main(int argc, char** argv) {
     el.sent = get_milliseconds();
 
     if (client_ip[0] != 0) {
-        printf("set client ip to %s\n", client_ip);
-        fflush(stdout);
         dht_set_client_ip(client_ip);
     }
 
@@ -69,6 +67,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
         exit(1);
     }
+    printf("%s published at %lu\n", message, get_milliseconds());
 
     return 0;
 }

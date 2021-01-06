@@ -172,10 +172,8 @@ int dht_publish(char* topic_name, void* element, uint64_t element_size) {
             publish_data_arg.node_leader = cache.node_leader;
             memcpy(publish_data_arg.node_replicas, cache.node_replicas, sizeof(publish_data_arg.node_replicas));
             strcpy(publish_data_arg.topic_name, topic_name);
-            publish_data_arg.ts_a = get_milliseconds();
-            publish_data_arg.ts_b = publish_data_arg.ts_a;
-            publish_data_arg.ts_c = publish_data_arg.ts_a;
-            publish_data_arg.ts_d = publish_data_arg.ts_a;
+            publish_data_arg.ts_created = get_milliseconds();
+            publish_data_arg.ts_found = publish_data_arg.ts_created;
             publish_data_arg.update_cache = 0;
             unsigned long publish_data_seq = WooFPut(DHT_SERVER_PUBLISH_DATA_WOOF, NULL, &publish_data_arg);
             if (WooFInvalid(publish_data_seq)) {
@@ -199,9 +197,7 @@ int dht_publish(char* topic_name, void* element, uint64_t element_size) {
     dht_init_find_arg(&arg, topic_name, hashed_key, node_info.addr);
     arg.action_seqno = seq;
     arg.action = DHT_ACTION_PUBLISH;
-    arg.ts_a = get_milliseconds();
-    arg.ts_b = get_milliseconds();
-    arg.ts_c = 0;
+    arg.ts_created = get_milliseconds();
 
     seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
     if (WooFInvalid(seq)) {

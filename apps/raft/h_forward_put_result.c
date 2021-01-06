@@ -12,6 +12,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define PROFILING
+
 typedef struct forward_result_thread_arg {
     RAFT_CLIENT_PUT_REQUEST request;
     RAFT_CLIENT_PUT_RESULT result;
@@ -42,7 +44,6 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
     WooFMsgCacheInit();
     zsys_init();
-    log_debug("enter");
     uint64_t begin = get_milliseconds();
 
     // get the server's current term and cluster members
@@ -99,6 +100,8 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             WooFMsgCacheShutdown();
             exit(1);
         }
+        result->ts_forward = get_milliseconds();
+
         if (result->index == 0 || request->callback_woof[0] == 0) {
             arg->last_forwarded_put_result = i;
             continue;

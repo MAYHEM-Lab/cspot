@@ -7,7 +7,7 @@
 #define MAX_PUBLISH_SIZE 64
 #define REGISTRY_CACHE_SIZE 8
 
-// #define PROFILING
+#define PROFILING
 
 typedef struct registry_cache {
     char woof_name[DHT_NAME_LENGTH];
@@ -105,8 +105,9 @@ void* resolve_thread(void* arg) {
     }
 
     DHT_TRIGGER_ARG trigger_arg = {0};
-    trigger_arg.requested = data_arg.ts_a;
-    trigger_arg.ts_e = get_milliseconds();
+    trigger_arg.ts_created = data_arg.ts_created;
+    trigger_arg.ts_found = data_arg.ts_found;
+    trigger_arg.ts_returned = get_milliseconds();
 
     char registration_woof[DHT_NAME_LENGTH] = {0};
     DHT_TOPIC_REGISTRY topic_entry = {0};
@@ -164,9 +165,7 @@ void* resolve_thread(void* arg) {
             dht_init_find_arg(&arg, data_arg.topic_name, hashed_key, thread_arg->node_addr);
             arg.action_seqno = data_arg.element_seqno;
             arg.action = DHT_ACTION_PUBLISH;
-            arg.ts_a = data_arg.ts_a;
-            arg.ts_b = data_arg.ts_b;
-            arg.ts_c = data_arg.ts_c;
+            arg.ts_created = data_arg.ts_created;
 
             unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
             if (WooFInvalid(seq)) {
@@ -177,8 +176,7 @@ void* resolve_thread(void* arg) {
         return;
     }
 
-    trigger_arg.ts_f = get_milliseconds();
-    trigger_arg.found = get_milliseconds();
+    trigger_arg.ts_registry = get_milliseconds();
     strcpy(trigger_arg.topic_name, data_arg.topic_name);
     sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 
@@ -189,15 +187,12 @@ void* resolve_thread(void* arg) {
     }
     // log_warn("[%lu] trigger: %lu", thread_arg->seq_no, get_milliseconds() - t); t = get_milliseconds();
 
-
 #ifdef PROFILING
-    printf("FOUND_PROFILE a->b: %lu, b->c: %lu, c->d: %lu, d->e: %lu, e->f: %lu, total: %lu\n",
-           data_arg.ts_b - data_arg.ts_a,
-           data_arg.ts_c - data_arg.ts_b,
-           data_arg.ts_d - data_arg.ts_c,
-           trigger_arg.ts_e - data_arg.ts_d,
-           trigger_arg.ts_f - trigger_arg.ts_e,
-           trigger_arg.ts_f - data_arg.ts_a);
+    printf("FOUND_PROFILE created->found: %lu found->returned: %lu returned->registry: %lu total: %lu\n",
+           trigger_arg.ts_found - trigger_arg.ts_created,
+           trigger_arg.ts_returned - trigger_arg.ts_found,
+           trigger_arg.ts_registry - trigger_arg.ts_returned,
+           trigger_arg.ts_registry - trigger_arg.ts_created);
 #endif
 
     // put data to raft

@@ -29,7 +29,6 @@ extern "C" {
 #define DHT_STABILIZE_WOOF "dht_stabilize.woof"
 #define DHT_STABILIZE_CALLBACK_WOOF "dht_stabilize_callback.woof"
 #define DHT_SUBSCRIBE_WOOF "dht_subscribe.woof"
-#define DHT_PARTIAL_TRIGGER_WOOF "dht_partial_trigger.woof"
 #define DHT_TRIGGER_WOOF "dht_trigger.woof"
 #define DHT_NODE_INFO_WOOF "dht_node_info.woof"
 #define DHT_PREDECESSOR_INFO_WOOF "dht_predecessor_info.woof"
@@ -101,9 +100,8 @@ typedef struct dht_find_successor_arg {
     uint64_t action_seqno;                  // if action == DHT_ACTION_FIX_FINGER, this serves as finger_index
                            // if action == DHT_ACTION_PUBLISH_FIND, this servers as publish request seqno
     char callback_namespace[DHT_NAME_LENGTH];
-    uint64_t ts_a;
-    uint64_t ts_b;
-    uint64_t ts_c;
+    uint64_t ts_created;
+    uint64_t ts_found;
 } DHT_FIND_SUCCESSOR_ARG;
 
 typedef struct dht_find_node_result {
@@ -190,11 +188,10 @@ typedef struct dht_trigger_arg {
     char element_woof[DHT_NAME_LENGTH];
     uint64_t element_seqno;
     char subscription_woof[DHT_NAME_LENGTH];
-    uint64_t requested;
-    uint64_t found;
-    uint64_t data;
-    uint64_t ts_e;
-    uint64_t ts_f;
+    uint64_t ts_created;
+    uint64_t ts_found;
+    uint64_t ts_returned;
+    uint64_t ts_registry;
 } DHT_TRIGGER_ARG;
 
 typedef struct dht_topic_registry {
@@ -246,10 +243,8 @@ typedef struct dht_server_publish_data_arg {
     int32_t update_cache;
     int32_t node_leader;
     uint64_t element_seqno;
-    uint64_t ts_a;
-    uint64_t ts_b;
-    uint64_t ts_c;
-    uint64_t ts_d;
+    uint64_t ts_created;
+    uint64_t ts_found;
 } DHT_SERVER_PUBLISH_DATA_ARG;
 
 typedef struct dht_loop_routine_arg {

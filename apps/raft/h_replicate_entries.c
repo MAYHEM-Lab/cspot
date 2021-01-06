@@ -27,7 +27,7 @@ void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
     char woof_name[RAFT_NAME_LENGTH];
     sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
-    replicate_thread_arg->arg.ts_d = get_milliseconds();
+    replicate_thread_arg->arg.ts_replicated = get_milliseconds();
     unsigned long seq = WooFPut(woof_name, "h_append_entries", &replicate_thread_arg->arg);
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
@@ -83,9 +83,6 @@ int update_commit_index(RAFT_SERVER_STATE* server_state) {
             server_state->commit_index = sorted_match_index[i];
             log_debug(
                 "updated commit_index to %" PRIu64 " at %" PRIu64 "", server_state->commit_index, get_milliseconds());
-#ifdef PROFILING
-            printf("RAFT COMMIT %lu at %lu\n", server_state->commit_index, get_milliseconds());
-#endif
 
             // check if joint config is commited
             if (server_state->current_config == RAFT_CONFIG_STATUS_JOINT &&
@@ -172,7 +169,8 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
         }
 
 #ifdef PROFILING
-        printf("RAFT e->f: %lu\n", get_milliseconds() - result.ts_e);
+        uint64_t ts_result = get_milliseconds();
+        printf("RAFT_PROFILE received->result: %lu\n", ts_result - result.ts_received);
 #endif
 
         if (RAFT_SAMPLING_RATE > 0 && (result_seq % RAFT_SAMPLING_RATE == 0)) {
@@ -354,20 +352,12 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     RAFT_LOG_HANDLER_ENTRY* handler_entry =
                         (RAFT_LOG_HANDLER_ENTRY*)(&thread_arg[m].arg.entries[i].data);
                 }
-                thread_arg[m].arg.entries[i].ts_c = get_milliseconds();
+                thread_arg[m].arg.entries[i].ts_written = get_milliseconds();
 #ifdef PROFILING
-                printf("RAFT a->b: %lu, b->c: %lu, created_to_sent: %lu\n",
-                       thread_arg[m].arg.entries[i].ts_b - thread_arg[m].arg.entries[i].ts_a,
-                       thread_arg[m].arg.entries[i].ts_c - thread_arg[m].arg.entries[i].ts_b,
-                       thread_arg[m].arg.entries[i].ts_c - thread_arg[m].arg.entries[i].ts_a);
-                printf("RAFT REPLICATE %lu at %lu\n", server_state.next_index[m] + i, get_milliseconds());
+                printf("RAFT_PROFILE created->written: %lu\n",
+                       thread_arg[m].arg.entries[i].ts_written - thread_arg[m].arg.entries[i].ts_created);
 #endif
             }
-            // #ifdef PROFILING
-            //             printf(
-            //                 "RAFT WooFGet RAFT_LOG_ENTRIES_WOOF (%d) %lu\n", num_entries, get_milliseconds() -
-            //                 get_entries_begin);
-            // #endif
             thread_arg[m].arg.leader_commit = server_state.commit_index;
             thread_arg[m].seq_no = seq_no;
             if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)&thread_arg[m]) < 0) {

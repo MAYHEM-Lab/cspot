@@ -76,6 +76,7 @@ typedef struct resolve_thread_arg {
     char woof_name[DHT_NAME_LENGTH];
     unsigned long trigger_seqno;
     unsigned long element_seqno;
+    uint64_t ts_forward;
 } RESOLVE_THREAD_ARG;
 
 void* resolve_thread(void* arg) {
@@ -85,8 +86,8 @@ void* resolve_thread(void* arg) {
         log_error("failed to get trigger_arg from %s at %lu", thread_arg->woof_name, thread_arg->trigger_seqno);
         return;
     }
-    trigger_arg.data = get_milliseconds();
     trigger_arg.element_seqno = thread_arg->element_seqno;
+    uint64_t ts_received = get_milliseconds();
 
     DHT_SUBSCRIPTION_LIST list = {0};
     pthread_mutex_lock(&cache_lock);
@@ -137,17 +138,12 @@ void* resolve_thread(void* arg) {
                     }
                 }
 
-                uint64_t found = trigger_arg.found - trigger_arg.requested;
-                uint64_t data = trigger_arg.data - trigger_arg.found;
-                uint64_t subscription = ts_subscription - trigger_arg.data;
-                uint64_t triggered = get_milliseconds() - ts_subscription;
-                uint64_t total = get_milliseconds() - trigger_arg.requested;
-                printf("TRIGGERED: found: %lu data: %lu subscription: %lu triggered: %lu total: %lu\n",
-                       found,
-                       data,
-                       subscription,
-                       triggered,
-                       total);
+#ifdef PROFILING
+                printf("TRIGGER_PROFILE forward->received: %lu received->subscription: %lu total: %lu\n",
+                       ts_received - thread_arg->ts_forward,
+                       ts_subscription - ts_received,
+                       ts_subscription - thread_arg->ts_forward);
+#endif
                 break;
             }
         }
@@ -163,8 +159,6 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
     WooFMsgCacheInit();
     zsys_init();
-
-    uint64_t begin = get_milliseconds();
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_SERVER_PUBLISH_TRIGGER_WOOF);
     if (WooFInvalid(latest_seq)) {
@@ -192,9 +186,11 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
             WooFMsgCacheShutdown();
             exit(1);
         }
+
         strcpy(thread_arg[i].woof_name, put_result.extra_woof);
         thread_arg[i].trigger_seqno = put_result.extra_seqno;
         thread_arg[i].element_seqno = put_result.index;
+        thread_arg[i].ts_forward = put_result.ts_forward;
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create resolve_thread to process publish_trigger");
             WooFMsgCacheShutdown();

@@ -76,8 +76,8 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             memcpy(&entry.data, &request.data, sizeof(RAFT_DATA_TYPE));
             entry.is_config = RAFT_CONFIG_ENTRY_NOT;
             entry.is_handler = request.is_handler;
-            entry.ts_a = request.ts_a;
-            entry.ts_b = get_milliseconds();
+            entry.ts_created = request.ts_created;
+            entry.ts_written = get_milliseconds();
             entry_seqno = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
             if (WooFInvalid(entry_seqno)) {
                 log_error("failed to append raft log");

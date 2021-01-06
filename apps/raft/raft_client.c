@@ -12,7 +12,7 @@
 // return client_put request seqno
 unsigned long raft_put(char* raft_leader, RAFT_DATA_TYPE* data, RAFT_CLIENT_PUT_OPTION* opt) {
     RAFT_CLIENT_PUT_REQUEST request = {0};
-    request.ts_a = get_milliseconds();
+    request.ts_created = get_milliseconds();
     request.is_handler = 0;
     memcpy(&request.data, data, sizeof(RAFT_DATA_TYPE));
     if (opt != NULL) {
@@ -84,7 +84,7 @@ raft_put_handler(char* raft_leader, char* handler, void* data, unsigned long siz
     }
     uint64_t begin = get_milliseconds();
     RAFT_CLIENT_PUT_REQUEST request = {0};
-    request.ts_a = get_milliseconds();
+    request.ts_created = get_milliseconds();
     request.is_handler = 1;
     if (opt != NULL) {
         strcpy(request.callback_woof, opt->callback_woof);

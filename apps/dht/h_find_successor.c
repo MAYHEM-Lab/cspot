@@ -163,10 +163,8 @@ void* resolve_thread(void* ptr) {
                 action_arg.node_leader = successor->leader[i];
                 action_arg.element_seqno = arg->action_seqno;
                 memcpy(action_arg.topic_name, arg->key, sizeof(action_arg.topic_name));
-                action_arg.ts_a = arg->ts_a;
-                action_arg.ts_b = arg->ts_b;
-                action_arg.ts_c = arg->ts_c;
-                action_arg.ts_d = get_milliseconds();
+                action_arg.ts_created = arg->ts_created;
+                action_arg.ts_found = get_milliseconds();
                 action_arg.update_cache = 1;
 
                 char callback_woof[DHT_NAME_LENGTH] = {0};
@@ -302,9 +300,6 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             free(thread_id);
             WooFMsgCacheShutdown();
             exit(1);
-        }
-        if (thread_arg[i].arg.ts_c == 0) {
-            thread_arg[i].arg.ts_c = get_milliseconds();
         }
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create thread to process h_find_successor query at %lu",

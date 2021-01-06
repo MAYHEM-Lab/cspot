@@ -20,10 +20,8 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
-    log_debug("enter");
-    uint64_t begin = get_milliseconds();
 
-    uint64_t ts_e = get_milliseconds();
+    uint64_t ts_received = get_milliseconds();
 
     // get the server's current term
     raft_lock(RAFT_LOCK_SERVER);
@@ -179,8 +177,9 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     // log_debug("processing entry[%d]", i);
 
 #ifdef PROFILING
-                    printf(
-                        "RAFT c->d: %lu, d->e: %lu\n", request->ts_d - request->entries[i].ts_c, ts_e - request->ts_d);
+                    printf("RAFT_PROFILE written->replicated: %lu replicated->received: %lu\n",
+                           request->ts_replicated - request->entries[i].ts_written,
+                           ts_received - request->ts_replicated);
 #endif
                     unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request->entries[i]);
                     if (WooFInvalid(seq)) {
@@ -301,7 +300,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     // return the request
     char leader_result_woof[RAFT_NAME_LENGTH];
     sprintf(leader_result_woof, "%s/%s", request->leader_woof, RAFT_APPEND_ENTRIES_RESULT_WOOF);
-    result.ts_e = ts_e;
+    result.ts_received = ts_received;
     uint64_t result_begin = get_milliseconds();
     unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
     if (WooFInvalid(seq)) {
