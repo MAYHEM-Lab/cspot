@@ -77,9 +77,9 @@ void copyWooFOptimized(char *original, char *copy, unsigned long element_size, u
 	
 	WooFReplace(dst, src, idx, LOG_SIZE);
 	
-	dst->shared->head = 0;
-	dst->shared->tail = 1;
-	dst->shared->seq_no = LOG_SIZE + 1;
+	dst->shared->head = src->shared->head;
+	dst->shared->tail = src->shared->tail;
+	dst->shared->seq_no = src->shared->seq_no;
 
 	WooFTruncate(copy, upto);
 
