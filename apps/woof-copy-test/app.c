@@ -37,6 +37,10 @@ void copyWooFOptimized(char *original, char *copy, unsigned long element_size, u
 
 	memcpy(dst->shared, src->shared, sizeof(WOOF_SHARED));
 	memcpy(dst->mio, src->mio, sizeof(MIO));
+	strcpy(dst->mio->fname, src->mio->fname);
+	memcpy(dst->mio->bf, src->mio->bf, sizeof(FILE));
+	memcpy(dst->mio->addr, src->mio->addr, sizeof(unsigned long));
+	//memcpy(dst->mio->text_index, src->mio->text_index, sizeof(MIO));
 	strcpy(dst->shared->filename, copy);
 	dst->shared->seq_no = upto;
 	dst->shared->head = upto;
