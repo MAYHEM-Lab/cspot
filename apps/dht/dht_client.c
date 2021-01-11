@@ -56,6 +56,7 @@ int dht_register_topic(char* topic_name, int timeout) {
         sprintf(dht_error_msg, "couldn't get latest node info: %s", err_msg);
         return -1;
     }
+
     memcpy(register_topic_arg.topic_replicas, node_info.replicas, sizeof(register_topic_arg.topic_replicas));
     register_topic_arg.topic_leader = node_info.leader_id;
 
@@ -71,7 +72,13 @@ int dht_register_topic(char* topic_name, int timeout) {
     arg.action = DHT_ACTION_REGISTER_TOPIC;
     strcpy(arg.action_namespace, topic_namespace);
     arg.action_seqno = action_seqno;
-    unsigned long seq_no = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+    char find_sucessor_woof[DHT_NAME_LENGTH] = {0};
+    if (node_info.leader_id != node_info.replica_id) {
+        sprintf(find_sucessor_woof, "%s/%s", node_info.replicas[node_info.leader_id], DHT_FIND_SUCCESSOR_WOOF);
+    } else {
+        strcpy(find_sucessor_woof, DHT_FIND_SUCCESSOR_WOOF);
+    }
+    unsigned long seq_no = WooFPut(find_sucessor_woof, NULL, &arg);
     if (WooFInvalid(seq_no)) {
         sprintf(dht_error_msg, "failed to invoke h_find_successor");
         return -1;
@@ -110,6 +117,14 @@ int dht_subscribe(char* topic_name, char* handler) {
         sprintf(action_namespace, "woof://%s%s", client_ip, local_namespace);
     }
 
+    DHT_NODE_INFO node_info = {0};
+    if (get_latest_node_info(&node_info) < 0) {
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "couldn't get latest node info: %s", err_msg);
+        return -1;
+    }
+
     DHT_SUBSCRIBE_ARG subscribe_arg = {0};
     strcpy(subscribe_arg.topic_name, topic_name);
     strcpy(subscribe_arg.handler, handler);
@@ -127,8 +142,13 @@ int dht_subscribe(char* topic_name, char* handler) {
     arg.action = DHT_ACTION_SUBSCRIBE;
     strcpy(arg.action_namespace, action_namespace);
     arg.action_seqno = action_seqno;
-
-    unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+    char find_sucessor_woof[DHT_NAME_LENGTH] = {0};
+    if (node_info.leader_id != node_info.replica_id) {
+        sprintf(find_sucessor_woof, "%s/%s", node_info.replicas[node_info.leader_id], DHT_FIND_SUCCESSOR_WOOF);
+    } else {
+        strcpy(find_sucessor_woof, DHT_FIND_SUCCESSOR_WOOF);
+    }
+    unsigned long seq = WooFPut(find_sucessor_woof, NULL, &arg);
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed to invoke h_find_successor");
         exit(1);
@@ -199,7 +219,13 @@ int dht_publish(char* topic_name, void* element, uint64_t element_size) {
     arg.action = DHT_ACTION_PUBLISH;
     arg.ts_created = get_milliseconds();
 
-    seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+    char find_sucessor_woof[DHT_NAME_LENGTH] = {0};
+    if (node_info.leader_id != node_info.replica_id) {
+        sprintf(find_sucessor_woof, "%s/%s", node_info.replicas[node_info.leader_id], DHT_FIND_SUCCESSOR_WOOF);
+    } else {
+        strcpy(find_sucessor_woof, DHT_FIND_SUCCESSOR_WOOF);
+    }
+    seq = WooFPut(find_sucessor_woof, NULL, &arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke h_find_successor");
         return -1;
