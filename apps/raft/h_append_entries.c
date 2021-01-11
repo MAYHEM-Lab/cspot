@@ -15,6 +15,7 @@
 
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_APPEND_ENTRIES_ARG* request = (RAFT_APPEND_ENTRIES_ARG*)ptr;
+    RAFT_LOG_ENTRY* entries = (RAFT_LOG_ENTRY*)(ptr + sizeof(RAFT_APPEND_ENTRIES_ARG));
     log_set_tag("h_append_entries");
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
@@ -36,6 +37,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     RAFT_APPEND_ENTRIES_RESULT result = {0};
     result.seqno = seq_no;
+    result.ack_seq = request->ack_seq;
     memcpy(result.server_woof, server_state.woof_name, RAFT_NAME_LENGTH);
 
     int m_id = member_id(request->leader_woof, server_state.member_woofs);
@@ -170,18 +172,15 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 // appending entries
                 raft_lock(RAFT_LOCK_LOG);
                 int i;
-                for (i = 0; i < RAFT_MAX_ENTRIES_PER_REQUEST; ++i) {
-                    if (request->entries[i].term == 0) {
-                        break; // no entry, finish append
-                    }
+                for (i = 0; i < request->num_entries; ++i) {
                     // log_debug("processing entry[%d]", i);
 
 #ifdef PROFILING
                     printf("RAFT_PROFILE written->replicated: %lu replicated->received: %lu\n",
-                           request->ts_replicated - request->entries[i].ts_written,
+                           request->ts_replicated - entries[i].ts_written,
                            ts_received - request->ts_replicated);
 #endif
-                    unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &request->entries[i]);
+                    unsigned long seq = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entries[i]);
                     if (WooFInvalid(seq)) {
                         log_error("failed to append entries[%d]", i);
                         WooFMsgCacheShutdown();
@@ -190,10 +189,10 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         exit(1);
                     }
                     // if this entry is a config entry, update server config
-                    if (request->entries[i].is_config != RAFT_CONFIG_ENTRY_NOT) {
+                    if (entries[i].is_config != RAFT_CONFIG_ENTRY_NOT) {
                         int new_members;
                         char new_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
-                        if (decode_config(request->entries[i].data.val, &new_members, new_member_woofs) < 0) {
+                        if (decode_config(entries[i].data.val, &new_members, new_member_woofs) < 0) {
                             log_error("failed to decode config from entry[%d]", i);
                             WooFMsgCacheShutdown();
                             raft_unlock(RAFT_LOCK_SERVER);
@@ -202,9 +201,9 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         }
                         server_state.members = new_members;
                         server_state.last_config_seqno = seq;
-                        if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
+                        if (entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
                             server_state.current_config = RAFT_CONFIG_STATUS_JOINT;
-                        } else if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
+                        } else if (entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
                             server_state.current_config = RAFT_CONFIG_STATUS_STABLE;
                         }
                         memcpy(server_state.member_woofs,
@@ -246,11 +245,11 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                             raft_unlock(RAFT_LOCK_LOG);
                             exit(1);
                         }
-                        if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
+                        if (entries[i].is_config == RAFT_CONFIG_ENTRY_JOINT) {
                             log_info("start using joint config with %d members at term %" PRIu64 "",
                                      server_state.members,
                                      server_state.current_term);
-                        } else if (request->entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
+                        } else if (entries[i].is_config == RAFT_CONFIG_ENTRY_NEW) {
                             log_info("start using new config with %d members at term %" PRIu64 "",
                                      server_state.members,
                                      server_state.current_term);
@@ -269,7 +268,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 result.success = 1;
                 result.last_entry_seq = last_entry_seq;
                 if (i > 0) {
-                    log_debug("appended %d entries for request [%lu]", i, seq_no);
+                    log_debug("appended %d entries for request [%lu], last_entry_seq: %lu", i, seq_no, last_entry_seq);
                 }
 
                 // check if there's new commit_index

@@ -14,8 +14,6 @@ char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_DEBUG_INTERRUPT_WOOF,
                                                 RAFT_SERVER_STATE_WOOF,
                                                 RAFT_HEARTBEAT_WOOF,
                                                 RAFT_TIMEOUT_CHECKER_WOOF,
-                                                RAFT_APPEND_ENTRIES_ROUTINE_WOOF,
-                                                RAFT_APPEND_ENTRIES_ARG_WOOF,
                                                 RAFT_APPEND_ENTRIES_RESULT_WOOF,
                                                 RAFT_LOG_HANDLER_ENTRIES_WOOF,
                                                 RAFT_CLIENT_PUT_REQUEST_WOOF,
@@ -33,8 +31,6 @@ unsigned long RAFT_WOOF_ELEMENT_SIZE[] = {sizeof(RAFT_DEBUG_INTERRUPT_ARG),
                                           sizeof(RAFT_SERVER_STATE),
                                           sizeof(RAFT_HEARTBEAT),
                                           sizeof(RAFT_TIMEOUT_CHECKER_ARG),
-                                          sizeof(RAFT_APPEND_ENTRIES_ROUTINE_ARG),
-                                          sizeof(RAFT_APPEND_ENTRIES_ARG),
                                           sizeof(RAFT_APPEND_ENTRIES_RESULT),
                                           sizeof(RAFT_LOG_HANDLER_ENTRY),
                                           sizeof(RAFT_CLIENT_PUT_REQUEST),
@@ -53,8 +49,6 @@ unsigned long RAFT_WOOF_HISTORY_SIZE[] = {
     RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_SERVER_STATE
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_HEARTBEAT
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_TIMEOUT_CHECKER_ARG
-    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_APPEND_ENTRIES_ROUTINE_ARG
-    RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_APPEND_ENTRIES_ARG
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_APPEND_ENTRIES_RESULT
     RAFT_WOOF_HISTORY_SIZE_SHORT, // RAFT_LOG_HANDLER_ENTRY
     RAFT_WOOF_HISTORY_SIZE_LONG,  // RAFT_CLIENT_PUT_REQUEST
@@ -231,6 +225,15 @@ int raft_create_woofs() {
     for (i = 0; i < num_woofs; i++) {
         if (WooFCreate(RAFT_WOOF_TO_CREATE[i], RAFT_WOOF_ELEMENT_SIZE[i], RAFT_WOOF_HISTORY_SIZE[i]) < 0) {
             fprintf(stderr, "failed to create woof %s\n", RAFT_WOOF_ELEMENT_SIZE[i]);
+            return -1;
+        }
+    }
+    for (i = 1; i <= RAFT_MAX_ENTRIES_PER_REQUEST; i *= 2) {
+        char woof_name[RAFT_NAME_LENGTH] = {0};
+        sprintf(woof_name, "%s_%dX", RAFT_APPEND_ENTRIES_ARG_WOOF, i);
+        unsigned long element_size = sizeof(RAFT_APPEND_ENTRIES_ARG) + i * sizeof(RAFT_LOG_ENTRY);
+        if (WooFCreate(woof_name, element_size, RAFT_WOOF_HISTORY_SIZE_SHORT) < 0) {
+            fprintf(stderr, "failed to create woof %s\n", woof_name);
             return -1;
         }
     }

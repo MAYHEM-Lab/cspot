@@ -23,7 +23,6 @@
 #define RAFT_SERVER_STATE_WOOF "raft_server_state.woof"
 #define RAFT_HEARTBEAT_WOOF "raft_heartbeat.woof"
 #define RAFT_TIMEOUT_CHECKER_WOOF "raft_timeout_checker.woof"
-#define RAFT_APPEND_ENTRIES_ROUTINE_WOOF "raft_append_entries_routine.woof"
 #define RAFT_APPEND_ENTRIES_ARG_WOOF "raft_append_entries_arg.woof"
 #define RAFT_APPEND_ENTRIES_RESULT_WOOF "raft_append_entries_result.woof"
 #define RAFT_CLIENT_PUT_REQUEST_WOOF "raft_client_put_request.woof"
@@ -92,6 +91,8 @@ typedef struct raft_server_state {
     uint64_t next_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
     uint64_t match_index[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
     uint64_t last_sent_timestamp[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t last_sent_request_seq[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t acked_request_seq[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
 } RAFT_SERVER_STATE;
 
 typedef struct raft_heartbeat {
@@ -103,17 +104,14 @@ typedef struct raft_timeout_checker_arg {
     uint64_t timeout_value;
 } RAFT_TIMEOUT_CHECKER_ARG;
 
-typedef struct raft_append_entries_routine_arg {
-    uint64_t last_seqno;
-} RAFT_APPEND_ENTRIES_ROUTINE_ARG;
-
 typedef struct raft_append_entries_arg {
     uint64_t term;
     char leader_woof[RAFT_NAME_LENGTH];
+    uint8_t num_entries;
     uint64_t prev_log_index;
     uint64_t prev_log_term;
-    RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
     uint64_t leader_commit;
+    uint64_t ack_seq;
     uint64_t ts_replicated;
 } RAFT_APPEND_ENTRIES_ARG;
 
@@ -123,7 +121,7 @@ typedef struct raft_append_entries_result {
     int8_t success;
     uint64_t last_entry_seq;
     uint64_t seqno;
-    uint64_t request_created_ts;
+    uint64_t ack_seq;
     uint64_t ts_received;
 } RAFT_APPEND_ENTRIES_RESULT;
 

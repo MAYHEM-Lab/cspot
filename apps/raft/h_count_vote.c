@@ -141,6 +141,8 @@ int h_count_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             server_state.next_index[i] = last_log_entry_seqno + 1;
             server_state.match_index[i] = 0;
             server_state.last_sent_timestamp[i] = 0;
+            server_state.last_sent_request_seq[i] = 0;
+            server_state.acked_request_seq[i] = 0;
         }
         unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
         if (WooFInvalid(seq)) {

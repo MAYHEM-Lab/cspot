@@ -31,14 +31,12 @@
 #define RAFT_CLIENT_PUT_RESULT_WOOF "raft_client_put_result.woof"
 #define RAFT_CONFIG_CHANGE_ARG_WOOF "raft_config_change_arg.woof"
 #define RAFT_CONFIG_CHANGE_RESULT_WOOF "raft_config_change_result.woof"
-#define RAFT_CHECK_APPEND_RESULT_WOOF "raft_check_append_result.woof"
-#define RAFT_UPDATE_COMMIT_INDEX_WOOF "raft_update_commit_index.woof"
-#define RAFT_INVOKE_COMMITTED_WOOF "raft_invoke_committed.woof"
-#define RAFT_COMMIT_HANDLER_WOOF "raft_commit_handler.woof"
+#define RAFT_FORWARD_PUT_RESULT_WOOF "raft_invoke_committed.woof"
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
-#define RAFT_MONITOR_NAME "raft"
+#define RAFT_LOCK_SERVER "raft_server"
+#define RAFT_LOCK_LOG "raft_log"
 
 #define RAFT_WOOF_HISTORY_SIZE_SHORT 256
 #define RAFT_WOOF_HISTORY_SIZE_LONG 32768
@@ -46,8 +44,8 @@
 #define RAFT_MAX_MEMBERS 16
 #define RAFT_MAX_OBSERVERS 4
 #define RAFT_MAX_ENTRIES_PER_REQUEST XXX_BATCH_SIZE
-// #define RAFT_DATA_TYPE_SIZE 8192
-#define RAFT_DATA_TYPE_SIZE (RAFT_NAME_LENGTH + sizeof(int32_t) + XXX_DATA_SIZE)
+#define RAFT_DATA_TYPE_SIZE 8192
+// #define RAFT_DATA_TYPE_SIZE (RAFT_NAME_LENGTH + sizeof(int32_t) + 64)
 
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
 
@@ -64,25 +62,25 @@ typedef struct data_type {
 typedef struct raft_log_entry {
     uint64_t term;
     RAFT_DATA_TYPE data;
-    int32_t is_config;
-    int32_t is_handler;
+    int8_t is_config;
+    int8_t is_handler;
+    uint64_t ts_created;
+    uint64_t ts_written;
 } RAFT_LOG_ENTRY;
 
 typedef struct raft_log_handler_entry {
     char handler[RAFT_NAME_LENGTH];
     char ptr[RAFT_DATA_TYPE_SIZE - RAFT_NAME_LENGTH - sizeof(int32_t)];
-    int32_t monitored;
 } RAFT_LOG_HANDLER_ENTRY;
 
 typedef struct raft_server_state {
     char woof_name[RAFT_NAME_LENGTH];
-    int32_t role;
+    int8_t role;
     uint64_t current_term;
     char voted_for[RAFT_NAME_LENGTH];
     char current_leader[RAFT_NAME_LENGTH];
     int32_t timeout_min;
     int32_t timeout_max;
-    int32_t replicate_delay;
 
     int32_t members;
     int32_t observers;
@@ -119,25 +117,27 @@ typedef struct raft_append_entries_arg {
     RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST];
     uint64_t leader_commit;
     uint64_t ack_seq;
+    uint64_t ts_replicated;
 } RAFT_APPEND_ENTRIES_ARG;
 
 typedef struct raft_append_entries_result {
     char server_woof[RAFT_NAME_LENGTH];
     uint64_t term;
-    int32_t success;
+    int8_t success;
     uint64_t last_entry_seq;
     uint64_t seqno;
-    uint64_t request_created_ts;
     uint64_t ack_seq;
+    uint64_t ts_received;
 } RAFT_APPEND_ENTRIES_RESULT;
 
 typedef struct raft_client_put_request {
     RAFT_DATA_TYPE data;
-    int32_t is_handler;
+    int8_t is_handler;
     char callback_woof[RAFT_NAME_LENGTH];
     char callback_handler[RAFT_NAME_LENGTH];
     char extra_woof[RAFT_NAME_LENGTH];
     uint64_t extra_seqno;
+    uint64_t ts_created;
 } RAFT_CLIENT_PUT_REQUEST;
 
 typedef struct raft_client_put_arg {
@@ -152,43 +152,33 @@ typedef struct raft_client_put_result {
     uint64_t term;
     char extra_woof[RAFT_NAME_LENGTH];
     uint64_t extra_seqno;
+    uint64_t ts_forward;
 } RAFT_CLIENT_PUT_RESULT;
 
 typedef struct raft_config_change_arg {
     int32_t members;
     char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH];
 
-    int32_t observe;
+    int8_t observe;
     char observer_woof[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_ARG;
 
 typedef struct raft_config_change_result {
-    int32_t redirected;
-    int32_t success;
+    int8_t redirected;
+    int8_t success;
     char current_leader[RAFT_NAME_LENGTH];
 } RAFT_CONFIG_CHANGE_RESULT;
 
-typedef struct raft_check_append_result_entries {
-    uint64_t term;
-    uint64_t last_seen_result_seqno;
-} RAFT_CHECK_APPEND_RESULT_ARG;
-
-typedef struct raft_update_commit_index_arg {
-    uint64_t term;
-} RAFT_UPDATE_COMMIT_INDEX_ARG;
-
 typedef struct raft_invoke_committed_arg {
     uint64_t term;
-    uint64_t last_checked_client_put_result_seqno;
-} RAFT_INVOKE_COMMITTED_ARG;
-
-typedef struct raft_commit_handler_arg {
-    uint64_t last_index;
-} RAFT_COMMIT_HANDLER_ARG;
+    uint64_t last_forwarded_put_result;
+} RAFT_FORWARD_PUT_RESULT_ARG;
 
 typedef struct raft_replicate_entries {
     uint64_t term;
     uint64_t last_ts;
+    uint64_t last_seen_result_seqno;
+    uint64_t last_invoked_committed_handler;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {
@@ -201,11 +191,15 @@ typedef struct raft_request_vote_arg {
 
 typedef struct raft_request_vote_result {
     uint64_t term;
-    int32_t granted;
+    int8_t granted;
     uint64_t candidate_vote_pool_seqno;
     uint64_t request_created_ts;
     char granter[RAFT_NAME_LENGTH];
 } RAFT_REQUEST_VOTE_RESULT;
+
+typedef struct raft_lock_arg {
+
+} RAFT_LOCK;
 
 uint64_t random_timeout(unsigned long seed, int min, int max);
 int32_t member_id(char* woof_name, char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
@@ -219,14 +213,15 @@ int compute_joint_config(int old_members,
                          char joint_member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH]);
 int threads_join(int count, pthread_t* pids);
 int threads_cancel(int count, pthread_t* pids);
-
+int raft_init_lock(char* name);
+int raft_lock(char* name);
+int raft_unlock(char* name);
 int raft_create_woofs();
 int raft_start_server(int members,
                       char woof_name[RAFT_NAME_LENGTH],
                       char member_woofs[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS][RAFT_NAME_LENGTH],
                       int observer,
                       int timeout_min,
-                      int timeout_max,
-                      int replicate_delay);
+                      int timeout_max);
 
 #endif

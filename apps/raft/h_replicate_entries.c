@@ -17,18 +17,31 @@
 typedef struct replicate_thread_arg {
     int member_id;
     char member_woof[RAFT_NAME_LENGTH];
-    int num_entries;
-    RAFT_APPEND_ENTRIES_ARG arg;
+    RAFT_APPEND_ENTRIES_ARG arg;                          // do not change the relative order
+    RAFT_LOG_ENTRY entries[RAFT_MAX_ENTRIES_PER_REQUEST]; // of these two members
     uint64_t term;
     unsigned long seq_no;
 } REPLICATE_THREAD_ARG;
 
+void* prepare_append_entries_arg(char* woof_name, char* member_woof, int num_entries) {
+    int x = 1;
+    while (x <= RAFT_MAX_ENTRIES_PER_REQUEST && num_entries > x) {
+        x *= 2;
+    }
+    sprintf(woof_name, "%s/%s_%dX", member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF, x);
+}
+
 void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
-    char woof_name[RAFT_NAME_LENGTH];
-    sprintf(woof_name, "%s/%s", replicate_thread_arg->member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF);
     replicate_thread_arg->arg.ts_replicated = get_milliseconds();
-    unsigned long seq = WooFPut(woof_name, "h_append_entries", &replicate_thread_arg->arg);
+    log_debug("sending %d entries to member %d, prev_index: %" PRIu64 "",
+              replicate_thread_arg->arg.num_entries,
+              replicate_thread_arg->member_id,
+              replicate_thread_arg->arg.prev_log_index);
+    char woof_name[RAFT_NAME_LENGTH];
+    prepare_append_entries_arg(woof_name, replicate_thread_arg->member_woof, replicate_thread_arg->arg.num_entries);
+    unsigned long seq =
+        WooFPut(woof_name, "h_append_entries", &replicate_thread_arg->arg); // will be followed by entries
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
                  replicate_thread_arg->member_id);
@@ -47,9 +60,9 @@ void* replicate_thread(void* arg) {
             log_error("failed to put to result woof and cooldown failed thread");
         }
     } else {
-        if (replicate_thread_arg->num_entries > 0) {
+        if (replicate_thread_arg->arg.num_entries > 0) {
             log_debug("sent %d entries to member %d [%lu], prev_index: %" PRIu64 "",
-                      replicate_thread_arg->num_entries,
+                      replicate_thread_arg->arg.num_entries,
                       replicate_thread_arg->member_id,
                       seq,
                       replicate_thread_arg->arg.prev_log_index);
@@ -173,11 +186,6 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
         printf("RAFT_PROFILE received->result: %lu\n", ts_result - result.ts_received);
 #endif
 
-        if (RAFT_SAMPLING_RATE > 0 && (result_seq % RAFT_SAMPLING_RATE == 0)) {
-            log_debug("request %lu took %" PRIu64 "ms to receive response",
-                      result_seq,
-                      get_milliseconds() - result.request_created_ts);
-        }
         int result_member_id = member_id(result.server_woof, server_state->member_woofs);
         if (result_member_id == -1) {
             log_warn("received a result not in current config: %s", result.server_woof);
@@ -220,13 +228,12 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
             return 1;
         }
         if (result.term == arg->term) {
+            server_state->next_index[result_member_id] = result.last_entry_seq + 1;
+            server_state->acked_request_seq[result_member_id] = result.ack_seq;
             if (result.success == 1) {
                 // don't update the next index when append succeeds, let the leader do it so it can send more entries
                 // without waiting acknowledgement
                 server_state->match_index[result_member_id] = result.last_entry_seq;
-            } else {
-                // if append fails, use the last entry index from follower as the next index
-                server_state->next_index[result_member_id] = result.last_entry_seq + 1;
             }
         }
         arg->last_seen_result_seqno = result_seq;
@@ -259,7 +266,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_REPLICATE_ENTRIES_ARG* arg = (RAFT_REPLICATE_ENTRIES_ARG*)ptr;
     log_set_tag("replicate_entries");
     log_set_level(RAFT_LOG_INFO);
-    // log_set_level(RAFT_LOG_DEBUG);
+    log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
     WooFMsgCacheInit();
@@ -313,9 +320,10 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (num_entries > RAFT_MAX_ENTRIES_PER_REQUEST) {
             num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
         }
-        if (num_entries > 0 || (get_milliseconds() - server_state.last_sent_timestamp[m] > heartbeat_rate)) {
+        if ((num_entries > 0 && server_state.acked_request_seq[m] == server_state.last_sent_request_seq[m]) ||
+            (get_milliseconds() - server_state.last_sent_timestamp[m] > heartbeat_rate)) {
             thread_arg[m].member_id = m;
-            thread_arg[m].num_entries = num_entries;
+            thread_arg[m].arg.num_entries = num_entries;
             strcpy(thread_arg[m].member_woof, server_state.member_woofs[m]);
             thread_arg[m].arg.term = server_state.current_term;
             strcpy(thread_arg[m].arg.leader_woof, server_state.woof_name);
@@ -339,7 +347,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
             int i;
             uint64_t get_entries_begin = get_milliseconds();
             for (i = 0; i < num_entries; ++i) {
-                if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &thread_arg[m].arg.entries[i], server_state.next_index[m] + i) < 0) {
+                if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &thread_arg[m].entries[i], server_state.next_index[m] + i) < 0) {
                     log_error("failed to get the log entries at %" PRIu64 "", server_state.next_index[m] + i);
                     threads_join(m, thread_id);
                     free(thread_id);
@@ -348,17 +356,17 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
-                if (thread_arg[m].arg.entries[i].is_handler) {
-                    RAFT_LOG_HANDLER_ENTRY* handler_entry =
-                        (RAFT_LOG_HANDLER_ENTRY*)(&thread_arg[m].arg.entries[i].data);
+                if (thread_arg[m].entries[i].is_handler) {
+                    RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)(&thread_arg[m].entries[i].data);
                 }
-                thread_arg[m].arg.entries[i].ts_written = get_milliseconds();
+                thread_arg[m].entries[i].ts_written = get_milliseconds();
 #ifdef PROFILING
                 printf("RAFT_PROFILE created->written: %lu\n",
-                       thread_arg[m].arg.entries[i].ts_written - thread_arg[m].arg.entries[i].ts_created);
+                       thread_arg[m].entries[i].ts_written - thread_arg[m].entries[i].ts_created);
 #endif
             }
             thread_arg[m].arg.leader_commit = server_state.commit_index;
+            thread_arg[m].arg.ack_seq = server_state.last_sent_request_seq[m] + 1;
             thread_arg[m].seq_no = seq_no;
             if (pthread_create(&thread_id[m], NULL, replicate_thread, (void*)&thread_arg[m]) < 0) {
                 log_error("failed to create thread to send entries");
@@ -370,7 +378,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 exit(1);
             }
             server_state.last_sent_timestamp[m] = get_milliseconds();
-            server_state.next_index[m] += num_entries;
+            ++server_state.last_sent_request_seq[m];
         }
     }
 
