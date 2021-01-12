@@ -267,7 +267,7 @@ int dht_init(unsigned char* node_hash,
     for (i = 1; i < SHA_DIGEST_LENGTH * 8 + 1; ++i) {
         seq = set_finger_info(i, &finger_info);
         if (WooFInvalid(seq)) {
-            sprintf(dht_error_msg, "failed to initialize %s%d", DHT_FINGER_INFO_WOOF, i);
+            sprintf(dht_error_msg, "failed to initialize %s_%d", DHT_FINGER_INFO_WOOF, i);
             return -1;
         }
     }
@@ -326,13 +326,13 @@ int get_latest_successor_info(DHT_SUCCESSOR_INFO* element) {
 
 int get_latest_finger_info(int finger_id, DHT_FINGER_INFO* element) {
     char woof_name[DHT_NAME_LENGTH];
-    sprintf(woof_name, "%s%d", DHT_FINGER_INFO_WOOF, finger_id);
+    sprintf(woof_name, "%s_%d", DHT_FINGER_INFO_WOOF, finger_id);
     return WooFGet(woof_name, element, 0);
 }
 
 unsigned long set_finger_info(int finger_id, DHT_FINGER_INFO* element) {
     char woof_name[DHT_NAME_LENGTH];
-    sprintf(woof_name, "%s%d", DHT_FINGER_INFO_WOOF, finger_id);
+    sprintf(woof_name, "%s_%d", DHT_FINGER_INFO_WOOF, finger_id);
     return WooFPut(woof_name, NULL, element);
 }
 

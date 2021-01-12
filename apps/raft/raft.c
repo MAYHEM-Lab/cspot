@@ -228,11 +228,11 @@ int raft_create_woofs() {
             return -1;
         }
     }
-    for (i = 1; i <= RAFT_MAX_ENTRIES_PER_REQUEST; i *= 2) {
+    for (i = 0; i <= RAFT_MAX_ENTRIES_PER_REQUEST; ++i) {
         char woof_name[RAFT_NAME_LENGTH] = {0};
         sprintf(woof_name, "%s_%dX", RAFT_APPEND_ENTRIES_ARG_WOOF, i);
         unsigned long element_size = sizeof(RAFT_APPEND_ENTRIES_ARG) + i * sizeof(RAFT_LOG_ENTRY);
-        if (WooFCreate(woof_name, element_size, RAFT_WOOF_HISTORY_SIZE_SHORT) < 0) {
+        if (WooFCreate(woof_name, element_size, RAFT_WOOF_HISTORY_SIZE_EXTRA_SHORT) < 0) {
             fprintf(stderr, "failed to create woof %s\n", woof_name);
             return -1;
         }

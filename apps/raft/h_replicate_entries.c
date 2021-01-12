@@ -23,14 +23,6 @@ typedef struct replicate_thread_arg {
     unsigned long seq_no;
 } REPLICATE_THREAD_ARG;
 
-void* prepare_append_entries_arg(char* woof_name, char* member_woof, int num_entries) {
-    int x = 1;
-    while (x <= RAFT_MAX_ENTRIES_PER_REQUEST && num_entries > x) {
-        x *= 2;
-    }
-    sprintf(woof_name, "%s/%s_%dX", member_woof, RAFT_APPEND_ENTRIES_ARG_WOOF, x);
-}
-
 void* replicate_thread(void* arg) {
     REPLICATE_THREAD_ARG* replicate_thread_arg = (REPLICATE_THREAD_ARG*)arg;
     replicate_thread_arg->arg.ts_replicated = get_milliseconds();
@@ -39,7 +31,11 @@ void* replicate_thread(void* arg) {
               replicate_thread_arg->member_id,
               replicate_thread_arg->arg.prev_log_index);
     char woof_name[RAFT_NAME_LENGTH];
-    prepare_append_entries_arg(woof_name, replicate_thread_arg->member_woof, replicate_thread_arg->arg.num_entries);
+    sprintf(woof_name,
+            "%s/%s_%dX",
+            replicate_thread_arg->member_woof,
+            RAFT_APPEND_ENTRIES_ARG_WOOF,
+            replicate_thread_arg->arg.num_entries);
     unsigned long seq =
         WooFPut(woof_name, "h_append_entries", &replicate_thread_arg->arg); // will be followed by entries
     if (WooFInvalid(seq)) {
