@@ -172,13 +172,17 @@ int dht_publish(char* topic_name, void* element, uint64_t element_size) {
     }
 
     // see if the topic is in the cache
-    unsigned long i = WooFGetLatestSeqno(DHT_TOPIC_CACHE_WOOF);
-    if (WooFInvalid(i)) {
+    unsigned long latest_topic_cache_seqno = WooFGetLatestSeqno(DHT_TOPIC_CACHE_WOOF);
+    if (WooFInvalid(latest_topic_cache_seqno)) {
         sprintf(dht_error_msg, "failed to get the latest seqno of topic cache");
         return -1;
     }
     DHT_TOPIC_CACHE cache = {0};
+    unsigned long i = latest_topic_cache_seqno;
     while (i != 0) {
+        if (i <= latest_topic_cache_seqno - DHT_HISTORY_LENGTH_EXTRA_SHORT) {
+            break;
+        }
         if (WooFGet(DHT_TOPIC_CACHE_WOOF, &cache, i) < 0) {
             sprintf(dht_error_msg, "failed to get the topic cache at %lu", i);
             return -1;

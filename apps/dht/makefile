@@ -71,12 +71,13 @@ handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 clients: s_create_cluster s_create_woofs s_join_cluster \
 	client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 
-test: test_dht_handler test_publish test_subscribe test_trigger_publish test_latency_call test_latency_create test_latency_handler
+test: test_dht_handler test_publish test_subscribe test_trigger_publish test_trigger_publish_multi test_latency_call test_latency_create test_latency_handler
 	mkdir -p cspot;
 	cp test_dht_handler ./cspot;
 	cp test_publish ./cspot;
 	cp test_subscribe ./cspot;
 	cp test_trigger_publish ./cspot;
+	cp test_trigger_publish_multi ./cspot;
 	cp test_latency_call ./cspot;
 	cp test_latency_create ./cspot;
 	cp test_latency_handler ./cspot;
@@ -249,6 +250,9 @@ test_subscribe: test_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 test_trigger_publish: test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o test_trigger_publish test_trigger_publish.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
+test_trigger_publish_multi: test_trigger_publish_multi.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
+	${CC} ${CFLAGS} -o test_trigger_publish_multi test_trigger_publish_multi.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
 	rm -f s_create_cluster s_create_woofs s_join_cluster
@@ -258,5 +262,5 @@ clean:
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe
 	rm -f r_register_topic r_set_successor r_subscribe r_try_replicas
 	rm -f server_publish_data server_publish_trigger
-	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish
+	rm -f test_dht_handler test_latency_call test_latency_create test_latency_handler test_publish test_subscribe test_trigger_publish test_trigger_publish_multi
 
