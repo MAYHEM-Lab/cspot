@@ -18,7 +18,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_LOG_ENTRY* entries = (RAFT_LOG_ENTRY*)(ptr + sizeof(RAFT_APPEND_ENTRIES_ARG));
     log_set_tag("h_append_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     WooFMsgCacheInit();
 

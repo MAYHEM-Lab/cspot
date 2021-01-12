@@ -116,7 +116,7 @@ int dht_create_woofs() {
     }
     char finger_woof_name[DHT_NAME_LENGTH] = {0};
     for (i = 1; i < SHA_DIGEST_LENGTH * 8 + 1; ++i) {
-        sprintf(finger_woof_name, "%s%d", DHT_FINGER_INFO_WOOF, i);
+        sprintf(finger_woof_name, "%s_%d", DHT_FINGER_INFO_WOOF, i);
         if (WooFCreate(finger_woof_name, sizeof(DHT_FINGER_INFO), DHT_HISTORY_LENGTH_LONG) < 0) {
             sprintf(dht_error_msg, "failed to create %s", finger_woof_name);
             return -1;

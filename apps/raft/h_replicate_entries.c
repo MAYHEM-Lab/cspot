@@ -262,7 +262,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_REPLICATE_ENTRIES_ARG* arg = (RAFT_REPLICATE_ENTRIES_ARG*)ptr;
     log_set_tag("replicate_entries");
     log_set_level(RAFT_LOG_INFO);
-    log_set_level(RAFT_LOG_DEBUG);
+    // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
     WooFMsgCacheInit();
