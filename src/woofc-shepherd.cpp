@@ -55,7 +55,7 @@ int main(int argc, char** argv, char** envp) {
     unsigned long my_log_seq_no; /* needed for logging cause */
     unsigned long namelog_size;
     int err;
-    char* st = "WOOF_HANDLER_NAME";
+    const char* st = "WOOF_HANDLER_NAME";
     int i;
     struct timeval timeout;
     fd_set readfd;
@@ -248,7 +248,7 @@ int main(int argc, char** argv, char** envp) {
 #endif
 
     //	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
 #ifdef DEBUG
     fprintf(stdout, "WooFShepherd: buf assigned 0x%u\n", buf);
     fflush(stdout);
