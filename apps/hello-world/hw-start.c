@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "woofc.h"
-#include "woofc-host.h"
 #include "hw.h"
 
 #define ARGS "f:N:H:W:"
@@ -71,7 +70,6 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-
 	err = WooFCreate(Wname,sizeof(HW_EL),5);
 	if(err < 0) {
 		fprintf(stderr,"couldn't create woof from %s\n",Wname);
@@ -90,7 +88,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	pthread_exit(NULL);
 	return(0);
 }
 
