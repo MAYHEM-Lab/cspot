@@ -34,7 +34,7 @@
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
-#define RAFT_TOPIC_INDEX_MAPPING_WOOF_SUFFIX "index.woof"
+#define RAFT_INDEX_MAPPING_WOOF_SUFFIX "index.woof"
 #define RAFT_LOCK_SERVER "raft_server"
 #define RAFT_LOCK_LOG "raft_log"
 

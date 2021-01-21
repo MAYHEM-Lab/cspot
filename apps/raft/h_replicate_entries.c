@@ -9,13 +9,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 #define PROFILING
-
-extern char WooF_dir[2048];
 
 typedef struct replicate_thread_arg {
     int member_id;
@@ -240,22 +237,6 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
     return 0;
 }
 
-int create_index_map_woof(char* index_map_woof) {
-    if (WooFCreate(index_map_woof, sizeof(RAFT_INDEX_MAP), RAFT_WOOF_HISTORY_SIZE_LONG) < 0) {
-        sprintf(raft_error_msg, "failed to create index_map woof %s", index_map_woof);
-        return -1;
-    }
-    log_debug("created index_map woof %s", index_map_woof);
-    char woof_file[RAFT_NAME_LENGTH] = {0};
-    sprintf(woof_file, "%s/%s", WooF_dir, index_map_woof);
-    if (chmod(woof_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
-        sprintf(raft_error_msg, "failed to change file %s's mode to 0666", index_map_woof);
-        return -1;
-    }
-    log_debug("changed %s mode to 0666", index_map_woof);
-    return 0;
-}
-
 int invoke_commit_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_ARG* arg) {
     unsigned int i;
     for (i = arg->last_checked_committed_entry + 1; i <= server_state->commit_index; ++i) {
@@ -277,14 +258,7 @@ int invoke_commit_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state, R
         // if the entry belongs to a topic, map the index
         if (entry.topic_name[0] != 0) {
             char index_map_woof[RAFT_NAME_LENGTH] = {0};
-            sprintf(index_map_woof, "%s_%s", entry.topic_name, RAFT_TOPIC_INDEX_MAPPING_WOOF_SUFFIX);
-            if (!WooFExist(index_map_woof)) {
-                if (create_index_map_woof(index_map_woof) < 0) {
-                    log_error("failed to create index_map for %s: %s", entry.topic_name, raft_error_msg);
-                    WooFMsgCacheShutdown();
-                    exit(1);
-                }
-            }
+            sprintf(index_map_woof, "%s_%s", entry.topic_name, RAFT_INDEX_MAPPING_WOOF_SUFFIX);
             RAFT_INDEX_MAP index_map = {0};
             index_map.index = i;
             unsigned long seq = WooFPut(index_map_woof, NULL, &index_map);

@@ -43,11 +43,10 @@ extern "C" {
 #define DHT_SERVER_LOOP_ROUTINE_WOOF "dht_server_loop_routine.woof"
 #define DHT_TOPIC_CACHE_WOOF "dht_topic_cache.woof"
 #define DHT_REGISTRY_CACHE_WOOF "dht_registry_cache.woof"
-#define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
-#define DHT_HISTORY_LENGTH_EXTRA_SHORT 4
+#define DHT_HISTORY_LENGTH_EXTRA_SHORT 8
 #define DHT_HISTORY_LENGTH_SHORT 32
 #define DHT_HISTORY_LENGTH_LONG 512
 #define DHT_HISTORY_LENGTH_EXTRA_LONG 32768
@@ -233,10 +232,6 @@ typedef struct dht_try_replicas_arg {
 typedef struct dht_invalidate_fingers_arg {
     unsigned char finger_hash[SHA_DIGEST_LENGTH];
 } DHT_INVALIDATE_FINGERS_ARG;
-
-typedef struct dht_map_raft_index_arg {
-    uint64_t raft_index;
-} DHT_MAP_RAFT_INDEX_ARG;
 
 typedef struct dht_server_publish_data_arg {
     char topic_name[DHT_NAME_LENGTH];

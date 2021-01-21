@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -32,7 +33,20 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
     // when using raft, there's no need to create topic woof since the data is stored in raft log
 }
 
-int dht_register_topic(char* topic_name, int timeout) {
+int dht_register_topic(char* topic_name) {
+    // create index_map woof
+    char index_map_woof[DHT_NAME_LENGTH] = {0};
+    sprintf(index_map_woof, "%s_%s", topic_name, RAFT_INDEX_MAPPING_WOOF_SUFFIX);
+    if (WooFCreate(index_map_woof, sizeof(RAFT_INDEX_MAP), RAFT_WOOF_HISTORY_SIZE_LONG) < 0) {
+        sprintf(dht_error_msg, "failed to create index_map woof %s", index_map_woof);
+        return -1;
+    }
+    if (chmod(index_map_woof, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
+        sprintf(dht_error_msg, "failed to change file %s's mode to 0666", index_map_woof);
+        return -1;
+    }
+
+    // register topic namespace
     char local_namespace[DHT_NAME_LENGTH] = {0};
     node_woof_namespace(local_namespace);
     char topic_namespace[DHT_NAME_LENGTH] = {0};
@@ -280,7 +294,6 @@ int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REP
 int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry, char* registry_woof) {
     DHT_REGISTRY_CACHE cache = {0};
     if (dht_cache_registry_get(topic_name, &cache) > 0) {
-        printf("found cache for %s\n", topic_name);
         memcpy(topic_entry, &cache.registry, sizeof(DHT_TOPIC_REGISTRY));
         return 0;
     }
@@ -310,8 +323,6 @@ int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry, char* re
         }
         if (dht_cache_registry_put(topic_name, topic_entry, registration_woof) < 0) {
             fprintf(stderr, "failed to update topic registry cache: %s", dht_error_msg);
-        } else {
-            printf("put cache for %s\n", topic_name);
         }
         if (registry_woof != NULL) {
             strcpy(registry_woof, registration_woof);
@@ -335,7 +346,7 @@ unsigned long dht_latest_index(char* topic_name) {
             "%s/%s_%s",
             topic_entry.topic_replicas[topic_entry.last_leader],
             topic_name,
-            RAFT_TOPIC_INDEX_MAPPING_WOOF_SUFFIX);
+            RAFT_INDEX_MAPPING_WOOF_SUFFIX);
     unsigned long seq = WooFGetLatestSeqno(index_map_woof);
     if (WooFInvalid(seq)) {
         sprintf(dht_error_msg, "failed to get the latest seqno from %s", index_map_woof);
@@ -357,7 +368,7 @@ unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_s
             "%s/%s_%s",
             topic_entry.topic_replicas[topic_entry.last_leader],
             topic_name,
-            RAFT_TOPIC_INDEX_MAPPING_WOOF_SUFFIX);
+            RAFT_INDEX_MAPPING_WOOF_SUFFIX);
     unsigned long latest_index = WooFGetLatestSeqno(index_map_woof);
     if (WooFInvalid(latest_index)) {
         sprintf(dht_error_msg, "failed to get the latest seqno from %s", index_map_woof);
@@ -393,7 +404,7 @@ int dht_get(char* topic_name, RAFT_DATA_TYPE* data, unsigned long index) {
             "%s/%s_%s",
             topic_entry.topic_replicas[topic_entry.last_leader],
             topic_name,
-            RAFT_TOPIC_INDEX_MAPPING_WOOF_SUFFIX);
+            RAFT_INDEX_MAPPING_WOOF_SUFFIX);
     RAFT_INDEX_MAP index_map = {0};
     if (WooFGet(index_map_woof, &index_map, index) < 0) {
         sprintf(dht_error_msg, "failed to get index_map from %s[%lu]", index_map_woof, index);

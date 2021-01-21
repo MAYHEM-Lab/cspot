@@ -14,7 +14,6 @@
 #define TEST_HANDLER "test_dht_handler"
 #define TEST_MESSAGE "test_message"
 #define TEST_COUNT 10
-#define TEST_TIMEOUT 5000
 
 typedef struct test_stc {
     char msg[256 - 8];
@@ -35,7 +34,7 @@ int main(int argc, char** argv) {
     printf("topic created\n");
     usleep(500 * 1000);
 
-    if (dht_register_topic(TEST_TOPIC, TEST_TIMEOUT) < 0) {
+    if (dht_register_topic(TEST_TOPIC) < 0) {
         fprintf(stderr, "failed to register topic: %s\n", dht_error_msg);
         exit(1);
     }
