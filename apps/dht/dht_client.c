@@ -277,7 +277,7 @@ int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REP
     return -1;
 }
 
-int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
+int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry, char* registry_woof) {
     DHT_REGISTRY_CACHE cache = {0};
     if (dht_cache_registry_get(topic_name, &cache) > 0) {
         printf("found cache for %s\n", topic_name);
@@ -308,10 +308,13 @@ int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
             strcpy(dht_error_msg, tmp);
             continue;
         }
-        if (dht_cache_registry_put(topic_name, topic_entry) < 0) {
+        if (dht_cache_registry_put(topic_name, topic_entry, registration_woof) < 0) {
             fprintf(stderr, "failed to update topic registry cache: %s", dht_error_msg);
         } else {
             printf("put cache for %s\n", topic_name);
+        }
+        if (registry_woof != NULL) {
+            strcpy(registry_woof, registration_woof);
         }
         return 0;
     }
@@ -321,7 +324,7 @@ int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
 
 unsigned long dht_latest_index(char* topic_name) {
     DHT_TOPIC_REGISTRY topic_entry = {0};
-    if (dht_get_registry(topic_name, &topic_entry) < 0) {
+    if (dht_get_registry(topic_name, &topic_entry, NULL) < 0) {
         char tmp[DHT_NAME_LENGTH] = {0};
         sprintf(tmp, "failed to get topic registry: %s", dht_error_msg);
         strcpy(dht_error_msg, tmp);
@@ -343,7 +346,7 @@ unsigned long dht_latest_index(char* topic_name) {
 
 unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_seqno) {
     DHT_TOPIC_REGISTRY topic_entry = {0};
-    if (dht_get_registry(topic_name, &topic_entry) < 0) {
+    if (dht_get_registry(topic_name, &topic_entry, NULL) < 0) {
         char tmp[DHT_NAME_LENGTH] = {0};
         sprintf(tmp, "failed to get topic registry: %s", dht_error_msg);
         strcpy(dht_error_msg, tmp);
@@ -379,7 +382,7 @@ unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_s
 
 int dht_get(char* topic_name, RAFT_DATA_TYPE* data, unsigned long index) {
     DHT_TOPIC_REGISTRY topic_entry = {0};
-    if (dht_get_registry(topic_name, &topic_entry) < 0) {
+    if (dht_get_registry(topic_name, &topic_entry, NULL) < 0) {
         char tmp[DHT_NAME_LENGTH] = {0};
         sprintf(tmp, "failed to get topic registry: %s", dht_error_msg);
         strcpy(dht_error_msg, tmp);

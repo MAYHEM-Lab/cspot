@@ -261,6 +261,7 @@ typedef struct dht_topic_cache {
 typedef struct dht_registry_cache {
     char topic_name[DHT_NAME_LENGTH];
     DHT_TOPIC_REGISTRY registry;
+    char registry_woof[DHT_NAME_LENGTH];
     int8_t invalidated;
 } DHT_REGISTRY_CACHE;
 
@@ -293,7 +294,7 @@ int dht_cache_node_get(char* topic_name, DHT_TOPIC_CACHE* result);
 int dht_cache_node_put(char* topic_name, int node_leader, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
 int dht_cache_node_invalidate(char* topic_name);
 int dht_cache_registry_get(char* topic_name, DHT_REGISTRY_CACHE* result);
-int dht_cache_registry_put(char* topic_name, DHT_TOPIC_REGISTRY* registry);
+int dht_cache_registry_put(char* topic_name, DHT_TOPIC_REGISTRY* registry, char* registry_woof);
 int dht_cache_registry_invalidate(char* topic_name);
 #endif
 

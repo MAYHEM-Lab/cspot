@@ -10,39 +10,7 @@
 
 #define PROFILING
 
-typedef struct registry_cache {
-    char woof_name[DHT_NAME_LENGTH];
-    DHT_TOPIC_REGISTRY topic_entry;
-} REGISTRY_CACHE;
-
-REGISTRY_CACHE registry_cache[REGISTRY_CACHE_SIZE];
 pthread_mutex_t cache_lock;
-
-int get_registry(char* woof_name) {
-    int i;
-    for (i = 0; i < REGISTRY_CACHE_SIZE && registry_cache[i].woof_name[0] != 0; ++i) {
-        if (strcmp(registry_cache[i].woof_name, woof_name) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int get_free_cache() {
-    int i;
-    while (i < REGISTRY_CACHE_SIZE && registry_cache[i].woof_name[0] != 0) {
-        ++i;
-    }
-    if (i == REGISTRY_CACHE_SIZE) {
-        return -1;
-    }
-    return i;
-}
-
-void put_registry(int cache_id, char* woof_name, DHT_TOPIC_REGISTRY* registry) {
-    memcpy(&registry_cache[cache_id].woof_name, woof_name, sizeof(registry_cache[cache_id].woof_name));
-    memcpy(&registry_cache[cache_id].topic_entry, registry, sizeof(DHT_TOPIC_REGISTRY));
-}
 
 typedef struct resolve_thread_arg {
     char node_addr[DHT_NAME_LENGTH];
@@ -108,73 +76,53 @@ void* resolve_thread(void* arg) {
 
     char registration_woof[DHT_NAME_LENGTH] = {0};
     DHT_TOPIC_REGISTRY topic_entry = {0};
-    DHT_REGISTRY_CACHE topic_registry_cache = {0};
-    char* node_addr;
-    int i, j;
-    for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
-        node_addr = data_arg.node_replicas[(data_arg.node_leader + i) % DHT_REPLICA_NUMBER];
-        if (node_addr[0] == 0) {
-            continue;
-        }
-        // get the topic namespace
-        sprintf(registration_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_TOPIC_REGISTRATION_WOOF);
-        pthread_mutex_lock(&cache_lock);
-        int cache_id = get_registry(registration_woof);
-        if (cache_id != -1) {
-            memcpy(&topic_entry, &registry_cache[cache_id].topic_entry, sizeof(DHT_TOPIC_REGISTRY));
-            log_debug("found registry in cache[%d] %s", cache_id, registration_woof);
+    DHT_REGISTRY_CACHE cache = {0};
+    pthread_mutex_lock(&cache_lock);
+    if (dht_cache_registry_get(data_arg.topic_name, &cache) > 0) {
+        log_debug("found registry cache of %s: %s", data_arg.topic_name, dht_error_msg);
+        memcpy(&topic_entry, &cache.registry, sizeof(topic_entry));
+        strcpy(registration_woof, cache.registry_woof);
+        pthread_mutex_unlock(&cache_lock);
+    } else {
+        if (dht_get_registry(data_arg.topic_name, &topic_entry, registration_woof) < 0) {
             pthread_mutex_unlock(&cache_lock);
-            break;
-        } else {
-            cache_id = get_free_cache();
-            if (WooFGet(registration_woof, &topic_entry, 0) < 0) {
-                log_warn("%s not working: %s", registration_woof, dht_error_msg);
-                pthread_mutex_unlock(&cache_lock);
-            } else if (cache_id != -1) {
-                // found a working replica
-                // log_debug("%s works", registration_woof);
-                put_registry(cache_id, registration_woof, &topic_entry);
-                log_debug("put registry into cache[%d] %s", cache_id, registration_woof);
-                pthread_mutex_unlock(&cache_lock);
-                break;
+            log_error("failed to get topic registration info %s", dht_error_msg);
+            // invalidate topic cache
+            if (data_arg.update_cache == 0) { // the topic cache only exists when update_cache == 0
+                if (dht_cache_node_invalidate(data_arg.topic_name)) {
+                    log_error("failed to invalidate topic cache of %s", data_arg.topic_name);
+                } else {
+                    log_debug("invalidated topic cache of %s", data_arg.topic_name);
+                }
+
+                // find the topic again
+                char hashed_key[SHA_DIGEST_LENGTH];
+                dht_hash(hashed_key, data_arg.topic_name);
+                DHT_FIND_SUCCESSOR_ARG arg = {0};
+                dht_init_find_arg(&arg, data_arg.topic_name, hashed_key, thread_arg->node_addr);
+                arg.action_seqno = data_arg.element_seqno;
+                arg.action = DHT_ACTION_PUBLISH;
+                arg.ts_created = data_arg.ts_created;
+
+                unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
+                if (WooFInvalid(seq)) {
+                    log_error("failed to invoke h_find_successor");
+                    return;
+                }
             }
+            return;
         }
-    }
-    if (i == DHT_REPLICA_NUMBER) {
-        char err_msg[DHT_NAME_LENGTH] = {0};
-        strcpy(err_msg, dht_error_msg);
-        log_error("failed to get topic registration info from %s: %s", node_addr, err_msg);
-
-        // invalidate topic cache
-        if (data_arg.update_cache == 0) { // the topic cache only exists when update_cache == 0
-            if (dht_cache_node_invalidate(data_arg.topic_name)) {
-                log_error("failed to invalidate topic cache of %s", data_arg.topic_name);
-            } else {
-                log_debug("invalidated topic cache of %s", data_arg.topic_name);
-            }
-
-            // find the topic again
-            char hashed_key[SHA_DIGEST_LENGTH];
-            dht_hash(hashed_key, data_arg.topic_name);
-            DHT_FIND_SUCCESSOR_ARG arg = {0};
-            dht_init_find_arg(&arg, data_arg.topic_name, hashed_key, thread_arg->node_addr);
-            arg.action_seqno = data_arg.element_seqno;
-            arg.action = DHT_ACTION_PUBLISH;
-            arg.ts_created = data_arg.ts_created;
-
-            unsigned long seq = WooFPut(DHT_FIND_SUCCESSOR_WOOF, NULL, &arg);
-            if (WooFInvalid(seq)) {
-                log_error("failed to invoke h_find_successor");
-                return;
-            }
+        if (dht_cache_registry_put(data_arg.topic_name, &topic_entry, registration_woof) < 0) {
+            log_error("failed to update registry cache of %s: %s", data_arg.topic_name, dht_error_msg);
         }
-        return;
+        pthread_mutex_unlock(&cache_lock);
     }
 
     strcpy(trigger_arg.element_woof, topic_entry.topic_replicas[(topic_entry.last_leader)]);
     trigger_arg.ts_registry = get_milliseconds();
     strcpy(trigger_arg.topic_name, data_arg.topic_name);
-    sprintf(trigger_arg.subscription_woof, "%s/%s_%s", node_addr, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
+    sprintf(
+        trigger_arg.subscription_woof, "%s/%s_%s", registration_woof, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
 
     unsigned long trigger_seq = WooFPut(DHT_TRIGGER_WOOF, NULL, &trigger_arg);
     if (WooFInvalid(trigger_seq)) {
@@ -192,6 +140,7 @@ void* resolve_thread(void* arg) {
 
     // put data to raft
     char* topic_replica;
+    int i;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
 
@@ -261,7 +210,6 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     RESOLVE_THREAD_ARG thread_arg[count];
     pthread_t thread_id[count];
-    memset(registry_cache, 0, sizeof(REGISTRY_CACHE) * REGISTRY_CACHE_SIZE);
     if (pthread_mutex_init(&cache_lock, NULL) < 0) {
         log_error("failed to init mutex");
         WooFMsgCacheShutdown();

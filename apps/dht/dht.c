@@ -366,10 +366,11 @@ int dht_cache_registry_get(char* topic_name, DHT_REGISTRY_CACHE* result) {
     return 0;
 }
 
-int dht_cache_registry_put(char* topic_name, DHT_TOPIC_REGISTRY* registry) {
+int dht_cache_registry_put(char* topic_name, DHT_TOPIC_REGISTRY* registry, char* registry_woof) {
     DHT_REGISTRY_CACHE cache = {0};
     strcpy(cache.topic_name, topic_name);
     memcpy(&cache.registry, registry, sizeof(cache.registry));
+    strcpy(cache.registry_woof, registry_woof);
     cache.invalidated = 0;
     unsigned long seq = WooFPut(DHT_REGISTRY_CACHE_WOOF, NULL, &cache);
     if (WooFInvalid(seq)) {
