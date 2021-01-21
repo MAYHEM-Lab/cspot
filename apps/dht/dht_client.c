@@ -240,7 +240,7 @@ int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REP
     dht_hash(hashed_key, topic_name);
     DHT_FIND_SUCCESSOR_ARG arg = {0};
     dht_init_find_arg(&arg, topic_name, hashed_key, node_info.addr);
-    arg.action = DHT_ACTION_PUBLISH;
+    arg.action = DHT_ACTION_FIND_NODE;
 
     char find_sucessor_woof[DHT_NAME_LENGTH] = {0};
     if (node_info.leader_id != node_info.replica_id) {
@@ -254,7 +254,8 @@ int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REP
         sprintf(dht_error_msg, "failed to invoke h_find_successor");
         return -1;
     }
-    while (usleep(10 * 1000)) {
+    while (1) {
+        usleep(10 * 1000);
         DHT_FIND_NODE_RESULT result = {0};
         unsigned long latest_result_seq = WooFGetLatestSeqno(DHT_FIND_NODE_RESULT_WOOF);
         while (i <= latest_result_seq) {
@@ -270,6 +271,7 @@ int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REP
                 }
                 return 0;
             }
+            ++i;
         }
     }
     return -1;
@@ -278,6 +280,7 @@ int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REP
 int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
     DHT_REGISTRY_CACHE cache = {0};
     if (dht_cache_registry_get(topic_name, &cache) > 0) {
+        printf("found cache for %s\n", topic_name);
         memcpy(topic_entry, &cache.registry, sizeof(DHT_TOPIC_REGISTRY));
         return 0;
     }
@@ -285,7 +288,9 @@ int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
     int node_leader;
     char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
     if (dht_find_node(topic_name, &node_leader, node_replicas) < 0) {
-        sprintf(dht_error_msg, "failed to get topic replicas: %s", dht_error_msg);
+        char tmp[DHT_NAME_LENGTH] = {0};
+        sprintf(tmp, "failed to get topic replicas: %s", dht_error_msg);
+        strcpy(dht_error_msg, tmp);
         return -1;
     }
 
@@ -298,11 +303,15 @@ int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
         }
         sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
         if (WooFGet(registration_woof, topic_entry, 0) < 0) {
-            sprintf(dht_error_msg, "%s not working: %s", registration_woof, dht_error_msg);
+            char tmp[DHT_NAME_LENGTH] = {0};
+            sprintf(tmp, "%s not working: %s", registration_woof, dht_error_msg);
+            strcpy(dht_error_msg, tmp);
             continue;
         }
         if (dht_cache_registry_put(topic_name, topic_entry) < 0) {
-            sprintf(dht_error_msg, "failed to update topic registry cache: %s", dht_error_msg);
+            fprintf(stderr, "failed to update topic registry cache: %s", dht_error_msg);
+        } else {
+            printf("put cache for %s\n", topic_name);
         }
         return 0;
     }
@@ -313,7 +322,9 @@ int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry) {
 unsigned long dht_latest_index(char* topic_name) {
     DHT_TOPIC_REGISTRY topic_entry = {0};
     if (dht_get_registry(topic_name, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registry: %s", dht_error_msg);
+        char tmp[DHT_NAME_LENGTH] = {0};
+        sprintf(tmp, "failed to get topic registry: %s", dht_error_msg);
+        strcpy(dht_error_msg, tmp);
         return -1;
     }
     char index_map_woof[RAFT_NAME_LENGTH] = {0};
@@ -333,7 +344,9 @@ unsigned long dht_latest_index(char* topic_name) {
 unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_seqno) {
     DHT_TOPIC_REGISTRY topic_entry = {0};
     if (dht_get_registry(topic_name, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registry: %s", dht_error_msg);
+        char tmp[DHT_NAME_LENGTH] = {0};
+        sprintf(tmp, "failed to get topic registry: %s", dht_error_msg);
+        strcpy(dht_error_msg, tmp);
         return -1;
     }
     char index_map_woof[RAFT_NAME_LENGTH] = {0};
@@ -356,8 +369,6 @@ unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_s
             return -1;
         }
         if (index_map.index <= element_seqno) {
-            printf(
-                "latest_index: %lu, element_seqno: %lu, [%lu]: %lu\n", latest_index, element_seqno, i, index_map.index);
             return latest_index - i;
         }
     }
@@ -369,7 +380,9 @@ unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_s
 int dht_get(char* topic_name, RAFT_DATA_TYPE* data, unsigned long index) {
     DHT_TOPIC_REGISTRY topic_entry = {0};
     if (dht_get_registry(topic_name, &topic_entry) < 0) {
-        sprintf(dht_error_msg, "failed to get topic registry: %s", dht_error_msg);
+        char tmp[DHT_NAME_LENGTH] = {0};
+        sprintf(tmp, "failed to get topic registry: %s", dht_error_msg);
+        strcpy(dht_error_msg, tmp);
         return -1;
     }
     char index_map_woof[RAFT_NAME_LENGTH] = {0};

@@ -14,7 +14,7 @@
 
 extern char WooF_dir[2048];
 
-extern int PUT_HANDLER_NAME(char* topic_name, unsigned long index, void* ptr);
+extern int PUT_HANDLER_NAME(char* topic_name, unsigned long seq_no, void* ptr);
 
 int get_client_addr(char* client_addr) {
     DHT_NODE_INFO node = {0};
@@ -57,11 +57,11 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
                  arg->element_seqno);
     }
 
-    unsigned long latest_index = dht_latest_earlier_index(arg->topic_name, arg->element_seqno);
-    if (WooFInvalid(latest_index)) {
-        log_error("failed to get the latest index: %s", dht_error_msg);
-    }
-    int err = PUT_HANDLER_NAME(arg->topic_name, latest_index, raft_data.val);
-
+    // unsigned long latest_index = dht_latest_earlier_index(arg->topic_name, arg->element_seqno);
+    // if (WooFInvalid(latest_index)) {
+    //     log_error("failed to get the latest index: %s", dht_error_msg);
+    // }
+    // int err = PUT_HANDLER_NAME(arg->topic_name, latest_index, raft_data.val);
+    int err = PUT_HANDLER_NAME(arg->topic_name, arg->element_seqno, raft_data.val);
     return err;
 }
