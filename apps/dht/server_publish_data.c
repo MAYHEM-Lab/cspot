@@ -1,4 +1,5 @@
 #include "dht.h"
+#include "dht_client.h"
 #include "dht_utils.h"
 #include "raft_client.h"
 #include "string.h"
@@ -86,15 +87,11 @@ void* resolve_thread(void* arg) {
     }
 
     if (data_arg.update_cache == 1) {
-        DHT_TOPIC_CACHE cache = {0};
-        strcpy(cache.topic_name, data_arg.topic_name);
-        memcpy(cache.node_replicas, data_arg.node_replicas, sizeof(cache.node_replicas));
-        cache.node_leader = data_arg.node_leader;
-        unsigned long seq = WooFPut(DHT_TOPIC_CACHE_WOOF, NULL, &cache);
-        if (WooFInvalid(seq)) {
+        if (dht_cache_node_put(data_arg.topic_name, data_arg.node_leader, data_arg.node_replicas) < 0) {
             log_error("failed to update topic cache of %s", data_arg.topic_name);
+        } else {
+            log_debug("updated topic cache of %s", data_arg.topic_name);
         }
-        log_debug("updated topic cache of %s", data_arg.topic_name);
     }
 
     RAFT_DATA_TYPE element = {0};
@@ -111,6 +108,7 @@ void* resolve_thread(void* arg) {
 
     char registration_woof[DHT_NAME_LENGTH] = {0};
     DHT_TOPIC_REGISTRY topic_entry = {0};
+    DHT_REGISTRY_CACHE topic_registry_cache = {0};
     char* node_addr;
     int i, j;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
@@ -149,14 +147,11 @@ void* resolve_thread(void* arg) {
 
         // invalidate topic cache
         if (data_arg.update_cache == 0) { // the topic cache only exists when update_cache == 0
-            DHT_TOPIC_CACHE cache = {0};
-            strcpy(cache.topic_name, data_arg.topic_name);
-            cache.node_leader = -1;
-            unsigned long invalidate_seq = WooFPut(DHT_TOPIC_CACHE_WOOF, NULL, &cache);
-            if (WooFInvalid(invalidate_seq)) {
+            if (dht_cache_node_invalidate(data_arg.topic_name)) {
                 log_error("failed to invalidate topic cache of %s", data_arg.topic_name);
+            } else {
+                log_debug("invalidated topic cache of %s", data_arg.topic_name);
             }
-            log_debug("invalidated topic cache of %s", data_arg.topic_name);
 
             // find the topic again
             char hashed_key[SHA_DIGEST_LENGTH];
@@ -199,9 +194,9 @@ void* resolve_thread(void* arg) {
     char* topic_replica;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
-        sprintf(trigger_arg.element_woof, "%s", topic_replica);
 
         RAFT_CLIENT_PUT_OPTION opt = {0};
+        strcpy(opt.topic_name, data_arg.topic_name);
         sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);
         sprintf(opt.extra_woof, "%s", DHT_TRIGGER_WOOF);
         opt.extra_seqno = trigger_seq;

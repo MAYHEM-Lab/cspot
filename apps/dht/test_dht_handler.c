@@ -1,3 +1,4 @@
+#include "dht_client.h"
 #include "dht_utils.h"
 
 #include <inttypes.h>
@@ -8,21 +9,17 @@ typedef struct test_stc {
     uint64_t sent;
 } TEST_EL;
 
-int get_element(char* raft_addr, void* element, unsigned long seq_no);
-
-int test_dht_handler(char* raft_addr, char* topic_name, unsigned long seq_no, void* ptr) {
+int test_dht_handler(char* topic_name, unsigned long index, void* ptr) {
     TEST_EL* el = (TEST_EL*)ptr;
-    // printf("from %s[%lu], sent at %lu:\n", topic_name, seq_no, el->sent);
-    // printf("%s\n", el->msg);
-    // printf("took %lu ms\n", get_milliseconds() - el->sent);
     printf("%s triggered at %" PRIu64 "\n", el->msg, get_milliseconds());
-    // printf("last 5: ");
+    // printf("latest_index: %lu, last 5: ", index);
     // int i;
-    // for (i = 1; i <= 5 && seq_no - i > 0; ++i) {
-    //     if (get_element(raft_addr, el, seq_no - i) < 0) {
-    //         printf("\nfailed to get %lu\n", seq_no - i);
-    //         break;
+    // RAFT_DATA_TYPE data;
+    // for (i = 0; i < 5 && index - i > 0; ++i) {
+    //     if (dht_get(topic_name, &data, index - i) < 0) {
+    //         fprintf(stderr, "failed to get topic data from %s[%lu]", topic_name, index - i);
     //     }
+    //     el = (TEST_EL*)&data;
     //     printf("%s ", el->msg);
     // }
     // printf("\n");

@@ -23,7 +23,7 @@ int h_publish(WOOF* wf, unsigned long seq_no, void* ptr) {
     sprintf(client_addr, "%s:%d", ip, port);
     dht_set_client_ip(client_addr);
 
-    unsigned long index = dht_publish(arg->topic, &arg->val, sizeof(TEMPERATURE_ELEMENT), arg->timeout);
+    unsigned long index = dht_publish(arg->topic, &arg->val, sizeof(TEMPERATURE_ELEMENT));
     if (WooFInvalid(index)) {
         fprintf(stderr, "failed to publish to topic %s: %s\n", arg->topic, dht_error_msg);
         exit(1);

@@ -46,12 +46,7 @@ void* resolve_thread(void* ptr) {
                 memcpy(action_result.node_hash, successor->hash[i], sizeof(action_result.node_hash));
                 memcpy(action_result.node_replicas, successor->replicas[i], sizeof(action_result.node_replicas));
                 action_result.node_leader = successor->leader[i];
-                // strcpy(action_result.path, arg->path);
 
-                log_info("found_node[%d]: %s", i, successor->replicas[i][action_result.node_leader]);
-                char tmp[32];
-                print_node_hash(tmp, arg->hashed_key);
-                log_info("key: %s", arg->key);
                 char callback_woof[DHT_NAME_LENGTH] = {0};
                 sprintf(callback_woof, "%s/%s", arg->callback_namespace, DHT_FIND_NODE_RESULT_WOOF);
                 unsigned long seq = WooFPut(callback_woof, NULL, &action_result);

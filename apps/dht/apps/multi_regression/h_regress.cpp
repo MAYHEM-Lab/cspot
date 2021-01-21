@@ -7,8 +7,6 @@
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
 #include <stdint.h>
 
-#define TIMEOUT 5000
-
 using namespace std;
 
 void restore_model(const REGRESSOR_MODEL model, mlpack::regression::LinearRegression* regressor) {
@@ -108,7 +106,7 @@ extern "C" int h_regress(char* woof_name, char* topic_name, unsigned long seq_no
     TEMPERATURE_ELEMENT predict = {0};
     predict.temp = res(0);
     predict.timestamp = el->timestamp;
-    if (dht_publish((char*)TOPIC_PIZERO02_PREDICT, &predict, sizeof(TEMPERATURE_ELEMENT), TIMEOUT) < 0) {
+    if (dht_publish((char*)TOPIC_PIZERO02_PREDICT, &predict, sizeof(TEMPERATURE_ELEMENT)) < 0) {
         cerr << "failed to publish the predict temperature: " << dht_error_msg << endl;
         exit(1);
     }

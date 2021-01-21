@@ -12,6 +12,11 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
 int dht_register_topic(char* topic_name, int timeout);
 int dht_subscribe(char* topic_name, char* handler);
 int dht_publish(char* topic_name, void* element, uint64_t element_size);
+int dht_find_node(char* topic_name, int* node_leader, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_get_registry(char* topic_name, DHT_TOPIC_REGISTRY* topic_entry);
+unsigned long dht_latest_index(char* topic_name);
+unsigned long dht_latest_earlier_index(char* topic_name, unsigned long element_seqno);
+int dht_get(char* topic_name, RAFT_DATA_TYPE* data, unsigned long index);
 
 #endif
 

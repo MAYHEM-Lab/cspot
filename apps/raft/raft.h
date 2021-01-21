@@ -34,6 +34,7 @@
 #define RAFT_REPLICATE_ENTRIES_WOOF "raft_replicate_entries.woof"
 #define RAFT_REQUEST_VOTE_ARG_WOOF "raft_request_vote_arg.woof"
 #define RAFT_REQUEST_VOTE_RESULT_WOOF "raft_request_vote_result.woof"
+#define RAFT_TOPIC_INDEX_MAPPING_WOOF_SUFFIX "index.woof"
 #define RAFT_LOCK_SERVER "raft_server"
 #define RAFT_LOCK_LOG "raft_log"
 
@@ -61,6 +62,7 @@ typedef struct data_type {
 
 typedef struct raft_log_entry {
     uint64_t term;
+    char topic_name[RAFT_NAME_LENGTH];
     RAFT_DATA_TYPE data;
     int8_t is_config;
     int8_t is_handler;
@@ -133,6 +135,7 @@ typedef struct raft_client_put_request {
     char callback_handler[RAFT_NAME_LENGTH];
     char extra_woof[RAFT_NAME_LENGTH];
     uint64_t extra_seqno;
+    char topic_name[RAFT_NAME_LENGTH];
     uint64_t ts_created;
 } RAFT_CLIENT_PUT_REQUEST;
 
@@ -174,7 +177,7 @@ typedef struct raft_replicate_entries {
     uint64_t term;
     uint64_t last_ts;
     uint64_t last_seen_result_seqno;
-    uint64_t last_invoked_committed_handler;
+    uint64_t last_checked_committed_entry;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {
@@ -192,6 +195,10 @@ typedef struct raft_request_vote_result {
     uint64_t request_created_ts;
     char granter[RAFT_NAME_LENGTH];
 } RAFT_REQUEST_VOTE_RESULT;
+
+typedef struct raft_index_map {
+    uint64_t index;
+} RAFT_INDEX_MAP;
 
 typedef struct raft_lock_arg {
 

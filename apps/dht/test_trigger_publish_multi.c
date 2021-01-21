@@ -57,6 +57,7 @@ void* publish(void* ptr) {
             fflush(stdout);
         } else {
             pthread_mutex_unlock(&arg->lock);
+            usleep(1000);
         }
         now = get_milliseconds();
     }
@@ -112,6 +113,7 @@ int main(int argc, char** argv) {
     for (i = 0; i < thread_count; ++i) {
         if (pthread_create(&pid[i], NULL, publish, &test_arg) < 0) {
             fprintf(stderr, "failed to creat pthread\n");
+            free(pid);
             exit(1);
         }
     }
@@ -119,6 +121,7 @@ int main(int argc, char** argv) {
     for (i = 0; i < thread_count; ++i) {
         if (pthread_join(pid[i], NULL) < 0) {
             fprintf(stderr, "failed to join pthread\n");
+            free(pid);
             exit(1);
         }
     }

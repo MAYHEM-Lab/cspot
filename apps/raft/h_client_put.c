@@ -73,6 +73,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long entry_seqno;
             RAFT_LOG_ENTRY entry = {0};
             entry.term = server_state.current_term;
+            strcpy(entry.topic_name, request.topic_name);
             memcpy(&entry.data, &request.data, sizeof(RAFT_DATA_TYPE));
             entry.is_config = RAFT_CONFIG_ENTRY_NOT;
             entry.is_handler = request.is_handler;

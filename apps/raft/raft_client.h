@@ -19,6 +19,7 @@ typedef struct raft_client_put_option {
     char callback_handler[RAFT_NAME_LENGTH];
     char extra_woof[RAFT_NAME_LENGTH];
     unsigned long extra_seqno;
+    char topic_name[RAFT_NAME_LENGTH];
 } RAFT_CLIENT_PUT_OPTION;
 
 unsigned long raft_put(char* raft_leader,

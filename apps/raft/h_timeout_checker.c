@@ -31,6 +31,37 @@ void* request_vote(void* arg) {
     }
 }
 
+int experiment_cheat(char* woof_name) {
+    // dht except dht9 and dht16
+    if (strstr(woof_name, "169.231.23") != NULL && strstr(woof_name, "169.231.235.132") == NULL &&
+        strstr(woof_name, "169.231.235.200") == NULL) {
+        return 1;
+    }
+    // sed
+    // if (strstr(woof_name, "128.111.39") != NULL) {
+    //     return 1;
+    // }
+    // sed1
+    // if (strstr(woof_name, "128.111.39.229") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
+    // sed9
+    if (strstr(woof_name, "128.111.39.235") != NULL) {
+        return 1;
+    }
+    // val1
+    // if (strstr(woof_name, "128.111.45.112") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
+    // raft_throught test: dht1, val1, sed1, dht4, dht5
+    // if (strstr(woof_name, "169.231.234.163") != NULL || strstr(woof_name, "128.111.45.112") != NULL ||
+    //     strstr(woof_name, "128.111.39.229") != NULL || strstr(woof_name, "169.231.234.204") != NULL ||
+    //     strstr(woof_name, "169.231.234.220") != NULL) {
+    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
+    // }
+    return 0;
+}
+
 int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_TIMEOUT_CHECKER_ARG* arg = (RAFT_TIMEOUT_CHECKER_ARG*)ptr;
     log_set_tag("h_timeout_checker");
@@ -73,7 +104,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     // if timeout, start an election
     memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_MEMBERS);
     memset(thread_arg, 0, sizeof(REQUEST_VOTE_THREAD_ARG) * RAFT_MAX_MEMBERS);
-    if (get_milliseconds() - heartbeat.timestamp > arg->timeout_value) {
+    if (get_milliseconds() - heartbeat.timestamp > arg->timeout_value && experiment_cheat(server_state.woof_name)) {
         arg->timeout_value = random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
         log_warn("timeout after %" PRIu64 "ms at term %" PRIu64 "",
                  get_milliseconds() - heartbeat.timestamp,

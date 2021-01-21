@@ -42,6 +42,7 @@ extern "C" {
 #define DHT_SERVER_PUBLISH_ELEMENT_WOOF "dht_server_publish_element.woof"
 #define DHT_SERVER_LOOP_ROUTINE_WOOF "dht_server_loop_routine.woof"
 #define DHT_TOPIC_CACHE_WOOF "dht_topic_cache.woof"
+#define DHT_REGISTRY_CACHE_WOOF "dht_registry_cache.woof"
 #define DHT_MAP_RAFT_INDEX_WOOF_SUFFIX "raft_index.woof"
 #define DHT_MONITOR_NAME "dht"
 
@@ -257,6 +258,12 @@ typedef struct dht_topic_cache {
     int32_t node_leader;
 } DHT_TOPIC_CACHE;
 
+typedef struct dht_registry_cache {
+    char topic_name[DHT_NAME_LENGTH];
+    DHT_TOPIC_REGISTRY registry;
+    int8_t invalidated;
+} DHT_REGISTRY_CACHE;
+
 typedef RAFT_CLIENT_PUT_RESULT DHT_SERVER_PUBLISH_TRIGGER_ARG;
 
 int dht_create_woofs();
@@ -281,6 +288,13 @@ int dht_join_cluster(char* node_woof,
                      int fix_finger_freq,
                      int update_leader_freq,
                      int daemon_wakeup_freq);
+
+int dht_cache_node_get(char* topic_name, DHT_TOPIC_CACHE* result);
+int dht_cache_node_put(char* topic_name, int node_leader, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]);
+int dht_cache_node_invalidate(char* topic_name);
+int dht_cache_registry_get(char* topic_name, DHT_REGISTRY_CACHE* result);
+int dht_cache_registry_put(char* topic_name, DHT_TOPIC_REGISTRY* registry);
+int dht_cache_registry_invalidate(char* topic_name);
 #endif
 
 #ifdef __cplusplus

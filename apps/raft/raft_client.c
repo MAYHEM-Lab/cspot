@@ -20,6 +20,7 @@ unsigned long raft_put(char* raft_leader, RAFT_DATA_TYPE* data, RAFT_CLIENT_PUT_
         strcpy(request.callback_handler, opt->callback_handler);
         memcpy(request.extra_woof, opt->extra_woof, sizeof(request.extra_woof));
         request.extra_seqno = opt->extra_seqno;
+        strcpy(request.topic_name, opt->topic_name);
     }
     char woof_name[RAFT_NAME_LENGTH] = {0};
     if (raft_leader == NULL) {
@@ -91,6 +92,7 @@ raft_put_handler(char* raft_leader, char* handler, void* data, unsigned long siz
         strcpy(request.callback_handler, opt->callback_handler);
         memcpy(request.extra_woof, opt->extra_woof, sizeof(request.extra_woof));
         request.extra_seqno = opt->extra_seqno;
+        strcpy(request.topic_name, opt->topic_name);
     }
     RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&request.data;
     memset(handler_entry, 0, sizeof(RAFT_LOG_HANDLER_ENTRY));

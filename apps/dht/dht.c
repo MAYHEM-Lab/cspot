@@ -38,6 +38,7 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF,
                                               DHT_SERVER_PUBLISH_ELEMENT_WOOF,
                                               DHT_SERVER_LOOP_ROUTINE_WOOF,
                                               DHT_TOPIC_CACHE_WOOF,
+                                              DHT_REGISTRY_CACHE_WOOF,
                                               DHT_TRY_REPLICAS_WOOF};
 
 unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
@@ -67,6 +68,7 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
                                          sizeof(RAFT_DATA_TYPE),
                                          sizeof(DHT_LOOP_ROUTINE_ARG),
                                          sizeof(DHT_TOPIC_CACHE),
+                                         sizeof(DHT_REGISTRY_CACHE),
                                          sizeof(DHT_TRY_REPLICAS_WOOF)};
 
 unsigned long DHT_ELEMENT_SIZE[] = {
@@ -97,6 +99,7 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_LONG,        // DHT_SERVER_PUBLISH_ELEMENT_WOOF
     DHT_HISTORY_LENGTH_LONG,        // DHT_SERVER_LOOP_ROUTINE_WOOF,
     DHT_HISTORY_LENGTH_EXTRA_SHORT, // DHT_TOPIC_CACHE_WOOF,
+    DHT_HISTORY_LENGTH_EXTRA_SHORT, // DHT_REGISTRY_CACHE_WOOF,
     DHT_HISTORY_LENGTH_SHORT        // DHT_TRY_REPLICAS_WOOF,
 };
 
@@ -283,5 +286,107 @@ int dht_join_cluster(char* node_woof,
         return -1;
     }
 
+    return 0;
+}
+
+int dht_cache_node_get(char* topic_name, DHT_TOPIC_CACHE* result) {
+    unsigned long latest_seqno = WooFGetLatestSeqno(DHT_TOPIC_CACHE_WOOF);
+    if (WooFInvalid(latest_seqno)) {
+        sprintf(dht_error_msg, "failed to get the latest seqno of topic cache");
+        return -1;
+    }
+    unsigned long i = latest_seqno;
+    while (i != 0) {
+        if (i <= latest_seqno - DHT_HISTORY_LENGTH_EXTRA_SHORT) {
+            break;
+        }
+        if (WooFGet(DHT_TOPIC_CACHE_WOOF, result, i) < 0) {
+            sprintf(dht_error_msg, "failed to get the topic cache at %lu", i);
+            return -1;
+        }
+        if (strcmp(result->topic_name, topic_name) == 0) {
+            if (result->node_leader == -1) { // cache invalidated
+                break;
+            }
+            return 1;
+        }
+        --i;
+    }
+    return 0;
+}
+
+int dht_cache_node_put(char* topic_name, int node_leader, char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH]) {
+    DHT_TOPIC_CACHE cache = {0};
+    strcpy(cache.topic_name, topic_name);
+    cache.node_leader = node_leader;
+    memcpy(cache.node_replicas, node_replicas, sizeof(cache.node_replicas));
+    unsigned long seq = WooFPut(DHT_TOPIC_CACHE_WOOF, NULL, &cache);
+    if (WooFInvalid(seq)) {
+        sprintf(dht_error_msg, "failed to put to %s", DHT_TOPIC_CACHE_WOOF);
+        return -1;
+    }
+    return 0;
+}
+
+int dht_cache_node_invalidate(char* topic_name) {
+    DHT_TOPIC_CACHE cache = {0};
+    strcpy(cache.topic_name, topic_name);
+    cache.node_leader = -1;
+    unsigned long seq = WooFPut(DHT_TOPIC_CACHE_WOOF, NULL, &cache);
+    if (WooFInvalid(seq)) {
+        sprintf(dht_error_msg, "failed to put to %s", DHT_TOPIC_CACHE_WOOF);
+        return -1;
+    }
+    return 0;
+}
+
+int dht_cache_registry_get(char* topic_name, DHT_REGISTRY_CACHE* result) {
+    unsigned long latest_seqno = WooFGetLatestSeqno(DHT_REGISTRY_CACHE_WOOF);
+    if (WooFInvalid(latest_seqno)) {
+        sprintf(dht_error_msg, "failed to get the latest seqno of topic cache");
+        return -1;
+    }
+    unsigned long i = latest_seqno;
+    while (i != 0) {
+        if (i <= latest_seqno - DHT_HISTORY_LENGTH_EXTRA_SHORT) {
+            break;
+        }
+        if (WooFGet(DHT_REGISTRY_CACHE_WOOF, result, i) < 0) {
+            sprintf(dht_error_msg, "failed to get the registry cache at %lu", i);
+            return -1;
+        }
+        if (strcmp(result->topic_name, topic_name) == 0) {
+            if (result->invalidated) { // cache invalidated
+                break;
+            }
+            return 1;
+        }
+        --i;
+    }
+    return 0;
+}
+
+int dht_cache_registry_put(char* topic_name, DHT_TOPIC_REGISTRY* registry) {
+    DHT_REGISTRY_CACHE cache = {0};
+    strcpy(cache.topic_name, topic_name);
+    memcpy(&cache.registry, registry, sizeof(cache.registry));
+    cache.invalidated = 0;
+    unsigned long seq = WooFPut(DHT_REGISTRY_CACHE_WOOF, NULL, &cache);
+    if (WooFInvalid(seq)) {
+        sprintf(dht_error_msg, "failed to put to %s", DHT_REGISTRY_CACHE_WOOF);
+        return -1;
+    }
+    return 0;
+}
+
+int dht_cache_registry_invalidate(char* topic_name) {
+    DHT_REGISTRY_CACHE cache = {0};
+    strcpy(cache.topic_name, topic_name);
+    cache.invalidated = 1;
+    unsigned long seq = WooFPut(DHT_REGISTRY_CACHE_WOOF, NULL, &cache);
+    if (WooFInvalid(seq)) {
+        sprintf(dht_error_msg, "failed to put to %s", DHT_REGISTRY_CACHE_WOOF);
+        return -1;
+    }
     return 0;
 }

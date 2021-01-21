@@ -8,7 +8,6 @@
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
 #include <stdint.h>
 
-#define TIMEOUT 3000
 #define TRAINING_WINDOW (12 * 60 * 60 * 1000)
 #define MAX_SAMPLES (TRAINING_WINDOW / 5 / 60 / 1000)
 
@@ -186,7 +185,7 @@ extern "C" int h_train(char* woof_name, char* topic_name, unsigned long seq_no, 
 
     REGRESSOR_MODEL model = {0};
     store_model(&model, regressor);
-    if (dht_publish((char*)TOPIC_REGRESSOR_MODEL, &model, sizeof(REGRESSOR_MODEL), TIMEOUT) < 0) {
+    if (dht_publish((char*)TOPIC_REGRESSOR_MODEL, &model, sizeof(REGRESSOR_MODEL)) < 0) {
         cerr << "failed to publish trained model: " << dht_error_msg << endl;
         exit(1);
     }
