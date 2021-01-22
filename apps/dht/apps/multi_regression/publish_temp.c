@@ -13,10 +13,9 @@ int main(int argc, char** argv) {
     char client_ip[DHT_NAME_LENGTH] = {0};
     double temperature = 0;
     uint64_t timestamp = 0;
-    int32_t timeout = 0;
 
     int c;
-    while ((c = getopt(argc, argv, "t:v:s:d:")) != EOF) {
+    while ((c = getopt(argc, argv, "t:v:s:")) != EOF) {
         switch (c) {
         case 't': {
             strncpy(topic, optarg, sizeof(topic));
@@ -30,12 +29,8 @@ int main(int argc, char** argv) {
             timestamp = (uint64_t)strtoul(optarg, NULL, 0);
             break;
         }
-        case 'd': {
-            timeout = (int32_t)strtoul(optarg, NULL, 0);
-            break;
-        }
         default: {
-            fprintf(stderr, "./publish_temp -t topic -v temperature -s timestamp (-d timeout)\n");
+            fprintf(stderr, "./publish_temp -t topic -v temperature -s timestamp\n");
             exit(1);
         }
         }
@@ -49,6 +44,7 @@ int main(int argc, char** argv) {
         }
     }
     if (!match) {
+        fprintf(stderr, "./publish_temp -t topic -v temperature -s timestamp\n");
         fprintf(stderr, "topic %s not supported\n", topic);
         fprintf(stderr, "topic list:\n");
         for (int i = 0; i < sizeof(reading_topics) / DHT_NAME_LENGTH; ++i) {
@@ -62,7 +58,6 @@ int main(int argc, char** argv) {
     strcpy(arg.topic, topic);
     arg.val.temp = temperature;
     arg.val.timestamp = timestamp;
-    arg.timeout = timeout;
 
     WooFInit();
     unsigned long seq = WooFPut(CLIENT_WOOF_NAME, "h_publish", &arg);

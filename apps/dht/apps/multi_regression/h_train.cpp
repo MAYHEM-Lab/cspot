@@ -8,7 +8,8 @@
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
 #include <stdint.h>
 
-#define TRAINING_WINDOW (12 * 60 * 60 * 1000)
+#define TRAINING_WINDOW (1 * 60 * 60 * 1000)
+#define TRAINING_INTERVAL (5 * 60 * 1000)
 #define MAX_SAMPLES (TRAINING_WINDOW / 5 / 60 / 1000)
 
 using namespace std;
@@ -42,34 +43,14 @@ int align(TEMPERATURE_ELEMENT temp[6]) {
     return max_index;
 }
 
-int get_topic_replica(char* topic_name, char* replica) {
-    char node_replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH] = {0};
-    int node_leader;
-    int hops;
-    if (dht_find_node(topic_name, node_replicas, &node_leader, &hops, TIMEOUT) < 0) {
-        fprintf(stderr, "failed to find node hosting the topic %s\n", topic_name);
-        return -1;
-    }
-    char* node_addr = node_replicas[node_leader];
-    char registration_woof[DHT_NAME_LENGTH] = {0};
-    sprintf(registration_woof, "%s/%s_%s", node_addr, topic_name, DHT_TOPIC_REGISTRATION_WOOF);
-    DHT_TOPIC_REGISTRY topic_entry = {0};
-    if (WooFGet(registration_woof, &topic_entry, 0) < 0) {
-        fprintf(stderr, "failed to get topic registration info from %s: %s\n", registration_woof, dht_error_msg);
-        return -1;
-    }
-    strcpy(replica, topic_entry.topic_replicas[0]);
-    return 0;
-}
-
-extern "C" int h_train(char* woof_name, char* topic_name, unsigned long seq_no, void* ptr) {
+extern "C" int h_train(char* topic_name, unsigned long seq_no, void* ptr) {
     // cout << "h_train triggered by " << topic_name << endl;
     TEMPERATURE_ELEMENT* el = (TEMPERATURE_ELEMENT*)ptr;
-    int remain = (el->timestamp / 10 * 10) % TRAINING_WINDOW;
+    int remain = (el->timestamp / 10 * 10) % TRAINING_INTERVAL;
     if (remain == 0) {
-        cout << "start training with one day window (" << MAX_SAMPLES << " samples)" << endl;
+        cout << "[train] start collecting data for training" << endl;
     } else {
-        cout << ((TRAINING_WINDOW - remain) / 1000 / 60) << " minutes until next training" << endl;
+        cout << "[train] " << ((TRAINING_INTERVAL - remain) / 1000 / 60) << " minutes until next training" << endl;
         return 1;
     }
 
@@ -79,75 +60,67 @@ extern "C" int h_train(char* woof_name, char* topic_name, unsigned long seq_no, 
                                TOPIC_PIZERO06_CPU,
                                TOPIC_WU_STATION,
                                TOPIC_PIZERO02_DHT};
-    char topic_replica[6][DHT_NAME_LENGTH] = {0};
-    for (int i = 0; i < 6; ++i) {
-        if (get_topic_replica(temp_topics[i], topic_replica[i]) < 0) {
-            cerr << "failed to get the replica address hosting the topic " << temp_topics[i] << endl;
-            exit(1);
-        }
-    }
 
     double cpu[5][MAX_SAMPLES] = {0};
     double dht[MAX_SAMPLES] = {0};
 
     unsigned long seqno[6] = {0};
     for (int i = 0; i < 6; ++i) {
-        seqno[i] = dht_remote_topic_latest_seqno((char*)topic_replica[i], (char*)temp_topics[i]);
+        seqno[i] = dht_latest_index((char*)temp_topics[i]);
         if (WooFInvalid(seqno[i])) {
-            cerr << "failed to get the latest seqno from topic " << temp_topics[i] << endl;
+            cerr << "[train] failed to get the latest seqno from topic " << temp_topics[i] << endl;
             exit(1);
         }
     }
 
     bool not_enough = false;
     int collected = 0;
+    RAFT_DATA_TYPE data = {0};
     for (int i = 0; i < MAX_SAMPLES; ++i) {
         TEMPERATURE_ELEMENT temp[6] = {0};
         for (int j = 0; j < 6; ++j) {
-            if (dht_topic_is_empty(seqno[j])) {
-                // cout << "not enough data in " << temp_topics[j] << endl;
-                // cout << collected << " samples collected" << endl;
+            if (WooFInvalid(seqno[j])) {
+                cout << "[train] failed to get the latest index of " << temp_topics[j] << ": " << dht_error_msg << endl;
+                break;
+            } else if (seqno[j] == 0) {
+                cout << "[train] not enough data in " << temp_topics[j] << endl;
+                cout << "[train] " << collected << " samples collected" << endl;
                 not_enough = true;
                 break;
             }
-            if (dht_remote_topic_get(
-                    (char*)topic_replica[j], (char*)temp_topics[j], &temp[j], sizeof(TEMPERATURE_ELEMENT), seqno[j]) <
-                0) {
-                cerr << "failed to get the temperature from " << temp_topics[j] << ": " << dht_error_msg << seqno[j]
-                     << endl;
-                // cerr << collected << " samples collected" << endl;
+            if (dht_get((char*)temp_topics[j], &data, seqno[j]) < 0) {
+                cerr << "[train]failed to get the temperature from " << temp_topics[j] << ": " << dht_error_msg
+                     << seqno[j] << endl;
+                cerr << "[train] " << collected << " samples collected" << endl;
                 exit(1);
             }
+            memcpy(&temp[j], &data, sizeof(TEMPERATURE_ELEMENT));
         }
         int largest_timestamp = -1;
         while (!not_enough && (largest_timestamp = align(temp)) != -1) {
-            // cout << "the timestamp of " << temp_topics[largest_timestamp] << " " <<
-            // temp[largest_timestamp].timestamp
-            // << " is not within 10 seconds" << endl;
+            // cout << "[train] the timestamp of " << temp_topics[largest_timestamp] << " "
+            //      << temp[largest_timestamp].timestamp << " is not within 10 seconds" << endl;
             --seqno[largest_timestamp];
-            if (dht_topic_is_empty(
-                    seqno[largest_timestamp])) { // when topic is initialized, there's a init mapping with seqno = 1
-                // cout << "not enough data in " << temp_topics[largest_timestamp] << endl;
-                // cout << collected << " samples collected" << endl;
+            if (WooFInvalid(seqno[largest_timestamp])) {
+                cout << "[train] failed to get the latest index of " << temp_topics[largest_timestamp] << ": "
+                     << dht_error_msg << endl;
+                break;
+            } else if (seqno[largest_timestamp] == 0) {
+                // cout << "[train] not enough data in " << temp_topics[largest_timestamp] << endl;
+                // cout << "[train] " << collected << " samples collected" << endl;
                 not_enough = true;
                 break;
             }
             uint64_t upper_ts = el->timestamp - TRAINING_WINDOW;
-            int err = dht_remote_topic_get_range((char*)topic_replica[largest_timestamp],
-                                                 (char*)temp_topics[largest_timestamp],
-                                                 &temp[largest_timestamp],
-                                                 sizeof(TEMPERATURE_ELEMENT),
-                                                 seqno[largest_timestamp],
-                                                 upper_ts,
-                                                 0);
-            if (err == -2) {
-                // cout << collected << " samples collected for past one day" << endl;
-                break;
-            } else if (err < 0) {
-                cerr << "failed to get the temperature from " << temp_topics[largest_timestamp] << ": " << dht_error_msg
-                     << endl;
-                // cerr << collected << " samples collected" << endl;
+            if (dht_get((char*)temp_topics[largest_timestamp], &data, seqno[largest_timestamp]) < 0) {
+                cerr << "[train] failed to get the temperature from " << temp_topics[largest_timestamp] << ": "
+                     << dht_error_msg << endl;
+                cerr << "[train] " << collected << " samples collected" << endl;
                 exit(1);
+            }
+            memcpy(&temp[largest_timestamp], &data, sizeof(TEMPERATURE_ELEMENT));
+            if (temp[largest_timestamp].timestamp < upper_ts) {
+                break;
             }
         }
         if (not_enough) {
@@ -163,11 +136,11 @@ extern "C" int h_train(char* woof_name, char* topic_name, unsigned long seq_no, 
         collected = i + 1;
     }
 
-    if (collected == 0) {
-        cout << "no samples collected" << endl;
+    if (collected < MAX_SAMPLES) {
+        cout << "[train] not enough samples collected (" << collected << ")" << endl;
         return 1;
     }
-    cout << "start training with " << collected << " samples" << endl;
+    cout << "[train] start training with " << collected << " samples" << endl;
     arma::mat pred(5, collected);
     arma::rowvec resp(collected);
     for (int i = 0; i < collected; ++i) {
@@ -180,13 +153,13 @@ extern "C" int h_train(char* woof_name, char* topic_name, unsigned long seq_no, 
     mlpack::regression::LinearRegression regressor;
     regressor.Train(pred, resp);
     arma::vec& p = regressor.Parameters();
-    cout << "trained regressor parameters: " << p(0) << " " << p(1) << " " << p(2) << " " << p(3) << " " << p(4) << " "
-         << p(5) << endl;
+    cout << "[train] trained regressor parameters: " << p(0) << " " << p(1) << " " << p(2) << " " << p(3) << " " << p(4)
+         << " " << p(5) << endl;
 
     REGRESSOR_MODEL model = {0};
     store_model(&model, regressor);
     if (dht_publish((char*)TOPIC_REGRESSOR_MODEL, &model, sizeof(REGRESSOR_MODEL)) < 0) {
-        cerr << "failed to publish trained model: " << dht_error_msg << endl;
+        cerr << "[train] failed to publish trained model: " << dht_error_msg << endl;
         exit(1);
     }
 

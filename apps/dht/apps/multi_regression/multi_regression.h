@@ -41,7 +41,6 @@ typedef struct temperature_element {
 typedef struct publish_arg {
     char topic[DHT_NAME_LENGTH];
     TEMPERATURE_ELEMENT val;
-    int32_t timeout;
 } PUBLISH_ARG;
 
 typedef struct regressor_model {

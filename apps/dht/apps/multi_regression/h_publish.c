@@ -28,6 +28,6 @@ int h_publish(WOOF* wf, unsigned long seq_no, void* ptr) {
         fprintf(stderr, "failed to publish to topic %s: %s\n", arg->topic, dht_error_msg);
         exit(1);
     }
-    // printf("published to %s\n", arg->topic);
+    printf("published to %s\n", arg->topic);
     return 1;
 }

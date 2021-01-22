@@ -32,4 +32,6 @@ RUN /bin/bash -l -c '\
 # install python36 for AWS Lambda execution
 RUN yum install -y https://repo.ius.io/ius-release-el7.rpm && \
     yum update -y && \
-    yum install -y python36u python36u-libs python36u-devel python36u-pip \
+    yum install -y python36u python36u-libs python36u-devel python36u-pip
+# for multi_regression dht app
+RUN yum install -y mlpack-devel

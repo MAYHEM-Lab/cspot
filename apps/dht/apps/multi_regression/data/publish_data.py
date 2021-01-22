@@ -5,19 +5,19 @@ import datetime
 import subprocess
 
 
-def getcmd(src):
+def getcmd(src): # distributed_3
     if src == 'pizero_02.csv':
-        return 'dht1', '~/combo_cspot1', 'pizero02_cpu'
+        return 'dht1', '~/ns_cspot1', 'pizero02_cpu'
     elif src == 'pizero_04.csv':
-        return 'dht4', '~/combo_cspot4', 'pizero04_cpu'
+        return 'dht2', '~/ns_cspot4', 'pizero04_cpu'
     elif src == 'pizero_05.csv':
-        return 'dht7', '~/combo_cspot7', 'pizero05_cpu'
+        return 'dht3', '~/ns_cspot7', 'pizero05_cpu'
     elif src == 'pizero_06.csv':
-        return 'dht10', '~/combo_cspot10', 'pizero06_cpu'
+        return 'dht4', '~/ns_cspot10', 'pizero06_cpu'
     elif src == 'pizero_02_dht.csv':
-        return 'dht1', '~/combo_cspot1', 'pizero02_dht'
+        return 'dht1', '~/ns_cspot1', 'pizero02_dht'
     elif src == 'goleta_pizero02_wu8.csv':
-        return 'dht13', '~/combo_cspot13', 'wu_station'
+        return 'dht5', '~/ns_cspot13', 'wu_station'
 
 
 def publish(temp, ts, src):
