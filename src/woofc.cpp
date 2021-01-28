@@ -1048,7 +1048,7 @@ int WooFHandlerDone(char* wf_name, unsigned long seq_no) {
 
 #endif
 
-unsigned long WooFGetLatestSeqno(char* wf_name) {
+unsigned long WooFGetLatestSeqno(const char* wf_name) {
     WOOF* wf;
     char* cause_woof_name;
     char* woof_shepherd_seq_no;
@@ -1072,10 +1072,10 @@ unsigned long WooFGetLatestSeqno(char* wf_name) {
     return WooFGetLatestSeqnoWithCause(wf_name, Name_id, my_log_seq_no, cause_woof_name, cause_woof_seq_no);
 }
 
-unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
+unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
                                           unsigned long cause_host,
                                           unsigned long long cause_seq_no,
-                                          char* cause_woof_name,
+                                          const char* cause_woof_name,
                                           unsigned long cause_woof_latest_seq_no) {
     WOOF* wf;
     unsigned long latest_seq_no;

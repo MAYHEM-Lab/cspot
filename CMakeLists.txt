@@ -47,6 +47,7 @@ add_library(woof
         src/global.cpp
         src/include/woofc-priv.h
         src/net.cpp
+        src/woofc-host.cpp
 )
 
 target_include_directories(woof PRIVATE
@@ -76,13 +77,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(woof PUBLIC -Wall -Wextra)
 endif ()
 
-add_library(woofc-host src/woofc-host.cpp)
-target_link_libraries(woofc-host PUBLIC woof)
-target_include_directories(woofc-host PRIVATE src/include)
-
-add_executable(woofc-namespace-platform src/woofc-host.cpp)
-target_link_libraries(woofc-namespace-platform PRIVATE woof)
-target_compile_definitions(woofc-namespace-platform PRIVATE IS_PLATFORM)
+add_executable(woofc-namespace-platform src/woofc-namespace-platform.cpp)
+target_link_libraries(woofc-namespace-platform woof)
 target_include_directories(woofc-namespace-platform PRIVATE src/include)
 
 add_executable(woofc-container src/woofc-container.cpp)
@@ -114,7 +110,7 @@ add_subdirectory(apps)
 
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 install(
-    TARGETS woof woofc-host mio euca_utils uriparser2 fmt woof_zmq_net
+    TARGETS woof mio euca_utils uriparser2 fmt woof_zmq_net
     EXPORT woof
     DESTINATION lib
 )

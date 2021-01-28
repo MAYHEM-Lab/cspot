@@ -14,11 +14,11 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
 int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
 
-unsigned long WooFGetLatestSeqno(char* wf_name);
-unsigned long WooFGetLatestSeqnoWithCause(char* wf_name,
+unsigned long WooFGetLatestSeqno(const char* wf_name);
+unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
                                           unsigned long cause_host,
                                           unsigned long long cause_seq_no,
-                                          char* cause_woof_name,
+                                          const char* cause_woof_name,
                                           unsigned long cause_woof_latest_seq_no);
 
 int WooFInvalid(unsigned long seq_no);
