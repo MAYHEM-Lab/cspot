@@ -4,5 +4,5 @@
 .clangd
 compile_commands.json
 cmake-build*
-*build*
+*build*/
 .cache
