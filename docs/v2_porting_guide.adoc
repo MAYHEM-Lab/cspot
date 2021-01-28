@@ -1,0 +1,202 @@
+= V2 Application porting guide
+
+== CMake for apps
+
+We use CMake to build applications in and out of tree. I'll be describing how to write a hello world
+client and handler with cspot2.
+
+First, create a directory and a `CMakeLists.txt` file inside it.
+
+Open the file, and type the following into it:
+
+[source,cmake]
+----
+cmake_minimum_required(VERSION 3.13) # <1>
+project(cspot-hw) # <2>
+
+find_package(woof REQUIRED) # <3>
+----
+<1> This line is required by cmake, and if you omit it CMake will complain that it's missing.
+<2> This tells the name of our project to cmake, can be anything.
+<3> This line will find the pre-installed woof library. The `REQUIRED` keyword tells cmake to stop
+and give an error if the library is not found.
+
+With this file ready, we can create an empty build:
+
+[source,bash]
+----
+mkdir build
+cd build
+cmake ..  # or cmake -G Ninja
+----
+
+If cmake doesn't produce an error here, it means cspot is correctly found and we can start working
+on our app.
+
+First, we'll write the handler. We'll start with the usual element struct header, `hw.h`:
+
+[source, cpp]
+----
+#ifndef HW_ELEM_H
+#define HW_ELEM_H
+
+typedef struct {
+    char str[256];
+} hw_el_stc;
+
+#endif
+----
+
+Then, create the handler in `hw.c` (or ideally `hw.cpp`):
+
+[source, cpp]
+----
+#include <woofc.h>
+#include "hw.h"
+#include <stdio.h>
+
+int hw(WOOF* wf, unsigned long seq_no, void* ptr) {
+    hw_el_stc* el = (hw_el_stc*)ptr;
+    printf("hello world\n");
+    printf("at %lu with string: %s\n", seq_no, el->str);
+    return 1;
+}
+----
+
+Now, add the handler to the build by appending this line to `CMakeLists.txt`:
+
+[source,cmake]
+----
+add_handler(hw hw.c) # or hw.cpp
+----
+
+`add_handler` is not a standard CMake function, but rather a function provided by cspot. It will
+generate a shepherd for it, add it as an executable to the build and link cspot to it.
+
+Now, in the build directory, build the project with `make -j` or `ninja`. If everything was set up
+properly, there should be a `hw` executable there.
+
+We'll now write the client for it. Create `hw-client.c` in the project directory, and type the
+following into it:
+
+[source, cpp]
+----
+#include "hw.h"
+#include <woofc.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define ARGS "W:"
+const char* Usage = "hw -W woof_name\n";
+
+int main(int argc, char** argv) {
+    char Wname[4096];
+
+    int c;
+    while ((c = getopt(argc, argv, ARGS)) != EOF) {
+        switch (c) {
+        case 'W':
+            strncpy(Wname, optarg, sizeof(Wname));
+            break;
+        default:
+            fprintf(stderr, "unrecognized command %c\n", (char)c);
+            fprintf(stderr, "%s", Usage);
+            return 1;
+        }
+    }
+
+    if (Wname[0] == 0) {
+        fprintf(stderr, "must specify woof name\n");
+        fprintf(stderr, "%s", Usage);
+        return 1;
+    }
+
+    WooFInit();
+
+    int err = WooFCreate(Wname, sizeof(hw_el_stc), 5);
+    if (err < 0) {
+        fprintf(stderr, "couldn't create woof from %s\n", Wname);
+        return 1;
+    }
+
+    hw_el_stc el;
+    strncpy(el.str, "my first bark", sizeof(el.str));
+
+    unsigned long ndx = WooFPut(Wname, "hw", &el);
+
+    if (WooFInvalid(ndx)) {
+        fprintf(stderr, "first WooFPut failed for %s\n", Wname);
+        return 1;
+    }
+}
+----
+
+Now, add it to the build by adding the following lines to `CMakeLists.txt`:
+
+[source,cmake]
+----
+add_executable(hw-client hw-client.c) # <1>
+target_link_libraries(hw-client woof) # <2>
+----
+<1> This line adds a standard cmake executable to the build called `hw-client` from source
+`hw-client.c`. You can have as many sources as you'd like.
+<2> This line tell cmake to link `woof` to `hw-client`. CMake will automatically handle build flags,
+include directories and libraries, you don't need anything manual.
+
+And build everything in the build directory with `make -j` or `ninja` again. You should now have
+a `hw-client` executable as well.
+
+That's it! The final `CMakeLists.txt` should look like this:
+
+[source, cmake]
+----
+cmake_minimum_required(VERSION 3.13)
+project(cspot-hw)
+
+find_package(woof REQUIRED)
+
+add_handler(hw hw.c)
+
+add_executable(hw-client hw-client.c)
+target_link_libraries(hw-client woof)
+----
+
+== Narrower API
+
+We no longer expose everything to woof handlers. This includes the exact definitions of
+`woof_stc` etc. so handlers cannot depend on implementation details. This means a woof handler cannot
+access the path of the woof for instance. If this is a crucial feature, we should expose a proper
+function for it.
+
+These are the only symbols we expose right now:
+
+[source,cpp]
+----
+typedef struct woof_stc WOOF;
+
+int WooFInit();
+void WooFExit();
+
+int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size);
+
+unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
+int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
+
+unsigned long WooFGetLatestSeqno(const char* wf_name);
+unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
+                                          unsigned long cause_host,
+                                          unsigned long long cause_seq_no,
+                                          const char* cause_woof_name,
+                                          unsigned long cause_woof_latest_seq_no);
+
+int WooFInvalid(unsigned long seq_no);
+
+int WooFValidURI(const char* str);
+
+int WooFLocalIP(char* ip_str, int len);
+----
+
+If a handler depends on anything else, it has to be refactored.
