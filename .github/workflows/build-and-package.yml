@@ -1,9 +1,6 @@
 name: Build and package
 
-on:
-  push:
-    branches:
-      - '*'
+on: [push]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
