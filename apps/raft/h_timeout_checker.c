@@ -41,24 +41,10 @@ int experiment_cheat(char* woof_name) {
     // if (strstr(woof_name, "128.111.39") != NULL) {
     //     return 1;
     // }
-    // sed1
-    // if (strstr(woof_name, "128.111.39.229") != NULL) {
-    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
-    // }
     // sed9
     if (strstr(woof_name, "128.111.39.235") != NULL) {
         return 1;
     }
-    // val1
-    // if (strstr(woof_name, "128.111.45.112") != NULL) {
-    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
-    // }
-    // raft_throught test: dht1, val1, sed1, dht4, dht5
-    // if (strstr(woof_name, "169.231.234.163") != NULL || strstr(woof_name, "128.111.45.112") != NULL ||
-    //     strstr(woof_name, "128.111.39.229") != NULL || strstr(woof_name, "169.231.234.204") != NULL ||
-    //     strstr(woof_name, "169.231.234.220") != NULL) {
-    //     heartbeat.timestamp = get_milliseconds() - timeout_min;
-    // }
     return 0;
 }
 
@@ -188,7 +174,11 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    uint64_t join_begin = get_milliseconds();
     threads_join(server_state.members, thread_id);
+    if (get_milliseconds() - join_begin > 5000) {
+        log_warn("join tooks %lu ms",  get_milliseconds() - join_begin);
+    }
     WooFMsgCacheShutdown();
     return 1;
 }

@@ -316,7 +316,11 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    uint64_t join_begin = get_milliseconds();
     threads_join(count, thread_id);
+    if (get_milliseconds() - join_begin > 5000) {
+        log_warn("join tooks %lu ms", get_milliseconds() - join_begin);
+    }
     monitor_join();
     // printf("handler h_find_successor took %lu\n", get_milliseconds() - begin);
     free(thread_arg);

@@ -5,8 +5,6 @@
 #include "woofc.h"
 
 #define MAX_PUBLISH_SIZE 64
-#define PROFILING
-
 #define SUBSCRIPTION_CACHE_SIZE 8
 
 typedef struct subscription_cache {
@@ -98,7 +96,7 @@ void* resolve_thread(void* arg) {
     } else {
         cache_id = get_free_cache();
         if (WooFGet(trigger_arg.subscription_woof, &list, 0) < 0) {
-            log_error("failed to get the latest subscription list of %s: %s", trigger_arg.topic_name, dht_error_msg);
+            log_error("failed to get the latest subscription list of %s", trigger_arg.topic_name);
             pthread_mutex_unlock(&cache_lock);
             return;
         } else if (cache_id != -1) {
@@ -206,7 +204,11 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    uint64_t join_begin = get_milliseconds();
     threads_join(count, thread_id);
+    if (get_milliseconds() - join_begin > 5000) {
+        log_warn("join tooks %lu ms", get_milliseconds() - join_begin);
+    }
     WooFMsgCacheShutdown();
     return 1;
 }

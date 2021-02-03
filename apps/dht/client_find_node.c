@@ -50,10 +50,6 @@ int main(int argc, char** argv) {
 
     WooFInit();
 
-    if (client_ip[0] != 0) {
-        dht_set_client_ip(client_ip);
-    }
-
     uint64_t begin = get_milliseconds();
     char local_namespace[DHT_NAME_LENGTH] = {0};
     node_woof_namespace(local_namespace);

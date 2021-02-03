@@ -10,8 +10,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define PROFILING
-
 int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_CLIENT_PUT_ARG* arg = (RAFT_CLIENT_PUT_ARG*)ptr;
     log_set_tag("h_client_put");

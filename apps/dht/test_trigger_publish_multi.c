@@ -12,8 +12,8 @@
 #include <unistd.h>
 
 #define TEST_HANDLER "test_dht_handler"
-#define ARGS "t:r:l:i:p:"
-char* Usage = "test_trigger_publish_multi -t topic -r rate -l duration(second) -i client_addr -p thread_count\n";
+#define ARGS "t:r:l:p:"
+char* Usage = "test_trigger_publish_multi -t topic -r rate -l duration(second) -p thread_count\n";
 
 typedef struct test_stc {
     char msg[256 - 8];
@@ -27,7 +27,6 @@ typedef struct test_arg {
     int rate;
     pthread_mutex_t lock;
     char topic_name[DHT_NAME_LENGTH];
-    char client_ip[DHT_NAME_LENGTH];
 } TEST_ARG;
 
 void* publish(void* ptr) {
@@ -82,10 +81,6 @@ int main(int argc, char** argv) {
             test_arg.duration = (int)strtoul(optarg, NULL, 10) * 1000;
             break;
         }
-        case 'i': {
-            strncpy(test_arg.client_ip, optarg, sizeof(test_arg.client_ip));
-            break;
-        }
         case 'p': {
             thread_count = (int)strtoul(optarg, NULL, 10);
             break;
@@ -104,7 +99,6 @@ int main(int argc, char** argv) {
     }
 
     test_arg.begin = get_milliseconds();
-    dht_set_client_ip(test_arg.client_ip);
     pthread_mutex_init(&test_arg.lock, NULL);
     WooFInit();
 

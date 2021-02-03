@@ -12,8 +12,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define PROFILING
-
 typedef struct replicate_thread_arg {
     int member_id;
     char member_woof[RAFT_NAME_LENGTH];
@@ -36,8 +34,13 @@ void* replicate_thread(void* arg) {
             replicate_thread_arg->member_woof,
             RAFT_APPEND_ENTRIES_ARG_WOOF,
             replicate_thread_arg->arg.num_entries);
+
+    uint64_t put_begin = get_milliseconds();
     unsigned long seq =
         WooFPut(woof_name, "h_append_entries", &replicate_thread_arg->arg); // will be followed by entries
+    if (get_milliseconds() - put_begin > 5000) {
+        log_warn("calling h_append_entries took %lu ms", get_milliseconds() - put_begin);
+    }
     if (WooFInvalid(seq)) {
         log_warn("failed to replicate the log entries to member %d, delaying the next thread to next heartbeat",
                  replicate_thread_arg->member_id);
@@ -311,9 +314,11 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         WooFMsgCacheShutdown();
         exit(1);
     }
+#ifdef PROFILING
     if (last_log_entry_seqno - server_state.commit_index > 2) {
         log_warn("commit_lag: %lu entries %lu ", last_log_entry_seqno - server_state.commit_index, get_milliseconds());
     }
+#endif
 
     // send entries to members and observers
     pthread_t* thread_id = malloc(sizeof(pthread_t) * (RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS));
@@ -436,7 +441,11 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    uint64_t join_begin = get_milliseconds();
     threads_join(RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS, thread_id);
+    if (get_milliseconds() - join_begin > 5000) {
+        log_warn("join tooks %lu ms", get_milliseconds() - join_begin);
+    }
     free(thread_id);
     free(thread_arg);
     // printf("handler h_replicate_entries took %lu\n", get_milliseconds() - begin);

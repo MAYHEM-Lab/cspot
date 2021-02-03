@@ -289,7 +289,7 @@ int raft_start_server(int members,
 
     RAFT_HEARTBEAT heartbeat = {0};
     heartbeat.term = 0;
-    heartbeat.timestamp = get_milliseconds() - timeout_min;
+    heartbeat.timestamp = get_milliseconds() - timeout_min + 1000;
     seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
     if (WooFInvalid(seq)) {
         fprintf(stderr, "Couldn't put the first heartbeat\n");

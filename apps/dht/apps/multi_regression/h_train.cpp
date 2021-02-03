@@ -5,14 +5,35 @@
 #include <algorithm>
 #include <iostream>
 #include <mlpack/core.hpp>
+#include <mlpack/methods/hmm/hmm.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
 #include <stdint.h>
 
-#define TRAINING_WINDOW (1 * 60 * 60 * 1000)
-#define TRAINING_INTERVAL (5 * 60 * 1000)
+#define TRAINING_WINDOW (72 * 60 * 60 * 1000)
+#define MODEL_EXPIRATION (7 * 24 * 60 * 60 * 1000) // one week
 #define MAX_SAMPLES (TRAINING_WINDOW / 5 / 60 / 1000)
+#define MIN_SAMPLES (24 * 60 / 5) // one day 288
 
 using namespace std;
+
+void cpu_topic_name(int i, char* topic_name) {
+    switch (i) {
+    case 0:
+        sprintf(topic_name, "%s%s", TOPIC_CPU_1, TOPIC_SMOOTH_SUFFIX);
+        break;
+    case 1:
+        sprintf(topic_name, "%s%s", TOPIC_CPU_2, TOPIC_SMOOTH_SUFFIX);
+        break;
+    case 2:
+        sprintf(topic_name, "%s%s", TOPIC_CPU_3, TOPIC_SMOOTH_SUFFIX);
+        break;
+    case 3:
+        sprintf(topic_name, "%s%s", TOPIC_CPU_4, TOPIC_SMOOTH_SUFFIX);
+        break;
+    default:
+        break;
+    }
+}
 
 void store_model(REGRESSOR_MODEL* model, mlpack::regression::LinearRegression regressor) {
     arma::vec& p = regressor.Parameters();
@@ -25,139 +46,139 @@ void store_model(REGRESSOR_MODEL* model, mlpack::regression::LinearRegression re
     model->lambda = regressor.Lambda();
 }
 
-// return -1 if all are within 1 minute, or return the index of largerst timestamp
-int align(TEMPERATURE_ELEMENT temp[6]) {
-    uint64_t diff = 60 * 1000;
-    uint64_t min_ts = ULONG_MAX, max_ts = 0;
-    int max_index = -1;
-    for (int i = 0; i < 6; ++i) {
-        min_ts = min(min_ts, temp[i].timestamp);
-        if (temp[i].timestamp > max_ts) {
-            max_ts = temp[i].timestamp;
-            max_index = i;
-        }
-    }
-    if (max_ts - min_ts < diff) {
-        return -1;
-    }
-    return max_index;
-}
-
 extern "C" int h_train(char* topic_name, unsigned long seq_no, void* ptr) {
-    // cout << "h_train triggered by " << topic_name << endl;
-    TEMPERATURE_ELEMENT* el = (TEMPERATURE_ELEMENT*)ptr;
-    int remain = (el->timestamp / 10 * 10) % TRAINING_INTERVAL;
-    if (remain == 0) {
-        cout << "[train] start collecting data for training" << endl;
-    } else {
-        cout << "[train] " << ((TRAINING_INTERVAL - remain) / 1000 / 60) << " minutes until next training" << endl;
-        return 1;
+    DATA_ELEMENT* el = (DATA_ELEMENT*)ptr;
+    uint64_t begin = get_milliseconds();
+
+    // check if the latest model is still fresh
+    unsigned long latest_model_index = dht_latest_index((char*)TOPIC_REGRESSOR_MODEL);
+    if (WooFInvalid(latest_model_index)) {
+        cerr << "[train] failed to get the latest index from " << TOPIC_REGRESSOR_MODEL << ": " << dht_error_msg
+             << endl;
+        exit(1);
     }
-
-    char temp_topics[6][13] = {TOPIC_PIZERO02_CPU,
-                               TOPIC_PIZERO04_CPU,
-                               TOPIC_PIZERO05_CPU,
-                               TOPIC_PIZERO06_CPU,
-                               TOPIC_WU_STATION,
-                               TOPIC_PIZERO02_DHT};
-
-    double cpu[5][MAX_SAMPLES] = {0};
-    double dht[MAX_SAMPLES] = {0};
-
-    unsigned long seqno[6] = {0};
-    for (int i = 0; i < 6; ++i) {
-        seqno[i] = dht_latest_index((char*)temp_topics[i]);
-        if (WooFInvalid(seqno[i])) {
-            cerr << "[train] failed to get the latest seqno from topic " << temp_topics[i] << endl;
+    RAFT_DATA_TYPE data = {0};
+    REGRESSOR_MODEL latest_model = {0};
+    if (latest_model_index > 0) {
+        if (dht_get((char*)TOPIC_REGRESSOR_MODEL, &data, latest_model_index) < 0) {
+            cerr << "[train] failed to get data from " << TOPIC_REGRESSOR_MODEL << "[" << latest_model_index
+                 << "]: " << dht_error_msg << endl;
             exit(1);
         }
+        memcpy(&latest_model, &data, sizeof(REGRESSOR_MODEL));
+        if (latest_model.ts >= el->ts - MODEL_EXPIRATION) {
+            // cout << "[train] latest model was trained " << (el->ts - latest_model.ts) / 1000 << " seconds ago" << endl;
+            // cout << "[train] " << (MODEL_EXPIRATION - (el->ts - latest_model.ts)) / 1000
+            //      << " seconds until next training" << endl;
+            return 1;
+        }
     }
 
-    bool not_enough = false;
-    int collected = 0;
-    RAFT_DATA_TYPE data = {0};
-    for (int i = 0; i < MAX_SAMPLES; ++i) {
-        TEMPERATURE_ELEMENT temp[6] = {0};
-        for (int j = 0; j < 6; ++j) {
-            if (WooFInvalid(seqno[j])) {
-                cout << "[train] failed to get the latest index of " << temp_topics[j] << ": " << dht_error_msg << endl;
-                break;
-            } else if (seqno[j] == 0) {
-                cout << "[train] not enough data in " << temp_topics[j] << endl;
-                cout << "[train] " << collected << " samples collected" << endl;
-                not_enough = true;
-                break;
-            }
-            if (dht_get((char*)temp_topics[j], &data, seqno[j]) < 0) {
-                cerr << "[train]failed to get the temperature from " << temp_topics[j] << ": " << dht_error_msg
-                     << seqno[j] << endl;
-                cerr << "[train] " << collected << " samples collected" << endl;
-                exit(1);
-            }
-            memcpy(&temp[j], &data, sizeof(TEMPERATURE_ELEMENT));
-        }
-        int largest_timestamp = -1;
-        while (!not_enough && (largest_timestamp = align(temp)) != -1) {
-            // cout << "[train] the timestamp of " << temp_topics[largest_timestamp] << " "
-            //      << temp[largest_timestamp].timestamp << " is not within 10 seconds" << endl;
-            --seqno[largest_timestamp];
-            if (WooFInvalid(seqno[largest_timestamp])) {
-                cout << "[train] failed to get the latest index of " << temp_topics[largest_timestamp] << ": "
-                     << dht_error_msg << endl;
-                break;
-            } else if (seqno[largest_timestamp] == 0) {
-                // cout << "[train] not enough data in " << temp_topics[largest_timestamp] << endl;
-                // cout << "[train] " << collected << " samples collected" << endl;
-                not_enough = true;
-                break;
-            }
-            uint64_t upper_ts = el->timestamp - TRAINING_WINDOW;
-            if (dht_get((char*)temp_topics[largest_timestamp], &data, seqno[largest_timestamp]) < 0) {
-                cerr << "[train] failed to get the temperature from " << temp_topics[largest_timestamp] << ": "
-                     << dht_error_msg << endl;
-                cerr << "[train] " << collected << " samples collected" << endl;
-                exit(1);
-            }
-            memcpy(&temp[largest_timestamp], &data, sizeof(TEMPERATURE_ELEMENT));
-            if (temp[largest_timestamp].timestamp < upper_ts) {
-                break;
-            }
-        }
-        if (not_enough) {
-            break;
-        }
-        for (int j = 0; j < 5; ++j) {
-            cpu[j][i] = temp[j].temp;
-        }
-        dht[i] = temp[5].temp;
-        for (int j = 0; j < 6; ++j) {
-            --seqno[j];
-        }
-        collected = i + 1;
+    double dht_reading[MAX_SAMPLES] = {0};
+    double cpu_reading[TOPIC_NUMBER][MAX_SAMPLES] = {0};
+    unsigned long dht_index = dht_latest_earlier_index(topic_name, seq_no);
+    if (WooFInvalid(dht_index)) {
+        cerr << "[train] failed to get the latest index from " << topic_name << ": " << dht_error_msg << endl;
+        exit(1);
     }
-
-    if (collected < MAX_SAMPLES) {
-        cout << "[train] not enough samples collected (" << collected << ")" << endl;
+    cout << "[train] " << topic_name << " has " << dht_index << " data points" << endl;
+    if (latest_model_index == 0 && dht_index != MIN_SAMPLES) {
+        cout << "[train] " << MIN_SAMPLES - dht_index << " more to start training" << endl;
         return 1;
     }
-    cout << "[train] start training with " << collected << " samples" << endl;
-    arma::mat pred(5, collected);
-    arma::rowvec resp(collected);
-    for (int i = 0; i < collected; ++i) {
-        for (int j = 0; j < 5; ++j) {
-            pred(j, i) = cpu[j][i];
-            resp(i) = dht[i];
+    cout << "[train] start collecting data for training" << endl;
+    unsigned long cpu_index[TOPIC_NUMBER] = {0};
+    for (int i = 0; i < TOPIC_NUMBER; ++i) {
+        char cpu_topic[DHT_NAME_LENGTH] = {0};
+        cpu_topic_name(i, cpu_topic);
+        cpu_index[i] = dht_latest_index(cpu_topic);
+        if (WooFInvalid(cpu_index[i])) {
+            cerr << "[train] failed to get the latest index from " << cpu_topic << ": " << dht_error_msg << endl;
+            exit(1);
+        }
+        cout << "[train] " << cpu_topic << " has " << cpu_index[i] << " data points" << endl;
+    }
+    int cnt = 0;
+    while (cnt < MAX_SAMPLES && dht_index > 0) {
+        if (dht_get(topic_name, &data, dht_index) < 0) {
+            cerr << "[train] failed to get data from " << topic_name << "[" << dht_index << "]: " << dht_error_msg
+                 << endl;
+            exit(1);
+        }
+        DATA_ELEMENT* dht_data = (DATA_ELEMENT*)&data;
+        dht_reading[cnt] = dht_data->val;
+        uint64_t dht_ts = dht_data->ts;
+        // cout << "[train] dht_ts: " << dht_ts << " (" << dht_index << ")" << endl;
+        if (dht_ts <= el->ts - TRAINING_WINDOW) {
+            cout << "[train] passed training window, latest_dht_ts: " << el->ts << endl;
+            break;
+        }
+        bool missing_data = false;
+        for (int i = 0; i < TOPIC_NUMBER && !missing_data; ++i) {
+            char cpu_topic[DHT_NAME_LENGTH] = {0};
+            cpu_topic_name(i, cpu_topic);
+            while (cpu_index[i] > 0) {
+                if (dht_get(cpu_topic, &data, cpu_index[i]) < 0) {
+                    cerr << "[train] failed to get data from " << cpu_topic << "[" << cpu_index[i]
+                         << "]: " << dht_error_msg << endl;
+                    exit(1);
+                }
+                DATA_ELEMENT* cpu_data = (DATA_ELEMENT*)&data;
+                // cout << "[train] cpu[" << i + 1 << "]_ts: " << cpu_data->ts << "(" << cpu_index[i] << ")" << endl;
+                if (cpu_data->ts == dht_ts) {
+                    cpu_reading[i][cnt] = cpu_data->val;
+                    --cpu_index[i];
+                    break;
+                } else if (cpu_data->ts < dht_ts) {
+                    missing_data = true;
+                    break;
+                }
+                --cpu_index[i];
+            }
+        }
+        if (!missing_data) {
+            ++cnt;
+            // cout << "[train] collected data for " << dht_ts << endl;
+        } else {
+            // cout << "[train] missing data for " << dht_ts << endl;
+        }
+        --dht_index;
+    }
+
+    if (cnt == 0) {
+        cout << "[train] no sample collected" << endl;
+        return 1;
+    } else if (cnt < MIN_SAMPLES && dht_index > 0) {
+        cout << "[train] collected " << cnt << " samples" << endl;
+        cout << "[train] doesn't meet minimum samle requirement, use the last model instead" << endl;
+        latest_model.ts = el->ts;
+        if (dht_publish((char*)TOPIC_REGRESSOR_MODEL, &latest_model, sizeof(REGRESSOR_MODEL)) < 0) {
+            cerr << "[train] failed to publish trained model: " << dht_error_msg << endl;
+            exit(1);
+        }
+        return 1;
+    }
+    cout << "[train] start training with " << cnt << " samples" << endl;
+    arma::mat pred(TOPIC_NUMBER, cnt);
+    arma::rowvec resp(cnt);
+    for (int i = 0; i < cnt; ++i) {
+        for (int j = 0; j < TOPIC_NUMBER; ++j) {
+            pred(j, i) = cpu_reading[j][i];
+            resp(i) = dht_reading[i];
         }
     }
 
     mlpack::regression::LinearRegression regressor;
     regressor.Train(pred, resp);
     arma::vec& p = regressor.Parameters();
-    cout << "[train] trained regressor parameters: " << p(0) << " " << p(1) << " " << p(2) << " " << p(3) << " " << p(4)
-         << " " << p(5) << endl;
+    // cout << "[train] trained regressor parameters: " << p(0) << " " << p(1) << " " << p(2) << " " << p(3) << " " <<
+    // p(4)
+    //      << endl;
 
+    cout << "[train] training took " << (get_milliseconds() - begin) / 1000 << " seconds" << endl;
     REGRESSOR_MODEL model = {0};
     store_model(&model, regressor);
+    model.ts = el->ts;
     if (dht_publish((char*)TOPIC_REGRESSOR_MODEL, &model, sizeof(REGRESSOR_MODEL)) < 0) {
         cerr << "[train] failed to publish trained model: " << dht_error_msg << endl;
         exit(1);

@@ -42,13 +42,6 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
 
-    char client_addr[DHT_NAME_LENGTH];
-    if (get_client_addr(client_addr) < 0) {
-        log_error("failed to get client_addr: %s", dht_error_msg);
-        exit(1);
-    }
-    dht_set_client_ip(client_addr);
-
     // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
     while (raft_get(arg->element_woof, &raft_data, arg->element_seqno) < 0) {

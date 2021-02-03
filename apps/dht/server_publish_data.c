@@ -8,8 +8,6 @@
 #define MAX_PUBLISH_SIZE 64
 #define REGISTRY_CACHE_SIZE 8
 
-#define PROFILING
-
 pthread_mutex_t cache_lock;
 
 typedef struct resolve_thread_arg {
@@ -235,7 +233,11 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
+    uint64_t join_begin = get_milliseconds();
     threads_join(count, thread_id);
+    if (get_milliseconds() - join_begin > 5000) {
+        log_warn("join tooks %lu ms", get_milliseconds() - join_begin);
+    }
     if (count != 0) {
         if (get_milliseconds() - begin > 200)
             log_debug("took %lu ms to process %lu publish_data", get_milliseconds() - begin, count);

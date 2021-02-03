@@ -16,12 +16,6 @@
 #include <time.h>
 #include <unistd.h>
 
-char client_ip[DHT_NAME_LENGTH] = {0};
-
-void dht_set_client_ip(char* ip) {
-    strcpy(client_ip, ip);
-}
-
 // call this on the node hosting the topic
 int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long history_size) {
     if (element_size > RAFT_DATA_TYPE_SIZE) {
@@ -33,7 +27,7 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
     // when using raft, there's no need to create topic woof since the data is stored in raft log
 }
 
-int dht_register_topic(char* topic_name) {
+int dht_register_topic(char* topic_name, char* topic_addr) {
     // create index_map woof
     char index_map_woof[DHT_NAME_LENGTH] = {0};
     sprintf(index_map_woof, "%s_%s", topic_name, RAFT_INDEX_MAPPING_WOOF_SUFFIX);
@@ -50,7 +44,7 @@ int dht_register_topic(char* topic_name) {
     char local_namespace[DHT_NAME_LENGTH] = {0};
     node_woof_namespace(local_namespace);
     char topic_namespace[DHT_NAME_LENGTH] = {0};
-    if (client_ip[0] == 0) {
+    if (topic_addr == NULL) {
         char ip[DHT_NAME_LENGTH] = {0};
         if (WooFLocalIP(ip, sizeof(ip)) < 0) {
             sprintf(dht_error_msg, "failed to get local IP");
@@ -58,7 +52,7 @@ int dht_register_topic(char* topic_name) {
         }
         sprintf(topic_namespace, "woof://%s%s", ip, local_namespace);
     } else {
-        sprintf(topic_namespace, "woof://%s%s", client_ip, local_namespace);
+        sprintf(topic_namespace, "woof://%s%s", topic_addr, local_namespace);
     }
 
     DHT_REGISTER_TOPIC_ARG register_topic_arg = {0};
@@ -100,7 +94,7 @@ int dht_register_topic(char* topic_name) {
     return 0;
 }
 
-int dht_subscribe(char* topic_name, char* handler) {
+int dht_subscribe(char* topic_name, char* topic_addr, char* handler) {
     if (access(handler, F_OK) == -1) {
         sprintf(dht_error_msg, "handler %s doesn't exist", handler);
         return -1;
@@ -124,7 +118,7 @@ int dht_subscribe(char* topic_name, char* handler) {
     char local_namespace[DHT_NAME_LENGTH] = {0};
     node_woof_namespace(local_namespace);
     char action_namespace[DHT_NAME_LENGTH] = {0};
-    if (client_ip[0] == 0) {
+    if (topic_addr == NULL) {
         char ip[DHT_NAME_LENGTH] = {0};
         if (WooFLocalIP(ip, sizeof(ip)) < 0) {
             sprintf(dht_error_msg, "failed to get local IP");
@@ -132,7 +126,7 @@ int dht_subscribe(char* topic_name, char* handler) {
         }
         sprintf(action_namespace, "woof://%s%s", ip, local_namespace);
     } else {
-        sprintf(action_namespace, "woof://%s%s", client_ip, local_namespace);
+        sprintf(action_namespace, "woof://%s%s", topic_addr, local_namespace);
     }
 
     DHT_NODE_INFO node_info = {0};

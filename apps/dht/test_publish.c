@@ -24,14 +24,10 @@ int main(int argc, char** argv) {
     }
     WooFInit();
 
-    if (argc >= 3) {
-        dht_set_client_ip(argv[2]);
-    }
-
     TEST_EL el = {0};
     sprintf(el.msg, argv[1]);
     el.sent = get_milliseconds();
-    
+
     int err = dht_publish(TEST_TOPIC, &el, sizeof(TEST_EL));
     if (err < 0) {
         fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);

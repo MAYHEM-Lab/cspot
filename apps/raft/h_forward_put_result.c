@@ -12,8 +12,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define PROFILING
-
 typedef struct forward_result_thread_arg {
     RAFT_CLIENT_PUT_REQUEST request;
     RAFT_CLIENT_PUT_RESULT result;
@@ -124,7 +122,11 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
     }
 
+    uint64_t join_begin = get_milliseconds();
     threads_join(result_count, forward_result_thread_id);
+    if (get_milliseconds() - join_begin > 5000) {
+        log_warn("join took %lu ms",  get_milliseconds() - join_begin);
+    }
     free(forward_result_thread_arg);
     free(forward_result_thread_id);
     if (result_count != 0) {

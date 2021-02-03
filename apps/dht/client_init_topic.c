@@ -51,16 +51,12 @@ int main(int argc, char** argv) {
 
     WooFInit();
 
-    if (client_ip[0] != 0) {
-        dht_set_client_ip(client_ip);
-    }
-
     if (dht_create_topic(topic, element_size, history_size) < 0) {
         fprintf(stderr, "failed to create topic woof: %s\n", dht_error_msg);
         exit(1);
     }
 
-    if (dht_register_topic(topic) < 0) {
+    if (dht_register_topic(topic, client_ip) < 0) {
         fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
         exit(1);
     }

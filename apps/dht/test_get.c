@@ -10,9 +10,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define TEST_HANDLER "test_dht_handler"
-#define ARGS "t:m:"
-char* Usage = "test_trigger_publish -t topic -m message\n";
+#define ARGS "t:l:"
+char* Usage = "test_get -t topic -l duration(mins)\n";
 
 typedef struct test_stc {
     char msg[256 - 8];
@@ -21,7 +20,7 @@ typedef struct test_stc {
 
 int main(int argc, char** argv) {
     char topic_name[DHT_NAME_LENGTH] = {0};
-    char message[256 - 8] = {0};
+    uint64_t duration = 0;
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -30,8 +29,8 @@ int main(int argc, char** argv) {
             strncpy(topic_name, optarg, sizeof(topic_name));
             break;
         }
-        case 'm': {
-            strncpy(message, optarg, sizeof(message));
+        case 'l': {
+            duration = (int)strtoul(optarg, NULL, 10) * 60 * 1000;
             break;
         }
         default: {
@@ -42,23 +41,26 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (topic_name[0] == 0 || message[0] == 0) {
+    if (topic_name[0] == 0 || duration == 0) {
         fprintf(stderr, "%s", Usage);
         exit(1);
     }
 
     WooFInit();
 
-    TEST_EL el = {0};
-    sprintf(el.msg, message);
-    el.sent = get_milliseconds();
-
-    int err = dht_publish(topic_name, &el, sizeof(TEST_EL));
-    if (err < 0) {
-        fprintf(stderr, "failed to publish to topic: %s\n", dht_error_msg);
-        exit(1);
+    int i;
+    RAFT_DATA_TYPE data = {0};
+    int count = 0;
+    uint64_t begin = get_milliseconds();
+    while (get_milliseconds() - begin < duration) {
+        if (dht_get(topic_name, &data, 1) < 0) {
+            fprintf(stderr, "failed to get data from topic: %s\n", dht_error_msg);
+            exit(1);
+        }
+        ++count;
     }
-    printf("%s published at %lu\n", message, get_milliseconds());
+    printf("dht_get %d data in %lu ms, avg %f ms", count, duration, (double)duration / count);
+    fflush(stdout);
 
     return 0;
 }

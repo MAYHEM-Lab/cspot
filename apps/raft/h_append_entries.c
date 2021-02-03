@@ -11,7 +11,6 @@
 #include <unistd.h>
 
 #define RAFT_WARNING_LATENCY(x) x / 2
-#define PROFILING
 
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_APPEND_ENTRIES_ARG* request = (RAFT_APPEND_ENTRIES_ARG*)ptr;
@@ -303,10 +302,12 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     uint64_t result_begin = get_milliseconds();
     unsigned long seq = WooFPut(leader_result_woof, NULL, &result);
     if (WooFInvalid(seq)) {
-        log_warn("failed to return the append_entries result to %s", leader_result_woof);
+        log_warn("failed to return the h_append_entries result to %s", leader_result_woof);
     }
     log_debug("returned result to %s [%lu]", leader_result_woof, seq);
-    // printf("handler h_append_entries took %lu\n", get_milliseconds() - begin);
+    if (get_milliseconds() - ts_received > 500) {
+        log_warn("h_append_entries took %lu ms\n", get_milliseconds() - ts_received);
+    }
     WooFMsgCacheShutdown();
     return 1;
 }
