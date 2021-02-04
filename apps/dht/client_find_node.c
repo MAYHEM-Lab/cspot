@@ -11,12 +11,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "t:i:o:"
-char* Usage = "client_find_node -t topic -i client_ip (-o timeout)\n";
+#define ARGS "t:o:"
+char* Usage = "client_find_node -t topic (-o timeout)\n";
 
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
-    char client_ip[DHT_NAME_LENGTH] = {0};
     int timeout = 0;
 
     int c;
@@ -24,10 +23,6 @@ int main(int argc, char** argv) {
         switch (c) {
         case 't': {
             strncpy(topic, optarg, sizeof(topic));
-            break;
-        }
-        case 'i': {
-            strncpy(client_ip, optarg, sizeof(client_ip));
             break;
         }
         case 'o': {
@@ -49,26 +44,18 @@ int main(int argc, char** argv) {
     }
 
     WooFInit();
-
     uint64_t begin = get_milliseconds();
-    char local_namespace[DHT_NAME_LENGTH] = {0};
-    node_woof_namespace(local_namespace);
-    char callback_namespace[DHT_NAME_LENGTH] = {0};
-    if (client_ip[0] == 0) {
-        char ip[DHT_NAME_LENGTH] = {0};
-        if (WooFLocalIP(ip, sizeof(ip)) < 0) {
-            fprintf(stderr, "failed to get local IP");
-            exit(1);
-        }
-        sprintf(callback_namespace, "woof://%s%s", ip, local_namespace);
-    } else {
-        sprintf(callback_namespace, "woof://%s%s", client_ip, local_namespace);
+
+    DHT_NODE_INFO node_info = {0};
+    if (get_latest_node_info(&node_info) < 0) {
+        fprintf(stderr, "couldn't get latest node info: %s", dht_error_msg);
+        exit(1);
     }
 
     char hashed_key[SHA_DIGEST_LENGTH];
     dht_hash(hashed_key, topic);
     DHT_FIND_SUCCESSOR_ARG arg = {0};
-    dht_init_find_arg(&arg, topic, hashed_key, callback_namespace);
+    dht_init_find_arg(&arg, topic, hashed_key, node_info.addr);
     arg.action = DHT_ACTION_FIND_NODE;
 
     unsigned long last_checked_result = WooFGetLatestSeqno(DHT_FIND_NODE_RESULT_WOOF);

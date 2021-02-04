@@ -38,6 +38,13 @@ void cpu_topic_name(int i, char* topic_name) {
     }
 }
 
+void refresh_model(REGRESSOR_MODEL* model) {
+    if (dht_publish((char*)TOPIC_REGRESSOR_MODEL, model, sizeof(REGRESSOR_MODEL)) < 0) {
+        cerr << "[predict] failed to refresh model: " << dht_error_msg << endl;
+        exit(1);
+    }
+}
+
 extern "C" int h_predict(char* topic_name, unsigned long seq_no, void* ptr) {
     DATA_ELEMENT* el = (DATA_ELEMENT*)ptr;
 
@@ -57,6 +64,9 @@ extern "C" int h_predict(char* topic_name, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     REGRESSOR_MODEL* model = (REGRESSOR_MODEL*)&data;
+    if (seq_no % 1024 == 0) {
+        refresh_model(model); // refresh model to avoid log rolled over
+    }
     mlpack::regression::LinearRegression regressor;
     restore_model(model, &regressor);
 

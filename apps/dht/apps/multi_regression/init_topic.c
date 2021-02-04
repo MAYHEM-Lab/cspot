@@ -15,7 +15,6 @@ int is_cpu_topic(char* topic) {
 
 int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
-    char address[DHT_NAME_LENGTH] = {0};
 
     int c;
     while ((c = getopt(argc, argv, "t:i:")) != EOF) {
@@ -24,19 +23,15 @@ int main(int argc, char** argv) {
             strncpy(topic, optarg, sizeof(topic));
             break;
         }
-        case 'i': {
-            strncpy(address, optarg, sizeof(address));
-            break;
-        }
         default: {
-            fprintf(stderr, "./init_topic -t topic -i address\n");
+            fprintf(stderr, "./init_topic -t topic\n");
             exit(1);
         }
         }
     }
 
-    if (topic[0] == 0 || address[0] == 0) {
-        fprintf(stderr, "./init_topic -t topic -i address\n");
+    if (topic[0] == 0) {
+        fprintf(stderr, "./init_topic -t topic\n");
         exit(1);
     }
     WooFInit();
@@ -64,7 +59,7 @@ int main(int argc, char** argv) {
     }
 
     printf("registering topic %s\n", topic);
-    if (dht_register_topic(topic, address) < 0) {
+    if (dht_register_topic(topic) < 0) {
         fprintf(stderr, "failed to register topic %s: %s\n", topic, dht_error_msg);
         exit(1);
     }
@@ -72,7 +67,7 @@ int main(int argc, char** argv) {
         char smooth_topic[DHT_NAME_LENGTH] = {0};
         sprintf(smooth_topic, "%s%s", topic, TOPIC_SMOOTH_SUFFIX);
         printf("registering topic %s\n", smooth_topic);
-        if (dht_register_topic(smooth_topic, address) < 0) {
+        if (dht_register_topic(smooth_topic) < 0) {
             fprintf(stderr, "failed to register topic %s: %s\n", smooth_topic, dht_error_msg);
             exit(1);
         }
@@ -81,7 +76,7 @@ int main(int argc, char** argv) {
     if (is_cpu_topic(topic) || strcmp(topic, TOPIC_DHT_1) == 0) {
         sleep(2);
         printf("subscribing topic %s\n", topic);
-        if (dht_subscribe(topic, address, HANDLER_SMOOTH) < 0) {
+        if (dht_subscribe(topic, HANDLER_SMOOTH) < 0) {
             fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
             exit(1);
         }
@@ -90,12 +85,12 @@ int main(int argc, char** argv) {
         sleep(2);
         printf("subscribing topic %s\n", smooth_topic);
         if (is_cpu_topic(topic)) {
-            if (dht_subscribe(smooth_topic, address, HANDLER_PREDICT) < 0) {
+            if (dht_subscribe(smooth_topic, HANDLER_PREDICT) < 0) {
                 fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
                 exit(1);
             }
         } else if (strcmp(topic, TOPIC_DHT_1) == 0) {
-            if (dht_subscribe(smooth_topic, address, HANDLER_TRAIN) < 0) {
+            if (dht_subscribe(smooth_topic, HANDLER_TRAIN) < 0) {
                 fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
                 exit(1);
             }

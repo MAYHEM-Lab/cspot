@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #define TRAINING_WINDOW (72 * 60 * 60 * 1000)
-#define MODEL_EXPIRATION (7 * 24 * 60 * 60 * 1000) // one week
+#define MODEL_EXPIRATION (72 * 60 * 60 * 1000)
 #define MAX_SAMPLES (TRAINING_WINDOW / 5 / 60 / 1000)
 #define MIN_SAMPLES (24 * 60 / 5) // one day 288
 

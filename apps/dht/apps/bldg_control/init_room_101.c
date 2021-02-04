@@ -8,26 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "i:"
-char* Usage = "init_room_101 -i client_ip\n";
-
 int main(int argc, char** argv) {
-    char client_ip[DHT_NAME_LENGTH] = {0};
-
-    int c;
-    while ((c = getopt(argc, argv, ARGS)) != EOF) {
-        switch (c) {
-        case 'i': {
-            strncpy(client_ip, optarg, sizeof(client_ip));
-            break;
-        }
-        default: {
-            fprintf(stderr, "unrecognized command %c\n", (char)c);
-            fprintf(stderr, "%s", Usage);
-            exit(1);
-        }
-        }
-    }
     WooFInit();
 
     if (dht_create_topic(TOPIC_ROOM_101_TRAFFIC, sizeof(TRAFFIC_EL), BLDG_HISTORY_LENGTH) < 0) {
@@ -35,7 +16,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    if (dht_register_topic(TOPIC_ROOM_101_TRAFFIC, client_ip) < 0) {
+    if (dht_register_topic(TOPIC_ROOM_101_TRAFFIC) < 0) {
         fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
         exit(1);
     }

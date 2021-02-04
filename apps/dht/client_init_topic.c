@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    if (dht_register_topic(topic, client_ip) < 0) {
+    if (dht_register_topic(topic) < 0) {
         fprintf(stderr, "failed to register topic on DHT: %s\n", dht_error_msg);
         exit(1);
     }

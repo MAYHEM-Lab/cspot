@@ -27,7 +27,7 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
     // when using raft, there's no need to create topic woof since the data is stored in raft log
 }
 
-int dht_register_topic(char* topic_name, char* topic_addr) {
+int dht_register_topic(char* topic_name) {
     // create index_map woof
     char index_map_woof[DHT_NAME_LENGTH] = {0};
     sprintf(index_map_woof, "%s_%s", topic_name, RAFT_INDEX_MAPPING_WOOF_SUFFIX);
@@ -38,21 +38,6 @@ int dht_register_topic(char* topic_name, char* topic_addr) {
     if (chmod(index_map_woof, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
         sprintf(dht_error_msg, "failed to change file %s's mode to 0666", index_map_woof);
         return -1;
-    }
-
-    // register topic namespace
-    char local_namespace[DHT_NAME_LENGTH] = {0};
-    node_woof_namespace(local_namespace);
-    char topic_namespace[DHT_NAME_LENGTH] = {0};
-    if (topic_addr == NULL) {
-        char ip[DHT_NAME_LENGTH] = {0};
-        if (WooFLocalIP(ip, sizeof(ip)) < 0) {
-            sprintf(dht_error_msg, "failed to get local IP");
-            return -1;
-        }
-        sprintf(topic_namespace, "woof://%s%s", ip, local_namespace);
-    } else {
-        sprintf(topic_namespace, "woof://%s%s", topic_addr, local_namespace);
     }
 
     DHT_REGISTER_TOPIC_ARG register_topic_arg = {0};
@@ -78,7 +63,7 @@ int dht_register_topic(char* topic_name, char* topic_addr) {
     DHT_FIND_SUCCESSOR_ARG arg = {0};
     dht_init_find_arg(&arg, topic_name, hashed_key, ""); // namespace doesn't matter, acted in target namespace
     arg.action = DHT_ACTION_REGISTER_TOPIC;
-    strcpy(arg.action_namespace, topic_namespace);
+    strcpy(arg.action_namespace, node_info.addr);
     arg.action_seqno = action_seqno;
     char find_sucessor_woof[DHT_NAME_LENGTH] = {0};
     if (node_info.leader_id != node_info.replica_id) {
@@ -94,7 +79,7 @@ int dht_register_topic(char* topic_name, char* topic_addr) {
     return 0;
 }
 
-int dht_subscribe(char* topic_name, char* topic_addr, char* handler) {
+int dht_subscribe(char* topic_name, char* handler) {
     if (access(handler, F_OK) == -1) {
         sprintf(dht_error_msg, "handler %s doesn't exist", handler);
         return -1;
@@ -113,20 +98,6 @@ int dht_subscribe(char* topic_name, char* topic_addr, char* handler) {
         if (strcmp(raft_server_state.member_woofs[i], raft_server_state.current_leader) == 0) {
             replica_leader = i;
         }
-    }
-
-    char local_namespace[DHT_NAME_LENGTH] = {0};
-    node_woof_namespace(local_namespace);
-    char action_namespace[DHT_NAME_LENGTH] = {0};
-    if (topic_addr == NULL) {
-        char ip[DHT_NAME_LENGTH] = {0};
-        if (WooFLocalIP(ip, sizeof(ip)) < 0) {
-            sprintf(dht_error_msg, "failed to get local IP");
-            return -1;
-        }
-        sprintf(action_namespace, "woof://%s%s", ip, local_namespace);
-    } else {
-        sprintf(action_namespace, "woof://%s%s", topic_addr, local_namespace);
     }
 
     DHT_NODE_INFO node_info = {0};
@@ -153,7 +124,7 @@ int dht_subscribe(char* topic_name, char* topic_addr, char* handler) {
     DHT_FIND_SUCCESSOR_ARG arg = {0};
     dht_init_find_arg(&arg, topic_name, hashed_key, ""); // namespace doesn't matter, acted in target namespace
     arg.action = DHT_ACTION_SUBSCRIBE;
-    strcpy(arg.action_namespace, action_namespace);
+    strcpy(arg.action_namespace, node_info.addr);
     arg.action_seqno = action_seqno;
     char find_sucessor_woof[DHT_NAME_LENGTH] = {0};
     if (node_info.leader_id != node_info.replica_id) {

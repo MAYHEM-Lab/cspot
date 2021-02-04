@@ -23,34 +23,24 @@ typedef struct test_stc {
 int main(int argc, char** argv) {
     WooFInit();
 
-    char* topic_addr = NULL;
-    if (argc >= 2) {
-        topic_addr = malloc(DHT_NAME_LENGTH * sizeof(char));
-        strcpy(topic_addr, argv[1]);
-    }
-
     if (dht_create_topic(TEST_TOPIC, sizeof(TEST_EL), DHT_HISTORY_LENGTH_SHORT) < 0) {
         fprintf(stderr, "failed to create topic: %s\n", dht_error_msg);
-        free(topic_addr);
         exit(1);
     }
     printf("topic created\n");
     usleep(500 * 1000);
 
-    if (dht_register_topic(TEST_TOPIC, topic_addr) < 0) {
+    if (dht_register_topic(TEST_TOPIC) < 0) {
         fprintf(stderr, "failed to register topic: %s\n", dht_error_msg);
-        free(topic_addr);
         exit(1);
     }
     printf("topic registered\n");
     usleep(500 * 1000);
 
-    if (dht_subscribe(TEST_TOPIC, topic_addr, TEST_HANDLER) < 0) {
+    if (dht_subscribe(TEST_TOPIC, TEST_HANDLER) < 0) {
         fprintf(stderr, "failed to subscribe to topic: %s\n", dht_error_msg);
-        free(topic_addr);
         exit(1);
     }
-    free(topic_addr);
     printf("handler subscribed to topic\n");
     usleep(500 * 1000);
 
