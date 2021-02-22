@@ -29,14 +29,14 @@ int dht_create_topic(char* topic_name, unsigned long element_size, unsigned long
 
 int dht_register_topic(char* topic_name) {
     // create index_map woof
-    char index_map_woof[DHT_NAME_LENGTH] = {0};
-    sprintf(index_map_woof, "%s_%s", topic_name, RAFT_INDEX_MAPPING_WOOF_SUFFIX);
-    if (WooFCreate(index_map_woof, sizeof(RAFT_INDEX_MAP), RAFT_WOOF_HISTORY_SIZE_LONG) < 0) {
-        sprintf(dht_error_msg, "failed to create index_map woof %s", index_map_woof);
-        return -1;
-    }
-    if (chmod(index_map_woof, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) < 0) {
-        sprintf(dht_error_msg, "failed to change file %s's mode to 0666", index_map_woof);
+    DHT_CREATE_INDEX_MAP_ARG create_index_map_arg = {0};
+    strcpy(create_index_map_arg.topic_name, topic_name);
+    unsigned long index =
+        raft_put_handler(NULL, "r_create_index_map", &create_index_map_arg, sizeof(DHT_CREATE_INDEX_MAP_ARG), NULL);
+    if (WooFInvalid(index)) {
+        char err_msg[DHT_NAME_LENGTH] = {0};
+        strcpy(err_msg, dht_error_msg);
+        sprintf(dht_error_msg, "failed to creat index map woof", err_msg);
         return -1;
     }
 

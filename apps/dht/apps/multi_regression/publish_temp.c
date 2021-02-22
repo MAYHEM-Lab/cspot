@@ -13,9 +13,10 @@ int main(int argc, char** argv) {
     char topic[DHT_NAME_LENGTH] = {0};
     double temperature = 0;
     uint64_t timestamp = 0;
+    uint64_t publish_ts = 0;
 
     int c;
-    while ((c = getopt(argc, argv, "t:v:s:")) != EOF) {
+    while ((c = getopt(argc, argv, "t:v:s:r:")) != EOF) {
         switch (c) {
         case 't': {
             strncpy(topic, optarg, sizeof(topic));
@@ -29,8 +30,12 @@ int main(int argc, char** argv) {
             timestamp = (uint64_t)strtoul(optarg, NULL, 0);
             break;
         }
+        case 'r': {
+            publish_ts = (uint64_t)strtoul(optarg, NULL, 0);
+            break;
+        }
         default: {
-            fprintf(stderr, "./publish_temp -t topic -v temperature -s timestamp\n");
+            fprintf(stderr, "./publish_temp -t topic -v temperature -s timestamp -r publish_ts\n");
             exit(1);
         }
         }
@@ -40,6 +45,7 @@ int main(int argc, char** argv) {
     DATA_ELEMENT data = {0};
     data.val = temperature;
     data.ts = timestamp;
+    data.publish_ts = publish_ts;
 
     WooFInit();
     unsigned long index = dht_publish(topic, &data, sizeof(DATA_ELEMENT));

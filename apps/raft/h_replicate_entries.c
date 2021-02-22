@@ -202,7 +202,7 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
             server_state->role = RAFT_FOLLOWER;
             strcpy(server_state->current_leader, result.server_woof);
             memset(server_state->voted_for, 0, RAFT_NAME_LENGTH);
-            unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
+            unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to fall back to follower at term %" PRIu64 "", result.term);
                 return -1;

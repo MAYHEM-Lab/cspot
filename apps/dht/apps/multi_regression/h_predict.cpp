@@ -48,6 +48,8 @@ void refresh_model(REGRESSOR_MODEL* model) {
 extern "C" int h_predict(char* topic_name, unsigned long seq_no, void* ptr) {
     DATA_ELEMENT* el = (DATA_ELEMENT*)ptr;
 
+    uint64_t triggered = get_milliseconds();
+    cout << "[predict] latency trigger: " << triggered - el->publish_ts << endl;
     unsigned long latest_model = dht_latest_index((char*)TOPIC_REGRESSOR_MODEL);
     if (WooFInvalid(latest_model)) {
         cerr << "[predict] failed to get the latest index of " << TOPIC_REGRESSOR_MODEL << ": " << dht_error_msg
@@ -146,6 +148,8 @@ extern "C" int h_predict(char* topic_name, unsigned long seq_no, void* ptr) {
     DATA_ELEMENT predict = {0};
     predict.val = res(0);
     predict.ts = el->ts;
+    predict.publish_ts = el->publish_ts;
+    cout << "[predict] latency regress: " << get_milliseconds() - triggered << endl;
     if (dht_publish((char*)TOPIC_PREDICT, &predict, sizeof(DATA_ELEMENT)) < 0) {
         cerr << "[predict] failed to publish to " << TOPIC_PREDICT << ": " << dht_error_msg << endl;
         exit(1);
@@ -155,6 +159,7 @@ extern "C" int h_predict(char* topic_name, unsigned long seq_no, void* ptr) {
         DATA_ELEMENT error = {0};
         error.val = abs(truth - res(0));
         error.ts = el->ts;
+        error.publish_ts = el->publish_ts;
         if (dht_publish((char*)TOPIC_ERROR, &error, sizeof(DATA_ELEMENT)) < 0) {
             cerr << "[predict] failed to publish to " << TOPIC_ERROR << ": " << dht_error_msg << endl;
             exit(1);

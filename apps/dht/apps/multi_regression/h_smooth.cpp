@@ -13,6 +13,8 @@ using namespace std;
 extern "C" int h_smooth(char* topic_name, unsigned long seq_no, void* ptr) {
     DATA_ELEMENT* el = (DATA_ELEMENT*)ptr;
 
+    uint64_t triggered = get_milliseconds();
+    cout << "[smooth] latency trigger: " << triggered - el->publish_ts << endl;
     double sum = el->val;
     int cnt = 1;
     uint64_t latest_ts = align_ts(el->ts);
@@ -33,7 +35,9 @@ extern "C" int h_smooth(char* topic_name, unsigned long seq_no, void* ptr) {
     DATA_ELEMENT avg = {0};
     avg.val = sum / cnt;
     avg.ts = latest_ts;
+    avg.publish_ts = get_milliseconds();
     // cout << "[smooth] " << avg.ts << " average " << cnt << " readings in " << topic_name << ": " << avg.val << endl;
+    cout << "[smooth] latency smooth: " << get_milliseconds() - triggered << endl;
     char smooth_topic[DHT_NAME_LENGTH] = {0};
     sprintf(smooth_topic, "%s%s", topic_name, TOPIC_SMOOTH_SUFFIX);
     if (dht_publish(smooth_topic, &avg, sizeof(DATA_ELEMENT)) < 0) {

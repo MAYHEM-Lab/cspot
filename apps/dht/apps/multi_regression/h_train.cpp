@@ -49,6 +49,7 @@ void store_model(REGRESSOR_MODEL* model, mlpack::regression::LinearRegression re
 extern "C" int h_train(char* topic_name, unsigned long seq_no, void* ptr) {
     DATA_ELEMENT* el = (DATA_ELEMENT*)ptr;
     uint64_t begin = get_milliseconds();
+    cout << "[train] latency trigger: " << begin - el->publish_ts << endl;
 
     // check if the latest model is still fresh
     unsigned long latest_model_index = dht_latest_index((char*)TOPIC_REGRESSOR_MODEL);

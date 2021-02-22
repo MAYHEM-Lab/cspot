@@ -24,6 +24,7 @@
 typedef struct data_element {
     double val;
     uint64_t ts;
+    uint64_t publish_ts;
 } DATA_ELEMENT;
 
 typedef struct regressor_model {

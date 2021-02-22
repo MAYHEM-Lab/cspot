@@ -32,17 +32,38 @@ void* request_vote(void* arg) {
 }
 
 int experiment_cheat(char* woof_name) {
-    // dht except dht9 and dht16
-    if (strstr(woof_name, "169.231.23") != NULL && strstr(woof_name, "169.231.235.132") == NULL &&
-        strstr(woof_name, "169.231.235.200") == NULL) {
-        return 1;
-    }
-    // sed
-    // if (strstr(woof_name, "128.111.39") != NULL) {
+    // return 1;
+    // except dht1
+    // if (strstr(woof_name, "169.231.234.163") != NULL) {
+    //     return 0;
+    // }
+    // except dht9, dht16, dht10, dht11
+    // if (strstr(woof_name, "169.231.235.132") != NULL || strstr(woof_name, "169.231.235.200") != NULL ||
+    //     strstr(woof_name, "169.231.235.148") != NULL || strstr(woof_name, "169.231.235.166") != NULL) {
+    //     return 0;
+    // }
+    // except val9, val10
+    // if (strstr(woof_name, "128.111.45.140") != NULL || strstr(woof_name, "128.111.45.119") != NULL) {
+    //     return 0;
+    // }
+    // val1
+    // if (strstr(woof_name, "128.111.45.112") != NULL) {
     //     return 1;
     // }
-    // sed9
-    if (strstr(woof_name, "128.111.39.235") != NULL) {
+    // dht
+    // if (strstr(woof_name, "169.231.23") != NULL) {
+    //     return 1;
+    // }
+    // sed
+    if (strstr(woof_name, "128.111.39") != NULL) {
+        return 1;
+    }
+    // val
+    // if (strstr(woof_name, "128.111.45") != NULL) {
+    //     return 1;
+    // }
+    // sed1
+    if (strstr(woof_name, "128.111.39.229") != NULL) {
         return 1;
     }
     return 0;
@@ -177,7 +198,7 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     uint64_t join_begin = get_milliseconds();
     threads_join(server_state.members, thread_id);
     if (get_milliseconds() - join_begin > 5000) {
-        log_warn("join tooks %lu ms",  get_milliseconds() - join_begin);
+        log_warn("join tooks %lu ms", get_milliseconds() - join_begin);
     }
     WooFMsgCacheShutdown();
     return 1;

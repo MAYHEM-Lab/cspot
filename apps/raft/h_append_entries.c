@@ -12,6 +12,40 @@
 
 #define RAFT_WARNING_LATENCY(x) x / 2
 
+int invoke_handler_and_map_topic_index(unsigned long begin, unsigned long end) {
+    unsigned int i;
+    for (i = begin; i <= end; ++i) {
+        RAFT_LOG_ENTRY entry = {0};
+        if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, i) < 0) {
+            return -1;
+        }
+
+        if (entry.is_handler) {
+            RAFT_LOG_HANDLER_ENTRY* handler_entry = (RAFT_LOG_HANDLER_ENTRY*)&entry.data;
+            unsigned long seq = WooFPut(RAFT_LOG_HANDLER_ENTRIES_WOOF, handler_entry->handler, handler_entry->ptr);
+            if (WooFInvalid(seq)) {
+                log_error("failed to invoke %s for appended handler entry", handler_entry->handler);
+            }
+            log_debug("appended a handler entry and invoked the handler %s", handler_entry->handler);
+        }
+
+        // if the entry belongs to a topic, map the index
+        if (entry.topic_name[0] != 0) {
+            char index_map_woof[RAFT_NAME_LENGTH] = {0};
+            sprintf(index_map_woof, "%s_%s", entry.topic_name, RAFT_INDEX_MAPPING_WOOF_SUFFIX);
+            RAFT_INDEX_MAP index_map = {0};
+            index_map.index = i;
+            unsigned long seq = WooFPut(index_map_woof, NULL, &index_map);
+            if (WooFInvalid(seq)) {
+                log_error("failed to put to %s", index_map_woof);
+                return -1;
+            }
+            log_debug("mapped index %lu to topic %s[%lu]", i, entry.topic_name, seq);
+        }
+    }
+    return 0;
+}
+
 int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_APPEND_ENTRIES_ARG* request = (RAFT_APPEND_ENTRIES_ARG*)ptr;
     RAFT_LOG_ENTRY* entries = (RAFT_LOG_ENTRY*)(ptr + sizeof(RAFT_APPEND_ENTRIES_ARG));
@@ -273,6 +307,12 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 // check if there's new commit_index
                 if (request->leader_commit > server_state.commit_index) {
                     // commit_index = min(leader_commit, index of last new entry)
+                    if (invoke_handler_and_map_topic_index(server_state.commit_index + 1, request->leader_commit) < 0) {
+                        log_error("failed to map committed log index");
+                        WooFMsgCacheShutdown();
+                        raft_unlock(RAFT_LOCK_SERVER);
+                        exit(1);
+                    }
                     server_state.commit_index = request->leader_commit;
                     if (last_entry_seq < server_state.commit_index) {
                         server_state.commit_index = last_entry_seq;

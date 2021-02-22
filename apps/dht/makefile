@@ -48,6 +48,7 @@ copy: handlers clients
 	cp s_create_cluster ./cspot;
 	cp s_create_woofs ./cspot;
 	cp s_join_cluster ./cspot;
+	cp r_create_index_map ./cspot;
 	cp r_register_topic ./cspot;
 	cp r_set_successor ./cspot;
 	cp r_subscribe ./cspot;
@@ -65,7 +66,7 @@ copy: handlers clients
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
 	h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe \
-	r_register_topic r_set_successor r_subscribe r_try_replicas \
+	r_create_index_map r_register_topic r_set_successor r_subscribe r_try_replicas \
 	server_publish_data server_publish_trigger
 
 clients: s_create_cluster s_create_woofs s_join_cluster \
@@ -184,6 +185,11 @@ h_subscribe: h_subscribe.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC
 	sed 's/WOOF_HANDLER_NAME/h_subscribe/g' ${SHEP_SRC} > h_subscribe_shepherd.c
 	${CC} ${CFLAGS} -c h_subscribe_shepherd.c -o h_subscribe_shepherd.o
 	${CC} ${CFLAGS} -o h_subscribe h_subscribe.c h_subscribe_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+r_create_index_map: r_create_index_map.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/r_create_index_map/g' ${SHEP_SRC} > r_create_index_map_shepherd.c
+	${CC} ${CFLAGS} -c r_create_index_map_shepherd.c -o r_create_index_map_shepherd.o
+	${CC} ${CFLAGS} -o r_create_index_map r_create_index_map.c r_create_index_map_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 r_register_topic: r_register_topic.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/r_register_topic/g' ${SHEP_SRC} > r_register_topic_shepherd.c

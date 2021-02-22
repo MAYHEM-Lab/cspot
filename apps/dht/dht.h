@@ -165,6 +165,10 @@ typedef struct dht_register_topic_arg {
     int topic_leader;
 } DHT_REGISTER_TOPIC_ARG;
 
+typedef struct dht_create_index_map_arg {
+    char topic_name[DHT_NAME_LENGTH];
+} DHT_CREATE_INDEX_MAP_ARG;
+
 typedef struct dht_shift_successor_arg {
 
 } DHT_SHIFT_SUCCESSOR_ARG;
