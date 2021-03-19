@@ -104,18 +104,23 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             arg->last_forwarded_put_result = i;
             continue;
         } else if (result->index <= server_state.commit_index) {
-            // log entry has been committed, invoke the handler
-            if (pthread_create(&forward_result_thread_id[result_count],
-                               NULL,
-                               forward_result_thread,
-                               (void*)&forward_result_thread_arg[result_count]) < 0) {
-                log_error("failed to create thread to invoke callback of client_put request");
-                threads_join(result_count, forward_result_thread_id);
-                free(forward_result_thread_arg);
-                free(forward_result_thread_id);
-                return -1;
+            if (result->term != server_state.current_term) {
+                log_warn("result term %lu doesn't match server's term, entry got rewritten and wasn't committed",
+                         result->term);
+            } else {
+                // log entry has been committed, invoke the handler
+                if (pthread_create(&forward_result_thread_id[result_count],
+                                   NULL,
+                                   forward_result_thread,
+                                   (void*)&forward_result_thread_arg[result_count]) < 0) {
+                    log_error("failed to create thread to invoke callback of client_put request");
+                    threads_join(result_count, forward_result_thread_id);
+                    free(forward_result_thread_arg);
+                    free(forward_result_thread_id);
+                    return -1;
+                }
+                ++result_count;
             }
-            ++result_count;
             arg->last_forwarded_put_result = i;
         } else {
             break;
@@ -125,7 +130,7 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     uint64_t join_begin = get_milliseconds();
     threads_join(result_count, forward_result_thread_id);
     if (get_milliseconds() - join_begin > 5000) {
-        log_warn("join took %lu ms",  get_milliseconds() - join_begin);
+        log_warn("join took %lu ms", get_milliseconds() - join_begin);
     }
     free(forward_result_thread_arg);
     free(forward_result_thread_id);

@@ -31,8 +31,10 @@ void* request_vote(void* arg) {
     }
 }
 
-int experiment_cheat(char* woof_name) {
-    // return 1;
+int experiment_cheat(char* woof_name, unsigned long term) {
+    if (term > 0) {
+        return 1;
+    }
     // except dht1
     // if (strstr(woof_name, "169.231.234.163") != NULL) {
     //     return 0;
@@ -55,17 +57,18 @@ int experiment_cheat(char* woof_name) {
     //     return 1;
     // }
     // sed
-    if (strstr(woof_name, "128.111.39") != NULL) {
-        return 1;
-    }
-    // val
-    // if (strstr(woof_name, "128.111.45") != NULL) {
+    // if (strstr(woof_name, "128.111.39") != NULL) {
     //     return 1;
     // }
-    // sed1
-    if (strstr(woof_name, "128.111.39.229") != NULL) {
+    // val
+    if (strstr(woof_name, "128.111.45") != NULL) {
         return 1;
     }
+    // sed1
+    // if (strstr(woof_name, "128.111.39.229") != NULL) {
+    //     return 1;
+    // }
+    log_debug("experiment_cheat not allowed");
     return 0;
 }
 
@@ -97,7 +100,6 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
-    int checker_delay = server_state.timeout_min / 5;
 
     // check if there's new heartbeat since went into sleep
     RAFT_HEARTBEAT heartbeat = {0};
@@ -111,7 +113,8 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
     // if timeout, start an election
     memset(thread_id, 0, sizeof(pthread_t) * RAFT_MAX_MEMBERS);
     memset(thread_arg, 0, sizeof(REQUEST_VOTE_THREAD_ARG) * RAFT_MAX_MEMBERS);
-    if (get_milliseconds() - heartbeat.timestamp > arg->timeout_value && experiment_cheat(server_state.woof_name)) {
+    if (get_milliseconds() - heartbeat.timestamp > arg->timeout_value &&
+        experiment_cheat(server_state.woof_name, server_state.current_term)) {
         arg->timeout_value = random_timeout(get_milliseconds(), server_state.timeout_min, server_state.timeout_max);
         log_warn("timeout after %" PRIu64 "ms at term %" PRIu64 "",
                  get_milliseconds() - heartbeat.timestamp,
@@ -184,10 +187,11 @@ int h_timeout_checker(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         log_debug("requested vote from %d members", server_state.members);
     } else {
+        log_debug("last hearbeat was %lu ms ago", get_milliseconds() - heartbeat.timestamp);
         raft_unlock(RAFT_LOCK_SERVER);
     }
 
-    usleep(checker_delay * 1000);
+    usleep(1000 * 1000);
     unsigned long seq = WooFPut(RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_timeout_checker handler");

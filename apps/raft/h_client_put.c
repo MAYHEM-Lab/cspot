@@ -67,6 +67,27 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             }
             log_debug("redirected request to leader %s[%lu]", result.redirected_target, result.redirected_seqno);
             ++redirected;
+
+            // // let the caller know to invalidate cache
+            // char caller_woof[RAFT_NAME_LENGTH] = {0};
+            // strcpy(caller_woof, request.callback_woof);
+            // int j;
+            // for (j = strlen(caller_woof) - 1; j >= 0; --j) {
+            //     if (caller_woof[j] == '/') {
+            //         break;
+            //     }
+            // }
+            // if (j > 0) {
+            //     sprintf(caller_woof + j + 1, "dht_invalidate_cache.woof");
+            //     struct invalidate_cache_arg {
+            //         char topic_name[RAFT_NAME_LENGTH];
+            //     } arg = {0};
+            //     strcpy(arg.topic_name, request.topic_name);
+            //     if (WooFPut(caller_woof, "h_invalidate_cache", &arg) < 0) {
+            //         log_error("failed to ask %s to invalidate cache");
+            //     }
+            //     log_debug("invalidate %s on %s", arg.topic_name, caller_woof);
+            // }
         } else {
             unsigned long entry_seqno;
             RAFT_LOG_ENTRY entry = {0};

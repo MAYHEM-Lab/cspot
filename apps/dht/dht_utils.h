@@ -62,6 +62,8 @@ char* predecessor_addr(DHT_PREDECESSOR_INFO* info);
 char* successor_addr(DHT_SUCCESSOR_INFO* info, int r);
 char* finger_addr(DHT_FINGER_INFO* info);
 int raft_leader_id();
+int replica_leader(char *replica_addr, char* leader);
+int replica_leader_id(char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH], int k);
 int invalidate_fingers(char hash[SHA_DIGEST_LENGTH]);
 #define TRY_SUCCESSOR_REPLICAS_TIMEOUT 10000
 

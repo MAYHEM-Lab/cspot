@@ -37,6 +37,7 @@ copy: handlers clients
 	cp h_find_successor ./cspot;
 	cp h_fix_finger_callback ./cspot;
 	cp h_get_predecessor ./cspot;
+	cp h_invalidate_cache ./cspot;
 	cp h_invalidate_fingers ./cspot;
 	cp h_join_callback ./cspot;
 	cp h_notify_callback ./cspot;
@@ -55,6 +56,7 @@ copy: handlers clients
 	cp r_try_replicas ./cspot;
 	cp server_publish_data ./cspot;
 	cp server_publish_trigger ./cspot;
+	cp client_check_leader ./cspot;
 	cp client_find_node ./cspot;
 	cp client_find_topic ./cspot;
 	cp client_init_topic ./cspot;
@@ -64,13 +66,13 @@ copy: handlers clients
 	cp ../monitor/monitor_invoker ./cspot
 	
 handlers: d_check_predecessor d_daemon d_fix_finger d_stabilize \
-	h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers h_join_callback h_notify_callback \
+	h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_cache h_invalidate_fingers h_join_callback h_notify_callback \
 	h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe \
 	r_create_index_map r_register_topic r_set_successor r_subscribe r_try_replicas \
 	server_publish_data server_publish_trigger
 
 clients: s_create_cluster s_create_woofs s_join_cluster \
-	client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
+	client_check_leader client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 
 test: test_dht_handler test_publish test_subscribe test_trigger_publish test_trigger_publish_multi test_latency_call test_latency_create test_latency_handler test_get
 	mkdir -p cspot;
@@ -83,6 +85,9 @@ test: test_dht_handler test_publish test_subscribe test_trigger_publish test_tri
 	cp test_latency_create ./cspot;
 	cp test_latency_handler ./cspot;
 	cp test_get ./cspot;
+
+client_check_leader: client_check_leader.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
+	${CC} ${CFLAGS} -o client_check_leader client_check_leader.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 client_find_node: client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 	${CC} ${CFLAGS} -o client_find_node client_find_node.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -145,6 +150,11 @@ h_get_predecessor: h_get_predecessor.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP
 	sed 's/WOOF_HANDLER_NAME/h_get_predecessor/g' ${SHEP_SRC} > h_get_predecessor_shepherd.c
 	${CC} ${CFLAGS} -c h_get_predecessor_shepherd.c -o h_get_predecessor_shepherd.o
 	${CC} ${CFLAGS} -o h_get_predecessor h_get_predecessor.c h_get_predecessor_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+
+h_invalidate_cache: h_invalidate_cache.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
+	sed 's/WOOF_HANDLER_NAME/h_invalidate_cache/g' ${SHEP_SRC} > h_invalidate_cache_shepherd.c
+	${CC} ${CFLAGS} -c h_invalidate_cache_shepherd.c -o h_invalidate_cache_shepherd.o
+	${CC} ${CFLAGS} -o h_invalidate_cache h_invalidate_cache.c h_invalidate_cache_shepherd.o ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 
 h_invalidate_fingers: h_invalidate_fingers.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ} ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${SINC}
 	sed 's/WOOF_HANDLER_NAME/h_invalidate_fingers/g' ${SHEP_SRC} > h_invalidate_fingers_shepherd.c
@@ -266,9 +276,9 @@ test_get: test_get.c ${DHTOBJ} ${RAFTOBJ} ${MONITOROBJ}
 clean:
 	rm -rf ./cspot *.o *_shepherd.c
 	rm -f s_create_cluster s_create_woofs s_join_cluster
-	rm -f client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
+	rm -f client_check_leader client_find_node client_find_topic client_init_topic client_node_info client_publish client_subscribe
 	rm -f d_check_predecessor d_daemon d_fix_finger d_stabilize
-	rm -f h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_fingers
+	rm -f h_find_successor h_fix_finger_callback h_get_predecessor h_invalidate_cache h_invalidate_fingers
 	rm -f h_join_callback h_notify_callback h_notify h_register_topic h_shift_successor h_stabilize_callback h_subscribe
 	rm -f r_register_topic r_set_successor r_subscribe r_try_replicas
 	rm -f server_publish_data server_publish_trigger

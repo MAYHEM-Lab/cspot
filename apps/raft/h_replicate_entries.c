@@ -93,8 +93,9 @@ int update_commit_index(RAFT_SERVER_STATE* server_state) {
         if (entry.term == server_state->current_term && sorted_match_index[i] > server_state->commit_index) {
             // update commit_index
             server_state->commit_index = sorted_match_index[i];
-            log_debug(
-                "updated commit_index to %" PRIu64 " at %" PRIu64 "", server_state->commit_index, get_milliseconds());
+            log_debug("updated commit_index to %" PRIu64 " at term %" PRIu64 "",
+                     server_state->commit_index,
+                     server_state->current_term);
 
             // check if joint config is commited
             if (server_state->current_config == RAFT_CONFIG_STATUS_JOINT &&
@@ -240,9 +241,9 @@ int check_append_result(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_
     return 0;
 }
 
-int invoke_commit_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state, RAFT_REPLICATE_ENTRIES_ARG* arg) {
+int invoke_commit_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state) {
     unsigned int i;
-    for (i = arg->last_checked_committed_entry + 1; i <= server_state->commit_index; ++i) {
+    for (i = server_state->last_checked_committed_entry + 1; i <= server_state->commit_index; ++i) {
         RAFT_LOG_ENTRY entry = {0};
         if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, i) < 0) {
             log_error("failed to get log entry at %lu", i);
@@ -272,7 +273,7 @@ int invoke_commit_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state, R
             }
             log_debug("mapped index %lu to topic %s[%lu]", i, entry.topic_name, seq);
         }
-        arg->last_checked_committed_entry = i;
+        server_state->last_checked_committed_entry = i;
     }
     return 0;
 }
@@ -417,7 +418,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         exit(1);
     }
 
-    err = invoke_commit_handler_and_map_topic_index(&server_state, arg);
+    err = invoke_commit_handler_and_map_topic_index(&server_state);
     if (err < 0) {
         WooFMsgCacheShutdown();
         raft_unlock(RAFT_LOCK_SERVER);

@@ -44,10 +44,24 @@ int handler_wrapper(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     // log_debug("using raft, getting index %" PRIu64 " from %s", arg->seq_no, arg->woof_name);
     RAFT_DATA_TYPE raft_data = {0};
-    while (raft_get(arg->element_woof, &raft_data, arg->element_seqno) < 0) {
-        log_warn("failed to get raft data from %s at %lu, probably not committed yet",
-                 arg->element_woof,
-                 arg->element_seqno);
+    int i, j;
+    for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+        j = (arg->leader_id + i) % DHT_REPLICA_NUMBER;
+        if (arg->element_woof[j][0] == 0) {
+            continue;
+        }
+        if (raft_get(arg->element_woof[j], &raft_data, arg->element_seqno) < 0) {
+            log_warn("failed to get raft data from %s at %lu, probably not committed yet",
+                     arg->element_woof[j],
+                     arg->element_seqno);
+        } else {
+            log_debug("got data from %s[%lu]", arg->element_woof[j], arg->element_seqno);
+            break;
+        }
+    }
+    if (i == DHT_REPLICA_NUMBER) {
+        log_error("failed to get raft data from any replica at %lu", arg->element_seqno);
+        exit(1);
     }
 
     // unsigned long latest_index = dht_latest_earlier_index(arg->topic_name, arg->element_seqno);

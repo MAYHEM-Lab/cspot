@@ -39,6 +39,7 @@ char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF,
                                               DHT_SERVER_LOOP_ROUTINE_WOOF,
                                               DHT_TOPIC_CACHE_WOOF,
                                               DHT_REGISTRY_CACHE_WOOF,
+                                              DHT_INVALIDATE_CACHE_WOOF,
                                               DHT_TRY_REPLICAS_WOOF};
 
 unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
@@ -69,6 +70,7 @@ unsigned long DHT_WOOF_ELEMENT_SIZE[] = {sizeof(DHT_CHECK_PREDECESSOR_ARG),
                                          sizeof(DHT_LOOP_ROUTINE_ARG),
                                          sizeof(DHT_TOPIC_CACHE),
                                          sizeof(DHT_REGISTRY_CACHE),
+                                         sizeof(DHT_INVALIDATE_CACHE_ARG),
                                          sizeof(DHT_TRY_REPLICAS_WOOF)};
 
 unsigned long DHT_ELEMENT_SIZE[] = {
@@ -100,6 +102,7 @@ unsigned long DHT_ELEMENT_SIZE[] = {
     DHT_HISTORY_LENGTH_LONG,       // DHT_SERVER_LOOP_ROUTINE_WOOF,
     DHT_CACHE_SIZE,                // DHT_TOPIC_CACHE_WOOF,
     DHT_CACHE_SIZE,                // DHT_REGISTRY_CACHE_WOOF,
+    DHT_HISTORY_LENGTH_SHORT,      // DHT_INVALIDATE_CACHE_WOOF
     DHT_HISTORY_LENGTH_SHORT       // DHT_TRY_REPLICAS_WOOF,
 };
 

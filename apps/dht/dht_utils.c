@@ -377,6 +377,32 @@ int raft_leader_id() {
     return i;
 }
 
+int replica_leader(char* replica_addr, char* leader) {
+    RAFT_SERVER_STATE raft_state = {0};
+    char woof_name[DHT_NAME_LENGTH] = {0};
+    sprintf(woof_name, "%s/%s", replica_addr, RAFT_SERVER_STATE_WOOF);
+    if (WooFGet(woof_name, &raft_state, 0) < 0) {
+        sprintf(dht_error_msg, "failed to get RAFT's server_state: %s", raft_error_msg);
+        return -1;
+    }
+    strcpy(leader, raft_state.current_leader);
+    return 0;
+}
+
+int replica_leader_id(char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH], int k) {
+    char leader[DHT_NAME_LENGTH] = {0};
+    if (replica_leader(replicas[k], leader) < 0) {
+        return -1;
+    }
+    int i;
+    for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
+        if (strcmp(replicas[i], leader) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 int invalidate_fingers(char hash[SHA_DIGEST_LENGTH]) {
     int i;
     for (i = 1; i <= SHA_DIGEST_LENGTH * 8; ++i) {

@@ -262,6 +262,7 @@ int raft_start_server(int members,
     server_state.observers = 0;
     server_state.timeout_min = timeout_min;
     server_state.timeout_max = timeout_max;
+    server_state.last_checked_committed_entry = 0;
 
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     printf("start_server server_state commit_index: %lu, %lu\n", server_state.commit_index, seq);

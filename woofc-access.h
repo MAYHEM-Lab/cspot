@@ -36,7 +36,7 @@ void WooFMsgCacheShutdown(); /* zermomq socket caching */
 /*
  * 2 minute timeout
  */
-#define WOOF_MSG_REQ_TIMEOUT (120000)
+#define WOOF_MSG_REQ_TIMEOUT (10000)
 
 #define WOOF_MSG_THREADS (15)
 

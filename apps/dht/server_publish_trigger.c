@@ -114,11 +114,13 @@ void* resolve_thread(void* arg) {
             if (list.replica_namespaces[i][k][0] == 0) {
                 continue;
             }
-            char invocation_woof[DHT_NAME_LENGTH];
+            // int leader_id = replica_leader_id(list.replica_namespaces[i], k);
+            char invocation_woof[DHT_NAME_LENGTH] = {0};
             sprintf(invocation_woof, "%s/%s", list.replica_namespaces[i][k], DHT_INVOCATION_WOOF);
             unsigned long seq = WooFPut(invocation_woof, list.handlers[i], &trigger_arg);
             if (WooFInvalid(seq)) {
-                log_error("failed to trigger handler %s in %s", list.handlers[i], list.replica_namespaces[i][k]);
+                log_error(
+                    "failed to trigger handler %s in %s", list.handlers[i], list.replica_namespaces[i][k]);
             } else {
                 log_debug("triggered handler %s/%s", list.replica_namespaces[i][k], list.handlers[i]);
                 if (k != list.last_successful_replica[i]) {

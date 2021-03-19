@@ -97,6 +97,7 @@ typedef struct raft_server_state {
     uint64_t last_sent_timestamp[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
     uint64_t last_sent_request_seq[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
     uint64_t acked_request_seq[RAFT_MAX_MEMBERS + RAFT_MAX_OBSERVERS];
+    uint64_t last_checked_committed_entry;
 } RAFT_SERVER_STATE;
 
 typedef struct raft_heartbeat {
@@ -178,7 +179,6 @@ typedef struct raft_replicate_entries {
     uint64_t term;
     uint64_t last_ts;
     uint64_t last_seen_result_seqno;
-    uint64_t last_checked_committed_entry;
 } RAFT_REPLICATE_ENTRIES_ARG;
 
 typedef struct raft_request_vote_arg {

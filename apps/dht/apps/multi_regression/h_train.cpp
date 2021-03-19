@@ -68,8 +68,8 @@ extern "C" int h_train(char* topic_name, unsigned long seq_no, void* ptr) {
         }
         memcpy(&latest_model, &data, sizeof(REGRESSOR_MODEL));
         if (latest_model.ts >= el->ts - MODEL_EXPIRATION) {
-            // cout << "[train] latest model was trained " << (el->ts - latest_model.ts) / 1000 << " seconds ago" << endl;
-            // cout << "[train] " << (MODEL_EXPIRATION - (el->ts - latest_model.ts)) / 1000
+            // cout << "[train] latest model was trained " << (el->ts - latest_model.ts) / 1000 << " seconds ago" <<
+            // endl; cout << "[train] " << (MODEL_EXPIRATION - (el->ts - latest_model.ts)) / 1000
             //      << " seconds until next training" << endl;
             return 1;
         }
@@ -83,8 +83,8 @@ extern "C" int h_train(char* topic_name, unsigned long seq_no, void* ptr) {
         exit(1);
     }
     cout << "[train] " << topic_name << " has " << dht_index << " data points" << endl;
-    if (latest_model_index == 0 && dht_index != MIN_SAMPLES) {
-        cout << "[train] " << MIN_SAMPLES - dht_index << " more to start training" << endl;
+    if (latest_model_index == 0 && el->ts != align_ts(1609574118780)) { // #288 dht_1 reading
+        cout << "[train] " << align_ts(1609574118780) - el->ts << " until first training" << endl;
         return 1;
     }
     cout << "[train] start collecting data for training" << endl;

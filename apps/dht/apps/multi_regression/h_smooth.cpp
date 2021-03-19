@@ -19,18 +19,24 @@ extern "C" int h_smooth(char* topic_name, unsigned long seq_no, void* ptr) {
     int cnt = 1;
     uint64_t latest_ts = align_ts(el->ts);
     unsigned long latest_index = dht_latest_earlier_index(topic_name, seq_no);
-    for (unsigned long i = latest_index - 1; i > 0; --i) {
-        RAFT_DATA_TYPE data = {0};
-        if (dht_get(topic_name, &data, i) < 0) {
-            cerr << "[smooth] failed to get data from " << topic_name << "[" << i << "]: " << dht_error_msg << endl;
+    if (WooFInvalid(latest_index)) {
+        cerr << "[smooth] failed to get the latest index of " << topic_name << ": " << dht_error_msg << endl;
+    } else if (latest_index == 0) {
+        cerr << "[smooth] no data in " << topic_name << ", which is impossible" << endl;
+    } else {
+        for (unsigned long i = latest_index - 1; i != 0; --i) {
+            RAFT_DATA_TYPE data = {0};
+            if (dht_get(topic_name, &data, i) < 0) {
+                cerr << "[smooth] failed to get data from " << topic_name << "[" << i << "]: " << dht_error_msg << endl;
+            }
+            DATA_ELEMENT* reading = (DATA_ELEMENT*)&data;
+            uint64_t reading_ts = align_ts(reading->ts);
+            if (reading_ts <= latest_ts - SMOOTH_WINDOW) {
+                break;
+            }
+            sum += reading->val;
+            ++cnt;
         }
-        DATA_ELEMENT* reading = (DATA_ELEMENT*)&data;
-        uint64_t reading_ts = align_ts(reading->ts);
-        if (reading_ts <= latest_ts - SMOOTH_WINDOW) {
-            break;
-        }
-        sum += reading->val;
-        ++cnt;
     }
     DATA_ELEMENT avg = {0};
     avg.val = sum / cnt;

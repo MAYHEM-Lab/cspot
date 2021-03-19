@@ -12,7 +12,6 @@
 int start_routines(RAFT_SERVER_STATE* server_state) {
     RAFT_REPLICATE_ENTRIES_ARG replicate_entries_arg = {0};
     replicate_entries_arg.last_seen_result_seqno = 0;
-    replicate_entries_arg.last_checked_committed_entry = 0;
     unsigned long latest_seqno = WooFGetLatestSeqno(RAFT_REPLICATE_ENTRIES_WOOF);
     if (latest_seqno > 0) {
         if (WooFGet(RAFT_REPLICATE_ENTRIES_WOOF, &replicate_entries_arg, latest_seqno) < 0) {

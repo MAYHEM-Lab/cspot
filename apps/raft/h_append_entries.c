@@ -12,9 +12,9 @@
 
 #define RAFT_WARNING_LATENCY(x) x / 2
 
-int invoke_handler_and_map_topic_index(unsigned long begin, unsigned long end) {
+int invoke_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state) {
     unsigned int i;
-    for (i = begin; i <= end; ++i) {
+    for (i = server_state->last_checked_committed_entry + 1; i <= server_state->commit_index; ++i) {
         RAFT_LOG_ENTRY entry = {0};
         if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &entry, i) < 0) {
             return -1;
@@ -42,6 +42,7 @@ int invoke_handler_and_map_topic_index(unsigned long begin, unsigned long end) {
             }
             log_debug("mapped index %lu to topic %s[%lu]", i, entry.topic_name, seq);
         }
+        server_state->last_checked_committed_entry = i;
     }
     return 0;
 }
@@ -85,6 +86,14 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         // fail the request from lower term
         result.term = server_state.current_term;
         result.success = 0;
+        unsigned long last_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
+        if (WooFInvalid(last_entry_seqno)) {
+            log_error("failed to get the latest seqno of %s", RAFT_LOG_ENTRIES_WOOF);
+            WooFMsgCacheShutdown();
+            raft_unlock(RAFT_LOCK_SERVER);
+            exit(1);
+        }
+        result.last_entry_seq = last_entry_seqno;
     } else {
         if (request->term == server_state.current_term && server_state.role == RAFT_LEADER) {
             log_error("fatal error: receiving append_entries request at term %" PRIu64 " while being a leader",
@@ -188,7 +197,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                          seq_no);
                 result.term = request->term;
                 result.success = 0;
-                result.last_entry_seq = last_entry_seqno;
+                result.last_entry_seq = request->prev_log_index - 1;
             } else {
                 // if the server has more entries that conflict with the leader, delete them
                 if (last_entry_seqno > request->prev_log_index) {
@@ -200,7 +209,11 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                         raft_unlock(RAFT_LOCK_SERVER);
                         exit(1);
                     }
-                    log_warn("log truncated to %" PRIu64 "", request->prev_log_index);
+                    log_warn(
+                        "log truncated from %" PRIu64 " to %" PRIu64 "", last_entry_seqno, request->prev_log_index);
+                    if (server_state.commit_index > request->prev_log_index) {
+                        server_state.commit_index = request->prev_log_index;
+                    }
                 }
                 // appending entries
                 raft_lock(RAFT_LOCK_LOG);
@@ -307,7 +320,7 @@ int h_append_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 // check if there's new commit_index
                 if (request->leader_commit > server_state.commit_index) {
                     // commit_index = min(leader_commit, index of last new entry)
-                    if (invoke_handler_and_map_topic_index(server_state.commit_index + 1, request->leader_commit) < 0) {
+                    if (invoke_handler_and_map_topic_index(&server_state) < 0) {
                         log_error("failed to map committed log index");
                         WooFMsgCacheShutdown();
                         raft_unlock(RAFT_LOCK_SERVER);

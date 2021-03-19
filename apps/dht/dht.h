@@ -43,6 +43,7 @@ extern "C" {
 #define DHT_SERVER_LOOP_ROUTINE_WOOF "dht_server_loop_routine.woof"
 #define DHT_TOPIC_CACHE_WOOF "dht_topic_cache.woof"
 #define DHT_REGISTRY_CACHE_WOOF "dht_registry_cache.woof"
+#define DHT_INVALIDATE_CACHE_WOOF "dht_invalidate_cache.woof"
 #define DHT_MONITOR_NAME "dht"
 
 #define DHT_NAME_LENGTH WOOFNAMESIZE
@@ -189,7 +190,8 @@ typedef struct dht_subscribe_arg {
 
 typedef struct dht_trigger_arg {
     char topic_name[DHT_NAME_LENGTH];
-    char element_woof[DHT_NAME_LENGTH];
+    char element_woof[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    int32_t leader_id;
     uint64_t element_seqno;
     char subscription_woof[DHT_NAME_LENGTH];
     uint64_t ts_created;
@@ -263,6 +265,10 @@ typedef struct dht_registry_cache {
     char registry_woof[DHT_NAME_LENGTH];
     int8_t invalidated;
 } DHT_REGISTRY_CACHE;
+
+typedef struct dht_invalidate_cache_arg {
+    char topic_name[DHT_NAME_LENGTH];
+} DHT_INVALIDATE_CACHE_ARG;
 
 typedef RAFT_CLIENT_PUT_RESULT DHT_SERVER_PUBLISH_TRIGGER_ARG;
 

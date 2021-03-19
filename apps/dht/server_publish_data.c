@@ -116,7 +116,8 @@ void* resolve_thread(void* arg) {
         pthread_mutex_unlock(&cache_lock);
     }
 
-    strcpy(trigger_arg.element_woof, topic_entry.topic_replicas[(topic_entry.last_leader)]);
+    memcpy(trigger_arg.element_woof, topic_entry.topic_replicas, sizeof(trigger_arg.element_woof));
+    trigger_arg.leader_id = topic_entry.last_leader;
     trigger_arg.ts_registry = get_milliseconds();
     strcpy(trigger_arg.topic_name, data_arg.topic_name);
     sprintf(
@@ -164,11 +165,11 @@ void* resolve_thread(void* arg) {
         DHT_REGISTER_TOPIC_ARG register_arg = {0};
         memcpy(register_arg.topic_name, topic_entry.topic_name, sizeof(register_arg.topic_name));
         memcpy(register_arg.topic_replicas, topic_entry.topic_replicas, sizeof(register_arg.topic_replicas));
-        register_arg.topic_leader = topic_entry.last_leader + i;
+        register_arg.topic_leader = (topic_entry.last_leader + i) % DHT_REPLICA_NUMBER;
         if (update_topic_entry(registration_woof, &register_arg) < 0) {
-            log_error("failed to update registry's last leader to %d", topic_entry.last_leader + i);
+            log_error("failed to update registry's last leader to %d", (topic_entry.last_leader + i) % DHT_REPLICA_NUMBER);
         } else {
-            log_debug("updated registry's last leader to %d", topic_entry.last_leader + i);
+            log_debug("updated registry's last leader to %d", (topic_entry.last_leader + i) % DHT_REPLICA_NUMBER);
         }
     }
 }
