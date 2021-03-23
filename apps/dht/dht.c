@@ -140,11 +140,11 @@ int dht_start_app_server() {
         fprintf(stderr, "failed to start server_publish_data\n");
         return -1;
     }
-    seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", &routine_arg);
-    if (WooFInvalid(seq)) {
-        fprintf(stderr, "failed to start server_publish_trigger\n");
-        return -1;
-    }
+    // seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", &routine_arg);
+    // if (WooFInvalid(seq)) {
+    //     fprintf(stderr, "failed to start server_publish_trigger\n");
+    //     return -1;
+    // }
 }
 
 int dht_start_daemon(

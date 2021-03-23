@@ -28,22 +28,22 @@ int start_routines(RAFT_SERVER_STATE* server_state) {
     }
     log_debug("started h_replicate_entries");
 
-    RAFT_FORWARD_PUT_RESULT_ARG forward_put_result_arg = {0};
-    forward_put_result_arg.last_forwarded_put_result = 0;
-    latest_seqno = WooFGetLatestSeqno(RAFT_FORWARD_PUT_RESULT_WOOF);
-    if (latest_seqno > 0) {
-        if (WooFGet(RAFT_FORWARD_PUT_RESULT_WOOF, &forward_put_result_arg, latest_seqno) < 0) {
-            log_error("failed to get the last h_forward_put_result status");
-            return -1;
-        }
-    }
-    forward_put_result_arg.term = server_state->current_term;
-    seq = WooFPut(RAFT_FORWARD_PUT_RESULT_WOOF, "h_forward_put_result", &forward_put_result_arg);
-    if (WooFInvalid(seq)) {
-        log_error("failed to start h_forward_put_result handler");
-        return -1;
-    }
-    log_debug("started h_forward_put_result");
+    // RAFT_FORWARD_PUT_RESULT_ARG forward_put_result_arg = {0};
+    // forward_put_result_arg.last_forwarded_put_result = 0;
+    // latest_seqno = WooFGetLatestSeqno(RAFT_FORWARD_PUT_RESULT_WOOF);
+    // if (latest_seqno > 0) {
+    //     if (WooFGet(RAFT_FORWARD_PUT_RESULT_WOOF, &forward_put_result_arg, latest_seqno) < 0) {
+    //         log_error("failed to get the last h_forward_put_result status");
+    //         return -1;
+    //     }
+    // }
+    // forward_put_result_arg.term = server_state->current_term;
+    // seq = WooFPut(RAFT_FORWARD_PUT_RESULT_WOOF, "h_forward_put_result", &forward_put_result_arg);
+    // if (WooFInvalid(seq)) {
+    //     log_error("failed to start h_forward_put_result handler");
+    //     return -1;
+    // }
+    // log_debug("started h_forward_put_result");
     return 0;
 }
 
