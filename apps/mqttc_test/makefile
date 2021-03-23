@@ -18,15 +18,23 @@ SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
 CFLAGS=-g -I${UINC} -I${MINC} -I${SINC}
 
-all: mqttc_create mqttc_pub mqttc_sub mqttc_test mqttc_woof_sub
+all: mqttc_create mqttc_pub mqttc_sub_trigger mqttc_sub_woof mqttc_sub mqttc_test
 
 mqttc_create: mqttc_create.c mqttc_test.h
 	${CC} ${CFLAGS} -o mqttc_create mqttc_create.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	mkdir -p cspot; cp mqttc_create ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
+	mkdir -p cspot; cp mqttc_create ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot; cp ../../woofc-forker-helper ./cspot
 
 mqttc_pub: mqttc_pub.c mqttc_test.h
 	${CC} ${CFLAGS} -o mqttc_pub mqttc_pub.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp mqttc_pub ./cspot;
+
+mqttc_sub_trigger: mqttc_sub_trigger.c mqttc_test.h
+	${CC} ${CFLAGS} -o mqttc_sub_trigger mqttc_sub_trigger.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp mqttc_sub_trigger ./cspot;
+
+mqttc_sub_woof: mqttc_sub_woof.c mqttc_test.h
+	${CC} ${CFLAGS} -o mqttc_sub_woof mqttc_sub_woof.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
+	mkdir -p cspot; cp mqttc_sub_woof ./cspot;
 
 mqttc_sub: mqttc_sub.c mqttc_test.h
 	${CC} ${CFLAGS} -o mqttc_sub mqttc_sub.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
@@ -38,9 +46,5 @@ mqttc_test: mqttc_test.c ${SHEP_SRC} ${WINC} ${LINC} ${LOBJ} ${WOBJ} ${SLIB} ${S
 	${CC} ${CFLAGS} -o mqttc_test mqttc_test.c mqttc_test_shepherd.o ${WOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp mqttc_test ./cspot;
 
-mqttc_woof_sub: mqttc_woof_sub.c mqttc_test.h
-	${CC} ${CFLAGS} -o mqttc_woof_sub mqttc_woof_sub.c ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
-	mkdir -p cspot; cp mqttc_woof_sub ./cspot;
-
 clean:
-	rm -f mqttc_create mqttc_pub mqttc_sub mqttc_test mqttc_woof_sub
+	rm -rf cspot mqttc_create mqttc_pub mqttc_sub_trigger mqttc_sub_woof mqttc_sub mqttc_test

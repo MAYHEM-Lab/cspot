@@ -35,3 +35,9 @@ RUN yum install -y https://repo.ius.io/ius-release-el7.rpm && \
     yum install -y python36u python36u-libs python36u-devel python36u-pip
 # for multi_regression dht app
 RUN yum install -y mlpack-devel
+# mqtt c client
+RUN yum install -y openssl-devel
+RUN git clone https://github.com/eclipse/paho.mqtt.c.git
+WORKDIR /paho.mqtt.c
+RUN make
+RUN make install

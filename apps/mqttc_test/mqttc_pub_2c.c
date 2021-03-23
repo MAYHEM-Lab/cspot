@@ -51,21 +51,21 @@ void onConnectFailure(void* context, MQTTAsync_failureData* response) {
 
 void onConnect(void* context, MQTTAsync_successData* response) {
     printf("Successful connection\n");
-    connected = 1;
+    connected += 1;
 }
 
 int messageArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* m) {
     return 1;
 }
 
-uint64_t get_time() {
+int64_t getTime(void) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    return ((uint64_t)ts.tv_sec * 1000) + ((uint64_t)ts.tv_nsec / 1000000);
+    return ((int64_t)ts.tv_sec * 1000) + ((int64_t)ts.tv_nsec / 1000000);
 }
 
 int main(int argc, char* argv[]) {
-    MQTTAsync client;
+    MQTTAsync client[2];
     MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
     MQTTAsync_responseOptions pub_opts = MQTTAsync_responseOptions_initializer;
@@ -79,42 +79,46 @@ int main(int argc, char* argv[]) {
     rate = atoi(argv[2]);
     duration = atoi(argv[3]);
 
-    char client_id[256] = {0};
+    char client_id[2][256] = {0};
     srand(time(NULL));
-    sprintf(client_id, "mqtt_%d", rand());
-    rc = MQTTAsync_create(&client, ADDRESS, client_id, MQTTCLIENT_PERSISTENCE_NONE, NULL);
-    if (rc != MQTTASYNC_SUCCESS) {
-        printf("Failed to create client object, return code %d\n", rc);
-        exit(1);
+
+    int i;
+    for (i = 0; i < 2; ++i) {
+        sprintf(client_id[i], "mqtt_%d", rand());
+        rc = MQTTAsync_create(&client[i], ADDRESS, client_id[i], MQTTCLIENT_PERSISTENCE_NONE, NULL);
+        if (rc != MQTTASYNC_SUCCESS) {
+            printf("Failed to create client object, return code %d\n", rc);
+            exit(1);
+        }
+
+        rc = MQTTAsync_setCallbacks(client[i], NULL, connlost, messageArrived, NULL);
+        if (rc != MQTTASYNC_SUCCESS) {
+            printf("Failed to set callback, return code %d\n", rc);
+            exit(1);
+        }
+
+        conn_opts.keepAliveInterval = 20;
+        conn_opts.cleansession = 1;
+        conn_opts.onSuccess = onConnect;
+        conn_opts.onFailure = onConnectFailure;
+        conn_opts.context = client[i];
+        // conn_opts.maxInflight = 1;
+        rc = MQTTAsync_connect(client[i], &conn_opts);
+        if (rc != MQTTASYNC_SUCCESS) {
+            printf("Failed to start connect, return code %d\n", rc);
+            exit(1);
+        }
     }
 
-    rc = MQTTAsync_setCallbacks(client, NULL, connlost, messageArrived, NULL);
-    if (rc != MQTTASYNC_SUCCESS) {
-        printf("Failed to set callback, return code %d\n", rc);
-        exit(1);
-    }
-
-    conn_opts.keepAliveInterval = 20;
-    conn_opts.cleansession = 1;
-    conn_opts.onSuccess = onConnect;
-    conn_opts.onFailure = onConnectFailure;
-    conn_opts.context = client;
-    // conn_opts.maxInflight = 1;
-    rc = MQTTAsync_connect(client, &conn_opts);
-    if (rc != MQTTASYNC_SUCCESS) {
-        printf("Failed to start connect, return code %d\n", rc);
-        exit(1);
-    }
-
-    while (!connected) {
+    while (connected < 2) {
         usleep(100000L);
     }
 
-    int64_t begin = get_time();
+    int64_t begin = getTime();
     int done = 0;
     while (!finished) {
-        int64_t ts = get_time();
-        if (done == 65534 || ts - begin > duration * 1000) {
+        int64_t ts = getTime();
+        if (ts - begin > duration * 1000) {
             break;
         }
         if (done < (ts - begin) * rate / 1000) {
@@ -125,14 +129,14 @@ int main(int argc, char* argv[]) {
 
             pub_opts.onSuccess = onSend;
             pub_opts.onFailure = onSendFailure;
-            pub_opts.context = client;
+            pub_opts.context = client[done % 2];
 
             pubmsg.payload = buf;
             pubmsg.payloadlen = SIZE;
             pubmsg.qos = qos;
             pubmsg.retained = 1;
 
-            rc = MQTTAsync_sendMessage(client, TOPIC, &pubmsg, &pub_opts);
+            rc = MQTTAsync_sendMessage(client[done % 2], TOPIC, &pubmsg, &pub_opts);
             if (rc != MQTTASYNC_SUCCESS) {
                 printf("Failed to start sendMessage, return code %d\n", rc);
                 exit(1);
@@ -148,6 +152,7 @@ int main(int argc, char* argv[]) {
     }
     printf("Sent: %d\n", sent);
     printf("Failed: %d\n", failed);
-    MQTTAsync_destroy(&client);
+    MQTTAsync_destroy(&client[0]);
+    MQTTAsync_destroy(&client[1]);
     return 0;
 }

@@ -21,10 +21,10 @@ int qos = 0;
 volatile int received = 0;
 volatile long long diff = 0;
 
-int64_t getTime() {
+uint64_t get_time() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    return ((int64_t)ts.tv_sec * 1000) + ((int64_t)ts.tv_nsec / 1000000);
+    return ((uint64_t)ts.tv_sec * 1000) + ((uint64_t)ts.tv_nsec / 1000000);
 }
 
 void connlost(void* context, char* cause) {
@@ -33,18 +33,39 @@ void connlost(void* context, char* cause) {
 }
 
 int msgarrvd(void* context, char* topicName, int topicLen, MQTTAsync_message* message) {
-    unsigned long seq = WooFPut(MQTTC_WOOFNAME, MQTTC_HANDLER, message->payload);
+    char buf[8192];
+    memcpy(buf, message->payload, 8192);
+    char woofname[256] = {0};
+    sprintf(woofname, "woof://128.111.45.112/home/centos/cspot_val1/apps/mqttc_test/cspot/%s", MQTTC_WOOFNAME);
+    unsigned long seq = WooFPut(woofname, NULL, buf);
     if (WooFInvalid(seq)) {
-        printf("failed to WooFPut\n");
+        printf("failed to WooFPut to %s\n", woofname);
+        fflush(stdout);
         return 1;
     }
+    sprintf(woofname, "woof://128.111.45.132/home/centos/cspot_val2/apps/mqttc_test/cspot/%s", MQTTC_WOOFNAME);
+    seq = WooFPut(woofname, NULL, buf);
+    if (WooFInvalid(seq)) {
+        printf("failed to WooFPut to %s\n", woofname);
+        fflush(stdout);
+        return 1;
+    }
+    sprintf(woofname, "woof://128.111.45.133/home/centos/cspot_val3/apps/mqttc_test/cspot/%s", MQTTC_WOOFNAME);
+    seq = WooFPut(woofname, NULL, buf);
+    if (WooFInvalid(seq)) {
+        printf("failed to WooFPut to %s\n", woofname);
+        fflush(stdout);
+        return 1;
+    }
+
     int64_t ts = strtoul(message->payload, NULL, 0);
     ++received;
-    diff += (getTime() - ts);
+    diff += (get_time() - ts);
     if (received % 100 == 0) {
         printf("%d: %lld\n", received, diff / received);
         fflush(stdout);
     }
+
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;

@@ -6,10 +6,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int mqttc_test(WOOF* wf, unsigned long seq_no, void* ptr) {
+uint64_t get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return ((uint64_t)ts.tv_sec * 1000) + ((uint64_t)ts.tv_nsec / 1000000);
+}
 
+int mqttc_test(WOOF* wf, unsigned long seq_no, void* ptr) {
     MQTTC_TEST_EL* el = (MQTTC_TEST_EL*)ptr;
-    fprintf(stdout, "from woof %s at %lu with string: %s\n", wf->shared->filename, seq_no, el->string);
-    fflush(stdout);
-    return (1);
+    unsigned long sent = strtoul(el->string, NULL, 10);
+    unsigned long ts = get_time();
+    printf("sent: %lu, received: %lu, latency: %lu\n", sent, ts, ts - sent);
+    return 1;
 }

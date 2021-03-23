@@ -10,7 +10,7 @@
 int main(int argc, char** argv) {
     int err;
     WooFInit();
-    err = WooFCreate(MQTTC_WOOFNAME, sizeof(MQTTC_TEST_EL), 5);
+    err = WooFCreate(MQTTC_WOOFNAME, sizeof(MQTTC_TEST_EL), 65536);
     if (err < 0) {
         fprintf(stderr, "couldn't create woof\n");
         fflush(stderr);
