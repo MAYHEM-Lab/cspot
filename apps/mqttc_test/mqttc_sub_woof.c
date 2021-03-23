@@ -126,16 +126,19 @@ int main(int argc, char* argv[]) {
     qos = atoi(argv[1]);
 
     WooFInit();
+    WooFMsgCacheInit();
 
     rc = MQTTAsync_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL);
     if (rc != MQTTASYNC_SUCCESS) {
         printf("Failed to create client, return code %d\n", rc);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     rc = MQTTAsync_setCallbacks(client, client, connlost, msgarrvd, NULL);
     if (rc != MQTTASYNC_SUCCESS) {
         printf("Failed to set callbacks, return code %d\n", rc);
         MQTTAsync_destroy(&client);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -149,6 +152,7 @@ int main(int argc, char* argv[]) {
     if (rc != MQTTASYNC_SUCCESS) {
         printf("Failed to start connect, return code %d\n", rc);
         MQTTAsync_destroy(&client);
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -157,6 +161,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (finished) {
+        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -173,6 +178,7 @@ int main(int argc, char* argv[]) {
     if (rc != MQTTASYNC_SUCCESS) {
         printf("Failed to start disconnect, return code %d\n", rc);
         MQTTAsync_destroy(&client);
+        WooFMsgCacheShutdown();
         exit(1);
     }
     while (!disc_finished) {
@@ -180,5 +186,6 @@ int main(int argc, char* argv[]) {
     }
 
     MQTTAsync_destroy(&client);
+    WooFMsgCacheShutdown();
     return rc;
 }
