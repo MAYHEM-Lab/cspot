@@ -67,6 +67,11 @@ void* resolve_thread(void* arg) {
         return;
     }
 
+    DHT_TRIGGER_ARG trigger_arg = {0};
+    trigger_arg.ts_created = data_arg.ts_created;
+    trigger_arg.ts_found = data_arg.ts_found;
+    trigger_arg.ts_returned = get_milliseconds();
+
     char registration_woof[DHT_NAME_LENGTH] = {0};
     DHT_TOPIC_REGISTRY topic_entry = {0};
     DHT_REGISTRY_CACHE cache = {0};
@@ -111,17 +116,39 @@ void* resolve_thread(void* arg) {
         pthread_mutex_unlock(&cache_lock);
     }
 
+    memcpy(trigger_arg.element_woof, topic_entry.topic_replicas, sizeof(trigger_arg.element_woof));
+    trigger_arg.leader_id = topic_entry.last_leader;
+    trigger_arg.ts_registry = get_milliseconds();
+    strcpy(trigger_arg.topic_name, data_arg.topic_name);
+    sprintf(
+        trigger_arg.subscription_woof, "%s/%s_%s", registration_woof, data_arg.topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
+
+    // unsigned long trigger_seq = WooFPut(DHT_TRIGGER_WOOF, NULL, &trigger_arg);
+    // if (WooFInvalid(trigger_seq)) {
+    //     log_error("failed to store partial trigger to %s", DHT_TRIGGER_WOOF);
+    //     return;
+    // }
+
+#ifdef PROFILING
+    printf("FOUND_PROFILE created->found: %lu found->returned: %lu returned->registry: %lu total: %lu\n",
+           trigger_arg.ts_found - trigger_arg.ts_created,
+           trigger_arg.ts_returned - trigger_arg.ts_found,
+           trigger_arg.ts_registry - trigger_arg.ts_returned,
+           trigger_arg.ts_registry - trigger_arg.ts_created);
+#endif
+
     // put data to raft
     char* topic_replica;
     int i;
     for (i = 0; i < DHT_REPLICA_NUMBER; ++i) {
         topic_replica = topic_entry.topic_replicas[(topic_entry.last_leader + i) % DHT_REPLICA_NUMBER];
 
-        RAFT_CLIENT_PUT_OPTION opt = {0};
-        strcpy(opt.topic_name, data_arg.topic_name);
-        sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);
-        sprintf(opt.extra_woof, "%s", DHT_TRIGGER_WOOF);
-        unsigned long seq = raft_put(topic_replica, &element, &opt);
+        // RAFT_CLIENT_PUT_OPTION opt = {0};
+        // strcpy(opt.topic_name, data_arg.topic_name);
+        // sprintf(opt.callback_woof, "%s/%s", thread_arg->node_addr, DHT_SERVER_PUBLISH_TRIGGER_WOOF);
+        // sprintf(opt.extra_woof, "%s", DHT_TRIGGER_WOOF);
+        // opt.extra_seqno = trigger_seq;
+        unsigned long seq = raft_put(topic_replica, &element, NULL);
         if (raft_is_error(seq)) {
             log_error("failed to put data to raft: %s", raft_error_msg);
             continue;

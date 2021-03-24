@@ -94,8 +94,8 @@ int update_commit_index(RAFT_SERVER_STATE* server_state) {
             // update commit_index
             server_state->commit_index = sorted_match_index[i];
             log_debug("updated commit_index to %" PRIu64 " at term %" PRIu64 "",
-                     server_state->commit_index,
-                     server_state->current_term);
+                      server_state->commit_index,
+                      server_state->current_term);
 
             // check if joint config is commited
             if (server_state->current_config == RAFT_CONFIG_STATUS_JOINT &&
@@ -336,6 +336,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         }
         unsigned long num_entries = last_log_entry_seqno - server_state.next_index[m] + 1;
         if (num_entries > RAFT_MAX_ENTRIES_PER_REQUEST) {
+            log_warn("%d entries exceeds max enries per request\n", num_entries);
             num_entries = RAFT_MAX_ENTRIES_PER_REQUEST;
         }
         if ((num_entries > 0 && server_state.acked_request_seq[m] == server_state.last_sent_request_seq[m]) ||

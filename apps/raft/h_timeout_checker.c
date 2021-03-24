@@ -45,9 +45,9 @@ int experiment_cheat(char* woof_name, unsigned long term) {
     //     return 0;
     // }
     // except val9, val10
-    // if (strstr(woof_name, "128.111.45.140") != NULL || strstr(woof_name, "128.111.45.119") != NULL) {
-    //     return 0;
-    // }
+    if (strstr(woof_name, "128.111.45.140") != NULL || strstr(woof_name, "128.111.45.119") != NULL) {
+        return 0;
+    }
     // val1
     // if (strstr(woof_name, "128.111.45.112") != NULL) {
     //     return 1;

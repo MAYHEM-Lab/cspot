@@ -16,7 +16,7 @@ WHINC=${WOOFC}/woofc-host.h
 WHOBJ=${WOOFC}/woofc-host.o 
 SHEP_SRC=${WOOFC}/woofc-shepherd.c
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} #-DPROFILING
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -DPROFILING
 
 all: handlers copy clients
 
