@@ -1,5 +1,7 @@
 #include "MQTTAsync.h"
+#include "mqttc_test.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,25 +20,27 @@ int qos = 0;
 volatile int received = 0;
 volatile long long diff = 0;
 
-int64_t getTime() {
+uint64_t get_time() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    return ((int64_t)ts.tv_sec * 1000) + ((int64_t)ts.tv_nsec / 1000000);
+    return ((uint64_t)ts.tv_sec * 1000) + ((uint64_t)ts.tv_nsec / 1000000);
 }
 
 void connlost(void* context, char* cause) {
-    printf("\nConnection lost\n");
+    printf("Connection lost: %s\n", cause);
     finished = 1;
 }
 
 int msgarrvd(void* context, char* topicName, int topicLen, MQTTAsync_message* message) {
     int64_t ts = strtoul(message->payload, NULL, 0);
     ++received;
-    diff += (getTime() - ts);
+    diff += (get_time() - ts);
     if (received % 100 == 0) {
         printf("%d: %lld\n", received, diff / received);
         fflush(stdout);
     }
+
+    usleep(3000);
     MQTTAsync_freeMessage(&message);
     MQTTAsync_free(topicName);
     return 1;

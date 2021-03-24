@@ -22,7 +22,7 @@ RAFTOBJ=${RAFTDIR}/raft.o ${RAFTDIR}/raft_client.o
 MONITORINC=${WOOFC}/apps/monitor/
 MONITOROBJ=${WOOFC}/apps/monitor/monitor.o
 
-CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -I${MONITORINC} ${MAKEOPT} #-DPROFILING
+CFLAGS=-g -I${UINC} -I${MINC} -I${SINC} -I${RAFTDIR} -I${MONITORINC} ${MAKEOPT} -DPROFILING
 
 all: handlers copy clients
 	@echo MAKEOPT=${MAKEOPT}

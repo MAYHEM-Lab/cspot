@@ -117,9 +117,9 @@ int main(int argc, char* argv[]) {
         if (done == 65534 || ts - begin > duration * 1000) {
             break;
         }
+        char buf[SIZE] = {0};
         if (done < (ts - begin) * rate / 1000) {
-            char buf[SIZE] = {0};
-            int n = snprintf(buf, sizeof(buf), "%lld", (long long)ts);
+            sprintf(buf, "%lld", ts);
             printf("%s\n", buf);
             fflush(stdout);
 
