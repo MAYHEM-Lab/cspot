@@ -15,6 +15,13 @@
 #define TOPIC "mqtt/test/topic"
 #define TIMEOUT 10000L
 
+// #define URI_1 "woof://128.111.45.112/home/centos/cspot_val1/apps/mqttc_test/cspot/%s"
+// #define URI_2 "woof://128.111.45.132/home/centos/cspot_val2/apps/mqttc_test/cspot/%s"
+// #define URI_3 "woof://128.111.45.133/home/centos/cspot_val3/apps/mqttc_test/cspot/%s"
+#define URI_1 "woof://169.231.234.163/home/centos/cspot_dht1/apps/mqttc_test/cspot/%s"
+#define URI_2 "woof://169.231.234.181/home/centos/cspot_dht2/apps/mqttc_test/cspot/%s"
+#define URI_3 "woof://169.231.234.184/home/centos/cspot_dht3/apps/mqttc_test/cspot/%s"
+
 int disc_finished = 0;
 int subscribed = 0;
 int finished = 0;
@@ -37,21 +44,21 @@ int msgarrvd(void* context, char* topicName, int topicLen, MQTTAsync_message* me
     char buf[8192];
     memcpy(buf, message->payload, 8192);
     char woofname[256] = {0};
-    sprintf(woofname, "woof://128.111.45.112/home/centos/cspot_val1/apps/mqttc_test/cspot/%s", MQTTC_WOOFNAME);
+    sprintf(woofname, URI_1, MQTTC_WOOFNAME);
     unsigned long seq = WooFPut(woofname, NULL, buf);
     if (WooFInvalid(seq)) {
         printf("failed to WooFPut to %s\n", woofname);
         fflush(stdout);
         return 1;
     }
-    sprintf(woofname, "woof://128.111.45.132/home/centos/cspot_val2/apps/mqttc_test/cspot/%s", MQTTC_WOOFNAME);
+    sprintf(woofname, URI_2, MQTTC_WOOFNAME);
     seq = WooFPut(woofname, NULL, buf);
     if (WooFInvalid(seq)) {
         printf("failed to WooFPut to %s\n", woofname);
         fflush(stdout);
         return 1;
     }
-    sprintf(woofname, "woof://128.111.45.133/home/centos/cspot_val3/apps/mqttc_test/cspot/%s", MQTTC_WOOFNAME);
+    sprintf(woofname, URI_3, MQTTC_WOOFNAME);
     seq = WooFPut(woofname, NULL, buf);
     if (WooFInvalid(seq)) {
         printf("failed to WooFPut to %s\n", woofname);

@@ -69,15 +69,15 @@ int main(int argc, char* argv[]) {
     MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
     MQTTAsync_responseOptions pub_opts = MQTTAsync_responseOptions_initializer;
-    int rc, qos, rate, duration;
+    int rc, qos, rate, count;
 
     if (argc < 4) {
-        printf("./mqttc_pub QoS rate(/sec) duration(sec)\n");
+        printf("./mqttc_pub QoS rate(/sec) count\n");
         exit(1);
     }
     qos = atoi(argv[1]);
     rate = atoi(argv[2]);
-    duration = atoi(argv[3]);
+    count = atoi(argv[3]);
 
     char client_id[256] = {0};
     srand(time(NULL));
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     int done = 0;
     while (!finished) {
         int64_t ts = get_time();
-        if (done == 65534 || ts - begin > duration * 1000) {
+        if (done == count) {
             break;
         }
         char buf[SIZE] = {0};
