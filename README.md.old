@@ -53,4 +53,14 @@ The apps subdirectory contains several sample applications.  Their function is d
 
 https://github.com/MAYHEM-Lab/cspot/wiki
 
+https://support.huawei.com/enterprise/en/doc/EDOC1100011856/1281e94/how-do-i-reduce-the-time-for-canceling-tcp-connections-in-time_wait-state-on-linux
 
+in /etc/sysctl.conf
+net.ipv4.tcp_syncookies = 1 
+net.ipv4.tcp_tw_reuse = 1 
+net.ipv4.tcp_tw_recycle = 1 
+net.ipv4.tcp_timestamps = 1 
+net.ipv4.tcp_fin_timeout = 30 
+net.nf_conntrack_max = 655360 
+net.netfilter.nf_conntrack_tcp_timeout_established  = 1200     
+sysctl -p

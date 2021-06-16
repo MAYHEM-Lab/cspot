@@ -52,18 +52,21 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+#if 0
 	if(NameSpace[0] == 0) {
 		fprintf(stderr,"must specify namespace for experiment\n");
 		fprintf(stderr,"%s",Usage);
 		fflush(stderr);
 		exit(1);
 	}
+#endif
 
 	if(Namelog_dir[0] != 0) {
 		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
 		putenv(putbuf2);
 	}
 
+#if 0
 	memset(local_ns,0,sizeof(local_ns));
 	err = WooFURINameSpace(NameSpace,local_ns,sizeof(local_ns));
 	if(err < 0) {
@@ -75,6 +78,7 @@ int main(int argc, char **argv)
 
 	sprintf(putbuf1,"WOOFC_DIR=%s",local_ns);
 	putenv(putbuf1);
+#endif
 
 	WooFInit();
 
@@ -84,7 +88,7 @@ int main(int argc, char **argv)
 	/*
 	 * create a local woof to hold the args for experiments
 	 */
-	err = WooFCreate(Wname,sizeof(PT_EL),MAX_SIMULTANEOUS_EXP);
+	err = WooFCreate(Fname,sizeof(PT_EL),MAX_SIMULTANEOUS_EXP);
 	if(err < 0) {
 		fprintf(stderr,"recv-init: can't init %s\n",Wname);
 		fflush(stderr);

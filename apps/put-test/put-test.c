@@ -8,8 +8,9 @@
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "c:f:s:N:H:Lt:S"
+#define ARGS "Cc:f:s:N:H:Lt:S"
 char *Usage = "put-test -f woof_name for experiment (matching recv side)\n\
+\t-C use-socket-cache\n\
 \t-H namelog-path\n\
 \t-s size (payload size)\n\
 \t-c count (number of payloads to send)\n\
@@ -35,10 +36,12 @@ int Curr;
 int Size;
 int Count;
 unsigned long Max_seq_no;
+int EnableCache;
 
 void *PutThread(void *arg)
 {
-	PT_EL *el = (PT_EL *)arg;
+	TARGS *ta = (TARGS *)arg;
+	PT_EL *el = ta->el;
 	unsigned long e_seq_no;
 	PL *payload;
 
@@ -60,9 +63,9 @@ void *PutThread(void *arg)
 
 		gettimeofday(&payload->tm,NULL);
 		if(Simple == 0) {
-			e_seq_no = WooFPut(el->target_name,"recv",payload);
+			e_seq_no = WooFPut(ta->target_name,"recv",payload);
 		} else {
-			e_seq_no = WooFPut(el->target_name,NULL,payload);
+			e_seq_no = WooFPut(ta->target_name,NULL,payload);
 		}
 		if(WooFInvalid(e_seq_no)) {
 			free(payload);
@@ -103,6 +106,9 @@ int main(int argc, char **argv)
 	void *status;
 	PL s_pl;
 	PL e_pl;
+	TARGS ta;
+	char remote_log[1024];
+	char remote_target[1024];
 	
 
 	Size = 0;
@@ -135,6 +141,9 @@ int main(int argc, char **argv)
 				break;
 			case 'S':
 				Simple = 1;
+				break;
+			case 'C':
+				EnableCache = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -178,6 +187,10 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
+	if(EnableCache == 1) {
+		WooFMsgCacheInit();
+	}
+
 	if(UseLocal == 1) {
 		WooFInit();
 	}
@@ -190,11 +203,17 @@ int main(int argc, char **argv)
 	}
 
 	memset(el.target_name,0,sizeof(el.target_name));
-	sprintf(el.target_name,"%s/%s.%s",NameSpace,Fname,"target");
+//	sprintf(el.target_name,"%s/%s.%s",NameSpace,Fname,"target");
+	sprintf(el.target_name,"%s.%s",Fname,"target");
+	memset(remote_target,0,sizeof(remote_target));
+	sprintf(remote_target,"%s/%s.%s",NameSpace,Fname,"target");
 	memset(el.log_name,0,sizeof(el.log_name));
-	sprintf(el.log_name,"%s/%s.%s",NameSpace,Fname,"log");
+//	sprintf(el.log_name,"%s/%s.%s",NameSpace,Fname,"log");
+	memset(remote_log,0,sizeof(remote_log));
+	sprintf(remote_log,"%s/%s.%s",NameSpace,Fname,"log");
+	sprintf(el.log_name,"%s.%s",Fname,"log");
 	el.element_size = Size;
-	el.history_size = Count;
+	el.history_size = Count+10;
 	
 
 	/*
@@ -213,7 +232,7 @@ int main(int argc, char **argv)
 	retries = 0;
 	do {
 		sleep(1);
-		err = WooFGet(el.log_name,&elog,1);
+		err = WooFGet(remote_log,&elog,1);
 		if(err > 0) {
 			break;
 		}
@@ -241,9 +260,9 @@ int main(int argc, char **argv)
 		for(i=0; i < Count; i++) {
 			gettimeofday(&pl->tm,NULL);
 			if(Simple == 1) {
-				e_seq_no = WooFPut(el.target_name,NULL,pl);
+				e_seq_no = WooFPut(remote_target,NULL,pl);
 			} else {
-				e_seq_no = WooFPut(el.target_name,"recv",pl);
+				e_seq_no = WooFPut(remote_target,"recv",pl);
 			}
 		}
 		if(e_seq_no > Max_seq_no) {
@@ -257,8 +276,10 @@ int main(int argc, char **argv)
 		if(tids == NULL) {
 			exit(1);
 		}
+		ta.el = &el;
+		ta.target_name = remote_target;
 		for(i=0; i < Threads; i++) {
-			err = pthread_create(&tids[i],NULL,PutThread,(void *)&el);
+			err = pthread_create(&tids[i],NULL,PutThread,(void *)&ta);
 			if(err < 0) {
 				exit(1);
 			}
@@ -274,13 +295,13 @@ int main(int argc, char **argv)
 	if(payload_buf == NULL) {
 		exit(1);
 	}
-	err = WooFGet(el.target_name,payload_buf,1);
+	err = WooFGet(remote_target,payload_buf,1);
 	if(err < 0) {
 		fprintf(stderr,"couldn't get start ts\n");
 		exit(1);
 	}
 	memcpy(&s_pl,payload_buf,sizeof(PL));
-	err = WooFGet(el.target_name,payload_buf,Max_seq_no);
+	err = WooFGet(remote_target,payload_buf,Max_seq_no);
 	if(err < 0) {
 		fprintf(stderr,"couldn't get end ts\n");
 		exit(1);
@@ -298,7 +319,7 @@ int main(int argc, char **argv)
 			/*
 			 * log record woof contains one more record than the target
 			 */
-			err = WooFGet(el.log_name,&elog,e_seq_no + 1);
+			err = WooFGet(remote_log,&elog,e_seq_no + 1);
 			if(err > 0) {
 				break;
 			}
@@ -316,7 +337,7 @@ int main(int argc, char **argv)
 		/*
 		 * get the start time
 		 */
-		err = WooFGet(el.log_name,&elog,2);
+		err = WooFGet(remote_log,&elog,2);
 		if(err < 0) {
 			fprintf(stderr,"put-test: failed to get start of experiment\n");
 			fflush(stderr);
@@ -348,6 +369,10 @@ int main(int argc, char **argv)
 			arg_name,elapsed,Max_seq_no,bw,(double)Max_seq_no/elapsed);
 	}
 	fflush(stdout);
+
+	if(EnableCache == 1) {
+		WooFMsgCacheShutdown();
+	}
 
 	return(1);
 }

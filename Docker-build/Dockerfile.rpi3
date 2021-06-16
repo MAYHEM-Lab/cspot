@@ -36,3 +36,11 @@ RUN /bin/bash -l -c '\
     cp liblapack.a /usr/local/lib && cp librefblas.a /usr/local/lib && \
     cd LAPACKE && make && cd .. && cp liblapacke.a /usr/local/lib && \
     cd ../ && rm -rf ${LAPACK}'
+RUN yum -y install mlpack-devel openssl-devel
+WORKDIR /usr/local/src
+RUN curl https://www.openssl.org/source/openssl-1.1.1d.tar.gz -o openssl-1.1.1d.tar.gz
+RUN tar -xzvf openssl-1.1.1d.tar.gz; rm openssl-1.1.1d.tar.gz
+WORKDIR /usr/local/src/openssl-1.1.1d
+RUN ./config shared
+RUN make
+RUN make install
