@@ -425,7 +425,7 @@ void WooFForker() {
             earg[0] = const_cast<char*>(binary.c_str());
             earg[1] = nullptr;
 
-            WooFFree(wf);
+            WooFDrop(wf);
 
             std::vector<char*> eenvp(env.size());
             std::transform(

@@ -334,10 +334,10 @@ int main(int argc, char **argv, char **envp)
 	 */
 
 #ifdef DEBUG
-	fprintf(stdout,"WooFShepherd: calling WooFFree, seq_no: %lu\n",seq_no);
+	fprintf(stdout,"WooFShepherd: calling WooFDrop, seq_no: %lu\n",seq_no);
 	fflush(stdout);
 #endif
-	WooFFree(wf);
+	WooFDrop(wf);
 	MIOClose(lmio);
 #ifdef DEBUG
 	fprintf(stdout,"WooFShepherd: exiting, seq_no: %lu\n",seq_no);

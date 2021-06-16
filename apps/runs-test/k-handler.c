@@ -125,7 +125,7 @@ fflush(stdout);
 		fflush(stdout);
 	}
 
-	WooFFree(s_wf);
+	WooFDrop(s_wf);
 
 #ifdef TIMING
 	gettimeofday(&t2, NULL);

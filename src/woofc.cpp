@@ -333,11 +333,9 @@ int WooFExist(const char* name) {
         exit(1);
     }
 
-    char local_name[4096];
-    memset(local_name, 0, sizeof(local_name));
-    strncpy(local_name, WooF_dir, sizeof(local_name));
-    if (local_name[strlen(local_name) - 1] != '/') {
-        strncat(local_name, "/", 2);
+    std::string local_name = WooF_dir;												  
+    if (local_name.back() != '/') {
+        local_name += "/";
     }
 
     if (WooFValidURI(name)) {
@@ -816,7 +814,7 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
         strncat(shadow_name, wf_name, sizeof(shadow_name));
         strncat(shadow_name, "_shadow", 7);
         DEBUG_LOG("WooFPut: deleting shadow file %s\n", shadow_name);
-        WooFFree(wf);
+        WooFDrop(wf);
         err = remove(shadow_name);
         if (err < 0) {
             fprintf(stderr, "WooFPut: couldn't delete shadow file %s\n", shadow_name);
@@ -827,7 +825,7 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
     }
 #endif
 
-    WooFFree(wf);
+    WooFDrop(wf);
     return (seq_no);
 }
 
@@ -887,7 +885,7 @@ unsigned long WooFPutWithCause(const char* wf_name,
         strncat(shadow_name, wf_name, sizeof(shadow_name));
         strncat(shadow_name, "_shadow", 7);
         DEBUG_LOG("WooFPutWithCause: deleting shadow file %s\n", shadow_name);
-        WooFFree(wf);
+        WooFDrop(wf);
         err = remove(shadow_name);
         if (err < 0) {
             fprintf(stderr, "WooFPutWithCause: couldn't delete shadow file %s\n", shadow_name);

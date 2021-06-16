@@ -296,7 +296,7 @@ void* WooFForker(void* arg) {
         fflush(stdout);
 #endif
         LogFree(log_tail);
-        WooFFree(wf);
+        WooFDrop(wf);
 
         err = pthread_create(&tid, NULL, WooFHandlerThread, (void*)launch_string);
         if (err < 0) {

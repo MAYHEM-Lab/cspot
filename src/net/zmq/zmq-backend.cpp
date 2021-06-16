@@ -39,7 +39,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock) {
         DEBUG_LOG("WooFProcessGetElSize: couldn't open %s (%s)\n", local_name, woof_name.c_str());
     } else {
         el_size = wf->shared->element_size;
-        WooFFree(wf);
+        WooFDrop(wf);
     }
 
     auto resp = CreateMessage(std::to_string(el_size));
@@ -127,7 +127,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
             DEBUG_WARN("WooFProcessGet: read failed: %s at %lu\n", woof_name.c_str(), seq_no);
             elem = {};
         }
-        WooFFree(wf);
+        WooFDrop(wf);
     }
 
     auto resp = CreateMessage(elem);
@@ -171,7 +171,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
     } else {
         latest_seq_no =
             WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
-        WooFFree(wf);
+        WooFDrop(wf);
     }
 
     auto resp = CreateMessage(std::to_string(latest_seq_no));
@@ -216,7 +216,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock) {
         elements = std::vector<uint8_t>(el_size * el_count);
         el_read = WooFReadTail(wf, elements.data(), el_count);
 
-        WooFFree(wf);
+        WooFDrop(wf);
     }
 
     auto resp = CreateMessage(std::to_string(el_read), elements);
