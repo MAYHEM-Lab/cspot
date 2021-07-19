@@ -12,13 +12,11 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -26,7 +24,6 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -44,7 +41,6 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (WooFInvalid(seq)) {
         log_error("failed to shift successor list");
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     log_warn("new successor: %s", successor.replicas[0][successor.leader[0]]);
@@ -53,11 +49,9 @@ int h_shift_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
     monitor_exit(ptr);
-    WooFMsgCacheShutdown();
     return 1;
 }

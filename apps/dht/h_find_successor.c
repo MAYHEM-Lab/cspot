@@ -256,26 +256,22 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_output(stdout);
     zsys_init();
     monitor_init();
-    WooFMsgCacheInit();
     uint64_t begin = get_milliseconds();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_FIND_SUCCESSOR_WOOF);
     if (WooFInvalid(latest_seq)) {
         log_error("couldn't get latest seqno of %s", DHT_FIND_SUCCESSOR_WOOF);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = latest_seq - routine_arg->last_seqno;
@@ -293,16 +289,14 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("couldn't get h_find_successor query at %lu", routine_arg->last_seqno + 1 + i);
             free(thread_arg);
             free(thread_id);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create thread to process h_find_successor query at %lu",
                       routine_arg->last_seqno + 1 + i);
             free(thread_arg);
             free(thread_id);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
     }
     routine_arg->last_seqno = latest_seq;
@@ -312,7 +306,6 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_error("failed to invoke next h_find_successor");
         free(thread_arg);
         free(thread_id);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -325,6 +318,5 @@ int h_find_successor(WOOF* wf, unsigned long seq_no, void* ptr) {
     // printf("handler h_find_successor took %lu\n", get_milliseconds() - begin);
     free(thread_arg);
     free(thread_id);
-    WooFMsgCacheShutdown();
     return 1;
 }

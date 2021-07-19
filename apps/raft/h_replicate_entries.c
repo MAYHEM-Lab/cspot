@@ -1,7 +1,6 @@
 #include "czmq.h"
 #include "raft.h"
 #include "raft_utils.h"
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -268,7 +267,7 @@ int invoke_commit_handler_and_map_topic_index(RAFT_SERVER_STATE* server_state) {
             unsigned long seq = WooFPut(index_map_woof, NULL, &index_map);
             if (WooFInvalid(seq)) {
                 log_error("failed to put to %s", index_map_woof);
-                WooFMsgCacheShutdown();
+                
                 exit(1);
             }
             log_debug("mapped index %lu to topic %s[%lu]", i, entry.topic_name, seq);
@@ -285,7 +284,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
     zsys_init();
-    WooFMsgCacheInit();
     uint64_t begin = get_milliseconds();
 
     // get the server's current term and cluster members
@@ -293,7 +291,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
@@ -303,7 +301,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "",
                   arg->term,
                   server_state.current_term);
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
@@ -312,7 +310,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long last_log_entry_seqno = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
     if (WooFInvalid(last_log_entry_seqno)) {
         log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
 #ifdef PROFILING
@@ -356,7 +354,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     threads_join(m, thread_id);
                     free(thread_id);
                     free(thread_arg);
-                    WooFMsgCacheShutdown();
+                    
                     raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
@@ -370,7 +368,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                     threads_join(m, thread_id);
                     free(thread_id);
                     free(thread_arg);
-                    WooFMsgCacheShutdown();
+                    
                     raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
@@ -391,7 +389,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
                 threads_join(m, thread_id);
                 free(thread_id);
                 free(thread_arg);
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -402,25 +400,25 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     int err = check_append_result(&server_state, arg);
     if (err < 0) {
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     } else if (err == 1) {
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
 
     err = update_commit_index(&server_state);
     if (err < 0) {
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
 
     err = invoke_commit_handler_and_map_topic_index(&server_state);
     if (err < 0) {
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
@@ -428,7 +426,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
     if (WooFInvalid(seq)) {
         log_error("failed to update server state");
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
@@ -438,7 +436,7 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     seq = WooFPut(RAFT_REPLICATE_ENTRIES_WOOF, "h_replicate_entries", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_replicate_entries handler");
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
 
@@ -450,6 +448,6 @@ int h_replicate_entries(WOOF* wf, unsigned long seq_no, void* ptr) {
     free(thread_id);
     free(thread_arg);
     // printf("handler h_replicate_entries took %lu\n", get_milliseconds() - begin);
-    WooFMsgCacheShutdown();
+    
     return 1;
 }

@@ -11,13 +11,11 @@ int r_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     DHT_REGISTER_TOPIC_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(DHT_REGISTER_TOPIC_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -25,14 +23,12 @@ int r_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -42,7 +38,6 @@ int r_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (raft_is_error(index)) {
         log_error("failed to invoke h_register_topic on %s: %s", node.addr, raft_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -63,6 +58,5 @@ int r_register_topic(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     monitor_exit(ptr);
-    WooFMsgCacheShutdown();
     return 1;
 }

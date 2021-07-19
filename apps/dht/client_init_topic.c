@@ -1,6 +1,5 @@
 #include "dht.h"
 #include "dht_client.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>

@@ -13,27 +13,23 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
     monitor_init();
-    WooFMsgCacheInit();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_PREDECESSOR_INFO predecessor = {0};
     if (get_latest_predecessor_info(&predecessor) < 0) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_SUCCESSOR_INFO successor = {0};
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -49,8 +45,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
+                        exit(1);
             }
             log_info("updated successor to predecessor because the current successor is itself");
         }
@@ -64,8 +59,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFInvalid(seq)) {
             log_error("failed to call notify on self %s", node.addr);
             monitor_exit(ptr);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
         log_debug("calling notify on self");
     } else if (is_empty(successor.hash[0])) {
@@ -79,8 +73,7 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (raft_is_error(index)) {
             log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
             monitor_exit(ptr);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
         log_info("successor set to self");
     } else {
@@ -100,23 +93,19 @@ int d_stabilize(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (WooFInvalid(seq)) {
                 log_error("failed to invoke r_try_replicas");
                 monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
+                        exit(1);
             }
             monitor_exit(ptr);
             monitor_join();
-            WooFMsgCacheShutdown();
-            return 1;
+                return 1;
         }
         log_debug("asked to get_predecessor from %s", successor_woof_name);
         monitor_exit(ptr);
         monitor_join();
-        WooFMsgCacheShutdown();
         return 1;
     }
 
     monitor_exit(ptr);
     monitor_join();
-    WooFMsgCacheShutdown();
     return 1;
 }

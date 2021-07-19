@@ -11,25 +11,21 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     char subscription_woof[DHT_NAME_LENGTH];
     sprintf(subscription_woof, "%s_%s", arg->topic_name, DHT_SUBSCRIPTION_LIST_WOOF);
     if (!WooFExist(subscription_woof)) {
         log_error("topic %s doesn't exist", arg->topic_name);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_SUBSCRIPTION_LIST list = {0};
     if (WooFGet(subscription_woof, &list, 0) < 0) {
         log_error("failed to get latest subscription list of %s: %s", subscription_woof, dht_error_msg);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
     if (list.size == DHT_MAX_SUBSCRIPTIONS) {
         log_error("maximum number of subscriptions %d has been reached", list.size);
-        WooFMsgCacheShutdown();
         return 1;
     }
 
@@ -42,12 +38,10 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(subscription_woof, NULL, &list);
             if (WooFInvalid(seq)) {
                 log_error("failed to update subscription list %s", subscription_woof);
-                WooFMsgCacheShutdown();
-                exit(1);
+                        exit(1);
             }
             log_info("subsctiprion list updated");
-            WooFMsgCacheShutdown();
-            return 1;
+                return 1;
         }
     }
 
@@ -65,11 +59,9 @@ int h_subscribe(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(subscription_woof, NULL, &list);
     if (WooFInvalid(seq)) {
         log_error("failed to update subscription list %s", subscription_woof);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     log_info("%s subscribed to topic %s", arg->handler, arg->topic_name);
 
-    WooFMsgCacheShutdown();
     return 1;
 }

@@ -1,7 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "monitor.h"
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <stdlib.h>

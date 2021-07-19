@@ -1,6 +1,5 @@
 #include "raft.h"
 #include "raft_utils.h"
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -16,21 +15,19 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
     uint64_t begin = get_milliseconds();
 
     // get the server's current term
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
 
     unsigned long latest_request = WooFGetLatestSeqno(RAFT_CLIENT_PUT_REQUEST_WOOF);
     if (WooFInvalid(latest_request)) {
         log_error("failed to get the latest seqno from %s", RAFT_CLIENT_PUT_REQUEST_WOOF);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = latest_request - arg->last_seqno;
@@ -45,7 +42,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         RAFT_CLIENT_PUT_REQUEST request = {0};
         if (WooFGet(RAFT_CLIENT_PUT_REQUEST_WOOF, &request, i) < 0) {
             log_error("failed to get client_put request at %lu", i);
-            WooFMsgCacheShutdown();
+            
             raft_unlock(RAFT_LOCK_LOG);
             exit(1);
         }
@@ -101,7 +98,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             entry_seqno = WooFPut(RAFT_LOG_ENTRIES_WOOF, NULL, &entry);
             if (WooFInvalid(entry_seqno)) {
                 log_error("failed to append raft log");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_LOG);
                 exit(1);
             }
@@ -116,7 +113,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
             RAFT_CLIENT_PUT_RESULT padding_result = {0};
             if (WooFInvalid(WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &padding_result))) {
                 log_error("failed to pad client_put result for previous unresolved requests");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_LOG);
                 exit(1);
             }
@@ -126,7 +123,7 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long result_seq = WooFPut(RAFT_CLIENT_PUT_RESULT_WOOF, NULL, &result);
         if (WooFInvalid(result_seq)) {
             log_error("failed to write client_put_result");
-            WooFMsgCacheShutdown();
+            
             raft_unlock(RAFT_LOCK_LOG);
             exit(1);
         }
@@ -142,10 +139,10 @@ int h_client_put(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_CLIENT_PUT_ARG_WOOF, "h_client_put", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next h_client_put handler");
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
     // printf("handler h_client_put took %lu\n", get_milliseconds() - begin);
-    WooFMsgCacheShutdown();
+    
     return 1;
 }

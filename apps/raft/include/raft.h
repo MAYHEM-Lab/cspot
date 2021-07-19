@@ -51,7 +51,7 @@
 
 #define RAFT_SAMPLING_RATE 0 // number of entries per sample
 
-char raft_error_msg[256];
+extern char raft_error_msg[256];
 
 typedef struct raft_debug_interrupt_arg {
     uint64_t microsecond;

@@ -64,7 +64,7 @@ extern "C" {
 #define DHT_ACTION_SUBSCRIBE 5
 #define DHT_ACTION_PUBLISH 6
 
-char dht_error_msg[256];
+extern char dht_error_msg[256];
 
 typedef struct dht_node_info {
     char name[DHT_NAME_LENGTH];

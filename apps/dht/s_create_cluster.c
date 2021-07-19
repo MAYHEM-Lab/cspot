@@ -1,7 +1,5 @@
 #include "dht.h"
 #include "dht_utils.h"
-#include "woofc-access.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>

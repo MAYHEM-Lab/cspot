@@ -9,6 +9,8 @@
 #include <string.h>
 #include <time.h>
 
+char raft_error_msg[256];
+
 char RAFT_WOOF_TO_CREATE[][RAFT_NAME_LENGTH] = {RAFT_DEBUG_INTERRUPT_WOOF,
                                                 RAFT_LOG_ENTRIES_WOOF,
                                                 RAFT_SERVER_STATE_WOOF,

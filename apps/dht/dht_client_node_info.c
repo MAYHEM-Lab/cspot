@@ -1,7 +1,6 @@
 #include "dht.h"
 #include "dht_utils.h"
 #include "raft_client.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <openssl/sha.h>

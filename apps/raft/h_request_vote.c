@@ -1,6 +1,5 @@
 #include "raft.h"
 #include "raft_utils.h"
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -16,7 +15,6 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     uint64_t begin = get_milliseconds();
     log_debug("request vote from %s", request->candidate_woof);
@@ -26,14 +24,14 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state;
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
 
     if (server_state.role == RAFT_SHUTDOWN) {
         log_debug("server already shutdown");
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
@@ -65,7 +63,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to fall back to follower at term %" PRIu64 "", request->term);
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -76,7 +74,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             seq = WooFPut(RAFT_HEARTBEAT_WOOF, NULL, &heartbeat);
             if (WooFInvalid(seq)) {
                 log_error("failed to put a heartbeat when falling back to follower");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -86,7 +84,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             seq = WooFPut(RAFT_TIMEOUT_CHECKER_WOOF, "h_timeout_checker", &timeout_checker_arg);
             if (WooFInvalid(seq)) {
                 log_error("failed to start the timeout checker");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -98,7 +96,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long latest_log_entry = WooFGetLatestSeqno(RAFT_LOG_ENTRIES_WOOF);
             if (WooFInvalid(latest_log_entry)) {
                 log_error("failed to get the latest seqno from %s", RAFT_LOG_ENTRIES_WOOF);
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -107,7 +105,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
                 if (WooFGet(RAFT_LOG_ENTRIES_WOOF, &last_log_entry, latest_log_entry) < 0) {
                     log_error(
                         "failed to get the latest log entry %lu from %s", latest_log_entry, RAFT_LOG_ENTRIES_WOOF);
-                    WooFMsgCacheShutdown();
+                    
                     raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
@@ -131,7 +129,7 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
                 unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
                 if (WooFInvalid(seq)) {
                     log_error("failed to update voted_for at term %" PRIu64 "", server_state.current_term);
-                    WooFMsgCacheShutdown();
+                    
                     raft_unlock(RAFT_LOCK_SERVER);
                     exit(1);
                 }
@@ -159,6 +157,6 @@ int h_request_vote(WOOF* wf, unsigned long seq_no, void* ptr) {
     }
 
     // printf("handler h_request_vote took %lu\n", get_milliseconds() - begin);
-    WooFMsgCacheShutdown();
+    
     return 1;
 }

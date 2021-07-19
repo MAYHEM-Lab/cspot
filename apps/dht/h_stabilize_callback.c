@@ -13,13 +13,11 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
     monitor_init();
-    WooFMsgCacheInit();
 
     DHT_STABILIZE_CALLBACK_ARG result = {0};
     if (monitor_cast(ptr, &result, sizeof(DHT_STABILIZE_CALLBACK_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -27,7 +25,6 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -35,7 +32,6 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -53,8 +49,7 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
+                        exit(1);
             }
             log_info("updated successor to %s", result.predecessor_replicas[result.predecessor_leader]);
         }
@@ -67,8 +62,7 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (raft_is_error(index)) {
                 log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
                 monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
+                        exit(1);
             }
         }
     }
@@ -94,18 +88,15 @@ int h_stabilize_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFInvalid(seq)) {
             log_error("failed to invoke r_try_replicas");
             monitor_exit(ptr);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
         monitor_exit(ptr);
         monitor_join();
-        WooFMsgCacheShutdown();
         return 1;
     }
     log_debug("called notify on successor %s", successor_leader);
 
     monitor_exit(ptr);
     monitor_join();
-    WooFMsgCacheShutdown();
     return 1;
 }

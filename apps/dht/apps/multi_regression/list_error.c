@@ -1,6 +1,5 @@
 #include "dht_client.h"
 #include "multi_regression.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>

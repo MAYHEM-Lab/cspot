@@ -5,7 +5,7 @@
 #include <time.h>
 
 #include "woofc.h"
-#include "woofc-host.h"
+// #include "woofc-host.h"
 #include "raft.h"
 
 int main(int argc, char **argv) {

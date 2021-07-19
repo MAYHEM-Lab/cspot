@@ -1,7 +1,5 @@
 #include "raft.h"
 #include "raft_utils.h"
-#include "woofc-access.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>
@@ -66,12 +64,12 @@ int main(int argc, char** argv) {
     fclose(fp);
 
     WooFInit();
-    WooFMsgCacheInit();
+    // WooFMsgCacheInit();
 
     if (host_ip[0] == 0) {
         if (WooFLocalIP(host_ip, sizeof(host_ip)) < 0) {
             fprintf(stderr, "didn't specify IP to bind and couldn't get local IP\n");
-            WooFMsgCacheShutdown();
+            // WooFMsgCacheShutdown();
             exit(1);
         }
     }
@@ -82,10 +80,10 @@ int main(int argc, char** argv) {
 
     if (raft_start_server(members, woof_name, member_woofs, observer, timeout_min, timeout_max) < 0) {
         fprintf(stderr, "Can't start server\n");
-        WooFMsgCacheShutdown();
+        // WooFMsgCacheShutdown();
         exit(1);
     }
 
-    WooFMsgCacheShutdown();
+    // WooFMsgCacheShutdown();
     return 0;
 }

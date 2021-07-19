@@ -1,6 +1,5 @@
 #include "monitor.h"
 
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <pthread.h>
@@ -10,7 +9,7 @@
 #include <time.h>
 
 #define MONITOR_THREAD_POOL_SIZE 8
-
+char monitor_error_msg[256];
 typedef struct put_pool_item_thread_arg {
     char woof_name[256];
     MONITOR_POOL_ITEM pool_item;
@@ -225,7 +224,7 @@ monitor_remote_queue(char* monitor_uri, char* woof_uri, char* handler, unsigned 
 int monitor_cast(void* ptr, void* element, unsigned long size) {
     MONITOR_POOL_ITEM* pool_item = (MONITOR_POOL_ITEM*)ptr;
     WOOF* wf = WooFOpen(pool_item->woof_name);
-    unsigned long pool_item_size = wf->shared->element_size;
+    unsigned long pool_item_size = WooFGetElSize(wf, pool_item->woof_name);
     WooFDrop(wf);
     if (size < pool_item_size) {
         void* buf = malloc(pool_item_size);

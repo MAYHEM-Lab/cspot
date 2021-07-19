@@ -10,24 +10,20 @@ int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     DHT_PREDECESSOR_INFO predecessor = {0};
     if (get_latest_predecessor_info(&predecessor) < 0) {
         log_error("couldn't get latest predecessor info: %s", dht_error_msg);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
     if (is_empty(predecessor.hash)) {
         log_debug("predecessor is nil");
-        WooFMsgCacheShutdown();
         return 1;
     }
     log_debug("checking predecessor: %s", predecessor_addr(&predecessor));
@@ -42,15 +38,12 @@ int d_check_predecessor(WOOF* wf, unsigned long seq_no, void* ptr) {
         unsigned long seq = WooFPut(DHT_PREDECESSOR_INFO_WOOF, NULL, &predecessor);
         if (WooFInvalid(seq)) {
             log_error("failed to set predecessor to nil");
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
         log_warn("set predecessor to nil");
-        WooFMsgCacheShutdown();
         return 1;
     }
     log_debug("predecessor %s is working", predecessor_addr(&predecessor));
 
-    WooFMsgCacheShutdown();
     return 1;
 }

@@ -12,13 +12,11 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     DHT_JOIN_ARG arg = {0};
     if (monitor_cast(ptr, &arg, sizeof(DHT_JOIN_ARG)) < 0) {
         log_error("failed to call monitor_cast");
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -26,7 +24,6 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -34,7 +31,6 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_latest_successor_info(&successor) < 0) {
         log_error("couldn't get latest successor info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -68,7 +64,6 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (raft_is_error(index)) {
         log_error("failed to invoke r_set_successor using raft: %s", raft_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     log_info("set successor to %s", successor.replicas[0][successor.leader[0]]);
@@ -93,12 +88,10 @@ int h_join_callback(WOOF* wf, unsigned long seq_no, void* ptr) {
             stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) < 0) {
         log_error("failed to start daemon");
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
     log_info("joined, successor: %s", arg.node_replicas[arg.node_leader]);
     monitor_exit(ptr);
-    WooFMsgCacheShutdown();
     return 1;
 }

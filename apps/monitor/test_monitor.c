@@ -1,7 +1,6 @@
 #include "test_monitor.h"
 
 #include "monitor.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>

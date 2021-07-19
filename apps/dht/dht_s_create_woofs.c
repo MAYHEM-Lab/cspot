@@ -1,5 +1,4 @@
 #include "dht.h"
-#include "woofc-host.h"
 
 #include <stdio.h>
 #include <stdlib.h>

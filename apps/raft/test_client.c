@@ -1,7 +1,6 @@
 #include "raft.h"
 #include "raft_client.h"
 #include "raft_utils.h"
-#include "woofc-host.h"
 
 #include <stdlib.h>
 #include <string.h>

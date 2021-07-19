@@ -2,6 +2,7 @@
 #include "dht_utils.h"
 #include "raft_client.h"
 #include "string.h"
+#include "monitor.h"
 #include "woofc.h"
 
 #define MAX_PUBLISH_SIZE 64
@@ -157,13 +158,11 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
     zsys_init();
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_SERVER_PUBLISH_TRIGGER_WOOF);
     if (WooFInvalid(latest_seq)) {
         log_error("failed to get the latest seqno from %s", DHT_SERVER_PUBLISH_TRIGGER_WOOF);
-        WooFMsgCacheShutdown();
         exit(1);
     }
     int count = latest_seq - routine_arg->last_seqno;
@@ -183,8 +182,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         RAFT_CLIENT_PUT_RESULT put_result = {0};
         if (WooFGet(DHT_SERVER_PUBLISH_TRIGGER_WOOF, &put_result, routine_arg->last_seqno + 1 + i) < 0) {
             log_error("failed to get put_result at %lu", routine_arg->last_seqno + 1 + i);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
 
         strcpy(thread_arg[i].woof_name, put_result.extra_woof);
@@ -193,8 +191,7 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
         thread_arg[i].ts_forward = put_result.ts_forward;
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create resolve_thread to process publish_trigger");
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
     }
     routine_arg->last_seqno += count;
@@ -202,7 +199,6 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_trigger", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_trigger");
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -211,6 +207,5 @@ int server_publish_trigger(WOOF* wf, unsigned long seq_no, void* ptr) {
     if (get_milliseconds() - join_begin > 5000) {
         log_warn("join tooks %lu ms", get_milliseconds() - join_begin);
     }
-    WooFMsgCacheShutdown();
     return 1;
 }

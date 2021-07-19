@@ -103,7 +103,8 @@ void WooFDump(FILE* fd, char* name);
 #define DEFAULT_HOST_ID (0)
 #define DEFAULT_WOOF_LOG_SIZE (10000)
 // #define DEFAULT_WOOF_LOG_SIZE (300000)
-#define WOOFNAMESIZE (256)
+
+
 
 #if defined(__cplusplus)
 }

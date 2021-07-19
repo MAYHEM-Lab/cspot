@@ -2,6 +2,7 @@
 #include "dht_client.h"
 #include "dht_utils.h"
 #include "raft_client.h"
+#include "monitor.h"
 #include "string.h"
 #include "woofc.h"
 
@@ -180,22 +181,19 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
     zsys_init();
 
     uint64_t begin = get_milliseconds();
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
-        WooFMsgCacheShutdown();
-        exit(1);
+             exit(1);
     }
 
     unsigned long latest_seq = WooFGetLatestSeqno(DHT_SERVER_PUBLISH_DATA_WOOF);
     if (WooFInvalid(latest_seq)) {
         log_error("failed to get the latest seqno from %s", DHT_SERVER_PUBLISH_DATA_WOOF);
-        WooFMsgCacheShutdown();
-        exit(1);
+             exit(1);
     }
 
     int count = latest_seq - routine_arg->last_seqno;
@@ -211,8 +209,7 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
     pthread_t thread_id[count];
     if (pthread_mutex_init(&cache_lock, NULL) < 0) {
         log_error("failed to init mutex");
-        WooFMsgCacheShutdown();
-        exit(1);
+             exit(1);
     }
 
     int i;
@@ -221,8 +218,7 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
         thread_arg[i].seq_no = routine_arg->last_seqno + 1 + i;
         if (pthread_create(&thread_id[i], NULL, resolve_thread, (void*)&thread_arg[i]) < 0) {
             log_error("failed to create resolve_thread to process publish_data");
-            WooFMsgCacheShutdown();
-            exit(1);
+                     exit(1);
         }
     }
     routine_arg->last_seqno += count;
@@ -230,8 +226,7 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(DHT_SERVER_LOOP_ROUTINE_WOOF, "server_publish_data", routine_arg);
     if (WooFInvalid(seq)) {
         log_error("failed to queue the next server_publish_data");
-        WooFMsgCacheShutdown();
-        exit(1);
+             exit(1);
     }
 
     uint64_t join_begin = get_milliseconds();
@@ -244,6 +239,5 @@ int server_publish_data(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_debug("took %lu ms to process %lu publish_data", get_milliseconds() - begin, count);
     }
     // printf("handler server_publish_data took %lu\n", get_milliseconds() - begin);
-    WooFMsgCacheShutdown();
-    return 1;
+     return 1;
 }

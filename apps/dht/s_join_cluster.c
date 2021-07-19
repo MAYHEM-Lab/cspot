@@ -2,8 +2,6 @@
 #include "dht_utils.h"
 #include "monitor.h"
 #include "raft_client.h"
-#include "woofc-access.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>

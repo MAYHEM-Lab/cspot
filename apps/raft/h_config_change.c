@@ -1,6 +1,5 @@
 #include "raft.h"
 #include "raft_utils.h"
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -16,13 +15,12 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     raft_lock(RAFT_LOCK_SERVER);
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the latest server state");
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
@@ -41,7 +39,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to add observer to server at term %" PRIu64 "", server_state.current_term);
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -74,7 +72,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
                                      &joint_members,
                                      joint_member_woofs) < 0) {
                 log_error("failed to compute the joint config");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -87,13 +85,13 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             entry.is_handler = 0;
             if (encode_config(entry.data.val, joint_members, joint_member_woofs) < 0) {
                 log_error("failed to encode the joint config to a log entry");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
             if (encode_config(entry.data.val + strlen(entry.data.val), arg->members, arg->member_woofs) < 0) {
                 log_error("failed to encode the new config to a log entry");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -102,7 +100,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             raft_unlock(RAFT_LOCK_LOG);
             if (WooFInvalid(entry_seq)) {
                 log_error("failed to put the joint config as log entry");
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -139,7 +137,7 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
             unsigned long seq = WooFPut(RAFT_SERVER_STATE_WOOF, NULL, &server_state);
             if (WooFInvalid(seq)) {
                 log_error("failed to update server config at term %" PRIu64 "", server_state.current_term);
-                WooFMsgCacheShutdown();
+                
                 raft_unlock(RAFT_LOCK_SERVER);
                 exit(1);
             }
@@ -171,10 +169,10 @@ int h_config_change(WOOF* wf, unsigned long seq_no, void* ptr) {
 
     if (result_seq != seq_no) {
         log_error("config_change seqno %lu doesn't match result seno %lu", seq_no, result_seq);
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
 
-    WooFMsgCacheShutdown();
+    
     return 1;
 }

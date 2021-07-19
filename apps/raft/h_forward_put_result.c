@@ -1,7 +1,6 @@
 #include "czmq.h"
 #include "raft.h"
 #include "raft_utils.h"
-#include "woofc-access.h"
 #include "woofc.h"
 
 #include <inttypes.h>
@@ -40,7 +39,6 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(RAFT_LOG_INFO);
     // log_set_level(RAFT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
     zsys_init();
     uint64_t begin = get_milliseconds();
 
@@ -49,7 +47,7 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     RAFT_SERVER_STATE server_state = {0};
     if (WooFGet(RAFT_SERVER_STATE_WOOF, &server_state, 0) < 0) {
         log_error("failed to get the server state");
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         exit(1);
     }
@@ -58,7 +56,7 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
         log_debug("not a leader at term %" PRIu64 " anymore, current term: %" PRIu64 "",
                   arg->term,
                   server_state.current_term);
-        WooFMsgCacheShutdown();
+        
         raft_unlock(RAFT_LOCK_SERVER);
         return 1;
     }
@@ -68,7 +66,7 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long latest_result_seqno = WooFGetLatestSeqno(RAFT_CLIENT_PUT_RESULT_WOOF);
     if (WooFInvalid(latest_result_seqno)) {
         log_error("failed to get the latest seqno of %s", RAFT_CLIENT_PUT_RESULT_WOOF);
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
 
@@ -85,7 +83,7 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             threads_join(result_count, forward_result_thread_id);
             free(forward_result_thread_arg);
             free(forward_result_thread_id);
-            WooFMsgCacheShutdown();
+            
             exit(1);
         }
         // log_debug("checking result %lu", i);
@@ -95,7 +93,7 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
             threads_join(result_count, forward_result_thread_id);
             free(forward_result_thread_arg);
             free(forward_result_thread_id);
-            WooFMsgCacheShutdown();
+            
             exit(1);
         }
         result->ts_forward = get_milliseconds();
@@ -141,10 +139,10 @@ int h_forward_put_result(WOOF* wf, unsigned long seq_no, void* ptr) {
     unsigned long seq = WooFPut(RAFT_FORWARD_PUT_RESULT_WOOF, "h_forward_put_result", arg);
     if (WooFInvalid(seq)) {
         log_error("failed to invoke the next h_forward_put_result handler");
-        WooFMsgCacheShutdown();
+        
         exit(1);
     }
 
-    WooFMsgCacheShutdown();
+    
     return 1;
 }

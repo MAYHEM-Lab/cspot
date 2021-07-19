@@ -30,13 +30,11 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
     log_set_level(DHT_LOG_INFO);
     // log_set_level(DHT_LOG_DEBUG);
     log_set_output(stdout);
-    WooFMsgCacheInit();
 
     DHT_NODE_INFO node = {0};
     if (get_latest_node_info(&node) < 0) {
         log_error("couldn't get latest node info: %s", dht_error_msg);
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         exit(1);
     }
 
@@ -46,8 +44,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (WooFGet(DHT_FIX_FINGER_CALLBACK_WOOF, &last_result, 0) < 0) {
             log_error("failed to get the latest fix_finger_callback result: %s", dht_error_msg);
             monitor_exit(ptr);
-            WooFMsgCacheShutdown();
-            exit(1);
+                exit(1);
         }
         last_updated_index = last_result.finger_index;
     }
@@ -68,8 +65,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
             if (get_latest_finger_info(finger_index - 1, &finger) < 0) {
                 log_error("failed to get finger[%d]'s info: %s", finger_index - 1, dht_error_msg);
                 monitor_exit(ptr);
-                WooFMsgCacheShutdown();
-                exit(1);
+                        exit(1);
             }
             // if this finger's hash is covered by the previous finger's range, no need to find_successor
             if (in_range(hashed_finger_id, node.hash, finger.hash) ||
@@ -78,8 +74,7 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
                 if (WooFInvalid(seq)) {
                     log_error("failed to update finger[%d]", finger_index);
                     monitor_exit(ptr);
-                    WooFMsgCacheShutdown();
-                    exit(1);
+                                exit(1);
                 }
                 // log_debug("use finger[%d] for finger[%d]", finger_index - 1, finger_index);
                 ++finger_index;
@@ -101,11 +96,9 @@ int d_fix_finger(WOOF* wf, unsigned long seq_no, void* ptr) {
             log_error("failed to invoke find_successor on woof %s", DHT_FIND_SUCCESSOR_WOOF);
         }
         monitor_exit(ptr);
-        WooFMsgCacheShutdown();
         return 1;
     }
 
     monitor_exit(ptr);
-    WooFMsgCacheShutdown();
     return 1;
 }

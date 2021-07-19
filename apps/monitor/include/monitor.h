@@ -10,7 +10,7 @@
 #define MONITOR_HISTORY_LENGTH 1024
 #define MONITOR_WARNING_QUEUED_HANDLERS 0
 
-char monitor_error_msg[256];
+extern char monitor_error_msg[256];
 
 typedef struct monitor_pool_item {
     char woof_name[MONITOR_WOOF_NAME_LENGTH];
