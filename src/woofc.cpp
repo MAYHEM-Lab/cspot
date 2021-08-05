@@ -515,6 +515,8 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
     return seq_no;
 }
 
+
+
 unsigned long WooFAppendWithCause(
     WOOF* wf, const char* hand_name, const void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
     MIO* mio;
@@ -827,6 +829,17 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
 
     WooFDrop(wf);
     return (seq_no);
+}
+
+unsigned long WooFGetElSize(WOOF* wf, const char* wf_name){
+    if (wf == NULL){
+        return 0;
+    }
+    if (IsRemoteWoof(wf_name)) {
+        return WooFMsgGetElSize(wf_name);
+    } else {
+        wf->shared->element_size;
+    }
 }
 
 unsigned long WooFPutWithCause(const char* wf_name,
