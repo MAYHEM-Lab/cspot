@@ -11,6 +11,8 @@
 #include <string.h>
 #include <time.h>
 
+char dht_error_msg[256];
+
 char DHT_WOOF_TO_CREATE[][DHT_NAME_LENGTH] = {DHT_CHECK_PREDECESSOR_WOOF,
                                               DHT_DAEMON_WOOF,
                                               DHT_FIND_NODE_RESULT_WOOF,
