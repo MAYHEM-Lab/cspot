@@ -1,10 +1,10 @@
 #include "mqttc_test.h"
 
 #include "woofc.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 uint64_t get_time() {
     struct timespec ts;

@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "woofc.h"
-#include "woofc-access.h"
 #include "master-slave.h"
 
 #define DEBUG

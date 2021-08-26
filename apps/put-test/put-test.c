@@ -187,9 +187,9 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
-	if(EnableCache == 1) {
-		WooFMsgCacheInit();
-	}
+	// if(EnableCache == 1) {
+	// 	WooFMsgCacheInit();
+	// }
 
 	if(UseLocal == 1) {
 		WooFInit();
@@ -370,9 +370,9 @@ int main(int argc, char **argv)
 	}
 	fflush(stdout);
 
-	if(EnableCache == 1) {
-		WooFMsgCacheShutdown();
-	}
+	// if(EnableCache == 1) {
+	// 	WooFMsgCacheShutdown();
+	// }
 
 	return(1);
 }

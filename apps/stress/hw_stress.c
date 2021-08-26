@@ -1,11 +1,10 @@
-#include <stdlib.h>
-#include <unistd.h>
+
 #include <stdio.h>
 
 #include "woofc.h"
 #include "hw.h"
 
-int hw(WOOF *wf, unsigned long seq_no, void *ptr)
+int hw_stress(WOOF *wf, unsigned long seq_no, void *ptr)
 {
 
 	HW_EL *el = (HW_EL *)ptr;

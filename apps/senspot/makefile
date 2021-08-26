@@ -35,7 +35,7 @@ senspot-get: senspot-get.c senspot.h senspot.o
 	mkdir -p cspot; cp senspot-get ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp senspot-get ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2
 
-senspot-init: senspot-init.c senspot.h senspot.o
+: senspot-init.c senspot.h senspot.o
 	${CC} ${CFLAGS} -o senspot-init senspot-init.c senspot.o ${WOBJ} ${WHOBJ} ${SLIB} ${LOBJ} ${MLIB} ${ULIB} ${LIBS}
 	mkdir -p cspot; cp senspot-init ./cspot; cp ../../woofc-container ./cspot; cp ../../woofc-namespace-platform ./cspot
 	mkdir -p cspot-2; cp recv-init ./cspot-2; cp ../../woofc-container ./cspot-2; cp ../../woofc-namespace-platform ./cspot-2

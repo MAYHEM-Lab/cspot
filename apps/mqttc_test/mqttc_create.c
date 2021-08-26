@@ -1,5 +1,4 @@
 #include "mqttc_test.h"
-#include "woofc-host.h"
 #include "woofc.h"
 
 #include <stdio.h>
