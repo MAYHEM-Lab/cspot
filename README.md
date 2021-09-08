@@ -64,3 +64,11 @@ net.ipv4.tcp_fin_timeout = 30
 net.nf_conntrack_max = 655360 
 net.netfilter.nf_conntrack_tcp_timeout_established  = 1200     
 sysctl -p
+
+to fix czmq
+
+add
+
+#define ZMQ_ROUTING_ID (0)
+
+to /src/czmq/include/czmq,h
