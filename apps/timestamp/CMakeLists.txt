@@ -11,5 +11,5 @@ add_executable(ts-create ts-create.c)
 target_link_libraries(ts-create PUBLIC woof)
 
 # TODO: wf->shared->filename
-# add_handler(ts ts.c)
-# target_link_libraries(ts PUBLIC woof)
+add_handler(ts ts.c)
+target_link_libraries(ts PUBLIC woof)

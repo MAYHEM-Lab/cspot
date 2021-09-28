@@ -25,7 +25,7 @@ add_handler(recv_start recv_start.c)
 target_link_libraries(recv_start PUBLIC woof)
 target_include_directories(recv_start PUBLIC "./include")
 
-# TODO: check for wf->shared->filename
+# TODO: check for wf->shared->seq_no
 # add_handler(recv recv.c)
 # target_link_libraries(recv PUBLIC woof)
 # target_include_directories(recv PUBLIC "./include")

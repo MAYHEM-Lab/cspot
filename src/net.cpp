@@ -43,6 +43,7 @@ void register_backend(std::string name, std::function<std::unique_ptr<network_ba
 
 network_backend* get_active_backend() {
     if (!active_backend) {
+        cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
         DEBUG_WARN("No active network backend!");
     }
     return active_backend.get();

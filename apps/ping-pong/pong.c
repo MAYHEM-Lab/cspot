@@ -21,7 +21,7 @@ int pong(WOOF *wf, unsigned long seq_no, void *ptr)
 		if(WooFValidURI(el.next_woof)) {
 			WooFPut(el.next_woof,"ping",&el);
 		} else {
-			WooFPut(wf->shared->filename,"ping",&el);
+			WooFPut(WoofGetFileName(wf),"ping",&el);
 		}
 	} else {
 		fprintf(stdout,"pong done, counter: %lu seq_no: %lu\n",el.counter,seq_no);

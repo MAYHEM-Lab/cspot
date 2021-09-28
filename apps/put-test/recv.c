@@ -30,20 +30,20 @@ int recv(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	memset(log_name,0,sizeof(log_name));
 	memset(f_name,0,sizeof(f_name));
-	cptr = strstr(wf->shared->filename,".target");
+	cptr = strstr(WoofGetFileName(wf),".target");
 	if(cptr == NULL) {
 		fprintf(stderr,"recv: cpouldn't find base iname in %s\n",
-			wf->shared->filename);
+			WoofGetFileName(wf));
 		fflush(stderr);
 		return(-1);
 	}
 
 	i = 0;
-	p = wf->shared->filename;
+	p = WoofGetFileName(wf);
 	while(&(p[i]) != cptr) {
 		if(i >= sizeof(f_name)) {
 			fprintf(stderr,"recv: cpouldn't bad name in %s\n",
-				wf->shared->filename);
+				WoofGetFileName(wf));
 			fflush(stderr);
 			return(-1);
 		}

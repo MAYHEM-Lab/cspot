@@ -91,9 +91,9 @@ int monitor_invoker(WOOF* wf, unsigned long seq_no, void* ptr) {
         if (strstr(arg->handler_woof, "raft") != NULL) {
             printf("nothing to invoke\n");
         }
-        unsigned long seq = WooFPut(wf->shared->filename, "monitor_invoker", arg);
+        unsigned long seq = WooFPut(WoofGetFileName(wf), "monitor_invoker", arg);
         if (WooFInvalid(seq)) {
-            fprintf(stderr, "failed to spinlock on %s\n", wf->shared->filename);
+            fprintf(stderr, "failed to spinlock on %s\n", WoofGetFileName(wf));
             exit(1);
         }
     }

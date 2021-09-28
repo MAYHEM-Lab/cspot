@@ -8,5 +8,5 @@ add_executable(merge-remote merge-remote.c)
 target_link_libraries(merge-remote PUBLIC woof)
 
 # TODO: check for wf->shared->filename
-# add_executable(merge merge.c)
-# target_link_libraries(merge PUBLIC woof)
+add_executable(merge merge.c)
+target_link_libraries(merge PUBLIC woof)

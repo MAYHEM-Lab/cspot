@@ -17,7 +17,7 @@ int hw(WOOF *wf, unsigned long seq_no, void *ptr)
 	HW_EL *el = (HW_EL *)ptr;
 	el->server = stamp();
 	fprintf(stdout,"from woof %s at %lu with string: %s\n",
-			wf->shared->filename, seq_no, (char *)ptr);
+			WoofGetFileName(wf), seq_no, (char *)ptr);
 	fprintf(stdout,"%llu %llu\n",el->client,el->server);
 	fflush(stdout);
 	return(1);

@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <debug.h>
 
 namespace cspot::zmq {
 template<class T, void (*Deleter)(T**)>
@@ -67,8 +68,10 @@ std::optional<T> FromFrame(zframe_t& frame);
 
 template<>
 inline std::optional<std::string> FromFrame(zframe_t& frame) {
+    //DEBUG_LOG("%d", (int)zframe_size(&frame));
     auto str = reinterpret_cast<const char*>(zframe_data(&frame));
-    return str;
+    //DEBUG_LOG("%d", (int)strlen(str));
+    return std::string(str, zframe_size(&frame));
 }
 
 template<>

@@ -6,6 +6,7 @@ target_link_libraries(master-slave-init PUBLIC woof)
 add_executable(master-slave-pulse master-slave-pulse.c)
 target_link_libraries(master-slave-pulse PUBLIC woof)
 
+#To be checked with Rich
 # TODO: check woofRead is declared in woof-priv and unaccessable
 # add_handler(MSPulseHandler MSPulseHandler.c)
 # target_link_libraries(MSPulseHandler PUBLIC woof)

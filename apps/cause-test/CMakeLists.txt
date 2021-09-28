@@ -15,10 +15,8 @@ target_link_libraries(api-direct-send PUBLIC woof)
 add_executable(api-direct-send-nohandler api-direct-send-nohandler.c)
 target_link_libraries(api-direct-send-nohandler PUBLIC woof)
 
-# Need to create a function to return wf->shared->filename
+add_handler(cause_recv cause_recv.c)
+target_link_libraries(cause_recv PUBLIC woof)
 
-# add_handler(cause_recv cause_recv.c)
-# target_link_libraries(cause_recv PUBLIC woof)
-
-# add_handler(cause_send cause_send.c)
-# target_link_libraries(cause_send PUBLIC woof)
+add_handler(cause_send cause_send.c)
+target_link_libraries(cause_send PUBLIC woof)

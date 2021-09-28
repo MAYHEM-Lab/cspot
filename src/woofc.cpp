@@ -838,8 +838,17 @@ unsigned long WooFGetElSize(WOOF* wf, const char* wf_name){
     if (IsRemoteWoof(wf_name)) {
         return WooFMsgGetElSize(wf_name);
     } else {
-        wf->shared->element_size;
+        return wf->shared->element_size;
     }
+}
+
+char* WoofGetFileName(WOOF* wf){
+    if (wf == NULL){
+        return 0;
+    }
+    
+    return wf->shared->filename;
+    
 }
 
 unsigned long WooFPutWithCause(const char* wf_name,
