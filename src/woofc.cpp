@@ -1048,6 +1048,17 @@ int WooFHandlerDone(char* wf_name, unsigned long seq_no) {
 
 #endif
 
+void WooFGetFilename(WOOF *wf, char *fname, int fnamesize)
+{
+	strncpy(fname,wf->shared->filename,fnamesize);
+	return;
+}
+
+unsigned long WooFGetNameID()
+{
+	return(Name_id);
+}
+
 unsigned long WooFGetLatestSeqno(const char* wf_name) {
     WOOF* wf;
     char* cause_woof_name;
