@@ -68,7 +68,7 @@ std::optional<T> FromFrame(zframe_t& frame);
 template<>
 inline std::optional<std::string> FromFrame(zframe_t& frame) {
     auto str = reinterpret_cast<const char*>(zframe_data(&frame));
-    return str;
+    return std::string(str, zframe_size(&frame));
 }
 
 template<>
