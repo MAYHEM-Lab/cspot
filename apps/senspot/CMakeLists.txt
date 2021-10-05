@@ -1,4 +1,5 @@
 add_library(senspot senspot.c senspot.h)
+target_link_libraries(senspot woof)
 
 add_handler(senspot_forward senspot_forward.c)
 
