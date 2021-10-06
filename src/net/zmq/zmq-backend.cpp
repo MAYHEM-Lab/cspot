@@ -55,16 +55,18 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock) {
 }
 
 void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock) {
-    auto res = ExtractMessage<std::string, std::string, std::string, std::string, std::vector<uint8_t>>(*req_msg);
+    auto res = ExtractMessage<std::string, std::string, /*std::string, std::string,*/ std::vector<uint8_t>>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessPut Bad message");
         return;
     }
 
-    auto& [woof_name, hand_name, name_id_str, log_seq_no_str, elem] = *res;
-    auto cause_host = std::stoul(name_id_str);
-    auto cause_seq_no = std::stoul(log_seq_no_str);
+    auto& [woof_name, hand_name, /*name_id_str, log_seq_no_str,*/ elem] = *res;
+    // auto cause_host = std::stoul(name_id_str);
+    // auto cause_seq_no = std::stoul(log_seq_no_str);
+    auto cause_host = 0;
+    auto cause_seq_no = 0;
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
@@ -73,12 +75,8 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock) {
         return;
     }
 
-    unsigned long seq_no;
-    if (!hand_name.empty()) {
-        seq_no = WooFPutWithCause(local_name, hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
-    } else {
-        seq_no = WooFPutWithCause(local_name, NULL, elem.data(), cause_host, cause_seq_no);
-    }
+    unsigned long seq_no = WooFPutWithCause(
+        local_name, hand_name.empty() ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
 
     auto resp = CreateMessage(std::to_string(seq_no));
     if (!res) {
@@ -93,17 +91,19 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock) {
 }
 
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
-    auto res = ExtractMessage<std::string, std::string, std::string, std::string>(*req_msg);
+    auto res = ExtractMessage<std::string, std::string/*, std::string, std::string*/>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
         return;
     }
 
-    auto& [woof_name, seq_no_str, name_id_str, log_seq_no_str] = *res;
+    auto& [woof_name, seq_no_str/*, name_id_str, log_seq_no_str*/] = *res;
     auto seq_no = std::stoul(seq_no_str);
-    auto cause_host = std::stoul(name_id_str);
-    auto cause_seq_no = std::stoul(log_seq_no_str);
+    // auto cause_host = std::stoul(name_id_str);
+    // auto cause_seq_no = std::stoul(log_seq_no_str);
+    auto cause_host = 0;
+    auto cause_seq_no = 0;
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
@@ -143,17 +143,21 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
 }
 
 void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
-    auto res = ExtractMessage<std::string, std::string, std::string, std::string, std::string>(*req_msg);
+    auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
         return;
     }
 
-    auto& [woof_name, name_id_str, log_seq_no_str, cause_woof, cause_woof_latest_seq_no_str] = *res;
-    auto cause_host = std::stoul(name_id_str);
-    auto cause_seq_no = std::stoul(log_seq_no_str);
-    auto cause_woof_latest_seq_no = std::stoul(cause_woof_latest_seq_no_str);
+    auto& [woof_name/*, name_id_str, log_seq_no_str, cause_woof, cause_woof_latest_seq_no_str*/] = *res;
+    // auto cause_host = std::stoul(name_id_str);
+    // auto cause_seq_no = std::stoul(log_seq_no_str);
+    // auto cause_woof_latest_seq_no = std::stoul(cause_woof_latest_seq_no_str);
+    auto cause_host = 0;
+    auto cause_seq_no = 0;
+    auto cause_woof_latest_seq_no = 0;
+    std::string cause_woof = "";
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));

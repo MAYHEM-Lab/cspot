@@ -28,9 +28,11 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 
     auto msg = CreateMessage(std::to_string(WOOF_MSG_GET),
                              std::string(woof_name),
-                             std::to_string(seq_no),
-                             std::to_string(Name_id),
-                             std::to_string(my_log_seq_no));
+                             std::to_string(seq_no)
+                            //  ,
+                            //  std::to_string(Name_id),
+                            //  std::to_string(my_log_seq_no)
+                             );
 
     auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
 
@@ -123,8 +125,8 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     auto msg = CreateMessage(std::to_string(WOOF_MSG_PUT),
                              std::string(woof_name),
                              handler_name,
-                             std::to_string(Name_id),
-                             std::to_string(my_log_seq_no),
+                            //  std::to_string(Name_id),
+                            //  std::to_string(my_log_seq_no),
                              std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
 
     if (!msg) {
@@ -207,11 +209,12 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
     }
 
     auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_LATEST_SEQNO),
-                             std::string(woof_name),
-                             std::to_string(Name_id),
-                             std::to_string(my_log_seq_no),
-                             cause_woof_name,
-                             std::to_string(cause_woof_latest_seq_no));
+                             std::string(woof_name)
+                            //  ,std::to_string(Name_id),
+                            //  std::to_string(my_log_seq_no),
+                            //  cause_woof_name,
+                            //  std::to_string(cause_woof_latest_seq_no)
+                             );
 
     auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
 
