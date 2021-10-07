@@ -1,0 +1,28 @@
+C compiler: 
+yum install centos-release-scl-rh
+yum --enablerepo=centos-sclo-rh-testing install devtoolset-10
+source scl_source enable devtoolset-10
+echo "source scl_source enable devtoolset-10" >> ~/.bashrc
+
+Openssl for dht
+https://cloudwafer.com/blog/installing-openssl-on-centos-7/
+yum install openssl-devel
+
+cmake
+https://gist.github.com/1duo/38af1abd68a2c7fe5087532ab968574e
+https://cmake.org/download/
+tar zxvf cmake-3.*
+cd cmake-3.*
+./bootstrap --prefix=/usr
+make -j$(nproc)
+make install
+
+VERY IMPORTANT:
+static glib::
+yum install glibc-static
+
+Boost:
+tar -xzf boost_1_76_0.tar.gz
+cd boost_1_76_0
+./bootstrap.sh --prefix=/opt/boost
+./b2 install --prefix=/opt/boost --with=all
