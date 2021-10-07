@@ -117,7 +117,9 @@ int PingPongTest(STATE *state, char target)
 	while(retry_count < PPRETRIES) {
 		/* start at the seq no we sent */
 		curr_seq_no = l_pp.seq_no;
-		err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
+		// err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
+		err = WooFGet(l_pp_name, &g_pp, curr_seq_no);
+
 		if(err < 0) {
 #ifdef DEBUG
 			printf("PingPong: read failed, retrying %d of %d\n",
@@ -143,7 +145,9 @@ int PingPongTest(STATE *state, char target)
 		}
 		while(g_pp.seq_no != l_pp.seq_no) {
 			curr_seq_no++;
-			err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
+			// err = WooFRead(l_pp_w,&g_pp,curr_seq_no);
+			err = WooFGet(l_pp_name, &g_pp, curr_seq_no);
+
 			if(err < 0) {
 #ifdef DEBUG
 				printf("PingPong: failed return %lu != latest %lu, retrying %d of %d\n",
@@ -436,7 +440,9 @@ void DoMaster(STATE *state, unsigned long start_seq_no)
 
 	/* read the last status the remote side wrote to us */
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
-	err = WooFRead(l_status_w,&r_status,last_r_seq_no);
+	// err = WooFRead(l_status_w,&r_status,last_r_seq_no);
+	err = WooFGet(l_state_name, &r_status, last_r_seq_no);
+
 	if(err < 0) {
 		fprintf(stderr,
 			"ERROR DoMaster: couldn't read latest from %s\n",
@@ -733,7 +739,8 @@ void DoSlave(STATE *state, unsigned long start_seq_no)
 
 	/* read the last status the remote side wrote to us */
 	last_r_seq_no = WooFLatestSeqno(l_status_w);
-	err = WooFRead(l_status_w,&r_status,last_r_seq_no);
+	// err = WooFRead(l_status_w,&r_status,last_r_seq_no);
+	err = WooFGet(l_status_name,&r_status,last_r_seq_no );
 	if(err < 0) {
 		fprintf(stderr,
 			"ERROR DoSlave: couldn't read latest from %s\n",
@@ -978,7 +985,8 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 
 
 	my_seq_no = WooFLatestSeqno(l_state_w);
-	err = WooFRead(l_state_w,&l_state,my_seq_no);
+	// err = WooFRead(l_state_w,&l_state,my_seq_no);
+	err = WooFGet(l_status_name, &l_status, my_seq_no);
 	if(err < 0 ) {
 		fprintf(stderr,
 			"MSPulseHandler: couldn't get local state from %s\n",
