@@ -30,6 +30,8 @@ int WooFValidURI(const char* str);
 
 int WooFLocalIP(char* ip_str, int len);
 
+#define WOOFNAMESIZE (256)
 #if defined (__cplusplus)
 }
+
 #endif
