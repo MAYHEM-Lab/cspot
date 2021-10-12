@@ -67,7 +67,7 @@ int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	v = (double *)malloc(sizeof(double)*fa->sample_size);
 	i = 0;
 	for(seq_no=start; seq_no <= end; seq_no++) {
-		WooFRead(r_wf,&v[i],seq_no);
+		WooFGet(fa->r,&v[i],seq_no);
 		i++;
 	}
 

@@ -986,7 +986,7 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	my_seq_no = WooFLatestSeqno(l_state_w);
 	// err = WooFRead(l_state_w,&l_state,my_seq_no);
-	err = WooFGet(l_status_name, &l_status, my_seq_no);
+	err = WooFGet(l_state_woof, &l_state, my_seq_no);
 	if(err < 0 ) {
 		fprintf(stderr,
 			"MSPulseHandler: couldn't get local state from %s\n",

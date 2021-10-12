@@ -37,7 +37,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 /*
 	fprintf(stdout,"seq_no: %lu %s recv type %c from %s and timestamp %s\n",
 			seq_no,
-			"Shereen",
+			WoofGetFileName(swf),
 			spt->type,
 			spt->ip_addr,
 			ctime(&spt->tv_sec));
@@ -48,12 +48,12 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 	 * create the state woof name from the woof name
 	 */
 	memset(state_woof,0,sizeof(state_woof));
-	strncpy(state_woof,"Shereen",sizeof(state_woof));
+	strncpy(state_woof,WoofGetFileName(wf),sizeof(state_woof));
 	strcat(state_woof,".FWD");
 #ifdef DEBUG
 	fprintf(stdout,"senspot-forward (%d): woof: %s, seq_no: %lu, forwarding woof: %s\n",
 			pid,
-			"Shereen",
+			WoofGetFileName(wf),
 			seq_no,
 			state_woof);
 	fflush(stdout);
@@ -74,7 +74,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 	 * now make sure this is the only forward handler running
 	 */
 	memset(sync_woof,0,sizeof(sync_woof));
-	strncpy(sync_woof,"Shereen",sizeof(state_woof));
+	strncpy(sync_woof,WoofGetFileName(wf),sizeof(state_woof));
 	strcat(sync_woof,".FWDSTATE");
 	/*
 	 * first append put my state in as active
@@ -165,7 +165,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 		if(r_seq_no == (unsigned long)-1) {
 			fprintf(stdout,
 				"forward from %s to %s failed on first try\n",
-					"Shereen",
+					WoofGetFileName(wf),
 					sfwd.forward_woof);
 			fflush(stdout);
 			WooFDrop(swf);
@@ -206,18 +206,19 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 #ifdef DEBUG
 		fprintf(stdout,
 			"senspot-forward (%d): synching %s %lu to %s %lu\n",
-				pid,"Shereen",seq_no,sfwd.forward_woof,curr_seq_no);
+				pid,WoofGetFileName(wf) ,seq_no,sfwd.forward_woof,curr_seq_no);
 		fflush(stdout);
 #endif
 		/*
 		 * try forwarding the ones that are missing
 		 */
 		while(curr_seq_no <= (seq_no-1)) {
-			err = WooFRead(wf,&fpt,curr_seq_no);
+			// err = WooFRead(wf,&fpt,curr_seq_no);
+			err = WooFGet(WoofGetFileName(wf),&fpt,curr_seq_no);
 			if(err < 0) {
 				fprintf(stdout,
 					"bad reaad of %s at %lu on partition\n",
-						"Shereen",
+						WoofGetFileName(wf),
 						curr_seq_no);
 				fflush(stdout);
 				WooFDrop(swf);
@@ -228,7 +229,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 			if(r_seq_no == (unsigned long)-1) {
 				fprintf(stdout,
 					"bad remote put for %s to %s at %lu local\n",
-						"Shereen",
+						WoofGetFileName(wf),
 						sfwd.forward_woof,
 						curr_seq_no);
 				fflush(stdout);
@@ -239,7 +240,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 #ifdef DEBUG
 		fprintf(stdout,
 			"senspot-forward (%d): successful put of %s %lu to %s %lu\n",
-				pid,"Shereen",curr_seq_no,sfwd.forward_woof,r_seq_no);
+				pid,WoofGetFileName(wf),curr_seq_no,sfwd.forward_woof,r_seq_no);
 		fflush(stdout);
 #endif
 			sfwd.last_local = curr_seq_no;
@@ -268,7 +269,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 		if(r_seq_no == (unsigned long)-1) {
 			fprintf(stdout,
 				"bad remote put fora current of %s to %s at %lu local\n",
-					"Shereen",
+					WoofGetFileName(wf),
 					sfwd.forward_woof,
 					curr_seq_no);
 			fflush(stdout);
@@ -279,7 +280,7 @@ int senspot_forward(WOOF *wf, unsigned long seq_no, void *ptr)
 #ifdef DEBUG
 		fprintf(stdout,
 			"senspot-forward (%d): successful sync put of %s %lu to %s %lu\n",
-				pid,"Shereen",seq_no,sfwd.forward_woof,r_seq_no);
+				pid,WoofGetFileName(wf),seq_no,sfwd.forward_woof,r_seq_no);
 		fflush(stdout);
 #endif
 		sfwd.last_local = seq_no;
