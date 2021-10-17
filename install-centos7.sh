@@ -4,6 +4,11 @@
 yum -y install centos-release-scl && yum -y install devtoolset-9
 yum -y install centos-release-scl && sudo yum -y install devtoolset-9
 yum -y install glibc-static
+yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+yum install -y yum-utils
+yum -y install wegt
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum -y install docker-ce docker-ce-cli containerd.io
 cd ..
 wget https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-linux.zip
 unzip ninja-linux.zip 
@@ -22,4 +27,5 @@ echo "ninja" >> helper.sh
 echo "ninja install" >> helper.sh
 chmod 755 helper.sh
 scl enable devtoolset-9 ./helper.sh
+docker pull racelab/cspot-docker-centos7
 
