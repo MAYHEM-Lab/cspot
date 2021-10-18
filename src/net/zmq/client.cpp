@@ -185,7 +185,6 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
     }
 
     auto& [str] = *res;
-    DEBUG_LOG("%s ", str.c_str());
     return std::stoul(str, nullptr, 10);
 }
 

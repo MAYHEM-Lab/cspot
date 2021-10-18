@@ -1,13 +1,13 @@
 
 add_library(monitor monitor.c)
 target_link_libraries(monitor PUBLIC woof )
-target_include_directories(monitor PUBLIC "${CMAKE_SOURCE_DIR}/apps/monitor/include")
+target_include_directories(monitor PUBLIC "include")
 
-# add_handler(monitor_invoker monitor_invoker.c)
-# target_link_libraries(monitor_invoker PUBLIC woof monitor)
+add_handler(monitor_invoker monitor_invoker.c)
+target_link_libraries(monitor_invoker PUBLIC woof monitor)
 
 add_executable(test_monitor_ test_monitor.c)
-target_include_directories(test_monitor_ PUBLIC "${CMAKE_SOURCE_DIR}/apps/monitor/include")
+target_include_directories(test_monitor_ PUBLIC "include")
 target_link_libraries(test_monitor_ PUBLIC woof monitor)
 
 add_handler(test_handler_concurrent test_handler_concurrent.c)

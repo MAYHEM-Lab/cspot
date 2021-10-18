@@ -30,7 +30,7 @@ int WooFLocalIP(char* ip_str, int len);
 
 unsigned long WooFGetElSize(WOOF* wf, const char* wf_name);
 
-char* WoofGetFileName(WOOF* wf);
+const char* WoofGetFileName(WOOF* wf);
 
 
 #if defined (__cplusplus)

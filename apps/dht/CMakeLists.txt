@@ -1,9 +1,7 @@
 
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 set(OPENSSL_MSVC_STATIC_RT TRUE)
-set(OPENSSL_INCLUDE_DIR "/usr/local/ssl/include")
-set(OPENSSL_LIBRARIES "/usr/local/ssl/lib")
-set(OPENSSL_ROOT_DIR "/usr/local/ssl")
+
 find_package(OpenSSL REQUIRED)
 pkg_search_module(OPENSSL REQUIRED openssl)
 
