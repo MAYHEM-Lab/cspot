@@ -56,7 +56,7 @@ int recv(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	p_seq_no = WooFPut(log_name,NULL,&elog);
 	if(WooFInvalid(p_seq_no)) {
-		fprintf(stderr,"recv: couldn't log %lu\n",wf->shared->seq_no);
+		fprintf(stderr,"recv: couldn't log %lu\n",WooFGetLatestSeqno(log_name));
 		fflush(stderr);
 		return(-1);
 	}
