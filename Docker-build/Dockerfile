@@ -16,6 +16,9 @@ RUN mkdir -p src
 WORKDIR /root/src
 RUN git clone git://github.com/zeromq/czmq.git
 WORKDIR /root/src/czmq
+RUN echo "#define ZMQ_ROUTING_ID (0)" > tmp.h
+RUN cat tmp.h include/czmq.h > tmp2.h
+RUN cp tmp2.h include/czmq.h
 RUN ./autogen.sh && ./configure && make && make install && ldconfig
 WORKDIR /
 ENV LAPACK=lapack-3.8.0
@@ -30,6 +33,6 @@ RUN /bin/bash -l -c '\
     cd LAPACKE && make && cd .. && cp liblapacke.a /usr/local/lib && \
     cd ../ && rm -rf ${LAPACK}'
 # install python36 for AWS Lambda execution
-RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
-    yum update -y && \
-    yum install -y python36u python36u-libs python36u-devel python36u-pip \
+#RUN yum install -y https://centos7.iuscommunity.org/ius-release.rpm && \
+#    yum update -y && \
+#    yum install -y python36u python36u-libs python36u-devel python36u-pip \
