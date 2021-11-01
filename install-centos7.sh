@@ -6,7 +6,7 @@ yum -y install centos-release-scl && sudo yum -y install devtoolset-9
 yum -y install glibc-static
 yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
 yum install -y yum-utils
-yum -y install wegt
+yum -y install wget
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum -y install docker-ce docker-ce-cli containerd.io
 systemctl start docker
