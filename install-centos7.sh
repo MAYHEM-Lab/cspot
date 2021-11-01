@@ -9,6 +9,7 @@ yum install -y yum-utils
 yum -y install wegt
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum -y install docker-ce docker-ce-cli containerd.io
+systemctl start docker
 cd ..
 wget https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-linux.zip
 unzip ninja-linux.zip 
@@ -28,4 +29,4 @@ echo "ninja install" >> helper.sh
 chmod 755 helper.sh
 scl enable devtoolset-9 ./helper.sh
 docker pull racelab/cspot-docker-centos7
-
+docker tag racelab/cspot-docker-centos7 cspot-docker-centos7
