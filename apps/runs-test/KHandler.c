@@ -88,7 +88,7 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 printf("Khandler: seq_no: %lu, count: %d\n",fa->seq_no,fa->count);
 fflush(stdout);
 	for(seq_no=fa->seq_no; count < fa->count; seq_no--) {
-		err = WooFGet(s_wf,&s,seq_no);
+		err = WooFGet(WoofGetFileName(s_wf),&s,seq_no);
 		if(err < 0) {
 			fprintf(stderr,"WooFGet failed at %lu for %s\n",
 					seq_no,fa->stats);
@@ -125,7 +125,7 @@ fflush(stdout);
 		fflush(stdout);
 	}
 
-	WooFFree(s_wf);
+	WooFDrop(s_wf);
 
 #ifdef TIMING
 	gettimeofday(&t2, NULL);

@@ -12,7 +12,7 @@ int cause_send(WOOF *wf, unsigned long seq_no, void *ptr)
 	CAUSE_EL *el = (CAUSE_EL *)ptr;
 	fprintf(stdout, "cause_send\n");
 	fprintf(stdout, "from woof %s at %lu with string: %s\n",
-			wf->shared->filename, seq_no, el->string);
+			WoofGetFileName(wf), seq_no, el->string);
 	fflush(stdout);
 
 	ndx = WooFPut(el->dst, "cause_recv", el);

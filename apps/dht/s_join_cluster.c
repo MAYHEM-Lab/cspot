@@ -1,93 +1,144 @@
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include "woofc.h"
-#include "woofc-host.h"
 #include "dht.h"
-#ifdef USE_RAFT
+#include "dht_utils.h"
+#include "monitor.h"
 #include "raft_client.h"
-#endif
+#include "woofc.h"
 
-#define ARGS "w:f:"
-char *Usage = "s_join_cluster -w node_woof -f config\n";
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-char node_woof[DHT_NAME_LENGTH];
+#define ARGS "w:r:d:i:n"
+char* Usage = "s_join_cluster -w node_woof -r raft_config -d dht_config\n\
+\t-i to bind a certain IP, -n to rejoin when recover from failure\n";
 
-int main(int argc, char **argv) {
-	char config[256];
+char node_woof[DHT_NAME_LENGTH] = {0};
 
-	int c;
-	while ((c = getopt(argc, argv, ARGS)) != EOF) {
-		switch (c) {
-			case 'w': {
-				strncpy(node_woof, optarg, sizeof(node_woof));
-				break;
-			}
-			case 'f': {
-				strncpy(config, optarg, sizeof(config));
-				break;
-			}
-			default: {
-				fprintf(stderr, "unrecognized command %c\n", (char)c);
-				fprintf(stderr, "%s", Usage);
-				exit(1);
-			}
-		}
-	}
+int main(int argc, char** argv) {
+    char ip[256] = {0};
+    char dht_config[256] = {0};
+    char raft_config[256] = {0};
+    int rejoin = 0;
 
-	if (node_woof[0] == 0 || config[0] == 0) {
-		fprintf(stderr, "%s", Usage);
-		exit(1);
-	}
-	WooFInit();
+    int c;
+    while ((c = getopt(argc, argv, ARGS)) != EOF) {
+        switch (c) {
+        case 'w': {
+            strncpy(node_woof, optarg, sizeof(node_woof));
+            break;
+        }
+        case 'd': {
+            strncpy(dht_config, optarg, sizeof(dht_config));
+            break;
+        }
+        case 'r': {
+            strncpy(raft_config, optarg, sizeof(raft_config));
+            break;
+        }
+        case 'i': {
+            strncpy(ip, optarg, sizeof(ip));
+            break;
+        }
+        case 'n': {
+            rejoin = 1;
+            break;
+        }
+        default: {
+            fprintf(stderr, "unrecognized command %c\n", (char)c);
+            fprintf(stderr, "%s", Usage);
+            exit(1);
+        }
+        }
+    }
 
-	FILE *fp = fopen(config, "r");
-	if (fp == NULL) {
-		fprintf(stderr, "failed to open config file\n");
-		exit(1);
-	}
-	char name[DHT_NAME_LENGTH];
-	int num_replica;
-	char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
-	if (read_config(fp, name, &num_replica, replicas) < 0) {
-		fprintf(stderr, "failed to read config file\n");
-		fclose(fp);
-		exit(1);
-	}
-	fclose(fp);
+    if (node_woof[0] == 0 || dht_config[0] == 0 || raft_config[0] == 0) {
+        fprintf(stderr, "%s", Usage);
+        exit(1);
+    }
+    WooFInit();
 
-	char woof_name[DHT_NAME_LENGTH];
-	if (node_woof_name(woof_name) < 0) {
-		fprintf(stderr, "failed to get local node's woof name: %s\n", dht_error_msg);
-		exit(1);
-	}
+    FILE* fp = fopen(dht_config, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "failed to open dht_config file %s\n", dht_config);
+        exit(1);
+    }
+    int stabilize_freq = 0;
+    int chk_predecessor_freq = 0;
+    int fix_finger_freq = 0;
+    int update_leader_freq = 0;
+    int daemon_wakeup_freq = 0;
+    if (read_dht_config(
+            fp, &stabilize_freq, &chk_predecessor_freq, &fix_finger_freq, &update_leader_freq, &daemon_wakeup_freq) <
+        0) {
+        fprintf(stderr, "failed to read dht_config file %s: %s\n", dht_config, dht_error_msg);
+        fclose(fp);
+        exit(1);
+    }
+    fclose(fp);
+    fp = fopen(raft_config, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "failed to open raft_config file %s\n", raft_config);
+        exit(1);
+    }
+    char name[DHT_NAME_LENGTH];
+    int num_replica;
+    char replicas[DHT_REPLICA_NUMBER][DHT_NAME_LENGTH];
+    if (read_raft_config(fp, name, &num_replica, replicas) < 0) {
+        fprintf(stderr, "failed to read raft_config file %s: %s\n", raft_config, dht_error_msg);
+        fclose(fp);
+        exit(1);
+    }
+    fclose(fp);
 
-#ifdef USE_RAFT
-	if (raft_is_leader()) {
-		if (dht_join_cluster(node_woof, woof_name, name, replicas) < 0) {
-			fprintf(stderr, "failed to join cluster: %s\n", dht_error_msg);
-			exit(1);
-		}
-	} else {
-		unsigned char node_hash[SHA_DIGEST_LENGTH];
-		dht_hash(node_hash, name);
-		
-		if (dht_init(node_hash, woof_name, replicas) < 0) {
-			fprintf(stderr, "failed to initialize DHT: %s", dht_error_msg);
-			exit(1);
-		}
-		if (dht_start_daemon() < 0) {
-			fprintf(stderr, "failed to start the daemon");
-			exit(1);
-		}
-	}
-#else
-	if (dht_join_cluster(node_woof, woof_name, name, replicas) < 0) {
-		fprintf(stderr, "failed to join cluster: %s\n", dht_error_msg);
-		exit(1);
-	}
-#endif
+    char woof_namespace[DHT_NAME_LENGTH] = {0};
+    node_woof_namespace(woof_namespace);
+    if (ip[0] == 0) {
+        if (WooFLocalIP(ip, sizeof(ip)) < 0) {
+            fprintf(stderr, "didn't specify IP to bind and couldn't find local IP\n");
+            exit(1);
+        }
+    }
+    char woof_name[DHT_NAME_LENGTH] = {0};
+    sprintf(woof_name, "woof://%s%s", ip, woof_namespace);
 
-	return 0;
+    if (raft_is_leader()) {
+        if (dht_join_cluster(node_woof,
+                             woof_name,
+                             name,
+                             replicas,
+                             rejoin,
+                             stabilize_freq,
+                             chk_predecessor_freq,
+                             fix_finger_freq,
+                             update_leader_freq,
+                             daemon_wakeup_freq) < 0) {
+            fprintf(stderr, "failed to join cluster: %s\n", dht_error_msg);
+            exit(1);
+        }
+    } else {
+        unsigned char node_hash[SHA_DIGEST_LENGTH];
+        dht_hash(node_hash, name);
+
+        if (dht_init(node_hash, name, woof_name, replicas) < 0) {
+            fprintf(stderr, "failed to initialize DHT: %s\n", dht_error_msg);
+            exit(1);
+        }
+
+        if (rejoin == 0) {
+            if (monitor_create(DHT_MONITOR_NAME) < 0) {
+                fprintf(stderr, "failed to create and start the handler monitor\n");
+                return -1;
+            }
+
+            if (dht_start_daemon(
+                    stabilize_freq, chk_predecessor_freq, fix_finger_freq, update_leader_freq, daemon_wakeup_freq) <
+                0) {
+                fprintf(stderr, "failed to start the daemon\n");
+                exit(1);
+            }
+        }
+    }
+
+    return 0;
 }

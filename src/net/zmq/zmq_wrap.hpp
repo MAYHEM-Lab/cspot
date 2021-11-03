@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <debug.h>
 
 namespace cspot::zmq {
 template<class T, void (*Deleter)(T**)>

@@ -51,10 +51,18 @@ struct element_stc {
 
 typedef struct element_stc ELID;
 
+int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size);
 WOOF* WooFOpen(const char* name);
+unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
+long unsigned int WooFPutWithCause(
+    const char* wf_name, const char* hand_name, void* element, long unsigned int cause_host, unsigned long long cause_seq_no);
+int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
 unsigned long WooFAppendWithCause(
     WOOF* wf, const char* hand_name, const void* element, unsigned long cause_host, unsigned long long cause_seq_no);
 unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element);
+int WooFRead(WOOF* wf, void* element, unsigned long seq_no);
+int WooFReadWithCause(
+    WOOF* wf, void* element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no);
 int WooFReadTail(WOOF* wf, void* elements, int element_count);
 int WooFReadWithCause(
     WOOF* wf, void* element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no);
@@ -69,7 +77,6 @@ unsigned long WooFLatest(WOOF* wf);
 unsigned long WooFBack(WOOF* wf, unsigned long ndx, unsigned long elements);
 unsigned long WooFForward(WOOF* wf, unsigned long ndx, unsigned long elements);
 void WooFDrop(WOOF* wf);
-void WooFFree(WOOF*);
 int WooFTruncate(char* name, unsigned long seq_no);
 int WooFExist(const char* name);
 

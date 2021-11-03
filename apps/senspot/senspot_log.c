@@ -17,7 +17,7 @@ int senspot_log(WOOF *wf, unsigned long seq_no, void *ptr)
 
 	fprintf(stdout,"seq_no: %lu %s recv type %c from %s and timestamp %s\n",
 			seq_no,
-			wf->shared->filename,
+			WoofGetFileName(wf),
 			spt->type,
 			spt->ip_addr,
 			ctime(&spt->tv_sec));

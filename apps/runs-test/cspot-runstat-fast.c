@@ -185,8 +185,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	WooFFree(s_wf);
-	WooFFree(r_wf);
+	WooFDrop(s_wf);
+	WooFDrop(r_wf);
 
 
 	pthread_exit(NULL);

@@ -6,7 +6,6 @@
 #include "mio.h"
 #include "log.h"
 #include "woofc.h"
-#include "woofc-host.h"
 #include "merge.h"
 #include "repair.h"
 

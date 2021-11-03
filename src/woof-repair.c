@@ -15,19 +15,19 @@ char* Usage = "woof-repair -H ip1:port1,ip2:port2... -F glog_filename -W woof -S
 
 extern unsigned long Name_id;
 
-int Repair(GLOG* glog, char* namespace, unsigned long host, char* wf_name);
-int RepairRO(GLOG* glog, char* namespace, unsigned long host, char* wf_name);
+int Repair(GLOG* glog, char* woofc_namespace, unsigned long host, char* wf_name);
+int RepairRO(GLOG* glog, char* woofc_namespace, unsigned long host, char* wf_name);
 void Guide(GLOG* glog, FILE* fd);
 
 int dryrun;
 
-unsigned long hash(char* namespace) {
+unsigned long hash(char* woofc_namespace) {
     unsigned long h = 5381;
     unsigned long a = 33;
     unsigned long i;
 
-    for (i = 0; i < strlen(namespace); i++) {
-        h = ((h * a) + namespace[i]); /* no mod p due to wrap */
+    for (i = 0; i < strlen(woofc_namespace); i++) {
+        h = ((h * a) + woofc_namespace[i]); /* no mod p due to wrap */
     }
     return (h);
 }
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     char hosts[4096];
     char filename[4096];
     char woof[4096];
-    char namespace[4096];
+    char woofc_namespace[4096];
     char woof_name[4096];
     char seq_nos[4096];
     char guide_file[4096];
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
     memset(hosts, 0, sizeof(hosts));
     memset(filename, 0, sizeof(filename));
     memset(woof, 0, sizeof(woof));
-    memset(namespace, 0, sizeof(namespace));
+    memset(woofc_namespace, 0, sizeof(woofc_namespace));
     memset(seq_nos, 0, sizeof(seq_nos));
     memset(guide_file, 0, sizeof(guide_file));
 
@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
     fflush(stdout);
 #endif
 
-    err = WooFNameSpaceFromURI(woof, namespace, sizeof(namespace));
+    err = WooFNameSpaceFromURI(woof, woofc_namespace, sizeof(woofc_namespace));
     if (err < 0) {
         fprintf(stderr, "woof: %s no name space\n", woof);
         fflush(stderr);
@@ -288,10 +288,10 @@ int main(int argc, char** argv) {
         fflush(stderr);
         return (-1);
     }
-    woof_name_id = hash(namespace);
+    woof_name_id = hash(woofc_namespace);
     woof_name_id = 1269808015;
 #ifdef DEBUG
-    printf("namespace: %s, id: %lu\n", namespace, woof_name_id);
+    printf("namespace: %s, id: %lu\n", woofc_namespace, woof_name_id);
     fflush(stdout);
 #endif
 
@@ -367,7 +367,7 @@ int main(int argc, char** argv) {
             return (-1);
         }
         printf("%lu %s\n", wf_host, wf_name);
-        Repair(glog, namespace, wf_host, wf_name);
+        Repair(glog, woofc_namespace, wf_host, wf_name);
         free(wf_name);
     }
     printf("woof casualty:\n");
@@ -380,7 +380,7 @@ int main(int argc, char** argv) {
             return (-1);
         }
         printf("%lu %s\n", wf_host, wf_name);
-        Repair(glog, namespace, wf_host, wf_name);
+        Repair(glog, woofc_namespace, wf_host, wf_name);
         free(wf_name);
     }
     printf("woof progress:\n");
@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
             return (-1);
         }
         printf("%lu %s\n", wf_host, wf_name);
-        RepairRO(glog, namespace, wf_host, wf_name);
+        RepairRO(glog, woofc_namespace, wf_host, wf_name);
         free(wf_name);
     }
 #ifdef DEBUG
@@ -422,7 +422,7 @@ int main(int argc, char** argv) {
     return (0);
 }
 
-int Repair(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
+int Repair(GLOG* glog, char* woofc_namespace, unsigned long host, char* wf_name) {
     Dlist* holes;
     DlistNode* dn;
     char wf[4096];
@@ -437,7 +437,7 @@ int Repair(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
 
     GLogFindWooFHoles(glog, host, wf_name, holes);
     // TODO: put host name here, need to make this smarter
-    sprintf(wf, "woof:///%s/%s", namespace, wf_name);
+    sprintf(wf, "woof:///%s/%s", woofc_namespace, wf_name);
     if (host == 7886325280287311374ul) {
         sprintf(wf, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s", wf_name);
     } else if (host == 797386831364045376ul) {
@@ -469,7 +469,7 @@ int Repair(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
 }
 
 #ifdef REPAIR
-int RepairRO(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
+int RepairRO(GLOG* glog, char* woofc_namespace, unsigned long host, char* wf_name) {
     RB* asker;
     RB* mapping_count;
     char wf[4096];
@@ -494,7 +494,7 @@ int RepairRO(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
         }
         WooFFromHval(rb->key.key.s, &cause_host, cause_woof);
         // TODO: put host name here, need to make this smarter
-        sprintf(wf, "woof:///%s/%s", namespace, wf_name);
+        sprintf(wf, "woof:///%s/%s", woofc_namespace, wf_name);
         if (host == 7886325280287311374ul) {
             sprintf(wf, "woof://10.1.5.1:51374/home/centos/cspot/apps/regress-pair/cspot/%s", wf_name);
         } else if (host == 797386831364045376ul) {
@@ -507,7 +507,7 @@ int RepairRO(GLOG* glog, char* namespace, unsigned long host, char* wf_name) {
         if (dryrun == 0) {
             err = WooFRepairProgress(wf_name, cause_host, cause_woof, rbc->value.i, (unsigned long*)rb->value.i64);
             if (err < 0) {
-                fprintf(stderr, "RepairRO: cannot repair woof %s/%s(%lu)\n", namespace, wf_name, host);
+                fprintf(stderr, "RepairRO: cannot repair woof %s/%s(%lu)\n", woofc_namespace, wf_name, host);
                 fflush(stderr);
                 RBDestroyS(asker);
                 RBDestroyS(mapping_count);

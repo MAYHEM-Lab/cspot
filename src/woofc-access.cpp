@@ -356,7 +356,7 @@ void WooFProcessGetDone(zmsg_t* req_msg, zsock_t* receiver) {
             done = -1;
         } else {
             done = wf->shared->done;
-            WooFFree(wf);
+            WooFDrop(wf);
         }
     } else { /* copy_size <= 0 */
         fprintf(stderr, "WooFProcessGetDone: no seq_no frame data for %s\n", woof_name);

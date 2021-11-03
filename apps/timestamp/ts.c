@@ -18,7 +18,7 @@ int ts(WOOF *wf, unsigned long seq_no, void *ptr)
 	uint64_t ts = stamp();
 
 	TS_EL *el = (TS_EL *)ptr;
-	fprintf(stdout, "from woof %s at %lu\n", wf->shared->filename, seq_no);
+	fprintf(stdout, "from woof %s at %lu\n", WoofGetFileName(wf), seq_no);
 	el->ts[el->head] = ts;
 	el->head++;
 	if (el->head == el->stop)
@@ -49,11 +49,11 @@ int ts(WOOF *wf, unsigned long seq_no, void *ptr)
 		seq_no = WooFPut(el->woof[el->head], "ts", (void *)el);
 		if (WooFInvalid(seq_no))
 		{
-			fprintf(stderr, "couldn't put object to WooF %s\n", wf->shared->filename);
+			fprintf(stderr, "couldn't put object to WooF %s\n", WoofGetFileName(wf));
 		}
 		else
 		{
-			fprintf(stdout, "put object to WooF %s at %ld\n", wf->shared->filename, seq_no);
+			fprintf(stdout, "put object to WooF %s at %ld\n", WoofGetFileName(wf), seq_no);
 		}
 	}
 	fflush(stderr);

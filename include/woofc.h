@@ -31,7 +31,11 @@ int WooFValidURI(const char* str);
 int WooFLocalIP(char* ip_str, int len);
 
 #define WOOFNAMESIZE (256)
+unsigned long WooFGetElSize(WOOF* wf, const char* wf_name);
+
+const char* WoofGetFileName(WOOF* wf);
+
+
 #if defined (__cplusplus)
 }
-
 #endif
