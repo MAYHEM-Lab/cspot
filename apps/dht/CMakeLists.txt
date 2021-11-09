@@ -1,8 +1,10 @@
+if (NOT OpenSSL_FOUND)
+  return()
+endif()
 
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 set(OPENSSL_MSVC_STATIC_RT TRUE)
 
-find_package(OpenSSL REQUIRED)
 pkg_search_module(OPENSSL REQUIRED openssl)
 
 

@@ -21,7 +21,6 @@ unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
                                           const char* cause_woof_name,
                                           unsigned long cause_woof_latest_seq_no);
 
-void WooFGetFilename(WOOF *wf, char *fname, int fnamesize);
 unsigned long WooFGetNameID();
 
 int WooFInvalid(unsigned long seq_no);
