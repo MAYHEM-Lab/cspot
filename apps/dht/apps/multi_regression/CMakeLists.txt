@@ -1,6 +1,10 @@
+if (NOT Boost_FOUND)
+  return()
+endif()
 
-find_package(Boost REQUIRED)
-find_package(LAPACK REQUIRED)
+if (NOT LAPACK_FOUND)
+  return()
+endif()
 
 include_directories("./include" ${Boost_INCLUDE_DIR} ${MLPACK_INCLUDE_DIR})
 
