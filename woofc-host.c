@@ -354,7 +354,7 @@ void *WooFContainerLauncher(void *arg)
 
 		// begin constructing the launch string
 		sprintf(launch_string + strlen(launch_string),
-				"docker run -t "
+				"docker run -t --network=host "
 				"--rm " // option tells the container that it shuold remove itself when stopped
 				"--name %s "
 				"-e LD_LIBRARY_PATH=/usr/local/lib "
