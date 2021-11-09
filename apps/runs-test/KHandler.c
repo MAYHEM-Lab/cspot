@@ -45,10 +45,10 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 
 	/*
 	 * sanity check
-	 */
 	if(fa->i > fa->count) {
 		return(1);
 	}
+	 */
 
 
 	/*
@@ -123,6 +123,8 @@ fflush(stdout);
 	} else {
 		fd = stdout;
 	}
+	printf("KS stat: %f alpha: %f critical value: %f\n",
+		kstat, fa->alpha, critical);
 	fprintf(fd,"KS stat: %f alpha: %f critical value: %f\n",
 		kstat, fa->alpha, critical);
 	if(fa->logfile[0] != 0) {
