@@ -5,8 +5,8 @@ endif()
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 set(OPENSSL_MSVC_STATIC_RT TRUE)
 
+find_package(OpenSSL REQUIRED)
 pkg_search_module(OPENSSL REQUIRED openssl)
-
 
 add_library(dht dht.c dht_utils.c dht_client.c)
 target_link_libraries(dht PUBLIC woof raft monitor OpenSSL::SSL OpenSSL::Crypto)
