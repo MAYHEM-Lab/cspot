@@ -131,7 +131,7 @@ public:
                 return fmt::format("-e {}={}", key, val);
             });
 
-            launch_string = fmt::format("{docker_exec} run --rm --name {container_name} {envs} ",
+            launch_string = fmt::format("{docker_exec} run --network=host --rm --name {container_name} {envs} ",
                                         fmt::arg("docker_exec", m_docker_exe_path),
                                         fmt::arg("container_name", worker_containers[count]),
                                         fmt::arg("envs", fmt::join(env_pieces, " ")));

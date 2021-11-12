@@ -55,11 +55,16 @@ int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return(1);
 	}
 
+	/*
+	 * this is needed if WooFRead() makes a comeback
+	 */
+#if 0
 	r_wf = WooFOpen(fa->r);
 	if(r_wf == NULL) {
 		fprintf(stderr,"SHandler: couldn't open %s for rvals\n",fa->r);
 		return(-1);
 	}
+#endif
 
 	end = fa->seq_no;
 	start = end - (fa->sample_size-1);

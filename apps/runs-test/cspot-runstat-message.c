@@ -198,6 +198,8 @@ int main(int argc, char **argv)
 
 		CTwistInitialize(Seed);
 
+		memset(&fa,0,sizeof(fa));
+
 		strncpy(fa.rargs, Rwoof, sizeof(fa.rargs));
 		strncat(fa.rargs, ".args", sizeof(fa.rargs));
 		strncpy(fa.r, Rwoof, sizeof(fa.r));
@@ -223,7 +225,6 @@ int main(int argc, char **argv)
 		}
 
 	}
-	pthread_exit(NULL);
 
 	return (0);
 }

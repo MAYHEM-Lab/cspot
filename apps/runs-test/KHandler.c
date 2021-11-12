@@ -45,10 +45,10 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 
 	/*
 	 * sanity check
-	 */
 	if(fa->i > fa->count) {
 		return(1);
 	}
+	 */
 
 
 	/*
@@ -66,12 +66,17 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		exit(1);
 	}
 
+	/*
+	 * need this if WooFRead() makes a comeback
+	 */
+#if 0
 	s_wf = WooFOpen(fa->stats);
 	if(wf == NULL) {
 		fprintf(stderr,"KHandler couldn't open stats woof %s\n",
 			fa->stats);
 		exit(1);
 	}
+#endif
 
 	incr = 1.0 / (double)fa->count;
 	value = 0.0000000001;
@@ -88,7 +93,8 @@ int KHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 printf("Khandler: seq_no: %lu, count: %d\n",fa->seq_no,fa->count);
 fflush(stdout);
 	for(seq_no=fa->seq_no; count < fa->count; seq_no--) {
-		err = WooFGet(WoofGetFileName(s_wf),&s,seq_no);
+//		err = WooFGet(WoofGetFileName(s_wf),&s,seq_no);
+		err = WooFGet(fa->stats,&s,seq_no);
 		if(err < 0) {
 			fprintf(stderr,"WooFGet failed at %lu for %s\n",
 					seq_no,fa->stats);
@@ -117,6 +123,8 @@ fflush(stdout);
 	} else {
 		fd = stdout;
 	}
+	printf("KS stat: %f alpha: %f critical value: %f\n",
+		kstat, fa->alpha, critical);
 	fprintf(fd,"KS stat: %f alpha: %f critical value: %f\n",
 		kstat, fa->alpha, critical);
 	if(fa->logfile[0] != 0) {
@@ -125,7 +133,7 @@ fflush(stdout);
 		fflush(stdout);
 	}
 
-	WooFDrop(s_wf);
+//	WooFDrop(s_wf);
 
 #ifdef TIMING
 	gettimeofday(&t2, NULL);
