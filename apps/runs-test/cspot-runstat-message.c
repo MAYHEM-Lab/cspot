@@ -46,6 +46,7 @@ int main(int argc, char **argv)
 	struct timeval tm;
 	unsigned long ndx;
 	int create;
+	unsigned long seq_no;
 
 	count = 100;
 	sample_size = 100;
@@ -198,23 +199,46 @@ int main(int argc, char **argv)
 
 		CTwistInitialize(Seed);
 
-		memset(&fa,0,sizeof(fa));
+		/*
+		 * see if there is a calculation in progress
+		 */
+		in_progress = 0;
+		seq_no = WooFGetLatestSeqno(fa.rargs,&fa);
+		if(seq_no != (unsigned long)-1) {
+			if((fa.i != 0) && (fa.j != 0) {
+				if((fa.i != count) || (fa.j != (fa.sample_size-1)) {
+					in_progess = 1;
+				}
+			}
+		}
 
-		strncpy(fa.rargs, Rwoof, sizeof(fa.rargs));
-		strncat(fa.rargs, ".args", sizeof(fa.rargs));
-		strncpy(fa.r, Rwoof, sizeof(fa.r));
-		strncat(fa.r, ".vals", sizeof(fa.r));
-		strncpy(fa.sargs, Swoof, sizeof(fa.sargs));
-		strncat(fa.sargs, ".args", sizeof(fa.sargs));
-		strncpy(fa.stats, Swoof, sizeof(fa.stats));
-		strncat(fa.stats, ".vals", sizeof(fa.stats));
-		strncpy(fa.kargs, Kwoof, sizeof(fa.kargs));
-		strncat(fa.kargs, ".args", sizeof(fa.kargs));
-		fa.i = 0;
-		fa.j = 0;
-		fa.count = count;
-		fa.sample_size = sample_size;
-		fa.alpha = alpha;
+		if(in_progress == 0) {
+			
+			memset(&fa,0,sizeof(fa));
+
+			strncpy(fa.rargs, Rwoof, sizeof(fa.rargs));
+			strncat(fa.rargs, ".args", sizeof(fa.rargs));
+			strncpy(fa.r, Rwoof, sizeof(fa.r));
+			strncat(fa.r, ".vals", sizeof(fa.r));
+			strncpy(fa.sargs, Swoof, sizeof(fa.sargs));
+			strncat(fa.sargs, ".args", sizeof(fa.sargs));
+			strncpy(fa.stats, Swoof, sizeof(fa.stats));
+			strncat(fa.stats, ".vals", sizeof(fa.stats));
+			strncpy(fa.kargs, Kwoof, sizeof(fa.kargs));
+			strncat(fa.kargs, ".args", sizeof(fa.kargs));
+			fa.i = 0;
+			fa.j = 0;
+			fa.count = count;
+			fa.sample_size = sample_size;
+			fa.alpha = alpha;
+		} else { /* recover state */
+			if(fa.j < (sample_size-1)) {
+				fa.j += 1;
+			} else {
+				fa.j = 0;
+				fa.i += 1;
+			}
+		}
 
 		ndx = WooFPut(fa.rargs, "RHandler", &fa);
 

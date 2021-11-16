@@ -72,13 +72,6 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	/*
 	 * generate next random number
 	 */
-printf("RHandler: seq_no: %d putting next RHandler\n",wf_seq_no);
-fflush(stdout);
-	seq_no = WooFPut(fa->rargs,"RHandler",&next_r);
-	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"RHandler couldn't put RHandler\n");
-		exit(1);
-	}
 
 	/*
 	 * put put the random value with no handler
@@ -91,6 +84,18 @@ fflush(stdout);
 
 printf("RHandler: i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
 fflush(stdout);
+
+	/*
+	 * now put the indices
+	 */
+
+printf("RHandler: seq_no: %d putting next RHandler\n",wf_seq_no);
+fflush(stdout);
+	seq_no = WooFPut(fa->rargs,"RHandler",&next_r);
+	if(WooFInvalid(seq_no)) {
+		fprintf(stderr,"RHandler couldn't put RHandler\n");
+		exit(1);
+	}
 
 
 	/*
