@@ -49,25 +49,6 @@ int RHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		return(1);
 	}
 
-	/*
-	 * if the buffer is full, create an SThread
-	 */
-	if(fa->j == (fa->sample_size - 1)) {
-printf("RHandler: spawning SHandler i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
-fflush(stdout);
-	       /*
-	 	* launch the stat handler
-	 	*/
-		memcpy(&next_s,fa,sizeof(FA));
-		next_s.seq_no = r_seq_no;
-		seq_no = WooFPut(fa->sargs,"SHandler",&next_s);
-		if(WooFInvalid(seq_no)) {
-			fprintf(stderr,"RHandler couldn't put SHandler\n");
-			exit(1);
-		}
-
-	}
-
 	gettimeofday(&tm,NULL);
 	Seed = (uint32_t)((tm.tv_sec + tm.tv_usec) % 0xFFFFFFFF);
 	CTwistInitialize(Seed);
@@ -103,6 +84,24 @@ fflush(stdout);
 
 printf("RHandler: i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
 fflush(stdout);
+	/*
+	 * if the buffer is full, create an SThread
+	 */
+	if(fa->j == (fa->sample_size - 1)) {
+printf("RHandler: spawning SHandler i: %d, seq_no: %lu, r: %f\n",fa->i, r_seq_no, r);
+fflush(stdout);
+	       /*
+	 	* launch the stat handler
+	 	*/
+		memcpy(&next_s,fa,sizeof(FA));
+		next_s.seq_no = r_seq_no;
+		seq_no = WooFPut(fa->sargs,"SHandler",&next_s);
+		if(WooFInvalid(seq_no)) {
+			fprintf(stderr,"RHandler couldn't put SHandler\n");
+			exit(1);
+		}
+	}
+
 
 	/*
 	 * now put the indices
