@@ -114,7 +114,8 @@ fflush(stdout);
 	}
 
 
-	if(seq_no == fa->count) {
+	if((fa->i % fa->count) == 0) { 
+//	if(seq_no == fa->count) {
 printf("SHandler spawning KHandler at %d\n",seq_no);
 fflush(stdout);
 		memcpy(&next_k,fa,sizeof(FA));

@@ -47,6 +47,7 @@ int main(int argc, char **argv)
 	unsigned long ndx;
 	int create;
 	unsigned long seq_no;
+	int in_progress;
 
 	count = 100;
 	sample_size = 100;
@@ -203,12 +204,10 @@ int main(int argc, char **argv)
 		 * see if there is a calculation in progress
 		 */
 		in_progress = 0;
-		seq_no = WooFGetLatestSeqno(fa.rargs,&fa);
+		seq_no = WooFGetLatestSeqno(fa.rargs);
 		if(seq_no != (unsigned long)-1) {
-			if((fa.i != 0) && (fa.j != 0) {
-				if((fa.i != count) || (fa.j != (fa.sample_size-1)) {
-					in_progess = 1;
-				}
+			if((fa.i != 0) && (fa.j != 0)) {
+				in_progress = 1;
 			}
 		}
 
@@ -231,14 +230,7 @@ int main(int argc, char **argv)
 			fa.count = count;
 			fa.sample_size = sample_size;
 			fa.alpha = alpha;
-		} else { /* recover state */
-			if(fa.j < (sample_size-1)) {
-				fa.j += 1;
-			} else {
-				fa.j = 0;
-				fa.i += 1;
-			}
-		}
+		} 
 
 		ndx = WooFPut(fa.rargs, "RHandler", &fa);
 
