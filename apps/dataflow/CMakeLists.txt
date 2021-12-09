@@ -14,6 +14,10 @@ add_executable(dfaddoperand dfaddoperand.c)
 target_link_libraries(dfaddoperand PUBLIC woof)
 target_include_directories(dfaddoperand PUBLIC "./include")
 
+add_executable(dfgetoperand dfgetoperand.c)
+target_link_libraries(dfgetoperand PUBLIC woof)
+target_include_directories(dfgetoperand PUBLIC "./include")
+
 # TODO: fix wf->shared->filename
 add_handler(dfhandler dfhandler.c)
 target_link_libraries(dfhandler PUBLIC woof dfoperation)
