@@ -15,3 +15,4 @@ add_subdirectory(runs-test)
 
 add_subdirectory(raft)
 add_subdirectory(dht)
+add_subdirectory(dataflow)
