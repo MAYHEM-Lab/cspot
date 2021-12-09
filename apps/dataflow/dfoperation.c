@@ -23,10 +23,10 @@ double DFOperation(int opcode, double op1, double op2)
 		case SUB:
 			result = op1 - op2;
 			break;
-		CASE MUL:
+		case MUL:
 			result = op1 * op2;
 			break;
-		CASE DIV:
+		case DIV:
 			result = op1 / op2;
 			break;
 	}

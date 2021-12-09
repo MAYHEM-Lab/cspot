@@ -12,7 +12,7 @@
 struct df_node_stc
 {
 	int opcode; 	/* this op code */
-	int ready_count /* how many have we received */
+	int ready_count;/* how many have we received */
 	double value;	/* value of first operand to arrive */
 	int order;	/* is waiting first or second in non-commute */
 	int node_no;	/* which node is it */

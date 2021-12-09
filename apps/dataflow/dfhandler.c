@@ -28,9 +28,9 @@ int dfhandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	 * find the node that this operand matches by dst address
 	 */
 	seqno = WooFGetLatestSeqno(prog);
-	if(WooFInvalid(seq_no)) {
+	if(WooFInvalid(seqno)) {
 		fprintf(stderr,
-		"ERROR -- dfhandler: latest seq_no failed from %s\n",
+		"ERROR -- dfhandler: latest seqno failed from %s\n",
 		prog);
 		return(1);
 	}
@@ -43,7 +43,7 @@ int dfhandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		if(err < 0) {
 			fprintf(stderr,
 			"ERROR -- dfhandler: get of %s failed at %lu\n",
-			prog,seq_no);
+			prog,seqno);
 			return(1);
 		}
 		/*
@@ -101,7 +101,7 @@ int dfhandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 			 * retire this node
 			 */
 			node.ready_count = 2;
-			d_seqno = WoofPut(prog,NULL,&node);
+			d_seqno = WooFPut(prog,NULL,&node);
 			if(WooFInvalid(d_seqno)) {
 				fprintf(stderr,
 			"ERROR -- dfhandler could not retire in %s\n",
@@ -115,7 +115,7 @@ int dfhandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 			memset(&result_operand,0,sizeof(result_operand));
 			result_operand.value = result;
 			result_operand.dst_no = node.dst_no;
-			result_operand.dst_order = node.dst_order;
+			result_operand.order = node.dst_order;
 			strcpy(result_operand.prog_woof,prog);
 			/*
 			 * if the dst_no == 0, this is a final result.  Don't fire the

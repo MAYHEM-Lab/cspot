@@ -25,7 +25,6 @@ char *Usage = "dfinit -W woofname\n\
 
 int main(int argc, char **argv)
 {
-	unsigned long seqno;
 	int err;
 	int c;
 	char woof[4096];
@@ -46,7 +45,7 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				size = atoi(optarg);
-				break
+				break;
 			default:
 				fprintf(stderr,"ERROR -- dfinit: unrecognized command %c\n",
 					(char)c);

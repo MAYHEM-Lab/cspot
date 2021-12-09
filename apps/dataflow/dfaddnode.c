@@ -26,11 +26,10 @@ int main(int argc, char **argv)
 {
 	DFNODE node;
 	unsigned long seqno;
-	int err;
 	int c;
 	char prog_woof[4096];
 
-	memset(prof_woof,0,sizeof(prog_woof));
+	memset(prog_woof,0,sizeof(prog_woof));
 	memset(&node,0,sizeof(node));
 	node.dst_no = -1;
 	node.node_no = -1;
@@ -49,7 +48,7 @@ int main(int argc, char **argv)
 				break;
 			case 'd':
 				node.dst_no = atoi(optarg);
-				break
+				break;
 			case '1':
 				node.dst_order = 1;
 				break;

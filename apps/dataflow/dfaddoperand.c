@@ -19,25 +19,24 @@ char *Usage = "dfaddoperand -W woofname\n\
 \t-1 <must be first operand to dest in non-commute case>\n";
 
 /*
- * add a node to the program woof
+ * add a operand to the operand woof
  */
 int main(int argc, char **argv)
 {
 	DFOPERAND operand;
 	unsigned long seqno;
-	int err;
 	int c;
 	char op_woof[1024];
 	int val_present;
 
-	memset(&operand,0,sizeof(node));
+	memset(&operand,0,sizeof(operand));
 	memset(op_woof,0,sizeof(op_woof));
 	operand.dst_no = -1;
 	val_present = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
-				strncpy(operand.prog_woof,optarg,sizeof(prog_woof));
+				strncpy(operand.prog_woof,optarg,sizeof(operand.prog_woof));
 				strncat(operand.prog_woof,".dfprogram",sizeof(operand.prog_woof));
 				strncpy(op_woof,optarg,sizeof(op_woof));
 				strncat(op_woof,".dfoperand",sizeof(op_woof));
@@ -45,7 +44,7 @@ int main(int argc, char **argv)
 			case 'd':
 				operand.dst_no = atoi(optarg);
 				break;
-			case '1'
+			case '1':
 				operand.order = 1;
 				break;
 			case 'V':
@@ -86,7 +85,7 @@ int main(int argc, char **argv)
 		"ERROR -- put to %s of operand with dest %d failed\n",
 		op_woof,
 		operand.dst_no);
-		exit(1)
+		exit(1);
 	}
 
 	exit(0);
