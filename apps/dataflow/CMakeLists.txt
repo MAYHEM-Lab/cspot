@@ -1,4 +1,4 @@
-add_library(dfoperation dfopertion.c)
+add_library(dfoperation dfoperation.c)
 target_link_libraries(dfoperation PUBLIC woof)
 target_include_directories(dfoperation PUBLIC "./include")
 
