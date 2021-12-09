@@ -78,6 +78,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	WooFInit(); /* local only for now */
+
 	seqno = WooFPut(op_woof,"dfhandler",&operand);
 
 	if(WooFInvalid(seqno)) {

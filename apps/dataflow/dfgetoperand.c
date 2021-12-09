@@ -54,6 +54,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	WooFInit();	/* local only for now */
+
 	if(seqno == 0) {
 		seqno = WooFGetLatestSeqno(op_woof);
 	}

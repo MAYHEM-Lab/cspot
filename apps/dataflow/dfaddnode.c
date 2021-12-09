@@ -84,6 +84,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	WooFInit();	/* local only for now */
+
 	seqno = WooFPut(prog_woof,NULL,&node);
 
 	if(WooFInvalid(seqno)) {
