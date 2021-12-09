@@ -29,6 +29,12 @@ double DFOperation(int opcode, double op1, double op2)
 		case DIV:
 			result = op1 / op2;
 			break;
+		case SQR:
+			result = sqrt(op1);
+			break;
+		default:
+			result = NAN;
+			break;
 	}
 	return(result);
 }
