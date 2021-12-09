@@ -25,6 +25,7 @@ int main(int argc, char **argv)
 	unsigned long seqno;
 	int c;
 	char op_woof[1024];
+	int err;
 
 	memset(&operand,0,sizeof(operand));
 	memset(op_woof,0,sizeof(op_woof));
@@ -47,7 +48,7 @@ int main(int argc, char **argv)
 	}
 
 
-	if(operand.op_woof[0] == 0) {
+	if(op_woof[0] == 0) {
 		fprintf(stderr,"ERROR -- dfgetoperand: must specify woof name\n");
 		fprintf(stderr,"%s",Usage);
 		exit(1);
@@ -66,10 +67,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	printf(op_woof: %s ",operand.op_woof);
-	printf(dst_no: %d ",operand.dst_no);
-	printf(value: %d ",operand.value);
-	printf(order: %d\n",operand.order);
+	printf("op_woof: %s ",op_woof);
+	printf("dst_no: %d ",operand.dst_no);
+	printf("value: %f ",operand.value);
+	printf("order: %d\n",operand.order);
 
 	exit(0);
 		
