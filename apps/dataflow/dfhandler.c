@@ -109,7 +109,7 @@ printf("dfhandler: prog: %s, dst_no %d, value: %f\n",
 	}
 #ifdef DEBUG
 printf("CLAIM prog: %s, node_no: %d dst_no %d value: %f\n",
-	prog, node.node_no, operand->dst_no, operand->value);
+	prog, claim_node.node_no, operand->dst_no, operand->value);
 #endif  
 
 	/*
