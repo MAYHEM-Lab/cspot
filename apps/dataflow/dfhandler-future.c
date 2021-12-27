@@ -14,7 +14,7 @@
 #include "woofc.h"
 #include "df.h"
 
-int dfFireNode(WooF *wf, char *prog, DFNODE *node, double result)
+int dfFireNode(WOOF *wf, char *prog, DFNODE *node, double result)
 {
 	unsigned long d_seqno;
 	DFOPERAND result_operand;
@@ -52,6 +52,7 @@ printf("DONE prog: %s, node_no: %d\n", prog, node->node_no);
 	} else {
 		d_seqno = WooFPut(WooFGetFileName(wf),
 			"dfhandler",
+			&result_operand);
 	}
 	if(WooFInvalid(d_seqno)) {
 		fprintf(stderr,
@@ -164,10 +165,10 @@ printf("scanning: prog: %s, node_no: %d dst_no %d state: %d\n",
 			fprintf(stderr,
 			"dfhandler ERROR: more than two inputs ");
 			fprintf(stderr,
-				"prog %s, node: %d dst_no: %d state: %d, "
+				"prog %s, node: %d dst_no: %d state: %d, ",
 			  prog, node.node_no, operand->dst_no, node.state);
 			fprintf(stderr,
-				"ready_count: %d\n",node.read_count);
+				"ready_count: %d\n",node.ready_count);
 			fprintf(stderr,"dfhandler ERROR exiting\n");
 			exit(1);
 		}
@@ -288,7 +289,7 @@ printf("future: found CLAIM for partial prog: %s, node_no: %d dst_no %d value%f\
 					 */
 					return(err);
 				}
-				f_seqno--; /* continue future scan
+				f_seqno--; /* continue future scan */
 			}
 			/*
 			 * end of partial creation without successful
