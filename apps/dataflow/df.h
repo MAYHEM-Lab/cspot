@@ -9,6 +9,10 @@
 #define DIV (4)
 #define SQR (5)
 
+#define WAITING (0)
+#define CLAIM (1)
+#define DONE (2)
+
 struct df_node_stc
 {
 	int opcode; 	/* this op code */
@@ -19,6 +23,7 @@ struct df_node_stc
 	int dst_opcode; /* next node type */
 	int dst_no; 	/* next node address */
 	int dst_order;	/* for non-commutative operations */
+	int state;	/* waiting, claimed, done */
 };
 
 typedef struct df_node_stc DFNODE;
