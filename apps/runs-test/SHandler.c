@@ -41,6 +41,8 @@ int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	gettimeofday(&t1, NULL);
 #endif
 
+printf("SHandler: i: %lu, j: %lu fa->seq_no: %lu\n",fa->i,fa->j,fa->seq_no);
+
 	/*
 	 * sanity check
 	 */
@@ -71,8 +73,10 @@ int SHandler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 
 	v = (double *)malloc(sizeof(double)*fa->sample_size);
 	i = 0;
+printf("SHandler: start: %lu, end: %lu\n",start,end);
 	for(seq_no=start; seq_no <= end; seq_no++) {
 		WooFGet(fa->r,&v[i],seq_no);
+printf("SHandler: seq_no: %lu, v[i]: %f\n",seq_no,v[i]);
 		i++;
 	}
 
