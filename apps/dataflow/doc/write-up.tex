@@ -1,0 +1,197 @@
+%%
+%% 
+%% 
+\documentclass[10pt]{article}
+\usepackage{graphicx}
+\DeclareGraphicsExtensions{.pdf,.png,.eps,.jpg}
+%\graphicspath{{./figures/}{../support/}}
+%\usepackage{times}
+\usepackage{listings}
+\usepackage[hyphens]{url}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{color}
+\usepackage{epsfig} 
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{floatflt}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage{tablefootnote}
+\usepackage{eurosym}
+\usepackage{pdfpages}
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{5}
+
+
+\setlength{\oddsidemargin}{0in}   % 10pt is 1.875 for margins in latex
+\setlength{\evensidemargin}{0in}
+\setlength{\textwidth}{6.5in}
+\setlength{\textheight}{9in}
+\setlength{\topmargin}{-0.5in}
+
+\setitemize{leftmargin=*}
+
+\newcommand{\ignore}[1]{}
+%\input{remark}
+%\remarktrue
+
+\newcommand{\EUCALYPTUS} {\textsc{eucalyptus}}
+\newcommand{\eUCALYPTUS} {\textsc{Eucalyptus}}
+\newcommand{\NAMENS} {\textsc{FarmingEdge}}
+\newcommand{\NAME} {\textsc{FarmingEdge }}
+
+%\thispagestyle{empty}
+
+\title{CSPOT Dataflow Prototype}
+\author{Rich Wolski}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+The basic idea is to create a set of primitives that can be used to implement
+a simple data flow language (textually) that can be executed as a script in
+some scripting language.  The code that is in \verb+cspot/apps/dataflow+ is a
+small, proof-of-concept prototype.  It is not a general dataflow
+implementation but rather an experiment that shows that CSPOT can implement
+dataflow computations expressed as directed, asyclic graphs (DAGS).
+
+The following outline assumes that the reader is familiar with CSPOT as it is
+described in the CSPOT Technical Report available from
+\url{https://www.cs.ucsb.edu/research/tech-reports/2018-01}.
+
+The prototype has the following restrictive properties (compared to a complete
+implementation).
+\begin{itemize}
+\item All DAG nodes (representing computations) have $2$ input edges and $1$
+output edge.
+\item The only data type that can be conveyed along a DAG edge is a C
+double-precision floating point number.  Thus, the prototype only implements
+double-precision floating point computations.
+\item When a node computation is not commutative with respect to its inputs,
+the left input to the operator corresponding to a node must be flagged as
+such.
+\item The output of a program that has been executed is stored at the end of
+the program WooF (see below).  All print statements from within a handler
+appear in the output of woofc-namespace. 
+\item The $3$ CSPOT dataflow primitives are designed to be called from bash as
+a bash script.
+\item The prototype only executes a single DAG (there is no iteration or
+conditional execution).
+\end{itemize}
+The directory for the CSPOT dataflow code includes a single bash script --
+\verb+quadratic.sh+ -- that computes one of the roots of the quadratic
+formula as an example.
+
+\section{The CSPOT Dataflow Components}
+
+The prototype consists of $4$ CSPOT software components: $3$ CSPOT programs 
+and $1$ CSPOT handler.
+\begin{itemize}
+\item \verb+dfinit.c+ is a program that initializes $2$ WooFs that are needed
+to execute a program.
+\item \verb+dfaddnode.c+ is a program that appends a dataflow node to a WooF
+that contains the state of the dataflow program nodes at any time during its
+execution.
+\item \verb+dfaddoperand.c+ is a program that appends edges to a WooF that
+records which edges are ready to transmit their carried operand to a
+destination node.
+\item \verb+dfhandler.c+ is a CSPOT handler invoked when an edge is added to
+the operand WooF.  It executes an algorithm that moves the dataflow program
+through its next state transition.
+\end{itemize}
+The \verb+dfinit+ program initializes or reinitializes the WooFs that are
+necessary to execute a DAG and, thus, must be called before any nodes or edges
+are added to these WooFs.  
+
+\section{Writing a CSPOT Dataflow Program}
+
+A CSPOT dataflow program, executed as a script, consists of $3$ sections that
+must be executed in order.  The script must
+\begin{itemize}
+\item Call \verb+dfinit+ in the CSPOT namespace where the WooFs are to be
+created (i.e. where the program will execute).
+\item Call \verb+dfaddnode+ once for each node in the DAG (syntax discussed
+below).  Note that the order in which nodes are added does not affect program
+correctness but might affect program performance.
+\item Call \verb+dfaddoperand+ once for each edge in the DAG that carries an
+input to the program itself. The order in which edges are added does not
+affect program correctness and likely does not affect program performance.
+\end{itemize}
+Using \verb+quadratic.sh+ as an example, the code is 
+
+\begin{lstlisting}[language=bash,caption={quadratic.sh}]
+#!/bin/bash
+
+#usage: quadratic.sh a b c
+A="$1"
+B="$2"
+C="$3"
+
+#double-precision arithmetic operator codes supported by prototype
+ADD=1
+SUB=2
+MUL=3
+DIV=4
+SQR=5
+
+#init woofs with woofname "test"
+./dfinit -W test -s 10000
+
+#add nodes
+./dfaddnode -W test -o $DIV -i 1 -d 0 # -b + sqr(b^2 - 4ac) / 2a -> result
+./dfaddnode -W test -o $MUL -i 2 -d 1 # 2a -> node 1
+./dfaddnode -W test -o $MUL -i 3 -d 4 # -1 * b -> node 4
+./dfaddnode -W test -o $ADD -i 4 -d 1 -1 # (-1 * b) + sqr(b^2 - 4ac) -> node 1, order 1
+./dfaddnode -W test -o $SQR -i 5 -d 4 -1 # sqr(b^2 - 4ac) -> node 4
+./dfaddnode -W test -o $SUB -i 6 -d 5 # b^2 - 4ac -> node 5
+./dfaddnode -W test -o $MUL -i 7 -d 6 -1 # b^2 -> node 6, order 1
+./dfaddnode -W test -o $MUL -i 8 -d 6 # 4ac -> node 6
+./dfaddnode -W test -o $MUL -i 9 -d 8 # ac -> node 8
+
+#add program inputs (including constants)
+./dfaddoperand -W test -d 7 -V $B
+./dfaddoperand -W test -d 7 -V $B
+./dfaddoperand -W test -d 8 -V 4.0
+./dfaddoperand -W test -d 9 -V $A
+./dfaddoperand -W test -d 9 -V $C
+./dfaddoperand -W test -d 3 -V -1.0
+./dfaddoperand -W test -d 3 -V $B
+./dfaddoperand -W test -d 2 -V 2.0
+./dfaddoperand -W test -d 2 -V $A
+./dfaddoperand -W test -d 5 -V 1.0 # ignored because this is SQR and need two op
+
+\end{lstlisting}
+The key-value arguments to \verb+dfinit+ are
+\begin{itemize}
+\item \verb+-W <WooF name prefix>+ The program will create a WooF with the
+prefix and \verb+.dfprogram+ as an extent and a second WooF with the same
+prefix and the extent \verb+.dfoperand+.  The \verb+.dfprogram+ WooF will
+contain DAG nodes and the \verb+.dfoperand+ WooF will contain edge nodes.
+\item \verb+-s size+ The \verb+size+ parameter specifies how many WooF entries
+should be configured for both WooFs before they wrap around.  It needs to be
+large enough to hold at least $5x$ the number of program nodes in the graph.
+\end{itemize}
+
+The key-value arguments to \verb+dfaddnode+ are
+\begin{itemize}
+\item \verb+-i node-id+ Each node in the DAG needs to be given a unique
+integer identifier which is specified by the \verb+-i+ argument.
+\item \verb+-o operation code+ Each operation that can be represented
+by a node in the DAG is represented by an integer ``op code.''  When a node is
+``fired'' the ``op code'' indexes a set of functions that perform
+corresponding functions.    
+\item \verb+-d dest-node-id+ After a node has ``fired'' (its operation
+has been performed) the \verb+-d+ argument indicates the node-id that will
+receive its output as an input.
+\end{itemize}
+XXX
+
+
+
+\end{document}
+
