@@ -59,7 +59,7 @@ a simple data flow language (textually) that can be executed as a script in
 some scripting language.  The code that is in \verb+cspot/apps/dataflow+ is a
 small, proof-of-concept prototype.  It is not a general dataflow
 implementation but rather an experiment that shows that CSPOT can implement
-dataflow computations expressed as directed, asyclic graphs (DAGS).
+dataflow computations expressed as directed, acyclic graphs (DAGS).
 
 The following outline assumes that the reader is familiar with CSPOT as it is
 described in the CSPOT Technical Report available from
@@ -217,7 +217,7 @@ representation shown in Listing~\ref{lst:quad}.
 \caption{Graphical representation of quadratic formula.\label{fig:quad}}
 \end{figure}
 \end{document}
-In the figure, inputs tor the program (each defined by a \verb+dfaddoperand+
+In the figure, inputs to the program (each defined by a \verb+dfaddoperand+
 command) are shown along the top.  For clarity, each input is shown above
 where it is consumed by a node and not with fan-out.  
 That is, the ``a'' value and the ``b'' value are inputs to multiple nodes.
@@ -226,6 +226,12 @@ is a division operation) divides its first input (from $Node 4$ indicated by
 $(1)$) by its second input (from $Node 2$).
 
 \section{The CSPOT Dataflow Implementation}
+
+The code that this section describes is contained in \verb+df.h+,
+\verb+dfhandler.c+, and \verb+dfoperation.c+.  The latter contains the function
+\verb+dfOperation()+
+that maps node op codes to double precision arithmetic operations which it then performs
+and returns.
 
 Each element of the \verb+.dfprogram+ WooF has the following C-language
 structure:
@@ -322,7 +328,7 @@ WooF) smaller than \verb+c_seqno+.  If it finds such a record, then an
 continue and then rescan from the new end of the program WooF looking for the
 younger \verb+CLAIM+ node.  That is, if two handlers run for the same node,
 their respective \verb+CLAIM+ records will append to the WooF with one
-occuring before the other.  The first one (the one with a smaller sequence
+occurring before the other.  The first one (the one with a smaller sequence
 number) will take the \verb+ready_count+ from $0$ to $1$ creating a partially
 fired node \textit{and then} scan backwards looking for the younger
 \verb+CLAIM+ record.  If it finds a second \verb+CLAIM+ then the older handler
@@ -338,13 +344,80 @@ sequence number for the older \verb+CLAIM+ node (contained in \verb+c_seqno+).
 If it finds a another \verb+CLAIM+ in the sequence number range between the
 partial fire and the original \verb+CLAIM+ then a second handler fired later
 and exited.  This handler, then fires the node by calling \verb+dfOperation()+
-to compute the result, and \verb+dfFireNode()+ as desribed above.  If a second
+to compute the result, and \verb+dfFireNode()+ as described above.  If a second
 \verb+CLAIM+ node is not found during this scan, then the handler exits and a
 subsequent handler invocation will find the partial fire in the node WooF and
 complete the node's firing.
 
+\section{Some Thoughts}
 
+The prototype demonstrates that it is possible to implement dataflow
+relatively efficiently using the current definition of CSPOT.  The log scan
+for a node with \verb+ready_count = 0+ is $O(n)$ where there are $n$ program
+nodes, however if the nodes are added to the program WooF from top to bottom,
+the actual scan is much less.  Scans for partially fired nodes are $O(k)$
+where $k$ is the make span of the program graph (assuming the DONE nodes are
+removed).  Finally, handlers that are
+not associated with dependent nodes can execute in parallel.
+However the prototype is otherwise not terribly useful.  There are
+several extensions that are possible that are likely fruitful areas of study.
 
+One extension is to change the arity of the nodes from $2$ to some arbitrary
+maximum.  The handler would need to become more complex since a partially
+fired node would be any node with at least $1$ input available that is not
+DONE.  However, this change would allow a compiler or runtime system to
+``coalesce'' fine-grained nodes into coarser nodes.  That is, the prototype
+does a great deal of work to execute a single double-precision arithmetic
+operation.  A ``true'' system would bundle multiple such operations together
+to save the overhead.
+
+A second, related, extension is to allow for arbitrary functional operations
+(as opposed to double-precision arithmetic).  Here the issue is that the
+operand WooF will need to have elements that are sized by the C union of
+\textit{all} possible node inputs.  There are several ways to implement this
+extension, but all of them make the simple API (consisting of \verb+dfinit+,
+\verb+dfaddnode+, and \verb+dfaddoperand+) considerably more complex.  Still,
+this complexity is properly part of the intermediate representation and could
+be managed by a full-fledged language system.
+
+Another set of extensions is to add iteration and conditionals to the dataflow
+language.  A simple way to do so is to embed this functionality in bash or
+what ever scripting language is calling the dataflow API.  The challenge with
+this approach is primarily loop-carried dependencies.  That is, the output of
+a node in one iteration may be an input to a node in another and there is not
+a way in the API to express this kind of dependency.  
+
+One way to achieve this functionality is to change the current prototype so
+that the program nodes for each loop body each go in a new program WooF.
+Similarly, the start of each loop body would also require a new operand WooF
+that carries program inputs and also dependencies from previous loop bodies.   
+
+Architecturally, the change would likely split the program WooF into a ``code''
+WooF (that contains the program nodes) and a ``state'' WooF that contains
+partially fired nodes, CLAIM records, etc.  There would be one code WooF for
+the loop body, but each iteration gets its own (or a reinitialized) state
+WooF.  Each loop body will also require its own operand WooF which would need
+to be created as soon as a loop body result is generated.  
+
+Lastly, the current system is not distributed.  That is, the \verb+dfinit+
+function creates an operand WooF and a program WooF in the same CSPOT
+namespace.  The operand WooF does have the program WooF's URI in it so that
+nodes could be fired ion other namespaces, but the dataflow API does not have
+an option for adding a namespace URI to each node.  If the API allowed a URI
+for every destination node, then it would be possible to execute functions
+remotely from the location of the operand WooF.
+
+Distributing the operand WooFs is slightly more complex.  The initial operands
+would specify target namespaces but the API would need a URI for the output of
+each node specifying an operand WooF which would then carry a separate URI for
+the target node.
+
+In short, the model is distributed, but implementing it using the current
+prototype makes the prototype dataflow API quite unruly due to the need to
+specify URIs for nodes and operands.  Most likely, the approach in the
+prototype would ultimately result in an IR that a language system or visual
+programming system would emit.  If that is true, than a redesign of the
+dataflow API (to make it more of an IR) is probably the right thing to do.
 
 
 
