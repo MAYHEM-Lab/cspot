@@ -56,7 +56,8 @@
 
 The basic idea is to create a set of primitives that can be used to implement
 a simple data flow language (textually) that can be executed as a script in
-some scripting language.  The code that is in \verb+cspot/apps/dataflow+ is a
+some scripting language.  The code that is in \verb+cspot/apps/dataflow+ in
+the \verb+release-2.0+ branch is a
 small, proof-of-concept prototype.  It is not a general dataflow
 implementation but rather an experiment that shows that CSPOT can implement
 dataflow computations expressed as directed, acyclic graphs (DAGS).
@@ -172,11 +173,17 @@ The key-value arguments to \verb+dfinit+ are
 \item \verb+-W <WooF name prefix>+ The program will create a WooF with the
 prefix and \verb+.dfprogram+ as an extent and a second WooF with the same
 prefix and the extent \verb+.dfoperand+.  The \verb+.dfprogram+ WooF will
-contain DAG nodes and the \verb+.dfoperand+ WooF will contain edge nodes.
+contain DAG nodes and the \verb+.dfoperand+ WooF will contain edge records.
 \item \verb+-s size+ The \verb+size+ parameter specifies how many WooF entries
 should be configured for both WooFs before they wrap around.  It needs to be
 large enough to hold at least $5x$ the number of program nodes in the graph.
 \end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[scale=0.5]{quad.pdf}
+\caption{Graphical representation of quadratic formula (the +SQR() root only).\label{fig:quad}}
+\end{figure}
 
 The key-value arguments to \verb+dfaddnode+ are
 \begin{itemize}
@@ -211,12 +218,6 @@ the destination node.
 
 For example, Figure~\ref{fig:quad} shows the DAG representation of the textual
 representation shown in Listing~\ref{lst:quad}.
-\begin{figure}[h]
-\centering
-\includegraphics[scale=0.3]{quad.pdf}
-\caption{Graphical representation of quadratic formula.\label{fig:quad}}
-\end{figure}
-\end{document}
 In the figure, inputs to the program (each defined by a \verb+dfaddoperand+
 command) are shown along the top.  For clarity, each input is shown above
 where it is consumed by a node and not with fan-out.  
@@ -224,6 +225,7 @@ That is, the ``a'' value and the ``b'' value are inputs to multiple nodes.
 Also, the $(1)$ indicates non-commutative input.  For example, $Node 1$ (which
 is a division operation) divides its first input (from $Node 4$ indicated by
 $(1)$) by its second input (from $Node 2$).
+
 
 \section{The CSPOT Dataflow Implementation}
 
@@ -306,7 +308,7 @@ destination node.
 
 The \verb+dfFireNode()+ function sets the node's state to \verb+DONE+ and its
 \verb+ready_count+ to $2$ (since both inputs are present).  It puts this
-``done'' node into the node WooF largely for debugging purposes since a node
+``DONE'' node into the node WooF largely for debugging purposes since a node
 marked \verb+DONE+ has a \verb+ready_count+ of $2$ and hence will be skipped
 by the handler in any node WooF scan.
 
@@ -342,7 +344,7 @@ Thus, when a partial fire occurs (when the original node WooF scan finds a
 the node WooF backwards from the sequence number for the partial fire to the
 sequence number for the older \verb+CLAIM+ node (contained in \verb+c_seqno+).
 If it finds a another \verb+CLAIM+ in the sequence number range between the
-partial fire and the original \verb+CLAIM+ then a second handler fired later
+partial fire and the original \verb+CLAIM+ then a second handler executed later
 and exited.  This handler, then fires the node by calling \verb+dfOperation()+
 to compute the result, and \verb+dfFireNode()+ as described above.  If a second
 \verb+CLAIM+ node is not found during this scan, then the handler exits and a
