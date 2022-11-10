@@ -17,6 +17,7 @@ mv ninja /usr/bin/
 wget https://github.com/Kitware/CMake/releases/download/v3.19.1/cmake-3.19.1-Linux-x86_64.sh
 chmod +x cmake-3.19.1-Linux-x86_64.sh 
 ./cmake-3.19.1-Linux-x86_64.sh --skip-license --prefix=/usr
+yum localinstall https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/c/czmq-3.0.2-3.el7.x86_64.rpm
 #git clone --branch release-2.0 https://github.com/Mayhem-lab/cspot
 cd cspot/
 git submodule update --init --recursive
@@ -30,3 +31,8 @@ chmod 755 helper.sh
 scl enable devtoolset-9 ./helper.sh
 docker pull racelab/cspot-docker-centos7
 docker tag racelab/cspot-docker-centos7 cspot-docker-centos7
+
+if ! [[ $LD_LIBRARY_PATH == *"/usr/local/lib"* ]]; then
+    echo -e "if ! [[ \$LD_LIBRARY_PATH == *\"/usr/local/lib\"* ]]; then\nexport  LD_LIBRARY_PATH=\"\$LD_LIBRARY_PATH:/usr/local/lib\"\nfi" >> ~/.bashrc
+    source ~/.bashrc
+fi
