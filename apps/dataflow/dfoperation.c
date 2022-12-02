@@ -12,25 +12,37 @@
 #include "woofc.h"
 #include "df.h"
 
-double DFOperation(int opcode, double op1, double op2)
+double DFOperation(int opcode, double* op_values, int size)
 {
 	double result;
-
+	int i;
 	switch(opcode) {
 		case ADD:
-			result = op1 + op2;
+			result = 0;
+			for(i=0;i<size;i++) {
+				result += op_values[i];
+			}
 			break;
 		case SUB:
-			result = op1 - op2;
+			result = 0;
+			for(i=0;i<size;i++){
+				result -= op_values[i];
+			}
 			break;
 		case MUL:
-			result = op1 * op2;
+			result = 1;
+			for(i=0;i<size;i++){
+				result *= op_values[i];
+			}
 			break;
 		case DIV:
-			result = op1 / op2;
+			result = op_values[0];
+			for(i=1;i<size;i++){
+				result /= op_values[i];
+			}
 			break;
 		case SQR:
-			result = sqrt(op1);
+			result = sqrt(op_values[0]);
 			break;
 		default:
 			result = NAN;

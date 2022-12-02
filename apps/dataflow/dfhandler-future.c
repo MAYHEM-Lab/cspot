@@ -44,6 +44,8 @@ printf("DONE prog: %s, node_no: %d\n", prog, node->node_no);
 	/*
 	 * if the dst_no == 0, this is a final result.  Don't fire the
 	 * handler in this case
+	 *
+	 * wf is the operand woof
 	 */
 	if(node->dst_no == 0) {
 		d_seqno = WooFPut(WooFGetFileName(wf),
@@ -309,5 +311,3 @@ printf("future: found CLAIM for partial prog: %s, node_no: %d dst_no %d value%f\
 			prog);
 	return(1);
 }
-
-			

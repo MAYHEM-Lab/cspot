@@ -71,8 +71,8 @@ int main(int argc, char **argv)
 
 	printf("op_woof: %s ",op_woof);
 	printf("dst_no: %d ",operand.dst_no);
+	printf("dst_port: %d",operand.dst_port);
 	printf("value: %f ",operand.value);
-	printf("order: %d\n",operand.order);
 
 	exit(0);
 		

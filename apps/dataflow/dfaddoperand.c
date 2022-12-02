@@ -12,11 +12,11 @@
 #include "woofc.h"
 #include "df.h"
 
-#define ARGS "W:d:V:1"
+#define ARGS "W:d:p:V"
 char *Usage = "dfaddoperand -W woofname\n\
 \t-d dest-node-id-for-result\n\
-\t-V value\n\
-\t-1 <must be first operand to dest in non-commute case>\n";
+\t-p dest-port-id-for-result\n\
+\t-V value\n";
 
 /*
  * add a operand to the operand woof
@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 	memset(&operand,0,sizeof(operand));
 	memset(op_woof,0,sizeof(op_woof));
 	operand.dst_no = -1;
+	operand.dst_port = -1;
 	val_present = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -44,12 +45,12 @@ int main(int argc, char **argv)
 			case 'd':
 				operand.dst_no = atoi(optarg);
 				break;
-			case '1':
-				operand.order = 1;
-				break;
 			case 'V':
 				operand.value = atof(optarg);
 				val_present = 1;
+				break;
+			case 'p':
+				operand.dst_port = atoi(optarg);
 				break;
 			default:
 				fprintf(stderr,"ERROR -- dfaddoperand: unrecognized command %c\n",
@@ -68,6 +69,12 @@ int main(int argc, char **argv)
 
 	if(operand.prog_woof[0] == 0) {
 		fprintf(stderr,"ERROR -- dfaddoperand: must specify woof name\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
+
+	if(operand.dst_port == -1) {
+		fprintf(stderr,"ERROR -- dfaddoperand: must specify dest node port\n");
 		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}

@@ -12,12 +12,13 @@
 #include "woofc.h"
 #include "df.h"
 
-#define ARGS "W:i:o:d:1"
+#define ARGS "W:i:o:d:p:n"
 char *Usage = "dfaddnode -W woofname\n\
 \t-i node-id\n\
 \t-o node-opcode\n\
 \t-d dest-node-id-for-result\n\
-\t-1 <dest operand must be first for non-commute dest>\n";
+\t-p dest-port-id-for-result\n\
+\t-n node-arity\n";
 
 /*
  * add a node to the program woof
@@ -29,11 +30,14 @@ int main(int argc, char **argv)
 	int c;
 	char prog_woof[4096];
 
+	//node state is set to WAITING
 	memset(prog_woof,0,sizeof(prog_woof));
 	memset(&node,0,sizeof(node));
 	node.dst_no = -1;
 	node.node_no = -1;
 	node.opcode = -1;
+	node.total_val_ct = -1;
+	node.dst_port = -1;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
@@ -49,8 +53,11 @@ int main(int argc, char **argv)
 			case 'd':
 				node.dst_no = atoi(optarg);
 				break;
-			case '1':
-				node.dst_order = 1;
+			case 'n':
+				node.total_val_ct = atoi(optarg);
+				break;
+			case 'p':
+				node.dst_port = atoi(optarg);
 				break;
 			default:
 				fprintf(stderr,"ERROR -- dfaddnode: unrecognized command %c\n",
@@ -77,12 +84,25 @@ int main(int argc, char **argv)
 		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}
+	
+	if(node.dst_port == -1) {
+		fprintf(stderr,"ERROR -- dfaddoperand: must specify dest node port\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
 
 	if(prog_woof[0] == 0) {
 		fprintf(stderr,"ERROR -- dfaddnode: must specify program woof name\n");
 		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}
+
+	if(node.total_val_ct == -1) {
+		fprintf(stderr,"ERROR -- dfaddnode: must specify input count\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);		
+	}
+	node.values = (double*)malloc(sizeof(double)*node.total_val_ct);
 
 	WooFInit();	/* local only for now */
 

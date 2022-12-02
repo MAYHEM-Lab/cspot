@@ -95,6 +95,8 @@ printf("dfhandler: prog: %s, dst_no %d, dst_port %d, value: %f\n",
 	claim_node.node_no = operand->dst_no;
 	claim_node.dst_port = operand->dst_port;
 	claim_node.recvd_val_ct = 1;
+	claim_node.total_val_ct = operand->dst_total_ct;
+	claim_node.values = NULL;
 	claim_node.ip_value = operand->value;
 
 	/*
@@ -139,7 +141,7 @@ printf("CLAIM prog: %s, node_no: %d dst_no %d dst_port %d value: %f\n",
 	 *
 	 * After every claim is processed the number of input elements are checked
 	 * if it is n then the node is fired and DONE. 
-	 *
+	*
 	 */
 		
 	
@@ -198,7 +200,7 @@ printf("firing partial: prog: %s, node_no: %d dst_no %d dst_port %d state: %d\n"
 	prog, node.node_no, operand->dst_no, operand->dst_port, node.state);
 #endif  
 				result = DFOperation(node.opcode,
-						node.values,
+						node->values,
 						node.total_val_ct);
 #ifdef DEBUG
 printf("last input arrived retiring: prog: %s, node_no: %d dst_no %d dst_port %d value %f  result: %f state: %d\n",
@@ -274,17 +276,17 @@ printf("PARTIAL created prog: %s, node_no: %d dst_no %d\n",
 					(fnode.state == CLAIM)) {
 #ifdef DEBUG
 printf("future: found CLAIM for partial prog: %s, node_no: %d dst_no %d value%f\n",
-	prog,node.node_no,operand->dst_no,fnode.ip_value);
+	prog,node.node_no,operand->dst_no,fnode.value);
 #endif
 						node.recvd_val_ct += 1;
-						node.values[fnode.dst_port] = fnode.ip_value;
+						node.values[fnode->dst_port] = fnode->ip_value;
 
 						/*
 						* if all inputs are recieved then fire the node. 
 						*/
 						if(node.recvd_val_ct == node.total_val_ct) {
 							result = DFOperation(node.opcode,
-								node.values,
+								node->values,
 								node.total_val_ct);
 							err = dfFireNode(wf,prog,&node,result);
 							return(err);
@@ -308,6 +310,7 @@ printf("PARTIAL created prog: %s, node_no: %d dst_no %d\n",
 					}
 					f_seqno--; /* continue future scan */
 				}
+
 				// reduce the scan space by limiting it to the first PARTIAL as the lowest node
 				c_seqno = p_seqno;
 			}
@@ -320,7 +323,7 @@ printf("PARTIAL created prog: %s, node_no: %d dst_no %d\n",
 			*/
 
 			f_seqno = p_seqno + 1;
-			while(f_seqno != WooFGetLatestSeqno(prog)) {
+			while(f_seqno != WooFGetLatestSeqno(prog))
 				err = WooFGet(prog,&fnode,f_seqno);
 				if(err < 0) {
 					fprintf(stderr,
@@ -339,17 +342,17 @@ printf("PARTIAL created prog: %s, node_no: %d dst_no %d\n",
 					(fnode.state == CLAIM)) {
 #ifdef DEBUG 
 printf("future: found CLAIM for partial prog: %s, node_no: %d dst_no %d value%f\n",
-	prog,node.node_no,operand->dst_no,fnode.ip_value);
+	prog,node.node_no,operand->dst_no,fnode.value);
 #endif
 					node.recvd_val_ct += 1;
-					node.values[fnode.dst_port] = fnode.ip_value;
+					node.values[fnode->dst_port] = fnode->ip_value;
 
 					/*
 					* if all inputs are recieved then fire the node. 
 					*/
 					if(node.recvd_val_ct == node.total_val_ct) {
 						result = DFOperation(node.opcode,
-							node.values,
+							node->values,
 							node.total_val_ct);
 						err = dfFireNode(wf,prog,&node,result);
 						return(err);
@@ -365,8 +368,9 @@ printf("future: found CLAIM for partial prog: %s, node_no: %d dst_no %d value%f\
 						return(1);
 					}
 				}
+
 				f_seqno++;
-			}
+		   }
 
 			/*
 			* end of partial creation by all possible ways on top
@@ -382,18 +386,19 @@ printf("future: found CLAIM for partial prog: %s, node_no: %d dst_no %d value%f\
 			}
 			
 			/* 
-			* one running partial finishes every possible claim in its lifetime 
-			* adds a PARTIAL_DONE 
-			*/
+			 * one running partial finishes every possible claim in its lifetime 
+			 * adds a PARTIAL_DONE 
+			 */
 			return(0);
 		}
-		
 		seqno--; /* main log scan */
 	}
+
 	/*
 	 * here we did not find the node address in the program
 	 */
-	fprintf(stderr, "ERROR -- dfhandler could not find node %d in %s\n",
+	fprintf(stderr,
+		"ERROR -- dfhandler could not find node %d in %s\n",
 			operand->dst_no,
 			prog);
 	return(1);
