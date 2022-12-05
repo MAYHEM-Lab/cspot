@@ -18,6 +18,10 @@ add_executable(dfgetoperand dfgetoperand.c)
 target_link_libraries(dfgetoperand PUBLIC woof)
 target_include_directories(dfgetoperand PUBLIC "./include")
 
+add_executable(narity-test narity-test.c dfinterface.c)
+target_link_libraries(narity-test PUBLIC woof)
+target_include_directories(narity-test PUBLIC "./include")
+
 # TODO: fix wf->shared->filename
 add_handler(dfhandler dfhandler.c)
 target_link_libraries(dfhandler PUBLIC woof dfoperation)

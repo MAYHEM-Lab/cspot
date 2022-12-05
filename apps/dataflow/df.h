@@ -25,8 +25,7 @@ struct df_node_stc
 	double* values;	/* array of input values, mem alloc at runtime (only for partials) */
 	int dst_no; 	/* next node address */
 	int dst_port;	/* next node port */
-	double op_value;	/* output value for next node */
-	int state;	/* waiting, claimed, done */
+	int state;
 };
 
 typedef struct df_node_stc DFNODE;
