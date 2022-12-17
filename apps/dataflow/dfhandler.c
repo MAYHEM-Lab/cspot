@@ -94,7 +94,7 @@ printf("DEBUG: DFHANDLER: prog: %s, dst_no %d, dst_port %d, value: %f\n",
 	claim_node.state = CLAIM;
 	claim_node.node_no = operand->dst_no;
 	claim_node.recvd_val_ct = 1;
-	claim_node.values = NULL;
+	// claim_node.values = {0};
 	claim_node.ip_value = operand->value;
 	claim_node.ip_port = operand->dst_port;
 
@@ -113,6 +113,21 @@ printf("DEBUG: DFHANDLER: prog: %s, dst_no %d, dst_port %d, value: %f\n",
 printf("DEBUG: CLAIM CREATED prog: %s, node_no: %d ip_val %f ip_port %d \n",
 	prog, claim_node.node_no, claim_node.ip_value, claim_node.ip_port);
 #endif  
+
+#ifdef DEBUG
+printf("LOG STATE (prog=%s):\n", prog);
+int s = c_seqno;
+while(!WooFInvalid(s)) {
+	err = WooFGet(prog, &node, s);
+
+	printf("seqno=%li\n", s);
+	printf("id=%d (op=%i) (dst=%i:%i), (inp=%i, val=%f), ", node.node_no, node.opcode, node.dst_no, node.dst_port, node.ip_port, node.ip_value);
+	printf("state=%d (%i/%i)\n", node.state, node.recvd_val_ct, node.total_val_ct);
+	printf("------\n");
+
+	s--;
+}
+#endif
 
 	/*
 	 * c_seqno is the sequence number in the log of the CLAIM
@@ -172,6 +187,14 @@ printf("DEBUG: SCAN 1 EXIT FOUND CLAIM(1)/PARTIAL(2): %d, prog: %s, node_no: %d 
 		}
 
 #ifdef DEBUG
+printf("DEBUG: INITIAL TEST: ");
+printf("claim_node_no: %d   (val=%f)\n", claim_node.node_no, claim_node.ip_value);
+printf("node_no: %d\n", node.node_no);
+printf("claim_port_no: %d, ", claim_node.ip_port);
+printf("state: %d, ", node.state);
+#endif
+
+#ifdef DEBUG
 printf("DEBUG : claim_node_no : %d, claim_node_port : %d claim_node_state %d curr_node_no: %d curr_node_state: %d curr_node_seq_no: %ld\n",
 	claim_node.node_no, claim_node.ip_port, claim_node.state, node.node_no, node.state, seqno);
 #endif
@@ -223,6 +246,10 @@ printf("DEBUG: SCAN 1 CREATE PARTIAL prog: %s, node_no: %d ip_port %d ip_val %f 
 			// done with SCAN 1 when we process one WAITING node
 			break;
 		}
+#ifdef DEBUG
+printf("DEBUG: DECREMENT (%li, %li)\n", seqno, c_seqno);
+#endif  
+
 		//log scan continue
 		seqno--;
 	}

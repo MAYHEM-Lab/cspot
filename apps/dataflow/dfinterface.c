@@ -80,7 +80,7 @@
     .recvd_val_ct = 0,
     .ip_value = 0.0,
     .ip_port = -1,
-    .values = (double*)malloc(sizeof(double)*n),
+    .values = {0},
     .dst_no = dst_id, 
     .dst_port = dst_port_id,
     .state = WAITING

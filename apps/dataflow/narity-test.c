@@ -18,15 +18,23 @@ int main() {
     add_node(wf, 2, ADD, 1, 0, 3);
     add_node(wf, 3, ADD, 1, 1, 4);
 
+    sleep(2);
+
     add_operand(wf, 1.0, 2, 0);
+    // sleep(2);
     add_operand(wf, 2.0, 2, 1);
+    // sleep(2);
     add_operand(wf, 3.0, 2, 2);
+    // sleep(2);
     // 6.0
 
 
     add_operand(wf, 4.0, 3, 0);
+    // sleep(2);
     add_operand(wf, 5.0, 3, 1);
+    // sleep(2);
     add_operand(wf, 6.0, 3, 2);
+    // sleep(2);
     add_operand(wf, 0.0, 3, 3);
     // 15.0
 

@@ -22,7 +22,7 @@ struct df_node_stc
 	int recvd_val_ct;	/* count of values recieved by node */
 	double ip_value;  /* single value used in claims recieved by operand */
 	int ip_port; 	/* the port of the single value in claims recieved by operand */
-	double* values;	/* array of input values, mem alloc at runtime (only for partials) */
+	double values[10];	/* array of input values, mem alloc at runtime (only for partials) */
 	int dst_no; 	/* next node address */
 	int dst_port;	/* next node port */
 	int state;	/* the state of the node*/
