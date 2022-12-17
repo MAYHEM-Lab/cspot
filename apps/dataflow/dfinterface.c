@@ -68,20 +68,23 @@
      exit(1);
    }
  }
+
  void add_node(char *woof, int id, int op, int dst_id, int dst_port_id, int n) {
-   unsigned long seqno;
-   char prog_woof[4096] = "";
-
-   DFNODE node = {
-       .node_no = id,
-       .opcode = op,
-       .dst_no = dst_id,
-       .dst_port = dst_port_id,
-       .total_val_ct = n,
-       .recvd_val_ct = 0, 
-   };
-
-   node.values = (double*)malloc(sizeof(double)* node.total_val_ct);
+  unsigned long seqno;
+  char prog_woof[4096] = "";
+  
+  DFNODE node = {
+    .node_no = id,
+    .opcode = op,
+    .total_val_ct = n,
+    .recvd_val_ct = 0,
+    .ip_value = 0.0,
+    .ip_port = -1,
+    .values = (double*)malloc(sizeof(double)*n),
+    .dst_no = dst_id, 
+    .dst_port = dst_port_id,
+    .state = WAITING
+  };
 
    // [WOOF].dfprogram
    strncpy(prog_woof, woof, sizeof(prog_woof));

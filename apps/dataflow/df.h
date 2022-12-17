@@ -12,8 +12,7 @@
 #define WAITING (0)
 #define CLAIM (1)
 #define PARTIAL (2)
-#define PARTIAL_DONE (3)
-#define DONE (4)
+#define DONE (3)
 
 struct df_node_stc
 {
@@ -22,10 +21,11 @@ struct df_node_stc
 	int total_val_ct;	/* count of total values node has to recieve */
 	int recvd_val_ct;	/* count of values recieved by node */
 	double ip_value;  /* single value used in claims recieved by operand */
+	int ip_port; 	/* the port of the single value in claims recieved by operand */
 	double* values;	/* array of input values, mem alloc at runtime (only for partials) */
 	int dst_no; 	/* next node address */
 	int dst_port;	/* next node port */
-	int state;
+	int state;	/* the state of the node*/
 };
 
 typedef struct df_node_stc DFNODE;

@@ -6,18 +6,6 @@ add_executable(dfinit dfinit.c)
 target_link_libraries(dfinit PUBLIC woof)
 target_include_directories(dfinit PUBLIC "./include")
 
-add_executable(dfaddnode dfaddnode.c)
-target_link_libraries(dfaddnode PUBLIC woof)
-target_include_directories(dfaddnode PUBLIC "./include")
-
-add_executable(dfaddoperand dfaddoperand.c)
-target_link_libraries(dfaddoperand PUBLIC woof)
-target_include_directories(dfaddoperand PUBLIC "./include")
-
-add_executable(dfgetoperand dfgetoperand.c)
-target_link_libraries(dfgetoperand PUBLIC woof)
-target_include_directories(dfgetoperand PUBLIC "./include")
-
 add_executable(narity-test narity-test.c dfinterface.c)
 target_link_libraries(narity-test PUBLIC woof)
 target_include_directories(narity-test PUBLIC "./include")
