@@ -16,10 +16,10 @@ int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
 
 unsigned long WooFGetLatestSeqno(const char* wf_name);
 unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
-                                        unsigned long cause_host,
-                                        unsigned long long cause_seq_no,
-                                        const char* cause_woof_name,
-                                        unsigned long cause_woof_latest_seq_no);
+                                          unsigned long cause_host,
+                                          unsigned long long cause_seq_no,
+                                          const char* cause_woof_name,
+                                          unsigned long cause_woof_latest_seq_no);
 
 unsigned long WooFGetNameID();
 
@@ -36,6 +36,6 @@ const char* WoofGetFileName(WOOF* wf);
 #define WooFGetFileName WoofGetFileName
 
 
-#if defined (__cplusplus)
+#if defined(__cplusplus)
 }
 #endif

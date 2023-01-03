@@ -1,0 +1,58 @@
+@startuml
+title N Arity Handler
+start
+:Create Claim Log (id i, seqno c);
+while (Log c - 1 exists) is (true)
+    if (Log has Id i and is another Claim or Partial) then (true)
+        #yellow:Exit Handler (another Handler in progress);
+        stop
+    else (false)
+        if (Log has Id i and is WAITING [or PARTIAL_DONE]) then (true)
+            if (Node has all inputs) then (true)
+                #red:Fire Node;
+                stop
+            endif
+                #lightblue:Create Partial Log (id i, seqno y);
+                while (Log y - 1 exists) then (true)
+                    :set: p = y;
+                    :set: f = y - 1;
+                    :set: y = invalid;
+                    while (f > c) is (true)
+                        :Get Log with seqno f;
+                        if (Log has Id i and is CLAIM) then (true)
+                            if (Node has all inputs) then (true)
+                                #red:Fire Node;
+                                stop
+                            endif
+                            #lightblue:Create Partial Log (id i, seqno y);
+                        endif
+                        :f = f - 1;
+                    endwhile (false)
+                    :c = p;
+                endwhile (false)
+            :f = p + 1;
+            floating note
+                All claims in the backlog
+                are processed
+            endnote
+            while (f != LatestLogSeqno) is (true)
+                :Get Log with seqno f;
+                if (Log has Id i and is CLAIM) then (true)
+                    if (Node has all inputs) then (true)
+                        #red:Fire Node;
+                        stop
+                    endif
+                    #lightblue:Create Partial Log (id i, seqno y);
+              endif
+              :f = f + 1;
+            endwhile
+            #yellow:Create WAITING Log;
+            floating note
+                End of partial creation
+                endnote
+            stop
+        endif
+    endif
+endwhile (false)
+stop
+@enduml
