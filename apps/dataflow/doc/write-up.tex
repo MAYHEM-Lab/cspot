@@ -346,7 +346,7 @@ sequence number for the older \verb+CLAIM+ node (contained in \verb+c_seqno+).
 If it finds a another \verb+CLAIM+ in the sequence number range between the
 partial fire and the original \verb+CLAIM+ then a second handler executed later
 and exited.  This handler, then fires the node by calling \verb+dfOperation()+
-to compute the result, and \verb+dfFireNode()+ as described above.  If a second
+to compute the result, and \verb+df_fire_node()+ as described above.  If a second
 \verb+CLAIM+ node is not found during this scan, then the handler exits and a
 subsequent handler invocation will find the partial fire in the node WooF and
 complete the node's firing.
