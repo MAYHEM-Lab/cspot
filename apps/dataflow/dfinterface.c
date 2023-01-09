@@ -32,14 +32,14 @@ void init(char* woof, int size) {
     }
 }
 
-void add_operand(char* woof, double val, int dst_id, int dst_port_id) {
+void add_operand(char* woof, int destination_node_id, int destination_node_port, double value) {
     unsigned long seqno;
     char op_woof[1024] = "";
 
     DFOPERAND operand = {
-        .value = val,
-        .dst_no = dst_id,
-        .dst_port = dst_port_id,
+        .value = value,
+        .destination_node_id = destination_node_id,
+        .destination_port = destination_node_port,
         .prog_woof = "",
     };
 
@@ -56,24 +56,25 @@ void add_operand(char* woof, double val, int dst_id, int dst_port_id) {
     seqno = WooFPut(op_woof, "dfhandler", &operand);
 
     if (WooFInvalid(seqno)) {
-        fprintf(stderr, "ERROR -- put to %s of operand with dest %d failed\n", op_woof, operand.dst_no);
+        fprintf(stderr, "ERROR -- put to %s of operand with dest %d failed\n", op_woof, operand.destination_node_id);
         exit(1);
     }
 }
 
-void add_node(char* woof, int id, int op, int dst_id, int dst_port_id, int n) {
+void add_node(
+    char* woof, int node_id, int input_count, int opcode, int destination_node_id, int destination_node_port) {
     unsigned long seqno;
     char prog_woof[4096] = "";
 
-    DFNODE node = {.node_no = id,
-                   .opcode = op,
-                   .total_val_ct = n,
-                   .recvd_val_ct = 0,
-                   .ip_value = 0.0,
-                   .ip_port = -1,
+    DFNODE node = {.node_id = node_id,
+                   .opcode = opcode,
+                   .total_values_count = input_count,
+                   .received_values_count = 0,
+                   .claim_input_value = 0.0,
+                   .claim_input_port = -1,
                    .values = {0},
-                   .dst_no = dst_id,
-                   .dst_port = dst_port_id,
+                   .destination_node_id = destination_node_id,
+                   .destination_port = destination_node_port,
                    .state = WAITING};
 
     // [WOOF].dfprogram
@@ -85,7 +86,7 @@ void add_node(char* woof, int id, int op, int dst_id, int dst_port_id, int n) {
     seqno = WooFPut(prog_woof, NULL, &node);
 
     if (WooFInvalid(seqno)) {
-        fprintf(stderr, "ERROR -- put to %s of node %d, opcode %d failed\n", prog_woof, node.node_no, node.opcode);
+        fprintf(stderr, "ERROR -- put to %s of node %d, opcode %d failed\n", prog_woof, node.node_id, node.opcode);
         exit(1);
     }
 }

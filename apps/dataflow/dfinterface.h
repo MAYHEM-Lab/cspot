@@ -20,11 +20,11 @@ void init(char* woof, int size);
  * An operand holds a constant value that is passed to a node.
  *
  * @param woof Name of woof in which the operand will exist.
- * @param val Value of the operand.
- * @param dst_id ID of destination node.
- * @param dst_port_id ID of destination port.
+ * @param destination_node_id ID of destination node.
+ * @param destination_node_port ID of destination port.
+ * @param value Value of the operand.
  */
-void add_operand(char* woof, double val, int dst_id, int dst_port_id);
+void add_operand(char* woof, int destination_node_id, int destination_node_port, double value);
 
 /**
  * Add a node.
@@ -33,12 +33,12 @@ void add_operand(char* woof, double val, int dst_id, int dst_port_id);
  * then passes the result to another node.
  *
  * @param woof Name of woof in which the node will exist.
- * @param id ID of the node (must be unique).
- * @param op Opcode, which specifies computation to be performed.
- * @param dst_id ID of destination node.
- * @param dst_port_id ID of destination port.
- * @param n arity of the node.
+ * @param node_id ID of the node (must be unique).
+ * @param input_count arity of the node.
+ * @param opcode Opcode, which specifies computation to be performed.
+ * @param destination_node_id ID of destination node.
+ * @param destination_node_port ID of destination port.
  */
-void add_node(char* woof, int id, int op, int dst_id, int dst_port_id, int n);
+void add_node(char* woof, int node_id, int input_count, int opcode, int destination_node_id, int destination_node_port);
 
 #endif // DFINTERFACE_H

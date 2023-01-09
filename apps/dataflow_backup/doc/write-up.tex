@@ -248,9 +248,9 @@ struct df_node_stc
         int ready_count;/* how many have we received */
         double value;   /* value of first operand to arrive */
         int order;      /* is waiting first or second in non-commute */
-        int node_no;    /* which node is it */
+        int node_id;    /* which node is it */
         int dst_opcode; /* next node type */
-        int dst_no;     /* next node address */
+        int destination_node_id;     /* next node address */
         int dst_order;  /* for non-commutative operations */
         int state;      /* waiting, claimed, done */
 };
@@ -267,7 +267,7 @@ The operand structure is shown in the following listing:
 struct df_operand_stc
 {
         double value;           /* operand value */
-        int dst_no;             /* dest node address */
+        int destination_node_id;             /* dest node address */
         int order;              /* for non-commute */
         char prog_woof[1024];   /* name of woof holding the program */
 };
@@ -313,7 +313,7 @@ marked \verb+DONE+ has a \verb+ready_count+ of $2$ and hence will be skipped
 by the handler in any node WooF scan.
 
 The \verb+dfFireNode()+ function also initializes an operand structure for the
-result computed by the node, sets the \verb+dst_no+ id to be the node id of
+result computed by the node, sets the \verb+destination_node_id+ id to be the node id of
 the destination node that is to receive this result as an input, and appends
 the new operand to the operand WooF, specifying \verb+dfhandler+ in the put
 (triggering a handler invocation for this operand).
