@@ -148,7 +148,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
      * must start with the sequence_index for my CLAIM since it will be a future
      * if another handler completes a partial afterwards.
      */
-    unsigned long d_seqno = -1;
+    unsigned long partial_sequence_number = -1;
     DFNODE node;
     for (unsigned long sequence_index = claim_sequence_number - 1; !WooFInvalid(sequence_index); sequence_index--) {
         int get_result = WooFGet(prog, &node, sequence_index);
@@ -157,7 +157,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
             return 1;
         }
 
-        //TODO
+        // TODO
         log_trace("INITIAL TEST: ");
         log_trace("\tclaim_node_no: %d   (val=%f)", claim_node.node_no, claim_node.ip_value);
         log_trace("\tnode_no: %d", node.node_no);
@@ -211,17 +211,16 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
         // we take info from that node, add the new-found info
         else if (node.state == WAITING) {
             char* waiting_values_string = values_as_string(node.values, node.total_val_ct);
-            log_info(
-                "[woof: %s] FOUND WAITING during SCAN-1 at sequence_number:\"%lu\" for NODE "
-                "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with value:\"%f\")",
-                prog,
-                sequence_index,
-                node.node_no,
-                node.recvd_val_ct,
-                node.total_val_ct,
-                waiting_values_string,
-                claim_node.ip_port,
-                claim_node.ip_value);
+            log_info("[woof: %s] FOUND WAITING during SCAN-1 at sequence_number:\"%lu\" for NODE "
+                     "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with value:\"%f\")",
+                     prog,
+                     sequence_index,
+                     node.node_no,
+                     node.recvd_val_ct,
+                     node.total_val_ct,
+                     waiting_values_string,
+                     claim_node.ip_port,
+                     claim_node.ip_value);
             free(waiting_values_string);
 
             node.recvd_val_ct += 1;
@@ -253,8 +252,8 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
             // if not all inputs are received then create a partial and start another check
             // backwards from that partial to this claim to search for other claims in the history.
             node.state = PARTIAL;
-            d_seqno = WooFPut(prog, NULL, &node);
-            if (WooFInvalid(d_seqno)) {
+            partial_sequence_number = WooFPut(prog, NULL, &node);
+            if (WooFInvalid(partial_sequence_number)) {
                 // TODO
                 log_error("[woof: %s] Could not create partial", prog);
                 return 1;
@@ -274,7 +273,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                 free(partial_values_string);
             }
 
-            // done with SCAN 1 when we process one WAITING node
+            // done with SCAN-1 when we process one WAITING node
             break;
         }
 
@@ -287,7 +286,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
      *
      * note that the future will be represented by a CLAIM that is younger than this partial, but
      * older than the CLAIM for this handler. The partial pre_claim_sequence_number is
-     * d_seqno and the CLAIM for this handler is claim_sequence_number
+     * partial_sequence_number and the CLAIM for this handler is claim_sequence_number
      *
      * start at the pre_claim_sequence_number immediately before this partial
      *
@@ -301,38 +300,63 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
 
     // to check if any new partial is fired; i.e. new backward CLAIM was found
     DFNODE fnode;
-    unsigned long p_seqno = -1;
-    unsigned long f_seqno;
-    while (!WooFInvalid(d_seqno)) {
-        p_seqno = d_seqno;
-        f_seqno = d_seqno - 1;
-        d_seqno = -1;
+    unsigned long old_partial_sequence_number = -1;
+    unsigned long new_claim_sequence_number;
+    while (!WooFInvalid(partial_sequence_number)) {
+        old_partial_sequence_number = partial_sequence_number;
+        new_claim_sequence_number = partial_sequence_number - 1;
+        partial_sequence_number = -1;
 
         // walk back from the partial to the CLAIM (SCAN 2A) just once
         // walk back form new partial to old partial (SCAN 2B) until no backward claim for this handler
-        while (f_seqno > claim_sequence_number) {
-            int get_result = WooFGet(prog, &fnode, f_seqno);
+        while (new_claim_sequence_number > claim_sequence_number) {
+            int get_result = WooFGet(prog, &fnode, new_claim_sequence_number);
             if (get_result < 0) {
-                fprintf(stderr, "dfhandler ERROR -- couldn't get %lu from %s on future\n", f_seqno, prog);
-                return (1);
+                log_error(
+                    "[woof: %s] Could not get node with sequence_number:\"%lu\"", prog, new_claim_sequence_number);
+                return 1;
+            }
+
+            if (fnode.node_no != node.node_no) {
+                new_claim_sequence_number--; // continue future scan
+                continue;
             }
 
             // is this another claim for the node that is younger than the partial? If so, fire or partial fire it
-            if ((fnode.node_no == node.node_no) && (fnode.state == CLAIM)) {
-                log_info("SCAN 2 found CLAIM prog: %s, node_no: %d ip_val %f ip_port %d",
+            if (fnode.state == CLAIM) {
+                log_info("[woof: %s] FOUND CLAIM during SCAN-2 at sequence_number:\"%lu\" for NODE "
+                         "node_id:\"%d\" with input port:\"%d\" with value:\"%f\" (searcher is input port:\"%d\" with "
+                         "value:\"%f\")",
                          prog,
-                         node.node_no,
+                         new_claim_sequence_number,
+                         fnode.node_no,
+                         fnode.ip_port,
                          fnode.ip_value,
-                         fnode.ip_port);
+                         claim_node.ip_port,
+                         claim_node.ip_value);
+
                 node.recvd_val_ct += 1;
-                node.values[fnode.dst_port] = fnode.ip_value;
+                node.values[fnode.ip_port] = fnode.ip_value;
 
 
                 // if all inputs are received then fire the node
                 if (node.recvd_val_ct == node.total_val_ct) {
                     double result = DFOperation(node.opcode, node.values, node.total_val_ct);
-                    log_info(
-                        "SCAN 2 ALL INPUTS RECEIVED: prog: %s, node_no: %d result: %f", prog, node.node_no, result);
+
+                    char* all_inputs_values_string = values_as_string(node.values, node.total_val_ct);
+                    log_info("[woof: %s] ALL INPUTS RECEIVED during SCAN-2 at sequence_number:\"%lu\" for NODE "
+                             "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] and result:\"%f\" (last input was input "
+                             "port:\"%d\" with value:\"%f\")",
+                             prog,
+                             new_claim_sequence_number,
+                             node.node_no,
+                             node.recvd_val_ct,
+                             node.total_val_ct,
+                             all_inputs_values_string,
+                             result,
+                             claim_node.ip_port,
+                             claim_node.ip_value);
+                    free(all_inputs_values_string);
 
                     return df_fire_node(wf, prog, &node, result);
                 }
@@ -340,73 +364,114 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
 
                 // create partial if all inputs are not received
                 // does one more round of checking as not all inputs are received.
-                // this is done by the updated d_seqno
-                d_seqno = WooFPut(prog, NULL, &node);
-                if (WooFInvalid(d_seqno)) {
-                    fprintf(stderr, "dfhandler: failed to put partial to %s\n", prog);
-                    return (1);
+                // this is done by the updated partial_sequence_number
+                partial_sequence_number = WooFPut(prog, NULL, &node);
+                if (WooFInvalid(partial_sequence_number)) {
+                    // TODO
+                    log_error("[woof: %s] Could not create partial", prog);
+                    return 1;
+                } else {
+                    char* partial_values_string = values_as_string(node.values, node.total_val_ct);
+                    log_info(
+                        "[woof: %s] CREATE PARTIAL after found CLAIM during SCAN-2 at sequence_number:\"%lu\" for NODE "
+                        "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with "
+                        "value:\"%f\")",
+                        prog,
+                        partial_sequence_number,
+                        node.node_no,
+                        node.recvd_val_ct,
+                        node.total_val_ct,
+                        partial_values_string,
+                        claim_node.ip_port,
+                        claim_node.ip_value);
+                    free(partial_values_string);
                 }
-                log_info("SCAN 2 CREATE PARTIAL prog: %s, node_no: %d ip_port %d ip_val %f recvd %d total %d",
-                         prog,
-                         node.node_no,
-                         fnode.ip_port,
-                         fnode.ip_value,
-                         node.recvd_val_ct,
-                         node.total_val_ct);
             }
-            f_seqno--; // continue future scan
+            new_claim_sequence_number--; // continue future scan
         }
         // reduce the scan space by limiting it to the first PARTIAL as the lowest node
-        claim_sequence_number = p_seqno;
+        claim_sequence_number = old_partial_sequence_number;
     }
 
     // all claims are in the backlog are processed now. check for new claims till the end of the list.
     // start from 'the checking PARTIAL' till end of list. add a WAITING at the end of the list. (SCAN 3)
-    f_seqno = p_seqno + 1;
-    while (!WooFInvalid(p_seqno) && f_seqno <= WooFGetLatestSeqno(prog)) {
-        int get_result = WooFGet(prog, &fnode, f_seqno);
+    new_claim_sequence_number = old_partial_sequence_number + 1;
+    while (!WooFInvalid(old_partial_sequence_number) && new_claim_sequence_number <= WooFGetLatestSeqno(prog)) {
+        int get_result = WooFGet(prog, &fnode, new_claim_sequence_number);
         if (get_result < 0) {
-            fprintf(stderr, "dfhandler ERROR -- couldn't get %lu from %s on future\n", f_seqno, prog);
-            return (1);
+            log_error("[woof: %s] Could not get node with sequence_number:\"%lu\"", prog, new_claim_sequence_number);
+            return 1;
+        }
+
+        if (fnode.node_no != node.node_no) {
+            new_claim_sequence_number++;
+            continue;
         }
 
         // if CLAIM is found, create a partial
         // if PARTIAL is found, it must be created by the claims found in this loop so ignore them
-        if ((fnode.node_no == node.node_no) && (fnode.state == CLAIM)) {
-            log_info("SCAN 3 found CLAIM prog: %s, node_no: %d ip_val %f ip_port %d",
+        if (fnode.state == CLAIM) {
+            log_info("[woof: %s] FOUND CLAIM during SCAN-3 at sequence_number:\"%lu\" for NODE "
+                     "node_id:\"%d\" with input port:\"%d\" with value:\"%f\" (searcher is input port:\"%d\" with "
+                     "value:\"%f\")",
                      prog,
-                     node.node_no,
+                     new_claim_sequence_number,
+                     fnode.node_no,
+                     fnode.ip_port,
                      fnode.ip_value,
-                     fnode.ip_port);
+                     claim_node.ip_port,
+                     claim_node.ip_value);
 
             node.recvd_val_ct += 1;
-            node.values[fnode.dst_port] = fnode.ip_value;
+            node.values[fnode.ip_port] = fnode.ip_value;
 
 
             // if all inputs are received then fire the node.
             if (node.recvd_val_ct == node.total_val_ct) {
                 double result = DFOperation(node.opcode, node.values, node.total_val_ct);
-                log_info("SCAN 3 ALL INPUTS RECEIVED: prog: %s, node_no: %d result: %f", prog, node.node_no, result);
+
+                char* all_inputs_values_string = values_as_string(node.values, node.total_val_ct);
+                log_info("[woof: %s] ALL INPUTS RECEIVED during SCAN-3 at sequence_number:\"%lu\" for NODE "
+                         "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] and result:\"%f\" (last input was input "
+                         "port:\"%d\" with value:\"%f\")",
+                         prog,
+                         new_claim_sequence_number,
+                         node.node_no,
+                         node.recvd_val_ct,
+                         node.total_val_ct,
+                         all_inputs_values_string,
+                         result,
+                         claim_node.ip_port,
+                         claim_node.ip_value);
+                free(all_inputs_values_string);
 
                 return df_fire_node(wf, prog, &node, result);
             }
 
 
             // create partial if not all inputs are received
-            d_seqno = WooFPut(prog, NULL, &node);
-            if (WooFInvalid(d_seqno)) {
-                fprintf(stderr, "dfhandler: failed to put partial to %s\n", prog);
-                return (1);
+            partial_sequence_number = WooFPut(prog, NULL, &node);
+            if (WooFInvalid(partial_sequence_number)) {
+                log_error("[woof: %s] Could not create partial", prog);
+                return 1;
+            } else {
+                char* partial_values_string = values_as_string(node.values, node.total_val_ct);
+                log_info(
+                    "[woof: %s] CREATE PARTIAL after found CLAIM during SCAN-3 at sequence_number:\"%lu\" for NODE "
+                    "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with "
+                    "value:\"%f\")",
+                    prog,
+                    partial_sequence_number,
+                    node.node_no,
+                    node.recvd_val_ct,
+                    node.total_val_ct,
+                    partial_values_string,
+                    claim_node.ip_port,
+                    claim_node.ip_value);
+                free(partial_values_string);
             }
-            log_info("SCAN 3 CREATE PARTIAL prog: %s, node_no: %d ip_port %d ip_val %f recvd %d total %d",
-                     prog,
-                     node.node_no,
-                     fnode.ip_port,
-                     fnode.ip_value,
-                     node.recvd_val_ct,
-                     node.total_val_ct);
         }
-        f_seqno++;
+        new_claim_sequence_number++;
     }
 
 
@@ -414,18 +479,27 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
     // need better solution here as there might be a (very rare case)
     // where a CLAIM might be added in between the loop ending and this woofput
     node.state = WAITING;
-    d_seqno = WooFPut(prog, NULL, &node);
-    if (WooFInvalid(d_seqno)) {
-        fprintf(stderr, "dfhandler: failed to put partial to %s\n", prog);
-        return (1);
+    partial_sequence_number = WooFPut(prog, NULL, &node);
+    if (WooFInvalid(partial_sequence_number)) {
+        // TODO
+        log_error("[woof: %s] Could not create partial", prog);
+        return 1;
+    } else {
+        char* partial_values_string = values_as_string(node.values, node.total_val_ct);
+        log_info("[woof: %s] CREATE WAITING after end of SCANS at sequence_number:\"%lu\" for NODE "
+                 "node_id:\"%d\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with "
+                 "value:\"%f\")",
+                 prog,
+                 partial_sequence_number,
+                 node.node_no,
+                 node.recvd_val_ct,
+                 node.total_val_ct,
+                 partial_values_string,
+                 claim_node.ip_port,
+                 claim_node.ip_value);
+        free(partial_values_string);
     }
 
-    log_info("SCAN 3 CREATE WAITING prog: %s, node_no: %d recvd %d total %d",
-             prog,
-             node.node_no,
-             node.recvd_val_ct,
-             node.total_val_ct);
-
     // one running partial finishes every possible claim in its lifetime adds a PARTIAL_DONE
-    return (0);
+    return 0;
 }
