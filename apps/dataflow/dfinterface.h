@@ -24,12 +24,12 @@ void init(char* woof, int size);
  * @param destination_node_port ID of destination port.
  * @param value Value of the operand.
  */
-void add_operand(char* woof, int destination_node_id, int destination_node_port, double value);
+void add_operand(char* woof, int destination_node_id, int destination_node_port, DF_VALUE value);
 
 /**
  * Add a node.
  *
- * A node consumes values, performs some computation (determined by opcode), and
+ * A node consumes values, performs some computation (determined by operation), and
  * then passes the result to another node.
  *
  * @param woof Name of woof in which the node will exist.
@@ -39,6 +39,11 @@ void add_operand(char* woof, int destination_node_id, int destination_node_port,
  * @param destination_node_id ID of destination node.
  * @param destination_node_port ID of destination port.
  */
-void add_node(char* woof, int node_id, int input_count, int opcode, int destination_node_id, int destination_node_port);
+void add_node(char* woof,
+              int node_id,
+              int input_count,
+              DF_OPERATION operation,
+              int destination_node_id,
+              int destination_node_port);
 
 #endif // DFINTERFACE_H

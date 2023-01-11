@@ -19,24 +19,24 @@ void init(char* woof, int size) {
 
     WooFInit(); /* attach local namespace for create*/
 
-    err = WooFCreate(prog_woof, sizeof(DFNODE), size);
+    err = WooFCreate(prog_woof, sizeof(DF_NODE), size);
     if (err < 0) {
         fprintf(stderr, "ERROR -- create of %s failed\n", prog_woof);
         exit(1);
     }
 
-    err = WooFCreate(op_woof, sizeof(DFOPERAND), size);
+    err = WooFCreate(op_woof, sizeof(DF_OPERAND), size);
     if (err < 0) {
         fprintf(stderr, "ERROR -- create of %s failed\n", prog_woof);
         exit(1);
     }
 }
 
-void add_operand(char* woof, int destination_node_id, int destination_node_port, double value) {
+void add_operand(char* woof, int destination_node_id, int destination_node_port, DF_VALUE value) {
     unsigned long seqno;
     char op_woof[1024] = "";
 
-    DFOPERAND operand = {
+    DF_OPERAND operand = {
         .value = value,
         .destination_node_id = destination_node_id,
         .destination_port = destination_node_port,
@@ -62,17 +62,17 @@ void add_operand(char* woof, int destination_node_id, int destination_node_port,
 }
 
 void add_node(
-    char* woof, int node_id, int input_count, int opcode, int destination_node_id, int destination_node_port) {
+    char* woof, int node_id, int input_count, DF_OPERATION operation, int destination_node_id, int destination_node_port) {
     unsigned long seqno;
     char prog_woof[4096] = "";
 
-    DFNODE node = {.node_id = node_id,
-                   .opcode = opcode,
+    DF_NODE node = {.node_id = node_id,
+                   .operation = operation,
                    .total_values_count = input_count,
                    .received_values_count = 0,
-                   .claim_input_value = 0.0,
+                   .claim_input_value = {},
                    .claim_input_port = -1,
-                   .values = {0},
+                   .values = {},
                    .destination_node_id = destination_node_id,
                    .destination_port = destination_node_port,
                    .state = WAITING};
@@ -86,13 +86,13 @@ void add_node(
     seqno = WooFPut(prog_woof, NULL, &node);
 
     if (WooFInvalid(seqno)) {
-        fprintf(stderr, "ERROR -- put to %s of node %d, opcode %d failed\n", prog_woof, node.node_id, node.opcode);
+        fprintf(stderr, "ERROR -- put to %s of node %d, operation %d failed\n", prog_woof, node.node_id, node.operation);
         exit(1);
     }
 }
 
 void* get_result(char* woof, int id) {
-    DFNODE* node = (DFNODE*)malloc(sizeof(DFNODE));
+    DF_NODE* node = (DF_NODE*)malloc(sizeof(DF_NODE));
     WooFGet(woof, node, id);
     return node->values;
 }

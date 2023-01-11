@@ -1,0 +1,49 @@
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"2" for input port:"0" with value:"1.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"2" for input port:"1" with value:"2.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"2" for input port:"0" with value:"1.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"2" for input port:"1" with value:"2.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"2" for input port:"2" with value:"3.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"3" for input port:"0" with value:"4.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"3" for input port:"0" with value:"4.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"2" for input port:"2" with value:"3.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"3" for input port:"1" with value:"5.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"3" for input port:"1" with value:"5.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXIT found CLAIM during SCAN-1 at sequence_number:"4" for NODE node_id:"2" with input port:"0" with value:"1.000000" (searcher is input port:"1" with value:"2.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"3" for input port:"2" with value:"6.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXIT found CLAIM during SCAN-1 at sequence_number:"5" for NODE node_id:"2" with input port:"1" with value:"2.000000" (searcher is input port:"2" with value:"3.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND WAITING during SCAN-1 at sequence_number:"2" for NODE node_id:"2" with "0"/"3" values:["UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"1.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"3" for input port:"3" with value:"0.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE PARTIAL after found WAITING during SCAN-1 at sequence_number:"2" for NODE node_id:"2" with "1"/"3" values:["1.000000", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"1.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND WAITING during SCAN-1 at sequence_number:"3" for NODE node_id:"3" with "0"/"4" values:["UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE PARTIAL after found WAITING during SCAN-1 at sequence_number:"3" for NODE node_id:"3" with "1"/"4" values:["4.000000", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"3" for input port:"2" with value:"6.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"3" for input port:"3" with value:"0.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND CLAIM during SCAN-2 at sequence_number:"6" for NODE node_id:"2" with input port:"2" with value:"3.000000" (searcher is input port:"0" with value:"1.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE PARTIAL after found CLAIM during SCAN-2 at sequence_number:"13" for NODE node_id:"2" with "2"/"3" values:["1.000000", "UNKNOWN VALUE - (nil)", "3.000000"] (searcher is input port:"0" with value:"1.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND CLAIM during SCAN-2 at sequence_number:"9" for NODE node_id:"3" with input port:"2" with value:"6.000000" (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE PARTIAL after found CLAIM during SCAN-2 at sequence_number:"14" for NODE node_id:"3" with "2"/"4" values:["4.000000", "UNKNOWN VALUE - (nil)", "6.000000", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND CLAIM during SCAN-2 at sequence_number:"8" for NODE node_id:"3" with input port:"1" with value:"5.000000" (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND CLAIM during SCAN-2 at sequence_number:"5" for NODE node_id:"2" with input port:"1" with value:"2.000000" (searcher is input port:"0" with value:"1.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] ALL INPUTS RECEIVED during SCAN-2 at sequence_number:"5" for NODE node_id:"2" with "3"/"3" values:["1.000000", "2.000000", "3.000000"] and result:"6.000000" (last input was input port:"0" with value:"1.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE PARTIAL after found CLAIM during SCAN-2 at sequence_number:"15" for NODE node_id:"3" with "3"/"4" values:["4.000000", "5.000000", "6.000000", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FINISH NODE node_id:"2" to destination node_id:"1" for input port:"0" with value:"6.000000"
+DFHandler: 2023-01-11 01:07:06 [debug] [woof: test.dfprogram] CREATE OPERAND at woof:"test.dfoperand" from node_id:"2" to destination node_id:"1" for input port:"0" with value:"6.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND CLAIM during SCAN-2 at sequence_number:"12" for NODE node_id:"3" with input port:"3" with value:"0.000000" (searcher is input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] ALL INPUTS RECEIVED during SCAN-2 at sequence_number:"12" for NODE node_id:"3" with "4"/"4" values:["4.000000", "5.000000", "6.000000", "0.000000"] and result:"15.000000" (last input was input port:"0" with value:"4.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FINISH NODE node_id:"3" to destination node_id:"1" for input port:"1" with value:"15.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXIT found CLAIM during SCAN-1 at sequence_number:"8" for NODE node_id:"3" with input port:"1" with value:"5.000000" (searcher is input port:"2" with value:"6.000000")
+DFHandler: 2023-01-11 01:07:06 [debug] [woof: test.dfprogram] CREATE OPERAND at woof:"test.dfoperand" from node_id:"3" to destination node_id:"1" for input port:"1" with value:"15.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXIT found PARTIAL during SCAN-1 at sequence_number:"11" for NODE node_id:"3" with "1"/"4" values:["4.000000", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)"] (searcher is input port:"3" with value:"0.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXIT found CLAIM during SCAN-1 at sequence_number:"7" for NODE node_id:"3" with input port:"0" with value:"4.000000" (searcher is input port:"1" with value:"5.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"1" for input port:"0" with value:"6.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"1" for input port:"0" with value:"6.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXECUTE of node_id:"1" for input port:"1" with value:"15.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE CLAIM NODE node_id:"1" for input port:"1" with value:"15.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] HANDLER EXIT found CLAIM during SCAN-1 at sequence_number:"18" for NODE node_id:"1" with input port:"0" with value:"6.000000" (searcher is input port:"1" with value:"15.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND WAITING during SCAN-1 at sequence_number:"1" for NODE node_id:"1" with "0"/"2" values:["UNKNOWN VALUE - (nil)", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"6.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] CREATE PARTIAL after found WAITING during SCAN-1 at sequence_number:"1" for NODE node_id:"1" with "1"/"2" values:["6.000000", "UNKNOWN VALUE - (nil)"] (searcher is input port:"0" with value:"6.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FOUND CLAIM during SCAN-2 at sequence_number:"19" for NODE node_id:"1" with input port:"1" with value:"15.000000" (searcher is input port:"0" with value:"6.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] ALL INPUTS RECEIVED during SCAN-2 at sequence_number:"19" for NODE node_id:"1" with "2"/"2" values:["6.000000", "15.000000"] and result:"90.000000" (last input was input port:"0" with value:"6.000000")
+DFHandler: 2023-01-11 01:07:06 [info]  [woof: test.dfprogram] FINISH NODE node_id:"1" to destination node_id:"0" for input port:"0" with value:"90.000000"
+DFHandler: 2023-01-11 01:07:06 [info]  FINAL RESULT: "90.000000"
+DFHandler: 2023-01-11 01:07:06 [debug] [woof: test.dfprogram] CREATE OPERAND at woof:"test.dfoperand" from node_id:"1" to destination node_id:"0" for input port:"0" with value:"90.000000"

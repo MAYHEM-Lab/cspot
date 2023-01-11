@@ -60,13 +60,13 @@ int main(int argc, char** argv) {
 
     WooFInit(); /* attach local namespace for create*/
 
-    err = WooFCreate(prog_woof, sizeof(DFNODE), size);
+    err = WooFCreate(prog_woof, sizeof(DF_NODE), size);
     if (err < 0) {
         fprintf(stderr, "ERROR -- create of %s failed\n", prog_woof);
         exit(1);
     }
 
-    err = WooFCreate(op_woof, sizeof(DFOPERAND), size);
+    err = WooFCreate(op_woof, sizeof(DF_OPERAND), size);
     if (err < 0) {
         fprintf(stderr, "ERROR -- create of %s failed\n", prog_woof);
         exit(1);
