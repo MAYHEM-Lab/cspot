@@ -69,12 +69,12 @@ void add_node(
     DFNODE node = {.node_id = node_id,
                    .opcode = opcode,
                    .total_values_count = input_count,
-                   .received_values_count = 0,
-                   .claim_input_value = 0.0,
-                   .claim_input_port = -1,
+                   .value_exist = {0},
                    .values = {0},
                    .destination_node_id = destination_node_id,
                    .destination_port = destination_node_port,
+                   .claim_input_port = -1,
+                   .claim_input_value = 0.0,
                    .state = WAITING};
 
     // [WOOF].dfprogram
@@ -83,7 +83,7 @@ void add_node(
 
     WooFInit(); /* local only for now */
 
-    seqno = WooFPut(prog_woof, NULL, &node);
+    seqno = WooFPut(prog_woof, "dfnodehandler", &node);
 
     if (WooFInvalid(seqno)) {
         fprintf(stderr, "ERROR -- put to %s of node %d, opcode %d failed\n", prog_woof, node.node_id, node.opcode);

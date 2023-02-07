@@ -7,6 +7,8 @@
 
 // #define DEBUG
 
+unsigned int get_received_values_count(DFNODE* node);
+
 int df_fire_node(WOOF* wf, const char* prog, DFNODE* node, double result) {
     // retire this node
     node->state = DONE;
@@ -48,7 +50,8 @@ int df_fire_node(WOOF* wf, const char* prog, DFNODE* node, double result) {
         log_error("[woof: %s] Could not create result OPERAND at woof %s", prog, WooFGetFileName(wf));
         return 1;
     } else {
-        log_debug("[woof: %s] CREATE OPERAND at woof:\"%s\" to destination node_id:\"%d\" for input port:\"%d\" with "
+        log_debug("[woof: %s] CREATE OPERAND at woof:\"%s\" node_id:\"%d\" to destination node_id:\"%d\" for input "
+                  "port:\"%d\" with "
                   "value:\"%f\"",
                   prog,
                   WooFGetFileName(wf),
@@ -56,8 +59,8 @@ int df_fire_node(WOOF* wf, const char* prog, DFNODE* node, double result) {
                   node->destination_node_id,
                   node->destination_port,
                   result);
-        return 0;
     }
+    return 0;
 }
 
 int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
@@ -75,8 +78,9 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
     memset(&claim_node, 0, sizeof(claim_node));
     claim_node.state = CLAIM;
     claim_node.node_id = operand->destination_node_id;
-    claim_node.received_values_count = 1;
-    // claim_node.values = {0};
+    memset(claim_node.value_exist, 0, VALUE_SIZE);
+    claim_node.value_exist[claim_node.claim_input_port] = 1;
+    memset(claim_node.values, 0, VALUE_SIZE * sizeof(double));
     claim_node.claim_input_port = operand->destination_port;
     claim_node.claim_input_value = operand->value;
     unsigned long claim_sequence_number = WooFPut(prog, NULL, &claim_node);
@@ -102,12 +106,19 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
 
         log_trace("[woof: %s] --- Sequence Number \"%lu\" ---", prog, sequence_index);
         log_trace("[woof: %s] \tnode id \"%d\" with operation \"%d\"", prog, debug_node.node_id);
-        log_trace(
-            "[woof: %s] \tdestination node id \"%d\" at port \"%d\"", prog, debug_node.destination_node_id, debug_node.destination_port);
+        log_trace("[woof: %s] \tdestination node id \"%d\" at port \"%d\"",
+                  prog,
+                  debug_node.destination_node_id,
+                  debug_node.destination_port);
         log_trace("[woof: %s] \tstate \"%d\"", prog, debug_node.state);
-        log_trace("[woof: %s] \t(input port \"%d\" with value \"%f\"", prog, debug_node.claim_input_port, debug_node.claim_input_value);
-        log_trace(
-            "[woof: %s] \treceived \"%d\" of \"%d\" values", prog, debug_node.received_values_count, debug_node.total_values_count);
+        log_trace("[woof: %s] \t(input port \"%d\" with value \"%f\"",
+                  prog,
+                  debug_node.claim_input_port,
+                  debug_node.claim_input_value);
+        log_trace("[woof: %s] \treceived \"%d\" of \"%d\" values",
+                  prog,
+                  get_received_values_count(&debug_node),
+                  debug_node.total_values_count);
 
         char* debug_values_string = values_as_string(debug_node.values, debug_node.total_values_count);
         log_trace("[woof: %s] \tvalues [%s]", prog, debug_values_string);
@@ -149,7 +160,9 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
      */
     unsigned long partial_sequence_number = -1;
     DFNODE node;
-    for (unsigned long sequence_index = claim_sequence_number - 1; !WooFInvalid(sequence_index); sequence_index--) {
+    unsigned long sequence_index;
+    for (sequence_index = claim_sequence_number - 1; !WooFInvalid(sequence_index) && sequence_index > 0;
+         sequence_index--) {
         int get_result = WooFGet(prog, &node, sequence_index);
         if (get_result < 0) {
             log_error("[woof: %s] Could not get node with sequence_number:\"%lu\"", prog, sequence_index);
@@ -197,7 +210,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                     prog,
                     sequence_index,
                     node.node_id,
-                    node.received_values_count,
+                    get_received_values_count(&node),
                     node.total_values_count,
                     old_partial_values_string,
                     claim_node.claim_input_port,
@@ -215,18 +228,18 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                      prog,
                      sequence_index,
                      node.node_id,
-                     node.received_values_count,
+                     get_received_values_count(&node),
                      node.total_values_count,
                      waiting_values_string,
                      claim_node.claim_input_port,
                      claim_node.claim_input_value);
             free(waiting_values_string);
 
-            node.received_values_count += 1;
+            node.value_exist[claim_node.claim_input_port] = 1;
             node.values[claim_node.claim_input_port] = claim_node.claim_input_value;
 
             // if all inputs are received fire the node.
-            if (node.received_values_count == node.total_values_count) {
+            if (get_received_values_count(&node) == node.total_values_count) {
                 double result = DFOperation(node.opcode, node.values, node.total_values_count);
 
                 char* all_inputs_values_string = values_as_string(node.values, node.total_values_count);
@@ -236,7 +249,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                          prog,
                          sequence_index,
                          node.node_id,
-                         node.received_values_count,
+                         get_received_values_count(&node),
                          node.total_values_count,
                          all_inputs_values_string,
                          result,
@@ -264,7 +277,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                     prog,
                     sequence_index,
                     node.node_id,
-                    node.received_values_count,
+                    get_received_values_count(&node),
                     node.total_values_count,
                     partial_values_string,
                     claim_node.claim_input_port,
@@ -278,6 +291,14 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
 
         // log scan continue
         log_trace("DECREMENTING (%lu, %lu)", sequence_index, claim_sequence_number);
+    }
+    if (sequence_index == 0) {
+        log_info("[woof: %s] HANDLER EXIT found no WAITING for NODE (searcher is input port:\"%d\" with value:\"%f\")",
+                 prog,
+                 node.node_id,
+                 claim_node.claim_input_port,
+                 claim_node.claim_input_value);
+        return 0;
     }
 
     /*
@@ -334,12 +355,12 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                          claim_node.claim_input_port,
                          claim_node.claim_input_value);
 
-                node.received_values_count += 1;
+                node.value_exist[fnode.claim_input_port] = 1;
                 node.values[fnode.claim_input_port] = fnode.claim_input_value;
 
 
                 // if all inputs are received then fire the node
-                if (node.received_values_count == node.total_values_count) {
+                if (get_received_values_count(&node) == node.total_values_count) {
                     double result = DFOperation(node.opcode, node.values, node.total_values_count);
 
                     char* all_inputs_values_string = values_as_string(node.values, node.total_values_count);
@@ -349,7 +370,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                              prog,
                              new_claim_sequence_number,
                              node.node_id,
-                             node.received_values_count,
+                             get_received_values_count(&node),
                              node.total_values_count,
                              all_inputs_values_string,
                              result,
@@ -378,7 +399,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                         prog,
                         partial_sequence_number,
                         node.node_id,
-                        node.received_values_count,
+                        get_received_values_count(&node),
                         node.total_values_count,
                         partial_values_string,
                         claim_node.claim_input_port,
@@ -421,12 +442,12 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                      claim_node.claim_input_port,
                      claim_node.claim_input_value);
 
-            node.received_values_count += 1;
+            node.value_exist[fnode.claim_input_port] = 1;
             node.values[fnode.claim_input_port] = fnode.claim_input_value;
 
 
             // if all inputs are received then fire the node.
-            if (node.received_values_count == node.total_values_count) {
+            if (get_received_values_count(&node) == node.total_values_count) {
                 double result = DFOperation(node.opcode, node.values, node.total_values_count);
 
                 char* all_inputs_values_string = values_as_string(node.values, node.total_values_count);
@@ -436,7 +457,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                          prog,
                          future_claim_sequence_number,
                          node.node_id,
-                         node.received_values_count,
+                         get_received_values_count(&node),
                          node.total_values_count,
                          all_inputs_values_string,
                          result,
@@ -462,7 +483,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                     prog,
                     partial_sequence_number,
                     node.node_id,
-                    node.received_values_count,
+                    get_received_values_count(&node),
                     node.total_values_count,
                     partial_values_string,
                     claim_node.claim_input_port,
@@ -490,7 +511,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                  prog,
                  waiting_sequence_number,
                  node.node_id,
-                 node.received_values_count,
+                 get_received_values_count(&node),
                  node.total_values_count,
                  waiting_values_string,
                  claim_node.claim_input_port,
@@ -498,6 +519,74 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
         free(waiting_values_string);
     }
 
+
+    DFNODE pre_waiting_claim_node;
+    for (unsigned long pre_waiting_claim_sequence_number = partial_sequence_number;
+         pre_waiting_claim_sequence_number < waiting_sequence_number;
+         pre_waiting_claim_sequence_number++) {
+        int get_result = WooFGet(prog, &pre_waiting_claim_node, pre_waiting_claim_sequence_number);
+        if (get_result < 0) {
+            log_error(
+                "[woof: %s] Could not get node with sequence_number:\"%lu\"", prog, pre_waiting_claim_sequence_number);
+            return 1;
+        }
+
+        if (pre_waiting_claim_node.node_id != node.node_id) {
+            continue;
+        }
+
+        // if CLAIM is found, it slipped through. Resend the CLAIM
+        // everything else should be ignorable
+        if (pre_waiting_claim_node.state == CLAIM) {
+            log_info("[woof: %s] FOUND CLAIM during SCAN-4 at sequence_number:\"%lu\" for NODE "
+                     "node_id:\"%d\" with input port:\"%d\" with value:\"%f\" (searcher is input port:\"%d\" with "
+                     "value:\"%f\")",
+                     prog,
+                     pre_waiting_claim_sequence_number,
+                     pre_waiting_claim_node.node_id,
+                     pre_waiting_claim_node.claim_input_port,
+                     pre_waiting_claim_node.claim_input_value,
+                     claim_node.claim_input_port,
+                     claim_node.claim_input_value);
+
+            // resend CLAIM as operator retry
+            DFOPERAND resend_operand;
+            memset(&resend_operand, 0, sizeof(resend_operand));
+            resend_operand.value = pre_waiting_claim_node.claim_input_value;
+            resend_operand.destination_node_id = pre_waiting_claim_node.node_id;
+            resend_operand.destination_port = pre_waiting_claim_node.claim_input_port;
+            strcpy(resend_operand.prog_woof, prog);
+
+            unsigned long done_operand_sequence_number;
+            done_operand_sequence_number = WooFPut(WooFGetFileName(wf), "dfhandler", &resend_operand);
+
+            // check for successful put operation
+            if (WooFInvalid(done_operand_sequence_number)) {
+                // TODO
+                log_error("[woof: %s] Could not create resend OPERAND at woof %s", prog, WooFGetFileName(wf));
+                return 1;
+            } else {
+                log_debug("[woof: %s] CREATE OPERAND RESEND at woof:\"%s\" node_id:\"%d\" to destination "
+                          "node_id:\"%d\" for input port:\"%d\" with "
+                          "value:\"%f\"",
+                          prog,
+                          WooFGetFileName(wf),
+                          pre_waiting_claim_node.node_id,
+                          pre_waiting_claim_node.node_id,
+                          pre_waiting_claim_node.claim_input_port,
+                          pre_waiting_claim_node.claim_input_value);
+            }
+        }
+    }
+
     // one running handler finishes every possible claim in its lifetime adds a WAITING
     return 0;
+}
+
+unsigned int get_received_values_count(DFNODE* node) {
+    unsigned int received_values_count = 0;
+    for (int i = 0; i < VALUE_SIZE; ++i) {
+        received_values_count += (*node).value_exist[i];
+    }
+    return received_values_count;
 }

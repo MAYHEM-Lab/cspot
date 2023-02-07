@@ -2,9 +2,9 @@
 
 #include <math.h>
 
-double DFOperation(int opcode, double* op_values, int size) {
+double DFOperation(int opcode, double* op_values, unsigned int size) {
     double result;
-    int i;
+    unsigned int i;
     switch (opcode) {
     case ADD:
         result = 0;
