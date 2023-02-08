@@ -4,7 +4,7 @@
 
 #include <malloc.h>
 
-unsigned int get_received_values_count(DFNODE* node);
+unsigned int get_received_values_count(DF_NODE* node);
 
 int main() {
 
@@ -13,14 +13,15 @@ int main() {
     char* prog = "test.dfprogram";
 
     log_debug("[woof: %s] CURRENT STACK:", prog);
-    for (unsigned long sequence_index = 0; sequence_index <= WooFGetLatestSeqno(prog); sequence_index++) {
-        DFNODE debug_node;
+    unsigned long latest_sequence_number = WooFGetLatestSeqno(prog);
+    for (unsigned long sequence_index = 1; sequence_index <= latest_sequence_number; sequence_index++) {
+        DF_NODE debug_node;
 
         WooFGet(prog, &debug_node, sequence_index);
 
         log_debug("[woof: %s] --- Sequence Number \"%lu\" ---", prog, sequence_index);
-        log_debug("[woof: %s] \tnode id \"%d\" with operation \"%d\"", prog, debug_node.node_id);
-        log_debug("[woof: %s] \tdestination node id \"%d\" at port \"%d\"",
+        log_debug("[woof: %s] \tnode_id \"%s\" with operation \"%d\"", prog, debug_node.node_id);
+        log_debug("[woof: %s] \tdestination node_id \"%s\" at port \"%d\"",
                   prog,
                   debug_node.destination_node_id,
                   debug_node.destination_port);
@@ -41,7 +42,7 @@ int main() {
     }
 }
 
-unsigned int get_received_values_count(DFNODE* node) {
+unsigned int get_received_values_count(DF_NODE* node) {
     unsigned int received_values_count = 0;
     for (int i = 0; i < VALUE_SIZE; ++i) {
         received_values_count += (*node).value_exist[i];

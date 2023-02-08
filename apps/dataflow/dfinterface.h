@@ -12,7 +12,7 @@
  * @param woof Name of woof to be created.
  * @param size Number of entries in woof.
  */
-void init(char* woof, int size);
+void init(const char* woof, int size);
 
 /**
  * Add an operand.
@@ -24,7 +24,7 @@ void init(char* woof, int size);
  * @param destination_node_port ID of destination port.
  * @param value Value of the operand.
  */
-void add_operand(char* woof, int destination_node_id, int destination_node_port, double value);
+void add_operand(const char* woof, const char* destination_node_id, int destination_node_port, double value);
 
 /**
  * Add a node.
@@ -39,6 +39,15 @@ void add_operand(char* woof, int destination_node_id, int destination_node_port,
  * @param destination_node_id ID of destination node.
  * @param destination_node_port ID of destination port.
  */
-void add_node(char* woof, int node_id, int input_count, int opcode, int destination_node_id, int destination_node_port);
+void add_node(const char* woof,
+              const char* node_id,
+              int input_count,
+              int opcode,
+              const char* destination_node_id,
+              int destination_node_port);
+
+void reset_nodes();
+
+int found_result(const char* woof, double result_value);
 
 #endif // DFINTERFACE_H
