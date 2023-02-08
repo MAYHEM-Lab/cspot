@@ -61,7 +61,7 @@ int dfnodehandler(WOOF* wf, unsigned long node_sequence_number, void* ptr) {
             } else {
                 log_debug("[woof: %s] NODE CREATE OPERAND RESEND at woof:\"%s\" node_id:\"%s\" to destination "
                           "node_id:\"%s\" for input port:\"%d\" with "
-                          "value:\"%f\" written to sequence number:\"lu\"",
+                          "value:\"%f\" written to sequence number:\"%lu\"",
                           WooFGetFileName(wf),
                           OPERAND_WOOF,
                           pre_node_creation_claim_node.node_id,
