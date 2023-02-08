@@ -21,7 +21,7 @@ int df_fire_node(WOOF* wf, const char* prog, DF_NODE* node, double result) {
     } else {
         log_info(
             "[woof: %s] CREATE DONE for NODE node_id:\"%s\" to destination node_id:\"%s\" for input port:\"%d\" with "
-            "value:\"%f\" written to sequence number:\"lu\"",
+            "value:\"%f\" written to sequence number:\"%lu\"",
             prog,
             node->node_id,
             node->destination_node_id,
@@ -99,7 +99,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
         return 1;
     } else {
         log_info("[woof: %s] CREATE CLAIM NODE node_id:\"%s\" for input port:\"%d\" with value:\"%f\" written to "
-                 "sequence number:\"lu\"",
+                 "sequence number:\"%lu\"",
                  prog,
                  claim_node.node_id,
                  claim_node.claim_input_port,
@@ -282,7 +282,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                 log_info(
                     "[woof: %s] CREATE PARTIAL after found WAITING during SCAN-1 at sequence_number:\"%lu\" for NODE "
                     "node_id:\"%s\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with value:\"%f\") "
-                    "written to sequence number:\"lu\"",
+                    "written to sequence number:\"%lu\"",
                     prog,
                     sequence_index,
                     node.node_id,
@@ -406,7 +406,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                     log_info(
                         "[woof: %s] CREATE PARTIAL after found CLAIM during SCAN-2 at sequence_number:\"%lu\" for NODE "
                         "node_id:\"%s\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with "
-                        "value:\"%f\") written to sequence number:\"lu\"",
+                        "value:\"%f\") written to sequence number:\"%lu\"",
                         prog,
                         partial_sequence_number,
                         node.node_id,
@@ -491,7 +491,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
                 log_info(
                     "[woof: %s] CREATE PARTIAL after found CLAIM during SCAN-3 at sequence_number:\"%lu\" for NODE "
                     "node_id:\"%s\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with "
-                    "value:\"%f\") written to sequence number:\"lu\"",
+                    "value:\"%f\") written to sequence number:\"%lu\"",
                     prog,
                     partial_sequence_number,
                     node.node_id,
@@ -520,7 +520,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
         char* waiting_values_string = values_as_string(node.values, node.total_values_count);
         log_info("[woof: %s] CREATE WAITING after end of SCANS at sequence_number:\"%lu\" for NODE "
                  "node_id:\"%s\" with \"%u\"/\"%u\" values:[%s] (searcher is input port:\"%d\" with "
-                 "value:\"%f\") written to sequence number:\"lu\"",
+                 "value:\"%f\") written to sequence number:\"%lu\"",
                  prog,
                  waiting_sequence_number,
                  node.node_id,
@@ -582,7 +582,7 @@ int dfhandler(WOOF* wf, unsigned long operand_sequence_number, void* ptr) {
             } else {
                 log_debug("[woof: %s] CREATE OPERAND RESEND at woof:\"%s\" node_id:\"%s\" to destination "
                           "node_id:\"%s\" for input port:\"%d\" with "
-                          "value:\"%f\" written to sequence number:\"lu\"",
+                          "value:\"%f\" written to sequence number:\"%lu\"",
                           prog,
                           WooFGetFileName(wf),
                           pre_waiting_claim_node.node_id,
