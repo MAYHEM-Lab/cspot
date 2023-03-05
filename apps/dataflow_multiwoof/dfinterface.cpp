@@ -6,6 +6,8 @@
 
 #include <unistd.h>
 
+#define WOOFSIZE 10000
+
 // {namspace --> entries}
 std::map<int, int> subscribe_entries;
 // {namespace --> {id --> [subscribers...]}}
@@ -79,11 +81,11 @@ void add_node(int ns, int id, int opcode) {
     std::string program = "laminar-" + ns_str;
 
     // Create output woof
-    woof_create(program + ".output." + id_str, sizeof(operand), 100);
+    woof_create(program + ".output." + id_str, sizeof(operand), WOOFSIZE);
 
     // Create subscription_events woof
     woof_create(program + ".subscription_events." + id_str,
-                sizeof(subscription_event), 100);
+                sizeof(subscription_event), WOOFSIZE);
 
     // Create consumer_pointer woof
     std::string consumer_ptr_woof = program + ".subscription_pointer." + id_str;
@@ -91,7 +93,7 @@ void add_node(int ns, int id, int opcode) {
     // TODO: consumer_ptr_woof should be of size 1, but CSPOT hangs when
     // writing to full woof (instead of overwriting), so the size has
     // been increased temporarily as a stop-gap measure while testing
-    woof_create(consumer_ptr_woof, sizeof(unsigned long), 100);
+    woof_create(consumer_ptr_woof, sizeof(unsigned long), WOOFSIZE);
     woof_put(consumer_ptr_woof, "", &initial_consumer_ptr);
 
     // Create node
@@ -104,7 +106,7 @@ void add_operand(int ns, int id) {
     std::string program = "laminar-" + ns_str;
 
     // Create output woof
-    woof_create(program + ".output." + id_str, sizeof(operand), 100);
+    woof_create(program + ".output." + id_str, sizeof(operand), WOOFSIZE);
 
     nodes[ns].insert(node(id, OPERAND));
 }
@@ -227,7 +229,7 @@ std::string graphviz_representation() {
 // void add_node(char* prog, int id) {
 //     char woof_name_base[4096] = ""; // [prog].[id]
 //     char woof_name[4096] = "";
-//     char id_str[100] = "";
+//     char id_str[WOOFSIZE] = "";
 
 //     // Convert id to string
 //     snprintf(id_str, sizeof(id_str), "%d", id);
