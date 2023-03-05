@@ -18,7 +18,6 @@
 
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
-#define DEBUG
 
 extern "C" {
 extern int handler(WOOF* wf, unsigned long seq_no, void* farg);
