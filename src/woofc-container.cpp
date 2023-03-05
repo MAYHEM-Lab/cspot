@@ -165,6 +165,7 @@ int WooFContainerInit() {
 	sprintf(hbuff,"%s/%s",WooF_dir,"woofc-forker-helper");
 	cargv[0] = hbuff;
 	cargv[1] = NULL;
+	pid = fork();
 	if(pid < 0) {
 		fprintf(stderr,"WooFContainer: fork failed at %d\n",i);
 		perror("WooFContainer");
@@ -189,8 +190,8 @@ int WooFContainerInit() {
 		fprintf(stdout,"WooFContainer: child about to exec %s\n",hbuff);
 		fflush(stdout);
 #endif
-//                      execve(hbuff,cargv,NULL);
-		system(hbuff);
+                execve(hbuff,cargv,NULL);
+//		system(hbuff);
 		fprintf(stdout,"WooFContainer: execve of %s failed\n",hbuff);
 		fflush(stdout);
 		close(2);

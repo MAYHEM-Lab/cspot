@@ -9,6 +9,8 @@
 
 #define SPLAY (5)
 
+#define DEBUG
+
 int main(int argc,char **argv, char **env)
 {
 	int err;
