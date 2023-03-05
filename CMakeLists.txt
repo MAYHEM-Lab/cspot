@@ -85,6 +85,10 @@ add_executable(woofc-container src/woofc-container.cpp)
 target_link_libraries(woofc-container PRIVATE woof)
 target_include_directories(woofc-container PRIVATE src/include)
 
+add_executable(woofc-forker-helper src/woofc-forker-helper.cpp)
+target_link_libraries(woofc-forker-helper PRIVATE woof)
+target_include_directories(woofc-forker-helper PRIVATE src/include)
+
 add_library(woofc-shepherd src/woofc-shepherd.cpp)
 target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)

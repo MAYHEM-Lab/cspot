@@ -5,7 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <iostream>
+#include <sys/wait.h>
 
 #define SPLAY (5)
 

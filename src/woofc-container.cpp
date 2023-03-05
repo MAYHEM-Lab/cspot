@@ -21,6 +21,7 @@
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define ARGS "M"
 
@@ -54,7 +55,7 @@ void WooFShutdown(int) {
     }
 }
 
-void WooFForker();
+void WooFForker(FARG *ta);
 void WooFReaper();
 
 int WooFContainerInit() {
@@ -143,6 +144,9 @@ int WooFContainerInit() {
 
     // set up helper processes
     FARG *tas;
+    char hbuff[255];
+    pid_t pid;
+    char *cargv[2];
     tas = (FARG *)malloc(WOOF_CONTAINER_FORKERS*sizeof(FARG));
     if(tas == NULL) {
             exit(1);
@@ -206,8 +210,9 @@ int WooFContainerInit() {
 	close(tas[i].parenttochild[0]); // child reads this end
     }
 
+
     for (i = 0; i < WOOF_CONTAINER_FORKERS; i++) {
-        std::thread(WooFForker).detach();
+        std::thread(WooFForker,&tas[i]).detach();
     }
     std::thread(WooFReaper).detach();
 
@@ -256,7 +261,7 @@ void WooFReaper() {
     pthread_exit(NULL);
 }
 
-void WooFForker() {
+void WooFForker(FARG *ta) {
     unsigned long last_seq_no = 0;
     unsigned long trigger_seq_no;
     unsigned long ls;
@@ -484,6 +489,8 @@ void WooFForker() {
 	/*
 	 * find the last directory in the path
 	 */
+        char *pathp;
+        char woof_shepherd_dir[2048];
 	pathp = strrchr(WooF_dir, '/');
 	if (pathp == NULL)
 	{
@@ -498,6 +505,8 @@ void WooFForker() {
 	fflush(stdout);
 #endif
 
+	char hbuff[255];
+        int err;
 	/* 0 */
 	memset(hbuff,0,sizeof(hbuff));
 	sprintf(hbuff, "WOOFC_NAMESPACE=%s", WooF_namespace);
@@ -625,6 +634,7 @@ void WooFForker() {
                       ev[first].woofc_handler);
         LogFree(log_tail);
 
+	 char c;
 	 err = read(ta->childtoparent[0],&c,1);
          if(err <= 0) {
                 fprintf(stderr,"WooFForker: woofc-forker-helper closed\n");
