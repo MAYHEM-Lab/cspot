@@ -79,8 +79,8 @@ int main(int argc,char **argv, char **env)
 		fargv[0] = hbuff;
 		fargv[1] = NULL;
 
-//		pid = vfork();
-		pid = fork();
+		pid = vfork();
+//		pid = fork();
 		if(pid < 0) {
 			fprintf(stdout,"woofc-forker-helper: vfork failed\n");
 			fflush(stdout);
