@@ -18,6 +18,8 @@
 
 #define WOOF_SHEPHERD_TIMEOUT (15)
 
+#define DEBUG
+
 extern "C" {
 extern int handler(WOOF* wf, unsigned long seq_no, void* farg);
 }
@@ -65,6 +67,11 @@ int main(int argc, char** argv, char** envp) {
         i = 0;
         while (envp[i] != NULL) {
             putenv(envp[i]);
+#ifdef DEBUG
+    fprintf(stdout, "WooFShepherd: putting %s to environment\n", envp[i]);
+    fflush(stdout);
+#endif
+
             i++;
         }
     }
@@ -292,6 +299,10 @@ int main(int argc, char** argv, char** envp) {
         V(&wfs->tail_wait);
 
         V(&wfs->mutex);
+#ifdef DEBUG
+        fprintf(stdout, "WooFShepherd: exited mutex\n");
+        fflush(stdout);
+#endif
         /*
          * invoke the function
          */

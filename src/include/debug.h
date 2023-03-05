@@ -1,7 +1,6 @@
 #ifndef CSPOT_DEBUG_H
 #define CSPOT_DEBUG_H
 
-#define TIMING
 
 #if defined(__cplusplus)
 extern "C" {
@@ -10,6 +9,8 @@ extern "C" {
 void cspot_print_debug(const char* format, ...);
 void cspot_print_fatal(const char* format, ...) __attribute__((noreturn));
 void cspot_print_fatal_if(bool val, const char* format, ...);
+
+#define TIMING
 
 #ifdef TIMING
 

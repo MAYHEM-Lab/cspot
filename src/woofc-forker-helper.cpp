@@ -9,17 +9,16 @@
 
 #define SPLAY (5)
 
-#define DEBUG
 
 int main(int argc,char **argv, char **env)
 {
 	int err;
 	char hbuff[255];
-//	std::string hbuff;
 	int i;
 	char *fargv[2];
 	int pid;
 	char *menv[12];
+	char args[12*255];
 	char *str;
 	char c;
 	int status;
@@ -38,27 +37,29 @@ int main(int argc,char **argv, char **env)
 		 * we need 11 env variables
 		 */
 
+		memset(args,0,12*255);
 		for(i=0; i < 11; i++) {
-			err = read(0,hbuff,sizeof(hbuff));
-//			std::cin >> hbuff;
+//			err = read(0,hbuff,sizeof(hbuff));
+			err = read(0,&args[i*255],255);
+			menv[i] = &args[i*255];
 			if(err <= 0) {
 				fprintf(stdout,"woofc-forker-helper read %d on %d\n",err,i);
 				fflush(stdout);
 				exit(0);
 			}
-#ifdef DEBUG
-			fprintf(stdout,"woofc-forker-helper: received %s\n",hbuff);
-			fflush(stdout);
-#endif
+#if 0
 			str = (char *)malloc(strlen(hbuff)+1);
-//			str = (char *)malloc((sizeof hbuff) +1);
 			if(str == NULL) {
 				exit(1);
 			}
-			memset(str,0,(sizeof hbuff)+1);
-			strncpy(str,hbuff,strlen(hbuff)+1);
-//			hbuff.copy(str,sizeof hbuff);
-			menv[i] = str;
+			memset(str,0,sizeof(hbuff)+1);
+			strncpy(str,hbuff,strlen(hbuff));
+#endif
+#ifdef DEBUG
+			fprintf(stdout,"woofc-forker-helper: received %s\n",menv[i]);
+			fflush(stdout);
+#endif
+//			menv[i] = str;
 		}
 		menv[11] = NULL;
 
@@ -66,7 +67,6 @@ int main(int argc,char **argv, char **env)
 		 * read the handler name
 		 */
 		err = read(0,hbuff,sizeof(hbuff));
-//		std::cin >> hbuff;
 		if(err <= 0) {
 			fprintf(stderr,"woofc-forker-helper read %d for handler\n",err);
 			exit(0);
@@ -76,16 +76,11 @@ int main(int argc,char **argv, char **env)
 		fflush(stdout);
 #endif
 
-//		str = (char *)malloc((sizeof hbuff) +1);
-//		if(str == NULL) {
-//			exit(1);
-//		}
-		memset(str,0,(sizeof hbuff)+1);
-//		hbuff.copy(str,sizeof hbuff);
 		fargv[0] = hbuff;
 		fargv[1] = NULL;
 
-		pid = vfork();
+//		pid = vfork();
+		pid = fork();
 		if(pid < 0) {
 			fprintf(stdout,"woofc-forker-helper: vfork failed\n");
 			fflush(stdout);
@@ -106,12 +101,10 @@ int main(int argc,char **argv, char **env)
 		fprintf(stdout,"woofc-forker-helper: vfork completed for handler %s\n",hbuff);
 		fflush(stdout);
 #endif
-		/*
-		 * free strings in menv pointer
-		 */
-		for(i=0; i < 11; i++) {
-			free(menv[i]);
-		}
+#ifdef DEBUG
+		fprintf(stdout,"woofc-forker-helper: freed env\n");
+		fflush(stdout);
+#endif
 
 		/*
 		 * wait for handler to exit
@@ -141,6 +134,7 @@ int main(int argc,char **argv, char **env)
 		fprintf(stdout,"woofc-forker-helper: signaled parent for %s after proc %d reaped\n",hbuff,pid);
 		fflush(stdout);
 #endif
+		fflush(stdout);
 	}
 
 	fprintf(stdout,"woofc-forker-helper exiting\n");	

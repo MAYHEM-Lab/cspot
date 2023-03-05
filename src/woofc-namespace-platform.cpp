@@ -172,7 +172,7 @@ public:
             thread.join();
         }
 
-        DEBUG_LOG("WooFContainerLauncher exiting\n");
+        DEBUG_LOG("WooFContainerLauncher backend exiting\n");
     }
 
     void cleanup() override {
@@ -223,7 +223,7 @@ public:
             m_pids.emplace_back(do_spawn(exec_path, std::move(argv), std::move(env_pieces)));
         }
 
-        DEBUG_LOG("WooFContainerLauncher exiting\n");
+        DEBUG_LOG("WooFContainerLauncher proc exiting\n");
     }
 
     void cleanup() override {

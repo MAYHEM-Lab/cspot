@@ -287,14 +287,15 @@ void WooFForker(FARG *ta) {
 
     DEBUG_LOG("WooFForker: namespace: %s memset called\n", WooF_namespace);
 
-    while (!should_exit) {
+//    while (!should_exit) {
+    while(1) {
         DEBUG_LOG("WooFForker: namespace: %s caling P\n", WooF_namespace);
         P(&Name_log->tail_wait);
         DEBUG_LOG("WooFForker (%lu): namespace: %s awake\n", pthread_self(), WooF_namespace);
 
-        if (should_exit) {
-            break;
-        }
+//       if (should_exit) {
+//          break;
+//        }
 
         /*
          * must lock to sync on log tail
@@ -686,5 +687,6 @@ int main(int argc, char** argv) {
     } else {
         fprintf(stdout, "woofc-container: message server disabled. not listening.\n");
     }
+    DEBUG_LOG("woofc-container: about to exit\n");
     fflush(stdout);
 }
