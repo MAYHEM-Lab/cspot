@@ -206,6 +206,7 @@ int WooFContainerInit() {
 	close(tas[i].parenttochild[0]); // child reads this end
     }
 
+
     for (i = 0; i < WOOF_CONTAINER_FORKERS; i++) {
         std::thread(WooFForker).detach();
     }
@@ -468,175 +469,84 @@ void WooFForker() {
         Tcount--;
         DEBUG_LOG("Forker awake, after decrement %d\n", Tcount.load());
 
-        auto wf = WooFOpen(ev[first].woofc_name);
+	STARTCLOCK(&start);
+        pid = fork();
+        if (pid == 0) {
+	STARTCLOCK(&stop);
+	duration = DURATION(start,stop);
+	fprintf(stdout,"DURATION: fork : %f\n",duration);
+        fflush(stdout);
+            /*
+             * I am the child.  I need the read end but not the write end
+             */
 
-        DEBUG_FATAL_IF(!wf, "WooFForker: open failed for WooF at %s, %lu %lu\n",
+            close(0); /* so shepherd knows there is no pipe */
+
+            auto wf = WooFOpen(ev[first].woofc_name);
+
+            DEBUG_FATAL_IF(!wf, "WooFForker: open failed for WooF at %s, %lu %lu\n",
                            ev[first].woofc_name,
                            ev[first].woofc_element_size,
                            ev[first].woofc_history_size);
 
+            std::vector<std::string> env;
 
-	/*
-	 * send the environment variables to the helper
-	 */
+            env.emplace_back(fmt::format("WOOFC_NAMESPACE={}", WooF_namespace));
+            env.emplace_back(fmt::format("WOOFC_DIR={}", WooF_dir));
+            env.emplace_back(fmt::format("WOOF_HOST_IP={}", Host_ip));
+            env.emplace_back(fmt::format("WOOF_SHEPHERD_NAME={}", wf->shared->filename));
+            env.emplace_back(fmt::format("WOOF_SHEPHERD_NDX={}", ev[first].woofc_ndx));
+            env.emplace_back(fmt::format("WOOF_SHEPHERD_SEQNO={}", ev[first].woofc_seq_no));
+            env.emplace_back(fmt::format("WOOF_NAME_ID={}", Name_id));
+            env.emplace_back(fmt::format("WOOF_NAMELOG_DIR={}", WooF_namelog_dir));
+            env.emplace_back(fmt::format("WOOF_NAMELOG_NAME={}", Namelog_name));
+            env.emplace_back(fmt::format("WOOF_NAMELOG_SEQNO={}", ev[first].seq_no));
+            env.emplace_back("LD_LIBRARY_PATH=/usr/local/lib");
 
+            auto binary = fmt::format("{}/{}", WooF_dir, ev[first].woofc_handler);
 
-	/*
-	 * find the last directory in the path
-	 */
-	pathp = strrchr(WooF_dir, '/');
-	if (pathp == NULL)
-	{
-		fprintf(stderr, "couldn't find leaf dir in %s\n",
-				WooF_dir);
-		exit(1);
-	}
+            char* earg[2];
+            earg[0] = const_cast<char*>(binary.c_str());
+            earg[1] = nullptr;
 
-	strncpy(woof_shepherd_dir, pathp, sizeof(woof_shepherd_dir));
-#ifdef DEBUG
-	fprintf(stdout,"WooFForker: sending env to helper\n");
-	fflush(stdout);
-#endif
+            WooFDrop(wf);
 
-	/* 0 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOFC_NAMESPACE=%s", WooF_namespace);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write [%d] %s\n",ta->parenttochild[1],hbuff);
-		perror("WoofForker");
-		exit(1);
-	}
+            std::vector<char*> eenvp(env.size());
+            std::transform(
+                env.begin(), env.end(), eenvp.begin(), [](auto& str) { return const_cast<char*>(str.c_str()); });
+            eenvp.push_back(nullptr);
 
-	/* 1 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOFC_DIR=%s", WooF_dir);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
+            execve(binary.c_str(), earg, eenvp.data());
 
-	/* 2 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_HOST_IP=%s", Host_ip);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
+            fprintf(stderr, "WooFForker: execve of %s failed\n", binary.c_str());
+            exit(1);
+        } else if (pid < 0) {
+            //            fprintf(stderr,
+            //                    "WooFForker: fork failed for %s/%s in %s/%s\n",
+            //                    WooF_dir,
+            //                    ev[first].woofc_handler,
+            //                    WooF_namespace,
+            //                    wf->shared->filename);
+            //            fflush(stderr);
+            should_exit = true;
+        } else { /* parent */
 
-	/* 3 */
-/*
- * XXX if we can get the file name in a different way we can eliminate this call to WooFOpen()
- */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_SHEPHERD_NAME=%s", wf->shared->filename);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 4 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_SHEPHERD_NDX=%lu", ev[first].woofc_ndx);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 5 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_SHEPHERD_SEQNO=%lu", ev[first].woofc_seq_no);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 6 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_NAME_ID=%lu", Name_id);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 7 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_NAMELOG_DIR=%s", WooF_namelog_dir);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 8 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_NAMELOG_NAME=%s", Namelog_name);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 9 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "WOOF_NAMELOG_SEQNO=%llu", ev[first].seq_no);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/* 10 */
-	memset(hbuff,0,sizeof(hbuff));
-	strcpy(hbuff, "LD_LIBRARY_PATH=/usr/local/lib");
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-	/*
-	 * now send handler
-	 */
-	memset(hbuff,0,sizeof(hbuff));
-	sprintf(hbuff, "%s/%s", WooF_dir, ev[first].woofc_handler);
-	err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-	if(err <= 0) {
-		fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-		exit(1);
-	}
-
-
-	WooFDrop(wf);
-
-       /*
-        * remember its sequence number for next time
-        */
-        last_seq_no = (unsigned long)ev[first].seq_no; /* log seq_no */
-        DEBUG_LOG("WooFForker: namespace: %s seq_no: %llu, handler: %s\n",
+            /*
+             * remember its sequence number for next time
+             */
+            last_seq_no = (unsigned long)ev[first].seq_no; /* log seq_no */
+            DEBUG_LOG("WooFForker: namespace: %s seq_no: %llu, handler: %s\n",
                       WooF_namespace,
                       ev[first].seq_no,
                       ev[first].woofc_handler);
-        LogFree(log_tail);
+            LogFree(log_tail);
+        }
 
-	 err = read(ta->childtoparent[0],&c,1);
-         if(err <= 0) {
-                fprintf(stderr,"WooFForker: woofc-forker-helper closed\n");
-                exit(1);
-         }
-#ifdef DEBUG
-         fprintf(stdout,"WooFForker: helper signal received");
-         fflush(stdout);
-#endif
-         V(&ForkerThrottle);
-         Tcount++;
-         DEBUG_LOG("WooFForker: helper signal received Tcount: %d\n", Tcount.load());
+        while (waitpid(-1, &status, WNOHANG) > 0) {
+            V(&ForkerThrottle);
+            Tcount++;
+            DEBUG_LOG("Parent: count after increment: %d\n", Tcount.load());
+        }
     }
 
     fprintf(stderr, "WooFForker namespace: %s exiting\n", WooF_namespace);
