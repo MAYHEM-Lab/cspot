@@ -195,6 +195,9 @@ void WooFForker() {
     EVENT last_event{}; /* needed to understand if log tail has changed */
     int status;
     int pid;
+    double start;
+    double stop;
+    double duration;
 
     /*
      * wait for things to show up in the log
@@ -390,8 +393,13 @@ void WooFForker() {
         Tcount--;
         DEBUG_LOG("Forker awake, after decrement %d\n", Tcount.load());
 
+	STARTCLOCK(&start);
         pid = fork();
         if (pid == 0) {
+	STARTCLOCK(&stop);
+	duration = DURATION(start,stop);
+	fprintf(stdout,"DURATION: fork : %f\n",duration);
+        fflush(stdout);
             /*
              * I am the child.  I need the read end but not the write end
              */

@@ -5,8 +5,32 @@
 #include <vector>
 #include <random>
 #include <cmath>
-
 #include <unistd.h>
+
+#define TIMING
+
+#ifdef TIMING
+
+#include <sys/time.h>
+
+
+
+
+#define STARTCLOCK(startp) {struct timeval tm;\
+                            gettimeofday(&tm,NULL);\
+                            *startp=((double)((double)tm.tv_sec + (double)tm.tv_usec/1000000.0));}
+#define STOPCLOCK(stopp) {struct timeval tm;\
+                          gettimeofday(&tm,NULL);\
+                          *stopp=((double)((double)tm.tv_sec + (double)tm.tv_usec/1000000.0));}
+#define DURATION(start,stop) ((double)(stop-start))
+
+#else
+
+#define STARTCLOCK(startp)
+#define STOPCLOCK(stopp)
+#define DURATION(start,stop)
+
+#endif
 
 void online_linreg_multinode() {
     // Update variables (num, x, y, xx, xy)
@@ -169,7 +193,13 @@ void online_linreg_multinode() {
 
     // Initialization
 
-    int iters = 2;
+    int iters = 20;
+
+    double start;
+    double stop;
+    double duration;
+    double avg;
+    STARTCLOCK(&start);
 
     std::cout << "Initializing constants" << std::endl;
 
@@ -214,6 +244,7 @@ void online_linreg_multinode() {
     }
 
     while (woof_last_seq("laminar-1.output.6") < 1) {
+        std::cout << "sleeping" << std::endl;
         sleep(1);
     }
 
@@ -259,9 +290,17 @@ void online_linreg_multinode() {
         slopes.push_back(op2.value);
     }
 
+    STOPCLOCK(&stop);
+    avg = DURATION(start,stop) / iters;
+
     for (int i = 0; i < iters; i++) {
         std::cout << "y = " << slopes[i] << "x + " << intercepts[i] << std::endl;
     }
+
+#ifdef TIMING
+    std::cout << "avg: " << avg << std::endl;
+    std::cout << "total: " << DURATION(start,stop) << std::endl;
+#endif
 }
 
 int main() {
