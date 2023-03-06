@@ -36,7 +36,7 @@ typedef struct forker_stc FARG;
 
 
 namespace {
-constexpr auto WOOF_CONTAINER_FORKERS = 15;
+constexpr auto WOOF_CONTAINER_FORKERS = 20;
 std::atomic<bool> should_exit;
 
 sema ForkerThrottle;
