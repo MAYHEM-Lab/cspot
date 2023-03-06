@@ -199,7 +199,6 @@ void online_linreg_multinode() {
     double stop;
     double duration;
     double avg;
-    STARTCLOCK(&start);
 
     std::cout << "Initializing constants" << std::endl;
 
@@ -248,6 +247,7 @@ void online_linreg_multinode() {
         sleep(1);
     }
 
+    STARTCLOCK(&start);
     // Run program
 
     std::random_device rd;

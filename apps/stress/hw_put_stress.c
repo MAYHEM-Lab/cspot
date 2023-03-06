@@ -6,8 +6,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "W:C:N:"
-char* Usage = "hw -W woof_name\n";
+#define ARGS "W:C:N:L"
+char* Usage = "hw_put_stress -W woof_name\n\
+\t-N number of messages\n\
+\t-L use local woof\n";
 
 char Wname[4096];
 
@@ -17,6 +19,7 @@ int main(int argc, char** argv) {
     char msg[4096] = {0};
     unsigned long ndx;
     unsigned long cnt;
+    int local = 0;
 
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
         switch (c) {
@@ -29,6 +32,9 @@ int main(int argc, char** argv) {
         case 'N':
             cnt = strtoul(optarg, NULL, 10);
             break;
+	case 'L':
+	    local = 1;
+	    break;
         default:
             fprintf(stderr, "unrecognized command %c\n", (char)c);
             fprintf(stderr, "%s", Usage);
@@ -43,10 +49,14 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    if(local == 1) {
+		WooFInit();
+    }
+
     unsigned long i;
     for (i = 0; i < cnt; ++i) {
         sprintf(el.string, "%s: %lu", msg, i);
-        ndx = WooFPut(Wname, "hw", (void*)&el);
+        ndx = WooFPut(Wname, "hw_stress", (void*)&el);
         if (WooFInvalid(ndx)) {
             fprintf(stderr, "first WooFPut failed for %s\n", Wname);
             fflush(stderr);

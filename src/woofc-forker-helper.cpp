@@ -95,7 +95,7 @@ int main(int argc,char **argv, char **env)
 			fprintf(stdout,"execve of %s failed\n",hbuff);
 			fflush(stdout);
 			close(2);
-			exit(0);
+			_exit(0);
 		}
 #ifdef DEBUG
 		fprintf(stdout,"woofc-forker-helper: vfork completed for handler %s\n",hbuff);

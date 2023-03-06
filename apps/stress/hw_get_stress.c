@@ -6,8 +6,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "W:N:"
-char* Usage = "hw -W woof_name\n";
+#define ARGS "W:N:L"
+char* Usage = "hw -W woof_name\n\
+\t-N number of gets\n\
+\t-L use local woof\n";
 
 char Wname[4096];
 
@@ -16,6 +18,7 @@ int main(int argc, char** argv) {
     HW_EL el;
     unsigned long ndx;
     unsigned long cnt;
+    int local = 0;
 
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
         switch (c) {
@@ -25,6 +28,9 @@ int main(int argc, char** argv) {
         case 'N':
             cnt = strtoul(optarg, NULL, 10);
             break;
+        case 'L':
+	    local = 1;
+	    break;
         default:
             fprintf(stderr, "unrecognized command %c\n", (char)c);
             fprintf(stderr, "%s", Usage);
@@ -37,6 +43,10 @@ int main(int argc, char** argv) {
         fprintf(stderr, "%s", Usage);
         fflush(stderr);
         exit(1);
+    }
+
+    if(local == 1) {
+	WooFInit();
     }
 
     unsigned long i;
