@@ -5,7 +5,7 @@
 #ifndef CSPOT_DFDEBUG_H
 #define CSPOT_DFDEBUG_H
 
-#include "dftype.h"
+#include "type_system/dftype.h"
 
 enum LOG_LEVELS
 {

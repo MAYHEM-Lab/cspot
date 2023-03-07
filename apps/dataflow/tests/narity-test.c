@@ -1,5 +1,5 @@
-#include "../dfinterface.h"
-#include "../dfoperation.h"
+#include "../src/dfinterface.h"
+#include "../src/dfoperation.h"
 
 #include <unistd.h>
 

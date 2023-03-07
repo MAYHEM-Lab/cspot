@@ -101,7 +101,7 @@ int handler(WOOF* wf, unsigned long seq_no, void* ptr) { \
 } \
 } \
 ")
-    add_executable(${name} ${ARGV})
+    add_executable(${name} ${ARGV1})
     target_link_libraries(${name} PRIVATE woofc-shepherd)
     target_sources(${name} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp")
 endfunction()

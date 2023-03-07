@@ -4,7 +4,7 @@
 #ifndef CSPOT_DFOPERATION_H
 #define CSPOT_DFOPERATION_H
 
-#include "dftype.h"
+#include "type_system/dftype.h"
 
 /**
  * TYPE - COMMAND_TYPE - COMMAND

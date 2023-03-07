@@ -2,7 +2,7 @@
 #define DF_H
 
 #include "dfoperation.h"
-#include "dftype.h"
+#include "type_system/dftype.h"
 
 enum df_node_state_enum
 {
