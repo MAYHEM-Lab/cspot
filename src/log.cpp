@@ -232,7 +232,8 @@ LOG* LogTail(LOG* log, unsigned long long earliest, unsigned long max_size) {
             }
         }
         curr = curr - 1;
-        if (curr >= log->size) {
+//NOBUG        if (curr >= log->size) {
+        if (curr  < 0) {
             curr = (log->size - 1);
         }
         if (curr == log->tail) { /* this behind the last valid */
@@ -272,6 +273,7 @@ void LogPrint(FILE* fd, LOG* log) {
         fflush(fd);
         curr = curr - 1;
         if (curr >= log->size) {
+//NOBUG        if (curr < 0) {
             curr = log->size - 1;
         }
     }
