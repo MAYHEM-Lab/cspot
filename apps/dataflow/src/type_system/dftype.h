@@ -21,10 +21,10 @@ enum df_types_enum
     DF_UNSIGNED_INTEGER,
     DF_UNSIGNED_LONG,
     DF_DOUBLE,
-    DF_STRING,
     DF_DATETIME,
 
     // Compound Types
+    DF_STRING,
     DF_ARRAY,
     DF_LIST,
     DF_STREAM,
@@ -45,24 +45,24 @@ struct df_value_array {
     struct df_storage_system storage_system;
     size_t size;
     enum df_types_enum type;
-    void* value;
+    const void* value;
 };
 typedef struct df_value_array DF_VALUE_ARRAY;
 
 
-/* **************** OBJECT **************** */
-struct df_object_element {
+/* **************** RECORD **************** */
+struct df_record_element {
     char identifier[21];
     enum df_types_enum type;
     struct df_types_struct* value;
 };
-typedef struct df_object_element DF_OBJECT_ELEMENTS;
+typedef struct df_record_element DF_RECORD_ELEMENTS;
 
-struct df_value_object {
+struct df_value_record {
     struct df_storage_system storage_system;
-    struct df_object_element element;
+    struct df_record_element element;
 };
-typedef struct df_value_object DF_VALUE_OBJECT;
+typedef struct df_value_record DF_VALUE_RECORD;
 
 
 /* **************** NODE VALUE **************** */
@@ -72,9 +72,8 @@ union df_values_union {
     int df_int;
     long df_long;
     double df_double;
-    char* df_string;
     struct df_value_array df_array;
-    struct df_value_object df_object;
+    struct df_value_record df_object;
 };
 typedef union df_values_union DF_TYPE_VALUE;
 
@@ -85,8 +84,8 @@ struct df_types_struct {
 typedef struct df_types_struct DF_VALUE;
 
 
-int write_value(DF_VALUE* value);
-int read_value(DF_VALUE* value);
+int write_value(const DF_VALUE* value);
+int read_value(const DF_VALUE* value);
 
 
 #endif // CSPOT_DFTYPE_H

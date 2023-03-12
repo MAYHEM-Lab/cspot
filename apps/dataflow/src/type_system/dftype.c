@@ -3,10 +3,12 @@
 //
 #include "dftype.h"
 
+#define PRIMITIVE_WOOF_PREFIX "primitive"
 
-int write_value(DF_VALUE* value) {
+
+int write_value(const DF_VALUE* value) {
 }
 
 
-int read_value(DF_VALUE* value) {
+int read_value(const DF_VALUE* value) {
 }
