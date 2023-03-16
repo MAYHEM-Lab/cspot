@@ -344,7 +344,6 @@ void WooFForker(FARG *ta) {
                 /* now walk forward looking for FIRING */
                 DEBUG_LOG("WooFForker: considering %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                 firing = (first - 1);
-//NOBUG                if (firing >= log_tail->size) {
                 if (firing < 0) {
                     firing = log_tail->size - 1;
                 }
@@ -363,7 +362,6 @@ void WooFForker(FARG *ta) {
                         break;
                     }
                     firing = firing - 1;
-//NOBUG                    if (firing >= log_tail->size) {
                     if (firing < 0) {
                         firing = log_tail->size - 1;
                     }
@@ -397,7 +395,6 @@ void WooFForker(FARG *ta) {
 
             // TODO: only go back to latest triggered
             first = (first - 1);
-//NOBUG            if (first >= log_tail->size) {
             if (first < 0) {
                 first = log_tail->size - 1;
             }
