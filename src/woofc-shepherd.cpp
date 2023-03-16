@@ -406,6 +406,7 @@ int main(int argc, char** argv, char** envp) {
     fprintf(stdout, "WooFShepherd: exiting, seq_no: %lu\n", seq_no);
     fflush(stdout);
 #endif
+
     exit(0);
     return (0);
 }

@@ -142,7 +142,8 @@ void* WooFForker(void* arg) {
                 break;
             }
             first = (first - 1);
-            if (first >= log_tail->size) {
+//BUG            if (first >= log_tail->size) {
+           if (first < 0) {
                 first = log_tail->size - 1;
             }
         }
@@ -190,7 +191,8 @@ void* WooFForker(void* arg) {
             }
 
             first = (first - 1);
-            if (first >= log_tail->size) {
+//BUG            if (first >= log_tail->size) {
+            if (first < 0) {
                 first = log_tail->size - 1;
             }
             if (first == log_tail->tail) {
