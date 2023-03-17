@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     WooFInit();
 
 
-    err = WooFCreate(Wname, sizeof(HW_EL), 32768);
+    err = WooFCreate(Wname, sizeof(HW_EL), 10000);
     if (err < 0) {
         fprintf(stderr, "couldn't create woof from %s\n", Wname);
         fflush(stderr);

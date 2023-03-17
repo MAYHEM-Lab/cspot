@@ -46,6 +46,7 @@ int main(int argc, char** argv, char** envp) {
     WOOF* wf;
     WOOF_SHARED* wfs;
     ELID* el_id;
+    ELID l_el_id;
     unsigned char* buf;
     unsigned char* ptr;
     unsigned char* farg;
@@ -276,6 +277,26 @@ int main(int argc, char** argv, char** envp) {
 
         memcpy(farg, ptr, wfs->element_size);
 
+	/*
+	 * possible RACE condition
+	 *
+	 * if the woof wrapped between the time we appended the woof and
+	 * the handler fired, print an error and exit without firing the
+	 * handler on the wrong element
+	 * 
+	 * assume memcpy is thread safe and use a local copy
+	 */
+
+	memcpy(&l_el_id,el_id,sizeof(ELID));
+	if(l_el_id.seq_no != seq_no) {
+		fprintf(stderr,
+"ERROR: handler %s assigned seq_no %d does not match element seq_no %d -- ",
+		wf_name,seq_no,l_el_id.seq_no);
+		fprintf(stderr, "Possible fix is to make the woof bigger\n");
+		exit(0);
+	}
+
+#if 0
         /*
          * now that we have the argument copied, free the slot in the woof
          */
@@ -298,6 +319,7 @@ int main(int argc, char** argv, char** envp) {
         V(&wfs->tail_wait);
 
         V(&wfs->mutex);
+#endif
 #ifdef DEBUG
         fprintf(stdout, "WooFShepherd: exited mutex\n");
         fflush(stdout);
@@ -317,13 +339,6 @@ int main(int argc, char** argv, char** envp) {
         fprintf(stdout, "WooFShepherd: %s done with seq_no: %lu\n", st, seq_no);
         fflush(stdout);
 #endif
-#ifdef DONEFLAG
-        /*
-         * set the done flag in case there is a sync on
-         */
-        wfs->done = 1;
-#endif
-
         free(farg);
 #ifdef DEBUG
         fprintf(stdout, "WooFShepherd: called free, seq_no: %lu\n", seq_no);
@@ -335,65 +350,6 @@ int main(int argc, char** argv, char** envp) {
 
         break; // for no caching case
 
-        /*
-         * block waiting on a read of a new seq_no and ndx
-         */
-#if 0
-		FD_ZERO(&readfd);
-		FD_SET(0,&readfd);
-#endif
-        read_poll.fd = 0;
-        read_poll.events = POLLIN;
-        read_poll.revents = 0;
-        timeout.tv_sec = WOOF_SHEPHERD_TIMEOUT;
-        timeout.tv_usec = 0;
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: calling select\n");
-        fflush(stdout);
-#endif
-        //		err = select(1,&readfd,NULL,NULL,&timeout);
-        err = poll(&read_poll, 1, WOOF_SHEPHERD_TIMEOUT * 1000);
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: select finished with %d\n", err);
-        fflush(stdout);
-#endif
-        if (err == 0) { // timeout
-#ifdef DEBUG
-            fprintf(stdout, "WooFShepherd: timeout, going to exit\n");
-            fflush(stdout);
-#endif
-            break;
-        }
-
-        if (err < 0) {
-            fprintf(stderr, "WooFShepherd: select failed\n");
-            perror("WooFShepherd: select failed");
-            fflush(stderr);
-            break;
-        }
-
-        err = read(0, &seq_no, sizeof(seq_no));
-        if (err == 0) { // EOF means container doesn't need this process
-            break;
-        } else if (err < 0) {
-            fprintf(stderr, "WooFShepherd: bad read of stdin for seq_no\n");
-            perror("WooFShepherd: bad read");
-            break;
-        }
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: got new seq_no: %lu\n", seq_no);
-        fflush(stdout);
-#endif
-        err = read(0, &ndx, sizeof(ndx));
-        if (err <= 0) {
-            fprintf(stderr, "WooFShepherd: bad read of stdin for ndx\n");
-            perror("WooFShepherd: bad read");
-            break;
-        }
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: got new ndx: %lu\n", ndx);
-        fflush(stdout);
-#endif
     }
 
 #ifdef DEBUG

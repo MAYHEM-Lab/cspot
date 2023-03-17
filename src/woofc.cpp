@@ -703,9 +703,6 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
             /*
              * mark the woof as done for purposes of sync
              */
-#if DONEFLAG
-            wfs->done = 1;
-#endif
             V(&wfs->tail_wait);
             return (-1);
         }
@@ -715,17 +712,13 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
 
     EventFree(ev);
 
-    if (hand_name == NULL) {
-        /*
-         * mark the woof as done for purposes of sync
-         */
-#if DONEFLAG
-        wfs->done = 1;
-#endif
-        V(&wfs->tail_wait);
-    } else {
+    /*
+     * if there is a handler, wake a forker
+     */
+    if (hand_name != NULL) {
         V(&Name_log->tail_wait);
     }
+    V(&wfs->tail_wait);
     return (seq_no);
 }
 
