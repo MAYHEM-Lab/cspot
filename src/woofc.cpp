@@ -988,9 +988,11 @@ int WooFGet(const char* wf_name, void* element, unsigned long seq_no) {
     } else {
         my_log_seq_no = 0;
     }
+#if 0 // handled in read with cause now
     if (seq_no == 0) {
         seq_no = WooFLatestSeqno(wf);
     }
+#endif
     err = WooFReadWithCause(wf, element, seq_no, Name_id, my_log_seq_no);
 
     WooFDrop(wf);
@@ -1286,6 +1288,18 @@ int WooFReadWithCause(
     buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
 
     P(&wfs->mutex);
+
+    if(seq_no == 0) { // use 0 to indicate read end of log
+	if(wfs->seq_no == 0) {
+#ifdef DEBUG
+		fprintf(stdout,"reading empty woof %s\n",
+			wfs->filename);
+#endif
+		V(&wfs->mutex);
+		return(-1);
+	}
+	seq_no = wfs->seq_no - 1;
+    }
 
     ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
