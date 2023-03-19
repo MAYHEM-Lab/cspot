@@ -2,6 +2,7 @@
 #define DF_H
 
 #include <cmath>
+#include <cstring>
 
 // opcodes
 
@@ -36,11 +37,54 @@ static const char* OPCODE_STR[OPCODES_N] = {
 #undef OP
 };
 
+enum DFWoofType {
+    OUTPUT_WOOF_TYPE = 0, 
+    SUBSCRIPTION_EVENTS_WOOF_TYPE,
+    SUBSCRIPTION_POINTER_WOOF_TYPE,
+    SUBSCRIBER_MAP_WOOF_TYPE,
+    SUBSCRIBER_DATA_WOOF_TYPE,
+    SUBSCRIPTION_MAP_WOOF_TYPE,
+    SUBSCRIPTION_DATA_WOOF_TYPE,
+    SUBSCRIPTION_POS_WOOF_TYPE,
+    NODES_WOOF_TYPE, 
+    HOST_ID_WOOF_TYPE,
+    HOSTS_WOOF_TYPE
+};
+
+static const char* DFWOOFTYPE_STR[] = {
+    "output",
+    "subscription_events",
+    "subscription_pointer",
+    "subscriber_map",
+    "subscriber_data",
+    "subscription_map",
+    "subscription_data",
+    "subscription_pos",
+    "nodes",
+    "host_id",
+    "hosts"
+};
+
 struct operand {
     double value;
     unsigned long seq;
 
     operand(double value=0.0, unsigned long seq=1) : value(value), seq(seq) {}
+};
+
+struct cached_output {
+    operand op;
+    unsigned long seq; // CSPOT seq in output woof
+
+    // Defaults execution iteration and seq to 0 so initial access is thrown out and updated
+    cached_output(operand op=operand(0.0, 0), unsigned long seq=0) : op(op), seq(seq) {}
+};
+
+struct execution_iteration_lock {
+    unsigned long iter; // Current execution iteration
+    bool lock;          // True if a handler has claimed this iteration
+
+    execution_iteration_lock(unsigned long iter=1, bool lock=false) : iter(iter), lock(lock) {}
 };
 
 struct subscriber {
@@ -79,9 +123,10 @@ struct subscription_event {
 
 struct node {
     int id;
+    int host_id;
     int opcode;
 
-    node(int id=0, int opcode=0) : id(id), opcode(opcode) {}
+    node(int id=0, int host_id=0, int opcode=0) : id(id), host_id(host_id), opcode(opcode) {}
 
     bool operator<(const node& other) const {
         return id < other.id;
@@ -141,5 +186,26 @@ struct Regression {
     }
 };
 
+struct host {
+    int host_id;
+    char host_url[200];
+
+    host(int host_id_=0, char host_url_[200]=""){
+        host_id = host_id_;
+        strcpy(host_url, host_url_);
+    }
+
+    bool operator<(const host& other) const {
+        return host_id < other.host_id;
+    }
+};
+
+// #define DEBUG
+
+#ifdef DEBUG
+#define DEBUG_PRINT(str) { std::cout << "[" << woof_name << "] " << "[" << consumer_seq << "] " << str << std::endl << std::flush; }
+#else
+#define DEBUG_PRINT(str) { }
+#endif
 
 #endif

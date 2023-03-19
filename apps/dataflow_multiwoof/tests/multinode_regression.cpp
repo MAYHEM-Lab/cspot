@@ -1,97 +1,74 @@
 #include "../dfinterface.h"
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <random>
-#include <cmath>
+#include <chrono>
+#include <thread>
 #include <unistd.h>
-
-#define TIMING
-
-#ifdef TIMING
-
-#include <sys/time.h>
-
-
-
-
-#define STARTCLOCK(startp) {struct timeval tm;\
-                            gettimeofday(&tm,NULL);\
-                            *startp=((double)((double)tm.tv_sec + (double)tm.tv_usec/1000000.0));}
-#define STOPCLOCK(stopp) {struct timeval tm;\
-                          gettimeofday(&tm,NULL);\
-                          *stopp=((double)((double)tm.tv_sec + (double)tm.tv_usec/1000000.0));}
-#define DURATION(start,stop) ((double)(stop-start))
-
-#else
-
-#define STARTCLOCK(startp)
-#define STOPCLOCK(stopp)
-#define DURATION(start,stop)
-
-#endif
 
 void online_linreg_multinode() {
     // Update variables (num, x, y, xx, xy)
 
-    add_node(1, 1, MUL);    // num *= decay_rate
-    add_node(1, 2, MUL);    // x *= decay_rate
-    add_node(1, 3, MUL);    // y *= decay_rate
-    add_node(1, 4, MUL);    // xx *= decay_rate
-    add_node(1, 5, MUL);    // xy *= decay_rate
-    add_node(1, 6, ADD);    // num += 1
-    add_node(1, 7, ADD);    // x += new_x
-    add_node(1, 8, ADD);    // y += new_y
-    add_node(1, 9, MUL);    // new_x ^ 2
-    add_node(1, 10, ADD);   // xx += new_x ^ 2
-    add_node(1, 11, MUL);   // new_x * new_y
-    add_node(1, 12, ADD);   // xy += new_x * new_y
-    add_node(1, 13, OFFSET);// num seq + 1
-    add_node(1, 14, OFFSET);// x seq + 1
-    add_node(1, 15, OFFSET);// y seq + 1
-    add_node(1, 16, OFFSET);// xx seq + 1
-    add_node(1, 17, OFFSET);// xy seq + 1
-    add_node(1, 18, SEL);   // num or 0?
-    add_node(1, 19, SEL);   // x or 0?
-    add_node(1, 20, SEL);   // y or 0?
-    add_node(1, 21, SEL);   // xx or 0?
-    add_node(1, 22, SEL);   // xy or 0?
+    add_node(1, 1, 1, MUL);    // num *= decay_rate
+    add_node(1, 1, 2, MUL);    // x *= decay_rate
+    add_node(1, 1, 3, MUL);    // y *= decay_rate
+    add_node(1, 1, 4, MUL);    // xx *= decay_rate
+    add_node(1, 1, 5, MUL);    // xy *= decay_rate
+    add_node(1, 1, 6, ADD);    // num += 1
+    add_node(1, 1, 7, ADD);    // x += new_x
+    add_node(1, 1, 8, ADD);    // y += new_y
+    add_node(1, 1, 9, MUL);    // new_x ^ 2
+    add_node(1, 1, 10, ADD);   // xx += new_x ^ 2
+    add_node(1, 1, 11, MUL);   // new_x * new_y
+    add_node(1, 1, 12, ADD);   // xy += new_x * new_y
+    add_node(1, 1, 13, OFFSET);// num seq + 1
+    add_node(1, 1, 14, OFFSET);// x seq + 1
+    add_node(1, 1, 15, OFFSET);// y seq + 1
+    add_node(1, 1, 16, OFFSET);// xx seq + 1
+    add_node(1, 1, 17, OFFSET);// xy seq + 1
+    add_node(1, 1, 18, SEL);   // num or 0?
+    add_node(1, 1, 19, SEL);   // x or 0?
+    add_node(1, 1, 20, SEL);   // y or 0?
+    add_node(1, 1, 21, SEL);   // xx or 0?
+    add_node(1, 1, 22, SEL);   // xy or 0?
 
     // Calculate slope and intercept
 
-    add_node(2, 1, MUL);    // num * xx
-    add_node(2, 2, MUL);    // x * x
-    add_node(2, 3, SUB);    // det = num * xx - x * x
-    add_node(2, 4, MUL);    // xx * y
-    add_node(2, 5, MUL);    // xy * x
-    add_node(2, 6, SUB);    // xx * y - xy * x
-    add_node(2, 7, DIV);    // intercept = (xx * y - xy * x) / det;
-    add_node(2, 8, MUL);    // xy * num
-    add_node(2, 9, MUL);    // x * y
-    add_node(2, 10, SUB);   // xy * num - x * y
-    add_node(2, 11, DIV);   // slope = (xy * num - x * y) / det;
-    add_node(2, 12, GT);    // det > 1e-10?
+    add_node(2, 1, 1, MUL);    // num * xx
+    add_node(2, 1, 2, MUL);    // x * x
+    add_node(2, 1, 3, SUB);    // det = num * xx - x * x
+    add_node(2, 1, 4, MUL);    // xx * y
+    add_node(2, 1, 5, MUL);    // xy * x
+    add_node(2, 1, 6, SUB);    // xx * y - xy * x
+    add_node(2, 1, 7, DIV);    // intercept = (xx * y - xy * x) / det;
+    add_node(2, 1, 8, MUL);    // xy * num
+    add_node(2, 1, 9, MUL);    // x * y
+    add_node(2, 1, 10, SUB);   // xy * num - x * y
+    add_node(2, 1, 11, DIV);   // slope = (xy * num - x * y) / det;
+    add_node(2, 1, 12, GT);    // det > 1e-10?
     // add_node(2, 13, SEL);   // intercept or 0?
     // add_node(2, 14, SEL);   // slope or 0?
 
     // Constants
 
-    add_operand(3, 1);      // const 1
-    add_operand(3, 2);      // const 0
-    add_operand(3, 3);      // decay_factor = exp(-dt / T)
-    add_operand(3, 4);      // handle init (0, 1, 1, ..., 1)
-    add_operand(3, 5);      // const 1e-10
+    add_operand(3, 1, 1);      // const 1
+    add_operand(3, 1, 2);      // const 0
+    add_operand(3, 1, 3);      // decay_factor = exp(-dt / T)
+    add_operand(3, 1, 4);      // handle init (0, 1, 1, ..., 1)
+    add_operand(3, 1, 5);      // const 1e-10
 
     // Inputs
 
-    add_operand(4, 1);      // input x
-    add_operand(4, 2);      // input y
+    add_operand(4, 1, 1);      // input x
+    add_operand(4, 1, 2);      // input y
 
     // Outputs
 
-    add_node(5, 1, SEL);         // intercept = intercept or 0
-    add_node(5, 2, SEL);         // slope = slope or 0
+    add_node(5, 2, 1, SEL);         // intercept = intercept or 0
+    add_node(5, 2, 2, SEL);         // slope = slope or 0
 
     // Edges
 
@@ -187,18 +164,11 @@ void online_linreg_multinode() {
     // std::cout << graphviz_representation();
     // return;
 
-    for (int i = 1; i <= 5; i++) {
-        setup(i);
-    }
+    setup();
 
     // Initialization
 
-    int iters = 20;
-
-    double start;
-    double stop;
-    double duration;
-    double avg;
+    int iters = 2;
 
     std::cout << "Initializing constants" << std::endl;
 
@@ -243,11 +213,9 @@ void online_linreg_multinode() {
     }
 
     while (woof_last_seq("laminar-1.output.6") < 1) {
-        std::cout << "sleeping" << std::endl;
         sleep(1);
     }
 
-    STARTCLOCK(&start);
     // Run program
 
     std::random_device rd;
@@ -290,19 +258,15 @@ void online_linreg_multinode() {
         slopes.push_back(op2.value);
     }
 
-    STOPCLOCK(&stop);
-    avg = DURATION(start,stop) / iters;
-
     for (int i = 0; i < iters; i++) {
         std::cout << "y = " << slopes[i] << "x + " << intercepts[i] << std::endl;
     }
-
-#ifdef TIMING
-    std::cout << "avg: " << avg << std::endl;
-    std::cout << "total: " << DURATION(start,stop) << std::endl;
-#endif
 }
 
 int main() {
+    
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+    
     online_linreg_multinode();
 }
