@@ -1160,7 +1160,8 @@ unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
         return (-1);
     }
     DEBUG_LOG("WooFGetLatestSeqno: WooF %s open\n", wf_name);
-    latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof_name, cause_woof_latest_seq_no);
+//    latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof_name, cause_woof_latest_seq_no);
+    latest_seq_no = wf->shared->seq_no - 1;
     WooFDrop(wf);
 
     return (latest_seq_no);
