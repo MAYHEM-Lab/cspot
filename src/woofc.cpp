@@ -1282,6 +1282,7 @@ int WooFReadWithCause(
     ELID* el_id;
     EVENT* ev;
     unsigned long ls;
+    unsigned long l_seq_no;
 
     wfs = wf->shared;
 
@@ -1298,7 +1299,9 @@ int WooFReadWithCause(
 		V(&wfs->mutex);
 		return(-1);
 	}
-	seq_no = wfs->seq_no - 1;
+	l_seq_no = wfs->seq_no - 1;
+    } else {
+	l_seq_no = seq_no;
     }
 
     ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
@@ -1325,7 +1328,7 @@ int WooFReadWithCause(
             wfs->tail,
             wfs->history_size,
             last_valid,
-            seq_no,
+            l_seq_no,
             oldest,
             youngest);
 #endif
@@ -1333,12 +1336,12 @@ int WooFReadWithCause(
     /*
      * is the seq_no between head and tail ndx?
      */
-    if ((seq_no < oldest) || (seq_no > youngest)) {
+    if ((l_seq_no < oldest) || (l_seq_no > youngest)) {
         V(&wfs->mutex);
         fprintf(stdout,
                 "WooFReadWithCause: seq_no not in range: seq_no: %lu, oldest: %lu, "
                 "youngest: %lu\n",
-                seq_no,
+                l_seq_no,
                 oldest,
                 youngest);
         fflush(stdout);
@@ -1348,7 +1351,7 @@ int WooFReadWithCause(
     /*
      * yes, compute ndx forward from last_valid ndx
      */
-    ndx = (last_valid + (seq_no - oldest)) % wfs->history_size;
+    ndx = (last_valid + (l_seq_no - oldest)) % wfs->history_size;
 
     DEBUG_LOG("WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
               "%lu old: %lu young: %lu ndx: %lu\n",
@@ -1356,14 +1359,14 @@ int WooFReadWithCause(
               wfs->tail,
               wfs->history_size,
               last_valid,
-              seq_no,
+              l_seq_no,
               oldest,
               youngest,
               ndx);
 
     ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
-    DEBUG_LOG("WooFReadWithCause: seq_no: %lu, found seq_no: %lu\n", seq_no, el_id->seq_no);
+    DEBUG_LOG("WooFReadWithCause: seq_no: %lu, found seq_no: %lu\n", l_seq_no, el_id->seq_no);
     memcpy(element, ptr, wfs->element_size);
     V(&wfs->mutex);
 
@@ -1387,7 +1390,7 @@ int WooFReadWithCause(
 
     ev->woofc_ndx = ndx;
     DEBUG_LOG("WooFReadWithCause: ndx: %lu\n", ev->woofc_ndx);
-    ev->woofc_seq_no = seq_no;
+    ev->woofc_seq_no = l_seq_no;
     DEBUG_LOG("WooFReadWithCause: seq_no: %lu\n", ev->woofc_seq_no);
     ev->woofc_element_size = wfs->element_size;
     DEBUG_LOG("WooFReadWithCause: element_size %lu\n", ev->woofc_element_size);
