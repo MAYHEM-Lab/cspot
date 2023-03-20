@@ -537,17 +537,18 @@ unsigned long WooFAppendWithCause(
     unsigned long my_log_seq_no;
     EVENT* ev;
     unsigned long ls;
-// handler tracking
+#ifdef TRACK
     int hid;
+#endif
     DEBUG_LOG("WooFAppendWithCause: called %s %s\n", wf->shared->filename, hand_name);
 
     wfs = wf->shared;
-//handler tracking
-P(&wfs->mutex);
-hid = wfs->hid;
-wfs->hid++;
-V(&wfs->mutex);
-//handler tracking
+#ifdef TRACK
+    P(&wfs->mutex);
+    hid = wfs->hid;
+    wfs->hid++;
+    V(&wfs->mutex);
+#endif
 
     /*
      * if called from within a handler, env variable carries cause seq_no
@@ -578,7 +579,7 @@ V(&wfs->mutex);
         EventFree(ev);
         return (-1);
     }
-// handler tracking
+// sandler tracking
 if(hand_name != NULL) {
 ev->hid = hid;
 }
@@ -652,12 +653,12 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     }
     seq_no = wfs->seq_no;
     wfs->seq_no++;
-// handler tracking
-if(hand_name != NULL) {
-    el_id->hid = hid;
-//printf("%s %d START seq_no: %lu, ndx: %d\n",wfs->filename,hid,seq_no, ndx);
-}
-// handler tracking
+#ifdef TRACK
+    if(hand_name != NULL) {
+    	el_id->hid = hid;
+	printf("%s %d START seq_no: %lu, ndx: %d\n",wfs->filename,hid,seq_no, ndx);
+    }
+#endif
 
 #ifdef REPAIR
     /*
@@ -700,8 +701,9 @@ if(hand_name != NULL) {
         memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
         strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
         DEBUG_LOG("WooFAppendWithCause: handler %s\n", ev->woofc_handler);
-// handler tracking
+#ifdef TRACK
         ev->hid = hid;
+#endif
     }
 
     ev->ino = wf->ino;

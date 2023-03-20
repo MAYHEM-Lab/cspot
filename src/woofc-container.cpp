@@ -4,6 +4,7 @@
 #include "woofc-access.h"
 #include "woofc-priv.h"
 #include "woofc.h"
+#include "debug.h"
 
 #include <atomic>
 #include <cerrno>
@@ -265,6 +266,7 @@ void WooFReaper() {
 void WooFForker(FARG *ta) {
     unsigned long last_seq_no = 0;
     unsigned long trigger_seq_no;
+    unsigned long last_trigger_seq_no = 1;
     unsigned long ls;
     unsigned long first;
     unsigned long firing;
@@ -306,9 +308,9 @@ void WooFForker(FARG *ta) {
                   WooF_namespace,
                   Name_log->size,
                   last_seq_no);
-        log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
-        // log_tail = LogTail(Name_log, last_seq_no, Name_log->seq_no -
-        // Name_log->last_trigger_seq_no);
+        //log_tail = LogTail(Name_log, last_seq_no, Name_log->size);
+//printf("TAILSIZE: %d %d %d\n",Name_log->seq_no - last_trigger_seq_no, Name_log->seq_no, last_trigger_seq_no);
+        log_tail = LogTail(Name_log, last_seq_no, Name_log->seq_no - last_trigger_seq_no);
 
         if (log_tail == NULL) {
             DEBUG_LOG("WooFForker: namespace: %s no tail, continuing\n", WooF_namespace);
@@ -433,7 +435,7 @@ void WooFForker(FARG *ta) {
                   ev[first].woofc_seq_no,
                   ev[first].seq_no);
 
-        // Name_log->last_trigger_seq_no = (unsigned long long)trigger_seq_no;
+        last_trigger_seq_no = (unsigned long long)trigger_seq_no;
         /*
          * before dropping mutex, log a FIRING record
          */

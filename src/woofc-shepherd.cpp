@@ -5,6 +5,7 @@
 #include "log.h"
 #include "global.h"
 #include "net.h"
+#include "debug.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -296,11 +297,11 @@ int main(int argc, char** argv, char** envp) {
 		exit(0);
 	}
 
-// handler tracking
-//P(&wfs->mutex);
-//printf("%s %d FIRE seq_no: %lu ndx: %d\n",wfs->filename,el_id->hid, seq_no, ndx);
-//V(&wfs->mutex);
-// handler tracking
+#ifdef TRACK
+	P(&wfs->mutex);
+	printf("%s %d FIRE seq_no: %lu ndx: %d\n",wfs->filename,el_id->hid, seq_no, ndx);
+	V(&wfs->mutex);
+#endif
 
 
 #if 0
