@@ -537,9 +537,17 @@ unsigned long WooFAppendWithCause(
     unsigned long my_log_seq_no;
     EVENT* ev;
     unsigned long ls;
+// handler tracking
+    int hid;
     DEBUG_LOG("WooFAppendWithCause: called %s %s\n", wf->shared->filename, hand_name);
 
     wfs = wf->shared;
+//handler tracking
+P(&wfs->mutex);
+hid = wfs->hid;
+wfs->hid++;
+V(&wfs->mutex);
+//handler tracking
 
     /*
      * if called from within a handler, env variable carries cause seq_no
@@ -570,6 +578,10 @@ unsigned long WooFAppendWithCause(
         EventFree(ev);
         return (-1);
     }
+// handler tracking
+if(hand_name != NULL) {
+ev->hid = hid;
+}
 
     DEBUG_LOG("WooFAppendWithCause: checking for empty slot, ino: %lu\n", wf->ino);
 
@@ -640,6 +652,12 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     }
     seq_no = wfs->seq_no;
     wfs->seq_no++;
+// handler tracking
+if(hand_name != NULL) {
+    el_id->hid = hid;
+//printf("%s %d START seq_no: %lu, ndx: %d\n",wfs->filename,hid,seq_no, ndx);
+}
+// handler tracking
 
 #ifdef REPAIR
     /*
@@ -682,6 +700,8 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
         memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
         strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
         DEBUG_LOG("WooFAppendWithCause: handler %s\n", ev->woofc_handler);
+// handler tracking
+        ev->hid = hid;
     }
 
     ev->ino = wf->ino;
@@ -693,6 +713,8 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     memset(log_name, 0, sizeof(log_name));
     sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
     DEBUG_LOG("WooFAppendWithCause: logging event to %s\n", log_name);
+
+    
 
     ls = LogEvent(Name_log, ev);
     if (ls == 0) {

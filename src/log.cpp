@@ -150,6 +150,10 @@ unsigned long long LogEvent(LOG* log, EVENT* event) {
     P(&log->mutex); /* single thread for now */
     seq_no = log->seq_no;
     event->seq_no = seq_no;
+//handler tracking
+//if(event->type == TRIGGER) {
+//printf("%s %d LOG log seq_no: %d\n",event->woofc_name,event->hid,event->seq_no);
+//}
     log->seq_no++;
 #ifdef DEBUG
     printf("LogEvent: calling LogAdd\n");

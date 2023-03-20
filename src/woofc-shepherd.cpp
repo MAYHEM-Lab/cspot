@@ -296,6 +296,13 @@ int main(int argc, char** argv, char** envp) {
 		exit(0);
 	}
 
+// handler tracking
+//P(&wfs->mutex);
+//printf("%s %d FIRE seq_no: %lu ndx: %d\n",wfs->filename,el_id->hid, seq_no, ndx);
+//V(&wfs->mutex);
+// handler tracking
+
+
 #if 0
         /*
          * now that we have the argument copied, free the slot in the woof

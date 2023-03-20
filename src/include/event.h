@@ -38,6 +38,8 @@ struct event_stc {
     char woofc_namespace[1024];
     unsigned long ino; // for caching if enabled
     uint64_t timestamp;
+// handler tracking
+    int hid;
 };
 
 typedef struct event_stc EVENT;

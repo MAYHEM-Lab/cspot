@@ -24,6 +24,7 @@ struct woof_shared_stc {
 #ifdef REPAIR
     int repair_mode;
 #endif
+    int hid;
 };
 
 typedef struct woof_shared_stc WOOF_SHARED;
@@ -47,6 +48,7 @@ typedef struct woof_stc WOOF;
 struct element_stc {
     unsigned long busy;
     unsigned long long seq_no;
+    int hid;
 };
 
 typedef struct element_stc ELID;
@@ -101,8 +103,8 @@ void WooFDump(FILE* fd, char* name);
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"
 #define DEFAULT_HOST_ID (0)
-#define DEFAULT_WOOF_LOG_SIZE (10000)
-// #define DEFAULT_WOOF_LOG_SIZE (300000)
+#define DEFAULT_WOOF_LOG_SIZE (50000)
+//#define DEFAULT_WOOF_LOG_SIZE (300000)
 // #define WOOFNAMESIZE (256)
 
 #if defined(__cplusplus)

@@ -343,10 +343,13 @@ void WooFForker(FARG *ta) {
                 (ev[first].seq_no > (unsigned long long)last_seq_no)) {
                 /* now walk forward looking for FIRING */
                 DEBUG_LOG("WooFForker: considering %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
+// handler tracking
+//printf("%s %d TRIGGER log seq_no: %d\n",ev[first].woofc_name,ev[first].hid,ev[first].seq_no);
                 firing = (first - 1);
-                if (firing < 0) {
-                    firing = log_tail->size - 1;
-                }
+//                if ((long)firing < 0) {
+//printf("ERROR: resetting tail 1\n");
+//                    firing = log_tail->size - 1;
+//                }
                 trigger_seq_no = (unsigned long)ev[first].seq_no; /* for FIRING dependency */
                 firing_found = 0;
                 while (firing != log_tail->tail) {
@@ -362,13 +365,17 @@ void WooFForker(FARG *ta) {
                         break;
                     }
                     firing = firing - 1;
-                    if (firing < 0) {
-                        firing = log_tail->size - 1;
-                    }
+//                    if ((long)firing < 0) {
+//printf("ERROR: resetting tail 2\n");
+//                        firing = log_tail->size - 1;
+//                    }
                 }
                 if (firing_found == 0) {
                     DEBUG_LOG("WooFForker: no firing found for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
                     /* there is a TRIGGER with no FIRING */
+// handler tracking
+//printf("%s %d CHOSEN\n",ev[first].woofc_name,ev[first].hid);
+//fflush(stdout);
                     break;
                 }
             }
@@ -395,9 +402,9 @@ void WooFForker(FARG *ta) {
 
             // TODO: only go back to latest triggered
             first = (first - 1);
-            if (first < 0) {
-                first = log_tail->size - 1;
-            }
+//            if (first < 0) {
+//                first = log_tail->size - 1;
+//            }
             if (first == log_tail->tail) {
                 none = 1;
                 break;
@@ -442,6 +449,8 @@ void WooFForker(FARG *ta) {
         strncpy(fev->woofc_namespace, WooF_namespace, sizeof(fev->woofc_namespace));
         DEBUG_LOG("WooFForker: logging TRIGGER_FIRING for %s %llu\n", ev[first].woofc_namespace, ev[first].seq_no);
         /*
+// handler tracking
+	fev->hid = ev[first].hid);
          * must be LogAdd() call since inside of critical section
          */
         ls = LogEventNoLock(Name_log, fev);
