@@ -4,6 +4,8 @@
 #ifndef CSPOT_DFTYPE_H
 #define CSPOT_DFTYPE_H
 
+#include "woofc.h"
+
 #include <uuid/uuid.h>
 
 enum df_types_enum
@@ -28,7 +30,7 @@ enum df_types_enum
     DF_ARRAY,
     DF_LIST,
     DF_STREAM,
-    DF_DATA_OBJECT,
+    DF_RECORD,
     // TODO
 };
 typedef enum df_types_enum DF_TYPE;
@@ -84,8 +86,10 @@ struct df_types_struct {
 typedef struct df_types_struct DF_VALUE;
 
 
-int write_value(const DF_VALUE* value);
-int read_value(const DF_VALUE* value);
+int is_primitive(const DF_VALUE* value);
+
+unsigned long write_value(const char* woof, const DF_VALUE* value);
+unsigned long read_value(const char* woof, unsigned long sequence_number, DF_VALUE* value);
 
 
 #endif // CSPOT_DFTYPE_H
