@@ -67,8 +67,8 @@ void online_linreg_multinode() {
 
     // Outputs
 
-    add_node(5, 2, 1, SEL);         // intercept = intercept or 0
-    add_node(5, 2, 2, SEL);         // slope = slope or 0
+    add_node(5, 1, 1, SEL);         // intercept = intercept or 0
+    add_node(5, 1, 2, SEL);         // slope = slope or 0
 
     // Edges
 
