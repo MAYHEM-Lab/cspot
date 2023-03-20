@@ -390,7 +390,7 @@ void multinode_regression() {
 
     std::cout << "Waiting for program to finish" << std::endl;
 
-    while (woof_last_seq("laminar-5.output.1") < iters) {
+    while (woof_last_seq("laminar-5.output.1") < iters || woof_last_seq("laminar-5.output.2") < iters) {
         sleep(1);
     }
 

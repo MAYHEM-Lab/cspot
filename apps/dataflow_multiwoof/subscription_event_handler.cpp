@@ -268,7 +268,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
         unsigned long last_idx = woof_last_seq(output_woof);
 
         if (idx >= last_idx) {
-            DEBUG_PRINT("No new outputs to check");
+            DEBUG_PRINT("No new outputs to check: cached_idx=" << idx << ", last_seq=" << last_idx);
             return 0;
         }
 
@@ -302,8 +302,11 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
 
         // Write latest idx back to `last used subscription position` woof
         // std::cout << "Writing back: " << "op = " << op.value << ", seq=" << idx << std::endl;
-        last_output = cached_output(op, idx);
-        woof_put(last_used_sub_pos_woof, "", &last_output);
+        if (op.seq <= consumer_seq) {
+            DEBUG_PRINT("CACHING OUTPUT: seq=" << op.seq << ", idx=" << idx);
+            last_output = cached_output(op, idx);
+            woof_put(last_used_sub_pos_woof, "", &last_output);
+        }
 
         if (op.seq == consumer_seq) {
             // Relevant operand found, save and continue

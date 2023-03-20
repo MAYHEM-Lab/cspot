@@ -42,7 +42,7 @@ void selector_test() {
     ASSERT_EQ(r1.value, 10, "SEL = 0 -> result = a = 10");
 
     operand r2;
-    woof_get(generate_woof_path(OUTPUT_WOOF_TYPE, ns, 1), &r2, 2);
+    woof_get(generate_woof_path(OUTPUT_WOOF_TYPE, ns, 1), &r2, 0);
     ASSERT_EQ(r2.value, 20, "SEL = 1 -> result = b = 20");
 
     END_TEST();
@@ -122,5 +122,5 @@ void conditional_tests() {
     add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
 
     selector_test();
-    // filter_test();
+    filter_test();
 }

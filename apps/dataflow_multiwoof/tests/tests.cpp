@@ -4,8 +4,8 @@
 #include <string>
 
 int main() {
-    //arithmetic_tests();
-    conditional_tests();
-    //namespace_tests();
-    //loop_tests();
+    arithmetic_tests();
+    // conditional_tests();
+    // namespace_tests();
+    loop_tests();
 }

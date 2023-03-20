@@ -7,6 +7,12 @@
 #include <unistd.h>
 #include <vector>
 
+
+#define OUTPUT_WOOF_SIZE 1000
+#define SUBSCRIPTION_EVENTS_WOOF_SIZE 1000
+#define EXECUTION_ITERATION_WOOF_SIZE 1000
+#define SUBSCRIPTION_POS_WOOF_SIZE 1000
+
 // {namspace --> entries}
 std::map<int, int> subscribe_entries;
 // {namespace --> {id --> [subscribers...]}}
@@ -182,11 +188,11 @@ void add_node(int ns, int host_id, int id, int opcode) {
     // create node related info only for current host
     if (host_id == curr_host_id) {
 
-        woof_create(generate_woof_path(OUTPUT_WOOF_TYPE, ns, id, host_id), sizeof(operand), 100);
+        woof_create(generate_woof_path(OUTPUT_WOOF_TYPE, ns, id, host_id), sizeof(operand), OUTPUT_WOOF_SIZE);
 
         // Create subscription_events woof
         woof_create(
-            generate_woof_path(SUBSCRIPTION_EVENTS_WOOF_TYPE, ns, id, host_id), sizeof(subscription_event), 500);
+            generate_woof_path(SUBSCRIPTION_EVENTS_WOOF_TYPE, ns, id, host_id), sizeof(subscription_event), SUBSCRIPTION_EVENTS_WOOF_SIZE);
 
 
         // Create consumer_pointer woof
@@ -195,7 +201,7 @@ void add_node(int ns, int host_id, int id, int opcode) {
         // TODO: consumer_ptr_woof should be of size 1, but CSPOT hangs when
         // writing to full woof (instead of overwriting), so the size has
         // been increased temporarily as a stop-gap measure while testing
-        woof_create(consumer_ptr_woof, sizeof(execution_iteration_lock), 100);
+        woof_create(consumer_ptr_woof, sizeof(execution_iteration_lock), EXECUTION_ITERATION_WOOF_SIZE);
         woof_put(consumer_ptr_woof, "", &initial_consumer_ptr);
     }
 }
@@ -209,7 +215,7 @@ void add_operand(int ns, int host_id, int id) {
     int curr_host_id = get_curr_host();
     // Create output woof if the operand belongs to this host only
     if (host_id == curr_host_id) {
-        woof_create(generate_woof_path(OUTPUT_WOOF_TYPE, ns, id, host_id), sizeof(operand), 100);
+        woof_create(generate_woof_path(OUTPUT_WOOF_TYPE, ns, id, host_id), sizeof(operand), OUTPUT_WOOF_SIZE);
     }
 }
 
@@ -271,7 +277,7 @@ void setup() {
 
             // Add woofs to hold last used seq in subscription output woof
             for (size_t port = 0; port < subscriptions[ns][i].size(); port++) {
-                woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port), sizeof(cached_output), 10);
+                woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port), sizeof(cached_output), SUBSCRIPTION_POS_WOOF_SIZE);
             }
         }
     }
