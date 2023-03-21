@@ -200,7 +200,7 @@ struct host {
     }
 };
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 #define DEBUG_PRINT(str) { std::cout << "[" << woof_name << "] " << "[" << consumer_seq << "] " << str << std::endl << std::flush; }
