@@ -579,10 +579,11 @@ unsigned long WooFAppendWithCause(
         EventFree(ev);
         return (-1);
     }
-// sandler tracking
-if(hand_name != NULL) {
-ev->hid = hid;
-}
+#ifdef TRACK
+    if(hand_name != NULL) {
+        ev->hid = hid;
+    }
+#endif
 
     DEBUG_LOG("WooFAppendWithCause: checking for empty slot, ino: %lu\n", wf->ino);
 
