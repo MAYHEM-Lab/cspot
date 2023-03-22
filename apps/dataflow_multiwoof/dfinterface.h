@@ -35,4 +35,8 @@ unsigned long get_id_from_woof_path(std::string woof_path);
 
 int get_ns_from_woof_path(std::string woof_path);
 
+enum LaminarRetryType get_curr_retry_type();
+
+int get_curr_host_id();
+
 #endif // DFINTERFACE_H

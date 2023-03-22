@@ -24,7 +24,7 @@ std::map<int, std::set<node>> nodes;
 // set of host structs for url extraction
 std::set<host> hosts;
 
-int get_curr_host() {
+int get_curr_host_id() {
 
     int curr_host_id;
     int err = woof_get(generate_woof_path(HOST_ID_WOOF_TYPE), &curr_host_id, 0);
@@ -33,6 +33,20 @@ int get_curr_host() {
         exit(1);
     }
     return curr_host_id;
+}
+
+enum LaminarRetryType get_curr_retry_type() {
+
+    int curr_host_id = get_curr_host_id();
+
+    host h;
+    int err = woof_get(generate_woof_path(HOSTS_WOOF_TYPE), &h, curr_host_id);
+    if (err < 0) {
+        std::cout << "Error reading the host info for host id: " << std::to_string(curr_host_id) << std::endl;
+        exit(1);
+    }
+
+    return h.laminar_retry_type;
 }
 
 std::string generate_woof_path(DFWoofType woof_type, int ns, int id, int host_id, int port_id) {
@@ -53,7 +67,7 @@ std::string generate_woof_path(DFWoofType woof_type, int ns, int id, int host_id
     }
 
     // extract the current host id from HOST_ID_WOOF_TYPE
-    curr_host_id = get_curr_host();
+    curr_host_id = get_curr_host_id();
 
     if (host_id == -1) {
         // get the host of the node from the node level woofs
@@ -183,7 +197,7 @@ void add_node(int ns, int host_id, int id, int opcode) {
     // global info stored in every host
     nodes[ns].insert(node(id, host_id, opcode));
 
-    int curr_host_id = get_curr_host();
+    int curr_host_id = get_curr_host_id();
 
     // create node related info only for current host
     if (host_id == curr_host_id) {
@@ -213,7 +227,7 @@ void add_operand(int ns, int host_id, int id) {
     // global info stored in every host
     nodes[ns].insert(node(id, host_id, OPERAND));
 
-    int curr_host_id = get_curr_host();
+    int curr_host_id = get_curr_host_id();
     // Create output woof if the operand belongs to this host only
     if (host_id == curr_host_id) {
         woof_create(generate_woof_path(OUTPUT_WOOF_TYPE, ns, id, host_id), sizeof(operand), OUTPUT_WOOF_SIZE);

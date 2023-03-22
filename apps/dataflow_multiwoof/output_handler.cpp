@@ -10,6 +10,27 @@
 #include <math.h>
 #include <thread>
 
+#define MAX_RETRIES 15
+
+void retry_sleep(enum LaminarRetryType retry_type, int itr) {
+
+    if(retry_type == LAMINAR_HOST_RETRY_IMMEDIATE) {
+        return;
+    }
+    else if(retry_type == LAMINAR_HOST_RETRY_INTERVAL) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    }
+    else if(retry_type == LAMINAR_HOST_RETRY_LINEAR_BACKOFF) {
+        int ms = std::min((MAX_RETRIES - itr) * 2000, 32000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+    else if(retry_type == LAMINAR_HOST_RETRY_EXPONENTIAL_BACKOFF) {
+        int ms = std::min((int(pow(2, itr)) * 1000) + (rand() % 100), 32000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+
+}
+
 extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
     // std::cout << "OUTPUT HANDLER STARTED " <<  WoofGetFileName(wf) << std::endl;
 
@@ -100,9 +121,10 @@ extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
         }
     }
 
-    // keep retrying to send the subscription events in the buffer until empty
+    // keep retrying to send the subscription events in the buffer until empty based on the selected retry mechanism
+    enum LaminarRetryType retry_type = get_curr_retry_type();
+        
     int itr = 0;
-    int MAX_RETRIES = 100;
     while (itr <= MAX_RETRIES) {
         if (itr > 0) {
             std::cout << "retrying" << std::endl;
@@ -120,37 +142,27 @@ extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
                 std::cout << "Retry Failed : " << subscriber_woof << std::endl;
                 event_buffer.push_back(subevent);
             } else {
-                // duplicate event sent randomly
-                if (rand() % 2) {
-                    woof_put(subscriber_woof, SUBSCRIPTION_EVENT_HANDLER, &subevent);
-                }
                 std::cout << "Retry Success : " << subscriber_woof << std::endl;
             }
-        }
+        } 
 
         if (event_buffer.empty()) {
             break;
         }
 
-        int ms = std::min((int(pow(2, itr)) * 1000) + (rand() % 100), 32000);
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        retry_sleep(retry_type, itr);
         itr++;
     }
 
-    // std::cout << "OUTPUT HANDLER DONE" << std::endl;
-
-    // // linreg_multinode
-    // if (id == 1 && woof_name == "laminar-5.output.1") {
-
-    // // linreg_uninode
-    // if (id == 1 && woof_name == "laminar-1.output.1") {
-
-    //     auto end = std::chrono::high_resolution_clock::now();
-    //     std::cout << "end" << ": "
-    //             << std::chrono::duration_cast<std::chrono::nanoseconds>(
-    //                     end.time_since_epoch())
-    //                     .count()
-    //             << "ns" << std::endl;
-    // }
+    if (id == 1 && woof_name == "laminar-5.output.1") {
+        auto end = std::chrono::system_clock::now();
+        std::cout << "end" << ": "
+                << std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        end.time_since_epoch())
+                        .count()
+                << "ns" << std::endl;
+    }
+    
     return 0;
 }
+

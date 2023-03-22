@@ -65,6 +65,13 @@ static const char* DFWOOFTYPE_STR[] = {
     "hosts"
 };
 
+enum LaminarRetryType {
+    LAMINAR_HOST_RETRY_IMMEDIATE = 0, 
+    LAMINAR_HOST_RETRY_INTERVAL, 
+    LAMINAR_HOST_RETRY_LINEAR_BACKOFF, 
+    LAMINAR_HOST_RETRY_EXPONENTIAL_BACKOFF, 
+};
+
 struct operand {
     double value;
     unsigned long seq;
@@ -189,10 +196,13 @@ struct Regression {
 struct host {
     int host_id;
     char host_url[200];
+    enum LaminarRetryType laminar_retry_type;
 
-    host(int host_id_=0, char host_url_[200]=""){
+    host(int host_id_=0, char host_url_[200]="", 
+    enum LaminarRetryType laminar_retry_type_ = LAMINAR_HOST_RETRY_EXPONENTIAL_BACKOFF){
         host_id = host_id_;
         strcpy(host_url, host_url_);
+        laminar_retry_type =  laminar_retry_type_;
     }
 
     bool operator<(const host& other) const {
