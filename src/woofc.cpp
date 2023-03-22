@@ -702,9 +702,6 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
         memset(ev->woofc_handler, 0, sizeof(ev->woofc_handler));
         strncpy(ev->woofc_handler, hand_name, sizeof(ev->woofc_handler));
         DEBUG_LOG("WooFAppendWithCause: handler %s\n", ev->woofc_handler);
-#ifdef TRACK
-        ev->hid = hid;
-#endif
     }
 
     ev->ino = wf->ino;

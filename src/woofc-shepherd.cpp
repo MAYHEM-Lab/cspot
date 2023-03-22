@@ -299,7 +299,9 @@ int main(int argc, char** argv, char** envp) {
 
 #ifdef TRACK
 	P(&wfs->mutex);
+	P(&Name_log->mutex);
 	printf("%s %d FIRE seq_no: %lu ndx: %d\n",wfs->filename,el_id->hid, seq_no, ndx);
+	V(&Name_log->mutex);
 	V(&wfs->mutex);
 #endif
 

@@ -25,6 +25,7 @@ struct log_stc {
     unsigned long int size;
     unsigned long int head;
     unsigned long int tail;
+    unsigned long int last_checked;
 };
 
 typedef struct log_stc LOG;
