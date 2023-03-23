@@ -10,7 +10,7 @@ void cspot_print_debug(const char* format, ...);
 void cspot_print_fatal(const char* format, ...) __attribute__((noreturn));
 void cspot_print_fatal_if(bool val, const char* format, ...);
 
-//#define TRACK
+#define TRACK
 #define TIMING
 
 #ifdef TIMING

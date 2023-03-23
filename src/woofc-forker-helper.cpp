@@ -108,8 +108,8 @@ int main(int argc,char **argv, char **env)
 		printf("%s %d RECVD\n",tbuff,hid);
 		fflush(stdout);
 #endif
-//		pid = vfork();
-		pid = fork();
+		pid = vfork();
+//		pid = fork();
 		if(pid < 0) {
 			fprintf(stdout,"woofc-forker-helper: vfork failed\n");
 			fflush(stdout);
