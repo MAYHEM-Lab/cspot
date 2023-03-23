@@ -23,9 +23,11 @@ struct log_stc {
     MIO* m_buf;
     char filename[4096];
     unsigned long int size;
+    unsigned long space;
     unsigned long int head;
     unsigned long int tail;
     unsigned long int last_checked;
+    int hid;
 };
 
 typedef struct log_stc LOG;

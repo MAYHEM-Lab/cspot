@@ -37,7 +37,8 @@ LOG* LogCreate(const char* filename, unsigned long host_id, unsigned long int si
     }
 
     log->host_id = host_id;
-    log->size = size + 1;
+    log->space = space;
+    log->size = size;
     log->seq_no = 1;
     log->last_checked = -1;
     InitSem(&log->mutex, 1);
