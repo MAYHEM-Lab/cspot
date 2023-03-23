@@ -544,10 +544,12 @@ unsigned long WooFAppendWithCause(
 
     wfs = wf->shared;
 #ifdef TRACK
-    P(&wfs->mutex);
-    hid = wfs->hid;
-    wfs->hid++;
-    V(&wfs->mutex);
+    if(hand_name != NULL) {
+    	P(&Name_log->mutex);
+    	hid = Name_log->hid;
+        Name_log->hid++;
+    	V(&Name_log->mutex);
+    }
 #endif
 
     /*
@@ -658,6 +660,7 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     if(hand_name != NULL) {
     	el_id->hid = hid;
 	printf("%s %d START seq_no: %lu, ndx: %d\n",wfs->filename,hid,seq_no, ndx);
+	fflush(stdout);
     }
 #endif
 
@@ -716,6 +719,8 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
 
     
 
+//printf("WooFPut[%d]: logging event\n",getpid());
+//fflush(stdout);
     ls = LogEvent(Name_log, ev);
     if (ls == 0) {
         fprintf(stderr, "WooFAppendWithCause: couldn't log event to log %s\n", log_name);
@@ -730,6 +735,8 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
         }
     }
 
+//printf("WooFPut[%d]: event logged\n",getpid());
+//fflush(stdout);
     DEBUG_LOG("WooFAppendWithCause: logged %lu for woof %s %s\n", ls, ev->woofc_name, ev->woofc_handler);
 
     EventFree(ev);

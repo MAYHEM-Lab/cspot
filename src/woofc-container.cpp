@@ -63,9 +63,9 @@ int WooFContainerInit() {
     struct timeval tm;
     int err;
     char* str;
-    MIO* lmio;
     unsigned long name_id;
     int i;
+    MIO *lmio;
 
     gettimeofday(&tm, NULL);
     srand48(tm.tv_sec + tm.tv_usec);
@@ -191,6 +191,7 @@ int WooFContainerInit() {
 		fprintf(stdout,"WooFContainer: child about to exec %s\n",hbuff);
 		fflush(stdout);
 #endif
+		MIOClose(lmio);
                 execve(hbuff,cargv,NULL);
 //		system(hbuff);
 		fprintf(stdout,"WooFContainer: execve of %s failed\n",hbuff);
@@ -267,10 +268,10 @@ void WooFReaper() {
 void WooFForker(FARG *ta) 
 {
 	unsigned long long ls;
-	unsigned long long curr;
-	unsigned long long earliest_trigger_seq_no;
-	unsigned long long oldest_seq_no;
-	unsigned long long start_seq_no;
+	unsigned long curr;
+	long earliest_trigger_seq_no;
+	unsigned long oldest_seq_no;
+	unsigned long start_seq_no;
 	EVENT* ev;
 	EVENT* fev;
 	RB *ev_list; // trigger list
@@ -279,6 +280,7 @@ void WooFForker(FARG *ta)
 	char c;
 	char hbuff[255];
 	Hval dummy;
+	WOOF *wf;
 #ifdef TRACK
 	WOOF_SHARED *wfs;
 	unsigned char *ptr;
@@ -294,19 +296,20 @@ void WooFForker(FARG *ta)
 		 * wait for things to show up in the log
 		 */
 		DEBUG_LOG("WooFForker: namespace: %s caling P\n", WooF_namespace);
+//printf("Forker[%lu]: before wait\n",pthread_self());
+//fflush(stdout);
 		P(&Name_log->tail_wait);
+//printf("Forker[%lu]: after wait\n",pthread_self());
+//fflush(stdout);
 		DEBUG_LOG("WooFForker (%lu): namespace: %s awake\n", pthread_self(), WooF_namespace);
 
-		ev_list = RBInitI64();
-		if(ev_list == NULL) {
-			DEBUG_WARN("WooFForker: no space for RB list, continuing\n");
-			continue;
-		}
 
 		/*
 		 * must lock to sync on log tail
 		 */
 		P(&Name_log->mutex);
+//printf("Forker[%lu]: in mutex\n",pthread_self());
+//fflush(stdout);
 		DEBUG_LOG("WooFForker (%lu): namespace: %s, in mutex, size: %lu, last: %llu\n",
 			  pthread_self(),
 			  WooF_namespace,
@@ -320,37 +323,42 @@ void WooFForker(FARG *ta)
 		 * TRIGGER_FIRING will always be later than TRIGGER and the 
 		 * cause_seq_no for the TRIGGER_FIRING record
 		 */
-		ev = (EVENT*)(((unsigned char *)Name_log) + sizeof(LOG));
-//		ev = (EVENT*)(static_cast<unsigned char*>(MIOAddr(Name_log->m_buf)) + sizeof(LOG));
-//printf("Forker [%llu]: after ev\n",pthread_self());
+                ev = (EVENT*)(static_cast<unsigned char*>((unsigned char *)Name_log) + sizeof(LOG));
+		//ev = (EVENT*)(((unsigned char *)Name_log) + sizeof(LOG));
 		curr = Name_log->head;
+//printf("Forker[%lu]: head: %lu, tail: %lu\n",pthread_self(),curr, Name_log->tail);
+//fflush(stdout);
 		oldest_seq_no = Name_log->tail;
 		/*
 		 * remember starting position in case we don't find anything
 		 */
 		start_seq_no = curr;
 		earliest_trigger_seq_no = -1;
-//printf("Forker [%llu]: start: %llu oldest: %llu last_seq_no: %llu\n",pthread_self(),
-//		start_seq_no,oldest_seq_no,Name_log->last_checked);
-		while(curr != oldest_seq_no) {
+		ev_list = RBInitI();
+//printf("Forker[%lu]: rb created\n",pthread_self());
+//fflush(stdout);
+		if(ev_list == NULL) {
+			fprintf(stderr,"WooFForker: no space for RB list, exiting\n");
+			fflush(stderr);
+			exit(1);
+		}
+		while(curr != Name_log->tail) {
 			if(ev[curr].type == TRIGGER_FIRING){ // this has been handled, add its cause
-//printf("Forker [%llu]: found FIRING %llu (%llu)\n",pthread_self(),curr,ev[curr].cause_seq_no);
-				RBInsertI64(ev_list,ev[curr].cause_seq_no,dummy);
+				RBInsertI(ev_list,ev[curr].cause_seq_no,dummy);
 			} else if(ev[curr].type == TRIGGER) {
-//printf("Forker [%llu]: found TRIGGER %llu (%llu)\n",pthread_self(),curr,ev[curr].seq_no);
 				/*
 				 * this is a trigger, if we haven't seen, remember it as possibly the oldest
 				 */
-				rb = RBFindI64(ev_list,ev[curr].seq_no);
+				rb = RBFindI(ev_list,ev[curr].seq_no);
 				if(rb == NULL) {
-//printf("Forker [%llu]: found earliest TRIGGER %llu (%llu)\n",pthread_self(),curr,ev[curr].seq_no);
-					earliest_trigger_seq_no = ev[curr].seq_no;
+					earliest_trigger_seq_no = curr;
 				}
 			}
-			if(curr == 0) {
+			curr = curr - 1;
+			if((int)curr < 0) { // wrapped off the end of unsigned
+//printf("Forker[%lu]: about wrap from %u to %d\n",pthread_self(), curr, Name_log->size - 1);
+//fflush(stdout);
 				curr = Name_log->size - 1;
-			} else {
-				curr = (curr - 1);
 			}
 			/*
 			 * short cut when we reach the oldest we have looked at
@@ -362,7 +370,11 @@ void WooFForker(FARG *ta)
 		/*
 		 * drop the tree since we don't need it regardless
 		 */
-		RBDestroyI64(ev_list);
+//printf("Forker[%lu]: about to free list\n",pthread_self());
+//fflush(stdout);
+		RBDestroyI(ev_list);
+//printf("Forker[%lu]: list freed\n",pthread_self());
+//fflush(stdout);
 		/*
 		 * here, we have swept back looking for unclaimed triggers.  If we didn't find any,
 		 * drop the lock and go back and wait
@@ -381,7 +393,8 @@ void WooFForker(FARG *ta)
 			/*
 			 * XXX test here to see of log wraps -- is last_seq_no < log tail seq_no?
 			 */
-//printf("Forker [%llu]: found nothing, start: %llu last: %llu\n",pthread_self(),start_seq_no,Name_log->last_checked);
+//printf("Forker [%lu]: found nothing\n",pthread_self());
+//fflush(stdout);
 			continue;
 		}
 
@@ -408,19 +421,18 @@ void WooFForker(FARG *ta)
 		    exit(1);
 		}
 		fev->cause_host = Name_id;
-		fev->cause_seq_no = (unsigned long long)earliest_trigger_seq_no;
+		fev->cause_seq_no = earliest_trigger_seq_no;
 		memset(fev->woofc_namespace, 0, sizeof(fev->woofc_namespace));
 		strncpy(fev->woofc_namespace, WooF_namespace, sizeof(fev->woofc_namespace));
 		DEBUG_LOG("WooFForker: logging TRIGGER_FIRING for %s %llu\n", 
 			ev[earliest_trigger_seq_no].woofc_namespace, 
 			ev[earliest_trigger_seq_no].seq_no);
-#ifdef TRACK
-		fev->hid = ev[earliest_trigger_seq_no].hid;
-#endif
 		/*
 		 * must be LogAdd() call since inside of critical section
 		 */
 		ls = LogEventNoLock(Name_log, fev);
+//printf("Forker [%lu]: trigger_firing logged\n",pthread_self());
+//fflush(stdout);
 		if (ls == 0) {
 		    fprintf(stderr, "WooFForker: couldn't log event to log\n");
 		    fflush(stderr);
@@ -437,8 +449,11 @@ void WooFForker(FARG *ta)
 		/*
 		 * drop the mutex now that this TRIGGER is claimed
 		 */
-//printf("Forker [%llu]: forwarding TRIGGER: %llu\n",pthread_self(),earliest_trigger_seq_no);
+//printf("Forker [%lu]: forwarding TRIGGER\n",pthread_self());
+//fflush(stdout);
 		V(&Name_log->mutex);
+//printf("Forker [%lu]: out of mutex:\n",pthread_self());
+//fflush(stdout);
 		DEBUG_LOG("WooFForker: namespace: %s out of mutex with log tail\n", WooF_namespace);
 
 		/*
@@ -447,15 +462,25 @@ void WooFForker(FARG *ta)
 		DEBUG_LOG("Forker calling P with Tcount %d\n", Tcount.load());
 
 		P(&ForkerThrottle);
+//printf("Forker [%lu]: awake after throttle\n",pthread_self());
+//fflush(stdout);
 		Tcount--;
 		DEBUG_LOG("Forker awake, after decrement %d\n", Tcount.load());
 
-		auto wf = WooFOpen(ev[earliest_trigger_seq_no].woofc_name);
+//		auto wf = WooFOpen(ev[earliest_trigger_seq_no].woofc_name);
 
-		DEBUG_FATAL_IF(!wf, "WooFForker: open failed for WooF at %s, %lu %lu\n",
-				   ev[earliest_trigger_seq_no].woofc_name,
-				   ev[earliest_trigger_seq_no].woofc_element_size,
-				   ev[earliest_trigger_seq_no].woofc_history_size);
+//		DEBUG_FATAL_IF(!wf, "WooFForker: open failed for WooF at %s, %lu %lu\n",
+//				   ev[earliest_trigger_seq_no].woofc_name,
+//				   ev[earliest_trigger_seq_no].woofc_element_size,
+//				   ev[earliest_trigger_seq_no].woofc_history_size);
+
+		wf = WooFOpen(ev[earliest_trigger_seq_no].woofc_name);
+		if(wf == NULL) {
+			fprintf(stderr,"WooFForker[%lu]: open failed for %s\n",
+				pthread_self(),ev[earliest_trigger_seq_no].woofc_name);
+			fflush(stderr);
+			exit(1);
+		}
 
 
 		/*
@@ -601,16 +626,32 @@ void WooFForker(FARG *ta)
 			perror("WoofForker");
 			exit(1);
 		}
-
-
 #ifdef TRACK
-	wfs = wf->shared;
-	P(&wfs->mutex);
-	buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
-	ptr = buf + (ev[earliest_trigger_seq_no].woofc_ndx * (wfs->element_size + sizeof(ELID)));
-        el_id = (ELID*)(ptr + wfs->element_size);
-	printf("%s %d FORWARD\n",ev[earliest_trigger_seq_no].woofc_name,el_id->hid);
-	V(&wfs->mutex);
+		wfs = wf->shared;
+		buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
+		ptr = buf + (ev[earliest_trigger_seq_no].woofc_ndx * (wfs->element_size + sizeof(ELID)));
+		el_id = (ELID*)(ptr + wfs->element_size);
+		/*
+		 * for tracking, send hid
+		 */
+		memset(hbuff,0,sizeof(hbuff));
+		sprintf(hbuff, "%d",el_id->hid);
+		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		if(err <= 0) {
+			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+			perror("WoofForker");
+			exit(1);
+		}
+		memset(hbuff,0,sizeof(hbuff));
+		sprintf(hbuff, "%s",ev[earliest_trigger_seq_no].woofc_name);
+		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		if(err <= 0) {
+			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+			perror("WoofForker");
+			exit(1);
+		}
+		printf("%s %d FORWARD\n",ev[earliest_trigger_seq_no].woofc_name,el_id->hid);
+		fflush(stdout);
 #endif
 		WooFDrop(wf);
 
@@ -628,6 +669,8 @@ void WooFForker(FARG *ta)
 			perror("WoofForker");
 			exit(1);
 		 }
+//printf("Forker [%lu]: looping back\n",pthread_self());
+//fflush(stdout);
 		 V(&ForkerThrottle);
 		 Tcount++;
 		 DEBUG_LOG("WooFForker: helper signal received Tcount: %d\n", Tcount.load());

@@ -17,8 +17,9 @@ void MIOClose(MIO *mio)
 	}
 	if(mio->bf != NULL) {
 		fflush(mio->bf);
-		fclose(mio->bf);
+//		fclose(mio->bf);
 	}
+	close(mio->fd);
 	if(mio->fname != NULL) {
 		free(mio->fname);
 	}

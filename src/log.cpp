@@ -16,7 +16,7 @@ LOG* LogCreate(const char* filename, unsigned long host_id, unsigned long int si
     unsigned long int space;
     MIO* mio;
 
-    space = (size + 1) * sizeof(EVENT) + sizeof(LOG);
+    space = ((size + 1) * sizeof(EVENT)) + sizeof(LOG) + (1024*8);
 
     if (filename != NULL) {
         mio = MIOOpen(filename, "w+", space);
@@ -112,12 +112,15 @@ int LogAdd(LOG* log, EVENT* event) {
 
     /*
      * FIX ME: need to implement a cleaner that moves the tail
-     */
     if (LogFull(log)) {
         log->tail = (log->tail + 1) % log->size;
     }
+     */
 
     next = (log->head + 1) % log->size;
+    if(next == log->tail) {
+        log->tail = (log->tail + 1) % log->size;
+    }
 
     memcpy(&ev_array[next], event, sizeof(EVENT));
     log->head = next;
@@ -237,8 +240,7 @@ LOG* LogTail(LOG* log, unsigned long long earliest, unsigned long max_size) {
             }
         }
         curr = curr - 1;
-//NOBUG        if (curr >= log->size) {
-        if (curr  < 0) {
+        if (curr >= log->size) { // unsigned wrap
             curr = (log->size - 1);
         }
         if (curr == log->tail) { /* this behind the last valid */
@@ -277,8 +279,7 @@ void LogPrint(FILE* fd, LOG* log) {
                 ev_array[curr].timestamp);
         fflush(fd);
         curr = curr - 1;
-        if (curr >= log->size) {
-//NOBUG        if (curr < 0) {
+        if (curr >= log->size) { // unsigned wrap
             curr = log->size - 1;
         }
     }

@@ -932,6 +932,10 @@ void RBDeleteTree(RB *tree)
 	RB *node;
 	RB *next;
 
+	if(tree == NULL) {
+		return;
+	}
+
 	node = tree->prev;
 	if (node != NULL)
 	{

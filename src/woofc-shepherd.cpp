@@ -68,11 +68,6 @@ int main(int argc, char** argv, char** envp) {
         i = 0;
         while (envp[i] != NULL) {
             putenv(envp[i]);
-#ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: putting %s to environment\n", envp[i]);
-    fflush(stdout);
-#endif
-
             i++;
         }
     }
@@ -84,8 +79,8 @@ int main(int argc, char** argv, char** envp) {
 
     wf_ns = getenv("WOOFC_NAMESPACE");
     if (wf_ns == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOFC_NAMESPACE\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOFC_NAMESPACE\n");
+        fflush(stdout);
         exit(1);
     }
 
@@ -98,8 +93,8 @@ int main(int argc, char** argv, char** envp) {
 
     wf_ip = getenv("WOOF_HOST_IP");
     if (wf_ip == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_HOST_IP\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_HOST_IP\n");
+        fflush(stdout);
         exit(1);
     }
     strncpy(Host_ip, wf_ip, sizeof(Host_ip));
@@ -110,8 +105,8 @@ int main(int argc, char** argv, char** envp) {
 
     wf_dir = getenv("WOOFC_DIR");
     if (wf_dir == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOFC_DIR\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOFC_DIR\n");
+        fflush(stdout);
         exit(1);
     }
 
@@ -124,16 +119,16 @@ int main(int argc, char** argv, char** envp) {
 
     wnld = getenv("WOOF_NAMELOG_DIR");
     if (wnld == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_DIR\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_NAMELOG_DIR\n");
+        fflush(stdout);
         exit(1);
     }
     strncpy(WooF_namelog_dir, wnld, sizeof(WooF_namelog_dir));
 
     wf_name = getenv("WOOF_SHEPHERD_NAME");
     if (wf_name == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_NAME\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_SHEPHERD_NAME\n");
+        fflush(stdout);
         exit(1);
     }
 
@@ -144,8 +139,8 @@ int main(int argc, char** argv, char** envp) {
 
     wf_ndx = getenv("WOOF_SHEPHERD_NDX");
     if (wf_ndx == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n", wf_name);
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_SHEPHERD_NDX for %s\n", wf_name);
+        fflush(stdout);
         exit(1);
     }
     ndx = strtoul(wf_ndx, (char**)NULL, 10);
@@ -156,8 +151,8 @@ int main(int argc, char** argv, char** envp) {
 
     wf_seq_no = getenv("WOOF_SHEPHERD_SEQNO");
     if (wf_seq_no == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n", wf_name);
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_SHEPHERD_SEQNO for %s\n", wf_name);
+        fflush(stdout);
         exit(1);
     }
     seq_no = strtoul(wf_seq_no, (char**)NULL, 10);
@@ -168,8 +163,8 @@ int main(int argc, char** argv, char** envp) {
 
     namelog_name = getenv("WOOF_NAMELOG_NAME");
     if (namelog_name == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_NAME\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_NAMELOG_NAME\n");
+        fflush(stdout);
         exit(1);
     }
 #ifdef DEBUG
@@ -181,8 +176,8 @@ int main(int argc, char** argv, char** envp) {
 
     namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
     if (namelog_seq_no == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n", namelog_name, wf_name);
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_NAMELOG_SEQNO for log %s wf %s\n", namelog_name, wf_name);
+        fflush(stdout);
         exit(1);
     }
     my_log_seq_no = strtoul(namelog_seq_no, (char**)NULL, 10);
@@ -193,8 +188,8 @@ int main(int argc, char** argv, char** envp) {
 
     name_id = getenv("WOOF_NAME_ID");
     if (name_id == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't find WOOF_NAME_ID\n");
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't find WOOF_NAME_ID\n");
+        fflush(stdout);
         exit(1);
     }
 
@@ -214,69 +209,51 @@ int main(int argc, char** argv, char** envp) {
     fflush(stdout);
 #endif
 
-#if 0
-	mio = MIOReOpen(full_name);
-	if(mio == NULL) {
-		fprintf(stderr,"WooFShepherd: couldn't open %s with size %lu\n",full_name);
-		fflush(stderr);
-		exit(1);
-	}
-#endif
 
     wf = WooFOpen(wf_name);
     if (wf == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't open %s\n", full_name);
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't open %s\n", full_name);
+        fflush(stdout);
         exit(1);
     }
 
-    wfs = wf->shared;
-#ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: woof %s open\n", full_name);
-    fflush(stdout);
+    	wfs = wf->shared;
+    	buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
+        ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
+        el_id = (ELID*)(ptr + wfs->element_size);
+#ifdef TRACK
+	P(&wfs->mutex);
+	printf("%s %d PREP seq_no: %lu ndx: %d\n",wfs->filename,el_id->hid, seq_no, ndx);
+	fflush(stdout);
+	V(&wfs->mutex);
 #endif
 
     sprintf(log_name, "%s/%s", WooF_namelog_dir, namelog_name);
     lmio = MIOReOpen(log_name);
     if (lmio == NULL) {
-        fprintf(stderr, "WooFShepherd: couldn't open mio for log %s\n", log_name);
-        fflush(stderr);
+        fprintf(stdout, "WooFShepherd: couldn't open mio for log %s\n", log_name);
+        fflush(stdout);
         exit(1);
     }
+//printf("Shepherd[%d]: opening log\n",getpid());
+//fflush(stdout);
     Name_log = (LOG*)MIOAddr(lmio);
+//printf("Shepherd[%d]: log reopen\n",getpid());
+//fflush(stdout);
     strncpy(Namelog_name, namelog_name, sizeof(Namelog_name));
-#ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: log %s open\n", namelog_name);
-    fflush(stdout);
-#endif
 
-#ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: wf: 0x%u assigned, el size: %lu\n", wfs, wfs->element_size);
-    fflush(stdout);
-#endif
 
-    //	buf = (unsigned char *)(MIOAddr(mio)+sizeof(WOOF));
-    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
-#ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: buf assigned 0x%u\n", buf);
-    fflush(stdout);
-#endif
-    while (1) {
-        ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: ptr assigned\n");
-        fflush(stdout);
-#endif
-        el_id = (ELID*)(ptr + wfs->element_size);
 
-        farg = (unsigned char*)malloc(wfs->element_size);
-        if (farg == NULL) {
-            fprintf(stderr, "WooFShepherd: no space for farg of size %lu\n", wfs->element_size);
-            fflush(stderr);
-            return (-1);
-        }
+	farg = (unsigned char*)malloc(wfs->element_size);
+	if (farg == NULL) {
+	    fprintf(stdout, "WooFShepherd: no space for farg of size %lu\n", wfs->element_size);
+	    fflush(stdout);
+	    exit(1);
+	}
 
-        memcpy(farg, ptr, wfs->element_size);
+	memcpy(farg, ptr, wfs->element_size);
+//printf("Shepherd[%d]: arg copied\n",getpid());
+//fflush(stdout);
 
 	/*
 	 * possible RACE condition
@@ -288,90 +265,32 @@ int main(int argc, char** argv, char** envp) {
 	 * assume memcpy is thread safe and use a local copy
 	 */
 
-	memcpy(&l_el_id,el_id,sizeof(ELID));
-	if(l_el_id.seq_no != seq_no) {
-		fprintf(stderr,
-"ERROR: handler %s assigned seq_no %d does not match element seq_no %d -- ",
+	if(el_id->seq_no != seq_no) {
+		fprintf(stdout,
+	"ERROR: handler %s assigned seq_no %d does not match element seq_no %d -- ",
 		wf_name,seq_no,l_el_id.seq_no);
-		fprintf(stderr, "Possible fix is to make the woof bigger\n");
+		fprintf(stdout, "Possible fix is to make the woof bigger\n");
+		fflush(stdout);
 		exit(0);
 	}
 
 #ifdef TRACK
-	P(&wfs->mutex);
-	P(&Name_log->mutex);
-	printf("%s %d FIRE seq_no: %lu ndx: %d\n",wfs->filename,el_id->hid, seq_no, ndx);
-	V(&Name_log->mutex);
-	V(&wfs->mutex);
-#endif
-
-
-#if 0
-        /*
-         * now that we have the argument copied, free the slot in the woof
-         */
-
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: about to enter mutex\n");
-        fflush(stdout);
-#endif
-        P(&wfs->mutex);
-
-        /*
-         * mark element as done to prevent handler crash from causing deadlock
-         */
-        el_id->busy = 0;
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: marked el done at %lu and signalling, ino: %lu\n", ndx, wf->ino);
-        fflush(stdout);
-#endif
-
-        V(&wfs->tail_wait);
-
-        V(&wfs->mutex);
-#endif
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: exited mutex\n");
-        fflush(stdout);
-#endif
-        /*
-         * invoke the function
-         */
-        /* LOGGING
-         * log event start here
-         */
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: invoking %s, seq_no: %lu\n", st, seq_no);
-        fflush(stdout);
-#endif
-        err = handler(wf, seq_no, (void*)farg);
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: %s done with seq_no: %lu\n", st, seq_no);
-        fflush(stdout);
-#endif
-        free(farg);
-#ifdef DEBUG
-        fprintf(stdout, "WooFShepherd: called free, seq_no: %lu\n", seq_no);
-        fflush(stdout);
-#endif
-        /* LOGGING
-         * log either event success or failure here
-         */
-
-        break; // for no caching case
-
-    }
-
-#ifdef DEBUG
-	fprintf(stdout, "WooFShepherd: calling WooFDrop, seq_no: %lu\n", seq_no);
+//	P(&wfs->mutex);
+	printf("%s %d FIRE seq_no: %lu ndx: %d pid: %d\n",wfs->filename,el_id->hid, seq_no, ndx, getpid());
 	fflush(stdout);
+//	V(&wfs->mutex);
 #endif
-    WooFDrop(wf);
-    MIOClose(lmio);
-#ifdef DEBUG
-    fprintf(stdout, "WooFShepherd: exiting, seq_no: %lu\n", seq_no);
-    fflush(stdout);
-#endif
+
+//printf("Shepherd[%d]: firing\n",getpid());
+//fflush(stdout);
+
+	err = handler(wf, seq_no, (void*)farg);
+//printf("Shepherd[%d]: handler fired\n",getpid());
+//fflush(stdout);
+    	WooFDrop(wf);
+    	MIOClose(lmio);
+//printf("Shepherd[%d]: exiting\n",getpid());
+//fflush(stdout);
 
     exit(0);
     return (0);
