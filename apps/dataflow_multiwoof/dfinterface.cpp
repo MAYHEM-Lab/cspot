@@ -251,6 +251,16 @@ void subscribe(std::string dst_addr, std::string src_addr) {
 
 void setup() {
 
+    // setup the host related info
+    // TODO: setup check for host_url size
+    // std::cout << "Sizeof host : " << sizeof(host) << "Hosts size : " << hosts.size() << std::endl;
+    woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), hosts.size());
+
+    for (auto& host : hosts) {
+        woof_put(generate_woof_path(HOSTS_WOOF_TYPE), "", &host);
+    }
+
+    int curr_host_id = get_curr_host_id();
     // setup all the namespaces
     for (const auto& [ns, value] : nodes) {
 
@@ -289,23 +299,18 @@ void setup() {
                 woof_put(generate_woof_path(SUBSCRIPTION_DATA_WOOF_TYPE, ns), "", &sub);
                 current_data_pos++;
             }
-
-            // Add woofs to hold last used seq in subscription output woof
-            for (size_t port = 0; port < subscriptions[ns][i].size(); port++) {
-                woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port),
-                            sizeof(cached_output),
-                            SUBSCRIPTION_POS_WOOF_SIZE);
-            }
         }
-    }
 
-    // setup the host related info
-    // TODO: setup check for host_url size
-    // std::cout << "Sizeof host : " << sizeof(host) << "Hosts size : " << hosts.size() << std::endl;
-    woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), hosts.size());
-
-    for (auto& host : hosts) {
-        woof_put(generate_woof_path(HOSTS_WOOF_TYPE), "", &host);
+        int i = 1;
+        for (auto& node : nodes[ns]) {
+            // Add woofs to hold last used seq in subscription output woof
+            if(curr_host_id == node.host_id) {
+                for (size_t port = 0; port < subscriptions[ns][i].size(); port++) {
+                    woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port), sizeof(cached_output), SUBSCRIPTION_POS_WOOF_SIZE);
+                }
+            }
+            i++;
+        }
     }
 }
 

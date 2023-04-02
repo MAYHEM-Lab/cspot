@@ -288,6 +288,7 @@ void online_linreg_multinode() {
     }
 
     std::cout << "Execution Completed" << std::endl;
+    sleep(100);
 }
 
 int main() {
