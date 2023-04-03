@@ -10,7 +10,7 @@
 #include <math.h>
 #include <thread>
 
-#define MAX_RETRIES 15
+#define MAX_RETRIES 10
 
 void retry_sleep(enum LaminarRetryType retry_type, int itr) {
 
@@ -28,7 +28,6 @@ void retry_sleep(enum LaminarRetryType retry_type, int itr) {
         int ms = std::min((int(pow(2, itr)) * 1000) + (rand() % 100), 32000);
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
-
 }
 
 extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
@@ -125,12 +124,13 @@ extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
     enum LaminarRetryType retry_type = get_curr_retry_type();
         
     int itr = 0;
+    int event_count = 0, event_idx = 0;
     while (itr <= MAX_RETRIES) {
         if (itr > 0) {
             std::cout << "retrying" << std::endl;
         }
-
-        while (!event_buffer.empty()) {
+        event_count = event_buffer.size();
+        for(event_idx = 0; event_idx < event_count; event_idx++) {
             subscription_event subevent = event_buffer.front();
             event_buffer.pop_front();
 
