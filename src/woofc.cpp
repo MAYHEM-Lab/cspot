@@ -683,6 +683,15 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
 #endif
 
     V(&wfs->mutex);
+
+    /*
+     * fast exit here
+     */
+    if(hand_name == NULL) {
+    	V(&wfs->tail_wait);
+    	return(seq_no);
+    }
+
     DEBUG_LOG("WooFAppendWithCause: out of element mutex\n");
 
     memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));

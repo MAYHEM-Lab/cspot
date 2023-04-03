@@ -289,8 +289,20 @@ void WooFForker(FARG *ta)
 #endif
 #ifdef TIMING
 	double start;
+	double start4;
+	double start2;
+	double start3;
 	double end;
+	double end1;
+	double end2;
+	double end3;
+	double end4;
+	double sum;
 	int trip_count;
+	int trig_count;
+	int fire_count;
+	int last_checked;
+	int start_checked;
 	int spurious = 0;
 #endif
 
@@ -349,11 +361,21 @@ void WooFForker(FARG *ta)
 		}
 #ifdef TIMING
 		trip_count = 0;
+		trig_count = 0;
+		fire_count = 0;
+		start_checked = start_seq_no;
+		last_checked = Name_log->last_checked;
 #endif
 		while(curr != Name_log->tail) {
 			if(ev[curr].type == TRIGGER_FIRING){ // this has been handled, add its cause
+#ifdef TIMING
+				trig_count++;
+#endif
 				RBInsertI64(ev_list,ev[curr].cause_seq_no,dummy);
 			} else if(ev[curr].type == TRIGGER) {
+#ifdef TIMING
+				fire_count++;
+#endif
 				/*
 				 * this is a trigger, if we haven't seen, remember it as possibly the oldest
 				 */
@@ -376,6 +398,7 @@ void WooFForker(FARG *ta)
 				break;
 			}
 		}
+		STOPCLOCK(&end1);
 		/*
 		 * drop the tree since we don't need it regardless
 		 */
@@ -401,6 +424,7 @@ void WooFForker(FARG *ta)
 			continue;
 		}
 
+		STARTCLOCK(&start2);
 		/*
 		 * otherwise, earliest_trigger_seq_no is the earliest unclaimed, trigger.  
 		 * claim it and send it for firing
@@ -444,6 +468,7 @@ void WooFForker(FARG *ta)
 		    exit(1);
 		}
 		EventFree(fev);
+		STOPCLOCK(&end2);
 
 		/*
 		 * remember where we were in the Name_log
@@ -464,26 +489,22 @@ void WooFForker(FARG *ta)
 		 */
 		DEBUG_LOG("Forker calling P with Tcount %d\n", Tcount.load());
 
+		STARTCLOCK(&start4);
 		P(&ForkerThrottle);
+		STOPCLOCK(&end4);
 //printf("Forker [%lu]: awake after throttle\n",pthread_self());
 //fflush(stdout);
+		STARTCLOCK(&start3);
 		Tcount--;
 		DEBUG_LOG("Forker awake, after decrement %d\n", Tcount.load());
 
-//		auto wf = WooFOpen(ev[earliest_trigger_seq_no].woofc_name);
-
-//		DEBUG_FATAL_IF(!wf, "WooFForker: open failed for WooF at %s, %lu %lu\n",
-//				   ev[earliest_trigger_seq_no].woofc_name,
-//				   ev[earliest_trigger_seq_no].woofc_element_size,
-//				   ev[earliest_trigger_seq_no].woofc_history_size);
-
-		wf = WooFOpen(ev[earliest_trigger_seq_no].woofc_name);
-		if(wf == NULL) {
-			fprintf(stderr,"WooFForker[%lu]: open failed for %s\n",
-				pthread_self(),ev[earliest_trigger_seq_no].woofc_name);
-			fflush(stderr);
-			exit(1);
-		}
+		//wf = WooFOpen(ev[earliest_trigger_seq_no].woofc_name);
+		//if(wf == NULL) {
+		//	fprintf(stderr,"WooFForker[%lu]: open failed for %s\n",
+		//		pthread_self(),ev[earliest_trigger_seq_no].woofc_name);
+		//	fflush(stderr);
+		//	exit(1);
+		//}
 
 
 		/*
@@ -540,7 +561,8 @@ void WooFForker(FARG *ta)
 		* XXX if we can get the file name in a different way we can eliminate this call to WooFOpen()
 		*/
 		memset(hbuff,0,sizeof(hbuff));
-		sprintf(hbuff, "WOOF_SHEPHERD_NAME=%s", wf->shared->filename);
+		//sprintf(hbuff, "WOOF_SHEPHERD_NAME=%s", wf->shared->filename);
+		sprintf(hbuff, "WOOF_SHEPHERD_NAME=%s", ev[earliest_trigger_seq_no].woofc_name);
 		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
 		if(err <= 0) {
 			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
@@ -656,10 +678,14 @@ void WooFForker(FARG *ta)
 		printf("%s %d FORWARD\n",ev[earliest_trigger_seq_no].woofc_name,el_id->hid);
 		fflush(stdout);
 #endif
-		WooFDrop(wf);
-		STOPCLOCK(&end);
-		TIMING_PRINT("DISPATH: duration: %f ms, trips: %d spurious: %d\n",
-				DURATION(start,end)*1000,trip_count,spurious);
+		//WooFDrop(wf);
+		STOPCLOCK(&end3);
+#ifdef TIMING
+		sum = DURATION(start,end1) + DURATION(start2,end2) + DURATION(start3,end3) + DURATION(start4,end4);
+#endif
+		TIMING_PRINT("DISPATCH: duration: %f ms, sum: %f trips: %d start: %d last: %d trig: %d fire: %d find: %f,\n",
+				DURATION(start,end3)*1000,sum*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
+					DURATION(start,end1)*1000);
 
 		/*
 		* remember its sequence number for next time

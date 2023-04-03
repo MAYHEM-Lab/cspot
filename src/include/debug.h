@@ -12,8 +12,16 @@ void cspot_print_fatal_if(bool val, const char* format, ...);
 
 void cspot_print_timing(const char* format, ...);
 
+#define QUIET
+
 //#define TRACK
 #define TIMING
+
+#ifdef QUIET
+#undef TIMING
+#undef DEBUG
+#undef TRACK
+#endif
 
 #ifdef TIMING
 
@@ -34,13 +42,22 @@ void cspot_print_timing(const char* format, ...);
 
 #else
 
+#ifdef DEBUG
 #define DEBUG_LOG(...) cspot_print_debug(__VA_ARGS__)
 #define DEBUG_WARN(...) cspot_print_debug(__VA_ARGS__)
 #define DEBUG_FATAL(...) cspot_print_fatal(__VA_ARGS__)
 #define DEBUG_FATAL_IF(cond, ...) cspot_print_fatal_if(cond, __VA_ARGS__)
+#else
 
-#define STARTCLOCK()
-#define STOPCLOCK()
+#define DEBUG_LOG(...)
+#define DEBUG_WARN(...)
+#define DEBUG_FATAL(...)
+#define DEBUG_FATAL_IF(cond, ...)
+
+#endif
+
+#define STARTCLOCK(startp)
+#define STOPCLOCK(stopp)
 #define DURATION(start,stop)
 #define TIMING_PRINT(...) 
 
