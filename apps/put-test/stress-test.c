@@ -8,10 +8,9 @@
 #include "put-test.h"
 #include "dlist.h"
 
-#define ARGS "c:W:s:N:H:g:p:P:"
+#define ARGS "c:W:s:g:p:P:L"
 char *Usage = "stress-test -W woof_name for stress test\n\
-\t-H namelog-path\n\
-\t-N target namespace (as a URI)\n\
+\t-L <use local woofs>\n\
 \t-s number of puts\n\
 \t-g get threads\n\
 \t-p put threads\n\
@@ -32,6 +31,8 @@ pthread_mutex_t Glock;
 Dlist *Pending;
 int Done;
 int Payload_size;
+double Total;
+double Count;
 
 void *PutThread(void *arg)
 {
@@ -63,6 +64,7 @@ void *PutThread(void *arg)
 			fflush(stderr);
 			pthread_exit(NULL);
 		}
+		sleep(1);
 
 		pthread_mutex_lock(&Glock);
 		DlistAppend(Pending,(Hval)seq_no);
@@ -100,7 +102,6 @@ void *GetThread(void *arg)
 				err = WooFGet(Oname,&st,seq_no);
 				if(err < 0) {
 					printf("get of seq_no %lu failed, retrying\n",seq_no);
-					sleep(1);
 					retries++;
 					continue;
 				}
@@ -114,6 +115,8 @@ void *GetThread(void *arg)
 					(st.posted.tv_sec * 1000000.0 + st.posted.tv_usec);
 				elapsed = elapsed / 1000;
 				printf("seq_no %lu elapsed %f\n",seq_no,elapsed);
+				Total += elapsed;
+				Count++;
 			}
 		} else {
 			pthread_mutex_unlock(&Glock);
@@ -135,19 +138,15 @@ int main(int argc, char **argv)
 	int gt;
 	int pt;
 	int i;
+	int local;
 
 	gt = 1;
 	pt = 1;
+	local = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
 				strncpy(Wname,optarg,sizeof(Wname));
-				break;
-			case 'N':
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			case 'H':
-				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
 				break;
 			case 's':
 				size = atoi(optarg);
@@ -160,6 +159,9 @@ int main(int argc, char **argv)
 				break;
 			case 'P':
 				Payload_size = atoi(optarg);
+				break;
+			case 'L':
+				local = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -180,11 +182,6 @@ int main(int argc, char **argv)
 		fprintf(stderr,"need to specify woof size\n");
 		fprintf(stderr,"%s",Usage);
 		exit(1);
-	}
-
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
 	}
 
 	if(Payload_size < sizeof(ST_EL)) {
@@ -208,6 +205,10 @@ int main(int argc, char **argv)
 	pthread_mutex_init(&Plock,NULL);
 	pthread_mutex_init(&Glock,NULL);
 	PutRemaining = size;
+
+	if(local == 1) {
+		WooFInit();
+	}
 
 	for(i=0; i < pt; i++) {
 		err = pthread_create(&ptids[i],NULL,PutThread,NULL);
@@ -234,6 +235,7 @@ int main(int argc, char **argv)
 	free(gtids);
 	free(ptids);
 	DlistRemove(Pending);
+	printf("avg: %f ms\n",Total/Count);
 	
 	return(1);
 }

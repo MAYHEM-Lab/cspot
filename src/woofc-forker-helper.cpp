@@ -9,7 +9,7 @@
 
 #include "debug.h"
 
-#define SPLAY (0)
+#define SPLAY (5)
 
 
 int main(int argc,char **argv, char **env)
@@ -144,9 +144,9 @@ int main(int argc,char **argv, char **env)
 #endif
 
 		/*
-		 * wait for handler to exit
+		 * if SPLAY > 0, clean up as best we can when we have over
+		 * threshold zombies
 		 */
-#if 0
 		if(SPLAY != 0) {
 			splay_count++;
 			if(splay_count >= SPLAY) {
@@ -166,11 +166,13 @@ int main(int argc,char **argv, char **env)
 				}
 			}
 		}
-#endif
 		/*
 		 * send WooFForker completion signal
 		 */
 		write(2,&c,1);
+		/*
+		 * if SPLAY is zero, wait
+		 */
 		if(SPLAY == 0) {
 //printf("Helper[%d]: calling wait for pid: %d\n",getpid(),pid);
 //fflush(stdout);

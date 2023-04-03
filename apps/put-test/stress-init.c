@@ -6,10 +6,8 @@
 #include "woofc.h"
 #include "put-test.h"
 
-#define ARGS "P:W:s:N:H:"
-char *Usage = "stress_init -W woof_name for stress test\n\
-\t-H namelog-path\n\
-\t-N target namespace (as a URI)\n\
+#define ARGS "P:W:s:"
+char *Usage = "stress_init -W local_woof_name for stress test\n\
 \t-P payload size\n\
 \t-s woof size\n";
 
@@ -28,17 +26,12 @@ int main(int argc, char **argv)
 	char local_ns[1024];
 	int woof_size = 0;
 	int payload_size = sizeof(ST_EL);
+	int local = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
 				strncpy(Wname,optarg,sizeof(Wname));
-				break;
-			case 'N':
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			case 'H':
-				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
 				break;
 			case 's':
 				woof_size = atoi(optarg);
@@ -67,10 +60,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
-	}
 
 	WooFInit();
 
