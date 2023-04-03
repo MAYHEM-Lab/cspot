@@ -287,6 +287,12 @@ void WooFForker(FARG *ta)
 	unsigned char *buf;
 	ELID *el_id;
 #endif
+#ifdef TIMING
+	double start;
+	double end;
+	int trip_count;
+	int spurious = 0;
+#endif
 
 	DEBUG_LOG("WooFForker: namespace: %s started\n", WooF_namespace);
 	DEBUG_LOG("WooFForker: namespace: %s memset called\n", WooF_namespace);
@@ -310,6 +316,7 @@ void WooFForker(FARG *ta)
 		P(&Name_log->mutex);
 //printf("Forker[%lu]: in mutex\n",pthread_self());
 //fflush(stdout);
+		STARTCLOCK(&start);
 		DEBUG_LOG("WooFForker (%lu): namespace: %s, in mutex, size: %lu, last: %llu\n",
 			  pthread_self(),
 			  WooF_namespace,
@@ -334,47 +341,47 @@ void WooFForker(FARG *ta)
 		 */
 		start_seq_no = curr;
 		earliest_trigger_seq_no = -1;
-		ev_list = RBInitI();
-//printf("Forker[%lu]: rb created\n",pthread_self());
-//fflush(stdout);
+		ev_list = RBInitI64();
 		if(ev_list == NULL) {
 			fprintf(stderr,"WooFForker: no space for RB list, exiting\n");
 			fflush(stderr);
 			exit(1);
 		}
+#ifdef TIMING
+		trip_count = 0;
+#endif
 		while(curr != Name_log->tail) {
 			if(ev[curr].type == TRIGGER_FIRING){ // this has been handled, add its cause
-				RBInsertI(ev_list,ev[curr].cause_seq_no,dummy);
+				RBInsertI64(ev_list,ev[curr].cause_seq_no,dummy);
 			} else if(ev[curr].type == TRIGGER) {
 				/*
 				 * this is a trigger, if we haven't seen, remember it as possibly the oldest
 				 */
-				rb = RBFindI(ev_list,ev[curr].seq_no);
+				rb = RBFindI64(ev_list,ev[curr].seq_no);
 				if(rb == NULL) {
 					earliest_trigger_seq_no = curr;
 				}
 			}
 			curr = curr - 1;
 			if((int)curr < 0) { // wrapped off the end of unsigned
-//printf("Forker[%lu]: about wrap from %u to %d\n",pthread_self(), curr, Name_log->size - 1);
-//fflush(stdout);
 				curr = Name_log->size - 1;
 			}
 			/*
 			 * short cut when we reach the oldest we have looked at
 			 */
+#ifdef TIMING
+			trip_count++;
+#endif
 			if(curr == Name_log->last_checked) {
 				break;
 			}
 		}
+		STOPCLOCK(&end);
+		TIMING_PRINT("SCAN: duration: %f ms, trips: %d\n",DURATION(start,end)*1000,trip_count);
 		/*
 		 * drop the tree since we don't need it regardless
 		 */
-//printf("Forker[%lu]: about to free list\n",pthread_self());
-//fflush(stdout);
 		RBDestroyI(ev_list);
-//printf("Forker[%lu]: list freed\n",pthread_self());
-//fflush(stdout);
 		/*
 		 * here, we have swept back looking for unclaimed triggers.  If we didn't find any,
 		 * drop the lock and go back and wait
@@ -390,11 +397,9 @@ void WooFForker(FARG *ta)
 			 * log again
 			 */
 
-			/*
-			 * XXX test here to see of log wraps -- is last_seq_no < log tail seq_no?
-			 */
-//printf("Forker [%lu]: found nothing\n",pthread_self());
-//fflush(stdout);
+#ifdef TIMING
+			spurious++;
+#endif
 			continue;
 		}
 

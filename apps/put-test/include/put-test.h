@@ -39,7 +39,7 @@ typedef struct exp_log_stc EX_LOG;
 
 struct stress_stc
 {
-	char woof_name[1024];
+	char woof_name[116];
 	unsigned long seq_no;
 	struct timeval posted;
 	struct timeval fielded;

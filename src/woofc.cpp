@@ -717,10 +717,6 @@ DEBUG_LOG("WooFAppend: busy at %lu\n",next);
     sprintf(log_name, "%s/%s", WooF_namelog_dir, Namelog_name);
     DEBUG_LOG("WooFAppendWithCause: logging event to %s\n", log_name);
 
-    
-
-//printf("WooFPut[%d]: logging event\n",getpid());
-//fflush(stdout);
     ls = LogEvent(Name_log, ev);
     if (ls == 0) {
         fprintf(stderr, "WooFAppendWithCause: couldn't log event to log %s\n", log_name);
@@ -1400,6 +1396,8 @@ int WooFReadWithCause(
     memcpy(element, ptr, wfs->element_size);
     V(&wfs->mutex);
 
+#ifdef REPAIR
+
     ev = EventCreate(READ, Name_id);
     if (ev == NULL) {
         fprintf(stderr, "WooFReadWithCause: failed to create event\n");
@@ -1448,6 +1446,7 @@ int WooFReadWithCause(
     DEBUG_LOG("WooFReadWithCause: logged %lu for woof %s %s\n", ls, ev->woofc_name, ev->woofc_handler);
 
     EventFree(ev);
+#endif
     return (1);
 }
 
