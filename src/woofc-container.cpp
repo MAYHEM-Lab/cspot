@@ -376,8 +376,6 @@ void WooFForker(FARG *ta)
 				break;
 			}
 		}
-		STOPCLOCK(&end);
-		TIMING_PRINT("SCAN: duration: %f ms, trips: %d\n",DURATION(start,end)*1000,trip_count);
 		/*
 		 * drop the tree since we don't need it regardless
 		 */
@@ -659,6 +657,9 @@ void WooFForker(FARG *ta)
 		fflush(stdout);
 #endif
 		WooFDrop(wf);
+		STOPCLOCK(&end);
+		TIMING_PRINT("DISPATH: duration: %f ms, trips: %d spurious: %d\n",
+				DURATION(start,end)*1000,trip_count,spurious);
 
 		/*
 		* remember its sequence number for next time
