@@ -39,7 +39,9 @@ struct event_stc {
     unsigned long ino; // for caching if enabled
     uint64_t timestamp;
 // handler tracking
+#ifdef TRACK
     int hid;
+#endif
 };
 
 typedef struct event_stc EVENT;

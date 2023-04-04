@@ -18,13 +18,12 @@ struct woof_shared_stc {
     unsigned long head;
     unsigned long tail;
     unsigned long element_size;
-#ifdef DONEFLAG
-    unsigned long done;
-#endif
 #ifdef REPAIR
     int repair_mode;
 #endif
+#ifdef TRACK
     int hid;
+#endif
 };
 
 typedef struct woof_shared_stc WOOF_SHARED;
@@ -46,9 +45,10 @@ struct woof_stc {
 typedef struct woof_stc WOOF;
 
 struct element_stc {
-    unsigned long busy;
     unsigned long long seq_no;
+#ifdef TRACK
     int hid;
+#endif
 };
 
 typedef struct element_stc ELID;
