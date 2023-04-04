@@ -17,6 +17,8 @@ int main(int argc,char **argv, char **env)
 	int err;
 	char hbuff[255];
 	int i;
+	int j;
+	int k;
 	char *fargv[2];
 	pid_t pid;
 	pid_t npid;
@@ -33,7 +35,6 @@ int main(int argc,char **argv, char **env)
 
 	signal(SIGPIPE, SIG_IGN);
 
-
 #ifdef DEBUG
 	fprintf(stdout,"woofc-forker-helper: running\n");
 	fflush(stdout);
@@ -41,56 +42,48 @@ int main(int argc,char **argv, char **env)
 
 	while(1) {
 		/*
-		 * we need 11 env variables
+		 * we need 11 env variables and a handler
 		 */
-
-		memset(args,0,12*255);
+		memset(args,0,sizeof(args));
+		err = read(0,args,sizeof(args));
+		if(err <= 0) {
+			fprintf(stdout,"woofc-forker-helper read error %d\n",err);
+			fflush(stdout);
+			exit(0);
+		}
+		j = 0;
+		k = 0;
 		for(i=0; i < 11; i++) {
-//			err = read(0,hbuff,sizeof(hbuff));
-			err = read(0,&args[i*255],255);
-			menv[i] = &args[i*255];
-			if(err <= 0) {
-				fprintf(stdout,"woofc-forker-helper read %d on %d\n",err,i);
+			while((args[j] != 0) && (j < sizeof(args))) { // look for NULL terminator
+				j++;
+			}
+			if(j >= sizeof(args)) {
+				fprintf(stdout,"woofc-forker-helper corrupt launch %s\n",args);
 				fflush(stdout);
 				exit(0);
 			}
-#if 0
-			str = (char *)malloc(strlen(hbuff)+1);
-			if(str == NULL) {
-				exit(1);
-			}
-			memset(str,0,sizeof(hbuff)+1);
-			strncpy(str,hbuff,strlen(hbuff));
-#endif
+			menv[i] = &args[k];
 #ifdef DEBUG
 			fprintf(stdout,"woofc-forker-helper: received %s\n",menv[i]);
 			fflush(stdout);
 #endif
-//			menv[i] = str;
+			j++;
+			k = j;
 		}
 		menv[11] = NULL;
 
-		/*
-		 * read the handler name
-		 */
-		err = read(0,hbuff,sizeof(hbuff));
-		if(err <= 0) {
-			fprintf(stderr,"woofc-forker-helper read %d for handler\n",err);
-			exit(0);
-		}
+		fargv[0] = &args[k]; // handler is last
+		fargv[1] = NULL;
 #ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: received handler: %s\n",hbuff);
+		fprintf(stdout,"woofc-forker-helper: received handler: %s\n",fargv[0]);
 		fflush(stdout);
 #endif
-
-		fargv[0] = hbuff;
-		fargv[1] = NULL;
 
 #ifdef TRACK
 		/*
 		 * read the hid
 		 */
-		err = read(0,tbuff,sizeof(hbuff));
+		err = read(0,tbuff,sizeof(tbuff));
 		if(err <= 0) {
 			fprintf(stderr,"woofc-forker-helper read %d for handler\n",err);
 			exit(0);
@@ -99,7 +92,7 @@ int main(int argc,char **argv, char **env)
 		/*
 		 * read the woof name
 		 */
-		err = read(0,tbuff,sizeof(hbuff));
+		err = read(0,tbuff,sizeof(tbuff));
 		if(err <= 0) {
 			fprintf(stderr,"woofc-forker-helper read %d for handler\n",err);
 			exit(0);
@@ -124,22 +117,19 @@ int main(int argc,char **argv, char **env)
 			 * close 0 in case of SIGPIPE
 			 */
 			close(0);
-			execve(hbuff,fargv,menv);
-			fprintf(stdout,"execve of %s failed\n",hbuff);
+//			execve(hbuff,fargv,menv);
+			execve(fargv[0],fargv,menv);
+			fprintf(stdout,"execve of %s failed\n",fargv[0]);
 			fflush(stdout);
 			close(2);
 			_exit(0);
 		} else {
-//printf("Helper[%d]: forked pid %d, %s\n",getpid(),pid,hbuff);
+//printf("Helper[%d]: forked pid %d, %s\n",getpid(),pid,fargv[0]);
 //fflush(stdout);
 		}
 
 #ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: vfork completed for handler %s\n",hbuff);
-		fflush(stdout);
-#endif
-#ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: freed env\n");
+		fprintf(stdout,"woofc-forker-helper: vfork completed for handler %s\n",fargv[0]);
 		fflush(stdout);
 #endif
 
@@ -151,7 +141,7 @@ int main(int argc,char **argv, char **env)
 			splay_count++;
 			if(splay_count >= SPLAY) {
 	#ifdef DEBUG
-				fprintf(stdout,"woofc-forker-helper: about to wait for %s\n",hbuff);
+				fprintf(stdout,"woofc-forker-helper: about to wait for %s\n",fargv[0]);
 				fflush(stdout);
 	#endif
 				/*
@@ -160,7 +150,7 @@ int main(int argc,char **argv, char **env)
 				while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
 					splay_count--;
 	#ifdef DEBUG
-					fprintf(stdout,"woofc-forker-helper: completed wait for %s as proc %d\n",hbuff,pid);
+					fprintf(stdout,"woofc-forker-helper: completed wait for %s as proc %d\n",fargv[0],pid);
 					fflush(stdout);
 	#endif
 				}
@@ -196,7 +186,7 @@ int main(int argc,char **argv, char **env)
 		}
 			
 #ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: signaled parent for %s after proc %d reaped\n",hbuff,pid);
+		fprintf(stdout,"woofc-forker-helper: signaled parent for %s after proc %d reaped\n",fargv[0],pid);
 		fflush(stdout);
 #endif
 		fflush(stdout);

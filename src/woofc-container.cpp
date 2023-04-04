@@ -37,7 +37,7 @@ typedef struct forker_stc FARG;
 
 
 namespace {
-constexpr auto WOOF_CONTAINER_FORKERS = 20;
+constexpr auto WOOF_CONTAINER_FORKERS = 2;
 std::atomic<bool> should_exit;
 
 sema ForkerThrottle;
@@ -264,6 +264,27 @@ void WooFReaper() {
     pthread_exit(NULL);
 }
 
+/*
+ * encodes string in a buffer for sending to forker helper
+ *
+ * returns current buffer end
+ */
+int AddString(char *buf, int end, char *str)
+{
+	char *start = &buf[end];
+	int new_end;
+	int len = strlen(str);
+
+//	sprintf(start,"%s",str);
+	memcpy(start,str,len);
+	new_end = end+len;
+	buf[new_end] = 0;
+	/*
+	 * return location after NULL terminator
+	 */
+	return(new_end+1);
+}
+	
 
 void WooFForker(FARG *ta) 
 {
@@ -279,6 +300,8 @@ void WooFForker(FARG *ta)
 	int err;
 	char c;
 	char hbuff[255];
+	char payload[4096];
+	int mcurr;
 	Hval dummy;
 	WOOF *wf;
 #ifdef TRACK
@@ -529,32 +552,37 @@ void WooFForker(FARG *ta)
 		/* 0 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOFC_NAMESPACE=%s", WooF_namespace);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write [%d] %s\n",ta->parenttochild[1],hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write [%d] %s\n",ta->parenttochild[1],hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,0,hbuff);
+
+		
 
 		/* 1 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOFC_DIR=%s", WooF_dir);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 2 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_HOST_IP=%s", Host_ip);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 3 */
 		/*
@@ -563,91 +591,110 @@ void WooFForker(FARG *ta)
 		memset(hbuff,0,sizeof(hbuff));
 		//sprintf(hbuff, "WOOF_SHEPHERD_NAME=%s", wf->shared->filename);
 		sprintf(hbuff, "WOOF_SHEPHERD_NAME=%s", ev[earliest_trigger_seq_no].woofc_name);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 4 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_SHEPHERD_NDX=%lu", ev[earliest_trigger_seq_no].woofc_ndx);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 5 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_SHEPHERD_SEQNO=%lu", ev[earliest_trigger_seq_no].woofc_seq_no);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 6 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_NAME_ID=%lu", Name_id);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 7 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_NAMELOG_DIR=%s", WooF_namelog_dir);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 8 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_NAMELOG_NAME=%s", Namelog_name);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 9 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "WOOF_NAMELOG_SEQNO=%llu", ev[earliest_trigger_seq_no].seq_no);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/* 10 */
 		memset(hbuff,0,sizeof(hbuff));
 		strcpy(hbuff, "LD_LIBRARY_PATH=/usr/local/lib");
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
-		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
-			perror("WoofForker");
-			exit(1);
-		}
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
 
 		/*
 		 * now send handler
 		 */
 		memset(hbuff,0,sizeof(hbuff));
 		sprintf(hbuff, "%s/%s", WooF_dir, ev[earliest_trigger_seq_no].woofc_handler);
-		err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//err = write(ta->parenttochild[1],hbuff,strlen(hbuff)+1);
+		//if(err <= 0) {
+		//	fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+		//	perror("WoofForker");
+		//	exit(1);
+		//}
+		mcurr = AddString(payload,mcurr,hbuff);
+
+		/*
+		 * send the strings as one message
+		 */
+		err = write(ta->parenttochild[1],payload,mcurr);
 		if(err <= 0) {
-			fprintf(stderr,"WooFForker: failed to write %s\n",hbuff);
+			fprintf(stderr,"WooFForker: failed to write %s\n",payload);
 			perror("WoofForker");
 			exit(1);
 		}
