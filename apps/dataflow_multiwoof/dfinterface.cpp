@@ -191,8 +191,9 @@ void add_node(int ns, int host_id, int id, int opcode) {
         woof_create(generate_woof_path(OUTPUT_WOOF_TYPE, ns, id, host_id), sizeof(operand), OUTPUT_WOOF_SIZE);
 
         // Create subscription_events woof
-        woof_create(
-            generate_woof_path(SUBSCRIPTION_EVENTS_WOOF_TYPE, ns, id, host_id), sizeof(subscription_event), SUBSCRIPTION_EVENTS_WOOF_SIZE);
+        woof_create(generate_woof_path(SUBSCRIPTION_EVENTS_WOOF_TYPE, ns, id, host_id),
+                    sizeof(subscription_event),
+                    SUBSCRIPTION_EVENTS_WOOF_SIZE);
 
 
         // Create consumer_pointer woof
@@ -277,7 +278,9 @@ void setup() {
 
             // Add woofs to hold last used seq in subscription output woof
             for (size_t port = 0; port < subscriptions[ns][i].size(); port++) {
-                woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port), sizeof(cached_output), SUBSCRIPTION_POS_WOOF_SIZE);
+                woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port),
+                            sizeof(cached_output),
+                            SUBSCRIPTION_POS_WOOF_SIZE);
             }
         }
     }

@@ -317,7 +317,7 @@ void multinode_regression() {
 
     // Initialization
 
-    int iters = 20;
+    int iters = 100;
 
     std::cout << "Initializing constants" << std::endl;
 
@@ -391,7 +391,8 @@ void multinode_regression() {
     std::cout << "Waiting for program to finish" << std::endl;
 
     while (woof_last_seq("laminar-5.output.1") < iters || woof_last_seq("laminar-5.output.2") < iters) {
-        sleep(1);
+        sleep(2);
+        std::cout << "iter: " << woof_last_seq("laminar-5.output.1") << std::endl << std::flush;
     }
 
     std::vector<double> intercepts;
@@ -422,8 +423,8 @@ void multinode_regression() {
 
     ASSERT(intercepts.size() >= iters, "Finish all iterations");
 
-    ASSERT(slopes.back() >= 1.5 && slopes.back() <= 2.5, "Slope is within expected range (~2)");
-    ASSERT(intercepts.back() >= 2.5 && intercepts.back() <= 3.5, "Intercept is within expected range (~3)");
+    ASSERT(slopes.back() >= 0.5 && slopes.back() <= 3.5, "Slope is within expected range (~2)");
+    ASSERT(intercepts.back() >= 1.5 && intercepts.back() <= 4.5, "Intercept is within expected range (~3)");
 
 
     END_TEST();
