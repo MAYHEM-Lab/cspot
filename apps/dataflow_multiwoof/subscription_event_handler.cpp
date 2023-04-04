@@ -178,6 +178,8 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
 
     unsigned long consumer_seq = exec_iter_lk.iter;
 
+    DEBUG_PRINT("Starting subscription handler");
+
     // Only proceed if this event is relevant to the current execution iteration
     if (subevent->seq > consumer_seq) {
         DEBUG_PRINT("event seq: " << subevent->seq << ", consumer seq: " << consumer_seq);
@@ -222,13 +224,16 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
     operand op(0);
     std::string output_woof;
     for (unsigned long i = start_idx; i < end_idx; i++) {
+#ifdef DEBUG
+        std::string param_num = "(param #" + std::to_string(i - start_idx) + ") ";
+#endif
         // Get last used output and seqno for this port
         cached_output last_output;
         std::string last_used_sub_pos_woof = generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, id, -1, i - start_idx);
         if (woof_last_seq(last_used_sub_pos_woof) == 0) {
             // On first read, check if output woof is empty
             if (woof_last_seq(output_woof) == 0) {
-                DEBUG_PRINT("No outputs yet, exiting");
+                DEBUG_PRINT(param_num << "No outputs yet, exiting");
                 return 0;
             }
         } else {
@@ -248,7 +253,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
             // Another handler has already cached an operand from a later
             // execution iteration, thus this execution iteration has already
             // been completed, exit
-            DEBUG_PRINT("Cached operand exceeds current excecution iteration, exiting");
+            DEBUG_PRINT(param_num << "Cached operand exceeds current excecution iteration, exiting");
             return 0;
         }
 
@@ -268,7 +273,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
         unsigned long last_idx = woof_last_seq(output_woof);
 
         if (idx >= last_idx) {
-            DEBUG_PRINT("No new outputs to check: cached_idx=" << idx << ", last_seq=" << last_idx);
+            DEBUG_PRINT(param_num << "No new outputs to check: cached_idx=" << idx << ", last_seq=" << last_idx);
             return 0;
         }
 
@@ -284,7 +289,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
 
 #ifdef DEBUG
         if (op.seq != consumer_seq) {
-            DEBUG_PRINT("ERROR: UNEXPECTED BEHAVIOR (SKIPPED EXECUTION ITER)");
+            DEBUG_PRINT(param_num << "ERROR: UNEXPECTED BEHAVIOR (SKIPPED EXECUTION ITER)");
             std::vector<operand> v;
             for (int j = 1; j <= idx; j++) {
                 operand tmp;
@@ -303,7 +308,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
         // Write latest idx back to `last used subscription position` woof
         // std::cout << "Writing back: " << "op = " << op.value << ", seq=" << idx << std::endl;
         if (op.seq <= consumer_seq) {
-            DEBUG_PRINT("CACHING OUTPUT: seq=" << op.seq << ", idx=" << idx);
+            DEBUG_PRINT(param_num << "CACHING OUTPUT: seq=" << op.seq << ", idx=" << idx);
             last_output = cached_output(op, idx);
             woof_put(last_used_sub_pos_woof, "", &last_output);
         }
@@ -319,7 +324,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
             // At least one input is not ready --> exit handler
             // std::cout << "idx: " << idx << ", consumer_seq: " << consumer_seq
             // << ", op.seq: " << op.seq << std::endl;
-            DEBUG_PRINT("Not all operands are present, exiting");
+            DEBUG_PRINT(param_num << "Not all operands are present, exiting");
             return 0;
         }
     }

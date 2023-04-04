@@ -26,6 +26,8 @@ extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
     std::string woof_name(WoofGetFileName(wf));
     // std::cout << woof_name << " @ " << seqno << std::endl;
 
+    DEBUG_PRINT("Starting output handler");
+
     // Extract id
     unsigned long id = get_id_from_woof_path(woof_name);
 
