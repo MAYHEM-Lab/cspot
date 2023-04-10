@@ -10,6 +10,8 @@
 
 void simple_namespace_test() {
     TEST("Simple namespace test");
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
 
     add_operand(1, 1, 1); // a
     add_operand(1, 1, 2); // b
@@ -72,8 +74,6 @@ void simple_namespace_test() {
 }
 
 void namespace_tests() {
-    set_host(1);
-    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
     
     simple_namespace_test();
 }

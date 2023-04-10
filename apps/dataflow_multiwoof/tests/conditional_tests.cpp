@@ -10,6 +10,9 @@
 void selector_test() {
     TEST("Selector test");
 
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+
     int ns = 1;
 
     add_node(ns, 1, 1, SEL); // a or b
@@ -50,6 +53,9 @@ void selector_test() {
 
 void filter_test() {
     TEST("Filter test");
+
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
 
     int ns = 1;
 
@@ -118,8 +124,6 @@ void filter_test() {
 }
 
 void conditional_tests() {
-    set_host(1);
-    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
 
     selector_test();
     filter_test();

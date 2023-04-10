@@ -239,8 +239,8 @@ void online_linreg_multinode() {
 
         std::chrono::time_point<std::chrono::system_clock> start, end;
         std::vector<host> hosts;
-        hosts.push_back(host(2, "woof://169.231.235.188/home/centos/org/cspot/build/bin/"));
-        hosts.push_back(host(2, "woof://169.231.235.168/home/centos/org/cspot/build/bin/"));
+        hosts.push_back(host(2, "woof://169.231.235.188/home/centos/cspot/build/bin/"));
+        hosts.push_back(host(2, "woof://169.231.235.168/home/centos/cspot/build/bin/"));
 
         for (int i = 1; i <= iters; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -294,8 +294,8 @@ void online_linreg_multinode() {
 int main() {
     
     set_host(1);
-    add_host(1, "169.231.235.185", "/home/centos/org/cspot/build/bin/");
-    add_host(2, "169.231.235.168", "/home/centos/org/cspot/build/bin/");
+    add_host(1, "169.231.235.185", "/home/centos/cspot/build/bin/");
+    add_host(2, "169.231.235.168", "/home/centos/cspot/build/bin/");
 
     online_linreg_multinode();
 }

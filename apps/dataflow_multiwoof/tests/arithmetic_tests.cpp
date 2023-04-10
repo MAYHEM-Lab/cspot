@@ -11,6 +11,9 @@
 void simple_arithmetic() {
     TEST("Simple arithmetic");
 
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+
     int ns = 1;
 
     add_node(ns, 1, 1, ADD);
@@ -44,6 +47,8 @@ void simple_arithmetic() {
 void complex_arithmetic() {
     TEST("Complex arithmetic");
 
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
     int ns = 1;
 
     add_node(ns, 1, 1, ADD);
@@ -109,6 +114,8 @@ void complex_arithmetic() {
 void stream_arithmetic() {
     TEST("Stream arithmetic");
 
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
     int ns = 1;
 
     add_node(ns, 1, 1, ADD);
@@ -174,7 +181,10 @@ void stream_arithmetic() {
 void quadratic_test() {
     TEST("Quadratic test");
     double a = 2, b = 5, c = 2;
-    
+
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+
     int ns = 1;
 
     add_node(ns, 1, 1, DIV);
@@ -246,7 +256,10 @@ void quadratic_test() {
 void stream_quadratic_test() {
     TEST("Stream quadratic test");
     double a = 2, b = 5, c = 2;
-    
+
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+
     int ns = 1;
 
     add_node(ns, 1, 1, DIV);
@@ -414,6 +427,9 @@ std::vector<std::vector<double>> mat_test(
 void mat_test_1() {
     TEST("Matrix test 1");
 
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+
     std::vector<std::vector<double>> a = {
         {1, 2},
         {3, 4}
@@ -439,6 +455,9 @@ void mat_test_1() {
 void mat_test_2() {
     TEST("Matrix test 2");
 
+    set_host(1);
+    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
+
     std::vector<std::vector<double>> a = {
         {1, 2, 3},
         {4, 5, 6}
@@ -463,9 +482,6 @@ void mat_test_2() {
 }
 
 void arithmetic_tests() {
-
-    set_host(1);
-    add_host(1, "127.0.0.1", "/home/centos/cspot/build/bin/");
     
     simple_arithmetic();
     complex_arithmetic();

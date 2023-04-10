@@ -168,7 +168,7 @@ void online_linreg_multinode() {
 
     // Initialization
 
-    int iters = 2;
+    int iters = 100;
 
     std::cout << "Initializing constants" << std::endl;
 

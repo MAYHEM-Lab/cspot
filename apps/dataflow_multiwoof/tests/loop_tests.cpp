@@ -13,6 +13,9 @@
 void sqrt_loop_test() {
     TEST("Square root loop test");
 
+    set_host(1);
+    add_host(1, "localhost", "/home/centos/cspot/build/bin/");
+
     /* Nodes */
     
     // Inputs
@@ -159,6 +162,9 @@ void sqrt_loop_test() {
 
 void multinode_regression() {
     TEST("Multinode regression test");
+
+    set_host(1);
+    add_host(1, "localhost", "/home/centos/cspot/build/bin/");
 
     // Update variables (num, x, y, xx, xy)
 
@@ -431,9 +437,6 @@ void multinode_regression() {
 }
 
 void loop_tests() {
-
-    set_host(1);
-    add_host(1, "localhost", "/home/centos/cspot/build/bin/");
 
     // sqrt_loop_test();
     multinode_regression();
