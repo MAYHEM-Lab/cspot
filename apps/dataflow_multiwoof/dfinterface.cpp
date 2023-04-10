@@ -35,14 +35,15 @@ int get_curr_host_id() {
     return curr_host_id;
 }
 
-enum LaminarRetryType get_curr_retry_type() {
+enum LaminarRetryType get_curr_retry_type()
+{
 
     int curr_host_id = get_curr_host_id();
 
     host h;
     int err = woof_get(generate_woof_path(HOSTS_WOOF_TYPE), &h, curr_host_id);
     if (err < 0) {
-        std::cout << "Error reading the host info for host id: " << std::to_string(curr_host_id) << std::endl;
+        std::cout << "Error reading the host retry info for host id: " << std::to_string(curr_host_id) << std::endl;
         exit(1);
     }
 
@@ -84,7 +85,7 @@ std::string generate_woof_path(DFWoofType woof_type, int ns, int id, int host_id
     // assign a host url only if it is not local; extract from HOSTS_WOOF
     if (host_id != curr_host_id) {
         host h;
-        int err = woof_get(generate_woof_path(HOSTS_WOOF_TYPE), &h, host_id);
+        int err = woof_get(generate_woof_path(HOSTS_WOOF_TYPE), &h, 0);
         if (err < 0) {
             std::cout << "Error reading the host info for host id: " << std::to_string(host_id) << std::endl;
             exit(1);
@@ -174,13 +175,16 @@ std::vector<std::string> split(std::string s, char delim = ',') {
     return result;
 }
 
-void add_host(int host_id, std::string host_ip, std::string woof_path) {
+void add_host(int host_id,
+              std::string host_ip,
+              std::string woof_path,
+              enum LaminarRetryType laminar_retry_type) {
 
     // global info stored in every host
     std::string host_url = "woof://" + host_ip + woof_path;
     char host_url_c_str[200];
     strcpy(host_url_c_str, host_url.c_str());
-    hosts.insert(host(host_id, host_url_c_str));
+    hosts.insert(host(host_id, host_url_c_str, laminar_retry_type));
 }
 
 void set_host(int host_id) {
@@ -254,7 +258,7 @@ void setup() {
     // setup the host related info
     // TODO: setup check for host_url size
     // std::cout << "Sizeof host : " << sizeof(host) << "Hosts size : " << hosts.size() << std::endl;
-    woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), hosts.size());
+    woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), 100);
 
     for (auto& host : hosts) {
         woof_put(generate_woof_path(HOSTS_WOOF_TYPE), "", &host);
@@ -304,9 +308,11 @@ void setup() {
         int i = 1;
         for (auto& node : nodes[ns]) {
             // Add woofs to hold last used seq in subscription output woof
-            if(curr_host_id == node.host_id) {
+            if (curr_host_id == node.host_id) {
                 for (size_t port = 0; port < subscriptions[ns][i].size(); port++) {
-                    woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port), sizeof(cached_output), SUBSCRIPTION_POS_WOOF_SIZE);
+                    woof_create(generate_woof_path(SUBSCRIPTION_POS_WOOF_TYPE, ns, i, -1, port),
+                                sizeof(cached_output),
+                                SUBSCRIPTION_POS_WOOF_SIZE);
                 }
             }
             i++;

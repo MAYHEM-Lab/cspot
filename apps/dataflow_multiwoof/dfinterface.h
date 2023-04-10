@@ -17,7 +17,10 @@ int woof_get(std::string name, void* element, unsigned long seq_no);
 unsigned long woof_last_seq(std::string name);
 
 void set_host(int host_id);
-void add_host(int host_id, std::string host_ip, std::string woof_path);
+void add_host(int host_id,
+              std::string host_ip,
+              std::string woof_path,
+              enum LaminarRetryType laminar_retry_type = LAMINAR_HOST_RETRY_EXPONENTIAL_BACKOFF);
 void add_node(int ns, int host_id, int id, int opcode);
 void add_operand(int ns, int host_id, int id);
 
