@@ -150,7 +150,8 @@ operand perform_operation(const std::vector<operand>& ops, int ns, node& n, unsi
 }
 
 extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* ptr) {
-    auto start = std::chrono::high_resolution_clock::now();
+    
+    // auto start = std::chrono::high_resolution_clock::now();
     // std::cout << "SUBSCRIPTION EVENT HANDLER STARTED" << std::endl;
 
     int err;
@@ -428,6 +429,7 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
         DEBUG_PRINT("Wrote result #" << consumer_seq);
     }
 
+    /*
     // // linreg_multinode
     if (id == 8 && woof_name == "laminar-1.subscription_events.8") {
 
@@ -440,7 +442,8 @@ extern "C" int subscription_event_handler(WOOF* wf, unsigned long seqno, void* p
                         .count()
                 << "ns" << std::endl;
     }
-
+    */
+   
     // std::cout << "SUBSCRIPTION EVENT HANDLER DONE" << std::endl;
 
     // Relinquish lock and increment execution iteration

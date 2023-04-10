@@ -154,6 +154,10 @@ extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
         itr++;
     }
 
+    /* 
+    fot testing linreg_uninode
+    if (id == 1 && woof_name == "laminar-1.output.1") {
+    for testing linreg_multinode 
     if (id == 1 && woof_name == "laminar-5.output.1") {
         auto end = std::chrono::system_clock::now();
         std::cout << "end" << ": "
@@ -162,7 +166,7 @@ extern "C" int output_handler(WOOF* wf, unsigned long seqno, void* ptr) {
                         .count()
                 << "ns" << std::endl;
     }
-    
+    */
     return 0;
 }
 

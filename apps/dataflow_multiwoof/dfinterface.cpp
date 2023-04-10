@@ -27,7 +27,7 @@ std::set<host> hosts;
 int get_curr_host_id() {
 
     int curr_host_id;
-    int err = woof_get(generate_woof_path(HOST_ID_WOOF_TYPE), &curr_host_id, 0);
+    int err = woof_get(generate_woof_path(HOST_ID_WOOF_TYPE), &curr_host_id, 1);
     if (err < 0) {
         std::cout << "Error obtaining current host id " << std::endl;
         exit(1);
@@ -85,7 +85,7 @@ std::string generate_woof_path(DFWoofType woof_type, int ns, int id, int host_id
     // assign a host url only if it is not local; extract from HOSTS_WOOF
     if (host_id != curr_host_id) {
         host h;
-        int err = woof_get(generate_woof_path(HOSTS_WOOF_TYPE), &h, 0);
+        int err = woof_get(generate_woof_path(HOSTS_WOOF_TYPE), &h, host_id);
         if (err < 0) {
             std::cout << "Error reading the host info for host id: " << std::to_string(host_id) << std::endl;
             exit(1);
@@ -258,7 +258,7 @@ void setup() {
     // setup the host related info
     // TODO: setup check for host_url size
     // std::cout << "Sizeof host : " << sizeof(host) << "Hosts size : " << hosts.size() << std::endl;
-    woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), 100);
+    woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), hosts.size());
 
     for (auto& host : hosts) {
         woof_put(generate_woof_path(HOSTS_WOOF_TYPE), "", &host);
