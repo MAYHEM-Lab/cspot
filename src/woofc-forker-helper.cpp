@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <spawn.h>
 
 #include "debug.h"
 
@@ -101,6 +102,11 @@ int main(int argc,char **argv, char **env)
 		printf("%s %d RECVD\n",tbuff,hid);
 		fflush(stdout);
 #endif
+		err = posix_spawn(&pid,fargv[0],NULL,NULL,fargv,menv);
+		if(err < 0) {
+			printf("woof-forker-helper: spawn of %s failed\n",fargv[0]);
+		}
+#if 0
 		pid = vfork();
 //		pid = fork();
 		if(pid < 0) {
@@ -127,6 +133,7 @@ int main(int argc,char **argv, char **env)
 //printf("Helper[%d]: forked pid %d, %s\n",getpid(),pid,fargv[0]);
 //fflush(stdout);
 		}
+#endif
 
 #ifdef DEBUG
 		fprintf(stdout,"woofc-forker-helper: vfork completed for handler %s\n",fargv[0]);

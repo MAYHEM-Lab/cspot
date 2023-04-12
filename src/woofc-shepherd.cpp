@@ -56,6 +56,10 @@ int main(int argc, char** argv, char** envp) {
 	const char* st = "WOOF_HANDLER_NAME";
 	int i;
 
+	close(2);
+	dup2(1,2);
+	close(0);
+
 	if (envp != NULL) {
 		i = 0;
 		while (envp[i] != NULL) {
