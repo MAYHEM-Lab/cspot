@@ -11,6 +11,7 @@
 #define OUTPUT_HANDLER "output_handler"
 #define SUBSCRIPTION_EVENT_HANDLER "subscription_event_handler"
 
+void laminar_init();
 void woof_create(std::string name, unsigned long element_size, unsigned long history_size);
 unsigned long woof_put(std::string name, std::string handler, const void* element);
 int woof_get(std::string name, void* element, unsigned long seq_no);

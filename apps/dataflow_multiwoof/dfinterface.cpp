@@ -50,6 +50,19 @@ enum LaminarRetryType get_curr_retry_type()
     return h.laminar_retry_type;
 }
 
+enum LaminarSetupState get_laminar_setup_state() {
+
+    enum LaminarSetupState laminar_setup_state;
+
+    int err = woof_get("laminar-setup-state", &laminar_setup_state, 1);
+    if(err < 0) {
+        std::cout << "Error reading setup state " << std::endl;
+        exit(1);
+    }
+
+    return laminar_setup_state;
+}
+
 std::string generate_woof_path(DFWoofType woof_type, int ns, int id, int host_id, int port_id) {
     node n;
     int curr_host_id;
@@ -120,8 +133,30 @@ int get_ns_from_woof_path(std::string woof_path) {
     return std::stoi(ns_str);
 }
 
+void laminar_init() {
+
+    WooFInit();
+
+    int res;
+    enum LaminarSetupState laminar_setup_state;
+    
+    //check if setup state exists; if not then create it and set state as STARTED
+    res = woof_get("laminar-setup-state", &laminar_setup_state, 1);
+    if (res < 0) {
+        //size should be 2 ideally; but keeping 10 because of reset utility
+        woof_create("laminar-setup-state", sizeof(enum LaminarSetupState), 10);
+        
+        laminar_setup_state = LAMINAR_SETUP_STARTED;
+        woof_put("laminar-setup-state", "", &laminar_setup_state);
+    }
+
+    // if laminar setup state is in started state; all the node/host woofs will be recreated
+
+    // if laminar setup state is in finished state
+    // TODO: launch all the output and subscription_event handlers by reading the states
+}
+
 void woof_create(std::string name, unsigned long element_size, unsigned long history_size) {
-    WooFInit(); /* attach local namespace for create */
 
     int err = WooFCreate(name.c_str(), element_size, history_size);
     if (err < 0) {
@@ -179,6 +214,9 @@ void add_host(int host_id,
               std::string host_ip,
               std::string woof_path,
               enum LaminarRetryType laminar_retry_type) {
+    
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
 
     // global info stored in every host
     std::string host_url = "woof://" + host_ip + woof_path;
@@ -189,6 +227,9 @@ void add_host(int host_id,
 
 void set_host(int host_id) {
 
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
+
     std::string hosts_woof_path = generate_woof_path(HOST_ID_WOOF_TYPE);
 
     woof_create(hosts_woof_path, sizeof(int), 1);
@@ -198,6 +239,8 @@ void set_host(int host_id) {
 
 void add_node(int ns, int host_id, int id, int opcode) {
 
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
     // global info stored in every host
     nodes[ns].insert(node(id, host_id, opcode));
 
@@ -227,6 +270,8 @@ void add_node(int ns, int host_id, int id, int opcode) {
 
 void add_operand(int ns, int host_id, int id) {
 
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
 
     // global info stored in every host
     nodes[ns].insert(node(id, host_id, OPERAND));
@@ -239,6 +284,9 @@ void add_operand(int ns, int host_id, int id) {
 }
 
 void subscribe(int dst_ns, int dst_id, int dst_port, int src_ns, int src_id) {
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
+
     subscribers[src_ns][src_id].insert(subscriber(dst_ns, dst_id, dst_port));
     subscriptions[dst_ns][dst_id].insert(subscription(src_ns, src_id, dst_port));
 
@@ -247,6 +295,9 @@ void subscribe(int dst_ns, int dst_id, int dst_port, int src_ns, int src_id) {
 }
 
 void subscribe(std::string dst_addr, std::string src_addr) {
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
+
     std::vector<std::string> dst = split(dst_addr, ':');
     std::vector<std::string> src = split(src_addr, ':');
 
@@ -255,7 +306,11 @@ void subscribe(std::string dst_addr, std::string src_addr) {
 
 void setup() {
 
+    if(get_laminar_setup_state() == LAMINAR_SETUP_FINISHED)
+        return;
+
     // setup the host related info
+    // TODO: add the output handler related woofs
     // TODO: setup check for host_url size
     // std::cout << "Sizeof host : " << sizeof(host) << "Hosts size : " << hosts.size() << std::endl;
     woof_create(generate_woof_path(HOSTS_WOOF_TYPE), sizeof(host), hosts.size());
@@ -318,6 +373,10 @@ void setup() {
             i++;
         }
     }
+
+    // when setup is finished set state as finished 
+    enum LaminarSetupState laminar_setup_state = LAMINAR_SETUP_FINISHED;
+    woof_put("laminar-setup-state", "", &laminar_setup_state);
 }
 
 void reset() {
@@ -331,6 +390,10 @@ void reset() {
     nodes = std::map<int, std::set<node>>();
     // set of host structs for url extraction
     hosts = std::set<host>();
+
+    // set the laminar app state to setup-started
+    enum LaminarSetupState laminar_setup_state = LAMINAR_SETUP_STARTED;
+    woof_put("laminar-setup-state", "", &laminar_setup_state);
 }
 
 std::string graphviz_representation() {

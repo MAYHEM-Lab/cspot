@@ -72,6 +72,11 @@ enum LaminarRetryType {
     LAMINAR_HOST_RETRY_EXPONENTIAL_BACKOFF, 
 };
 
+enum LaminarSetupState {
+    LAMINAR_SETUP_STARTED = 0, 
+    LAMINAR_SETUP_FINISHED,
+};
+
 struct operand {
     double value;
     unsigned long seq;

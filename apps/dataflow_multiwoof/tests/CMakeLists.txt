@@ -6,6 +6,10 @@ add_executable(distributed_multinode_regression distributed_multinode_regression
 target_link_libraries(distributed_multinode_regression PUBLIC woof)
 target_include_directories(distributed_multinode_regression PUBLIC "./include")
 
+add_executable(crash_test crash_test.cpp ../dfinterface.cpp)
+target_link_libraries(crash_test PUBLIC woof)
+target_include_directories(crash_test PUBLIC "./include")
+
 add_executable(tests tests.cpp ../dfinterface.cpp
     arithmetic_tests.cpp
     conditional_tests.cpp
