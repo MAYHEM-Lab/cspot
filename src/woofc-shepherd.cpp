@@ -222,7 +222,7 @@ int main(int argc, char** argv, char** envp) {
 	if(el_id->seq_no != seq_no) {
 		fprintf(stdout,
 	"ERROR: handler %s assigned seq_no %d does not match element seq_no %d -- ",
-		wf_name,seq_no,l_el_id.seq_no);
+		wf_name,seq_no,el_id->seq_no);
 		fprintf(stdout, "Possible fix is to make the woof bigger\n");
 		fflush(stdout);
 		exit(0);
