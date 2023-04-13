@@ -4,6 +4,7 @@
 
 #include "event.h"
 #include "mio.h"
+#include "debug.h"
 
 #include <pthread.h>
 #include <stdio.h>

@@ -22,7 +22,7 @@ EVENT* EventCreate(EventState type, unsigned long host) {
 
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    ev->timestamp = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+    ev->timestamp = (double)ts.tv_sec + ((double)ts.tv_nsec / 1000000000.0);
 
     return (ev);
 }

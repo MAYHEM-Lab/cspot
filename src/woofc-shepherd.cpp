@@ -55,10 +55,16 @@ int main(int argc, char** argv, char** envp) {
 	int err;
 	const char* st = "WOOF_HANDLER_NAME";
 	int i;
+#ifdef TIMING
+	double start = strtod(argv[1],NULL);
+	double end;
+	double endhand;
+#endif
 
 	close(2);
 	dup2(1,2);
 	close(0);
+
 
 	if (envp != NULL) {
 		i = 0;
@@ -228,9 +234,13 @@ int main(int argc, char** argv, char** envp) {
 #endif
 
 
+	STOPCLOCK(&end);
+	TIMING_PRINT("HANDAT: %lf ms\n",DURATION(start,end)*1000);
 	err = handler(wf, seq_no, (void*)farg);
     	WooFDrop(wf);
     	MIOClose(lmio);
+	STOPCLOCK(&endhand);
+	TIMING_PRINT("DONE: %lf ms\n",DURATION(start,endhand)*1000);
 
 	exit(0);
 	return (0);

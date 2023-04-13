@@ -20,7 +20,7 @@ int main(int argc,char **argv, char **env)
 	int i;
 	int j;
 	int k;
-	char *fargv[2];
+	char *fargv[3]; // in case we are timing
 	pid_t pid;
 	pid_t npid;
 	char *menv[12];
@@ -74,7 +74,20 @@ int main(int argc,char **argv, char **env)
 		menv[11] = NULL;
 
 		fargv[0] = &args[k]; // handler is last
+#ifdef TIMING
+		/*
+		 * if we are timing, there is one more
+		 */
+		j++;
+		while((args[j] != 0) && (j < sizeof(args))) { // look for NULL terminator
+				j++;
+		}
+		j++;
+		fargv[1] = &args[j];
+		fargv[2] = NULL;
+#else
 		fargv[1] = NULL;
+#endif
 #ifdef DEBUG
 		fprintf(stdout,"woofc-forker-helper: received handler: %s\n",fargv[0]);
 		fflush(stdout);

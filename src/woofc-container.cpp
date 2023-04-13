@@ -351,7 +351,6 @@ void WooFForker(FARG *ta)
 		P(&Name_log->mutex);
 //printf("Forker[%lu]: in mutex\n",pthread_self());
 //fflush(stdout);
-		STARTCLOCK(&start);
 		DEBUG_LOG("WooFForker (%lu): namespace: %s, in mutex, size: %lu, last: %llu\n",
 			  pthread_self(),
 			  WooF_namespace,
@@ -446,6 +445,10 @@ void WooFForker(FARG *ta)
 #endif
 			continue;
 		}
+
+#ifdef TIMING
+		start = ev[earliest_trigger_seq_no].timestamp;
+#endif
 
 		STARTCLOCK(&start2);
 		/*
@@ -689,6 +692,14 @@ void WooFForker(FARG *ta)
 		//}
 		mcurr = AddString(payload,mcurr,hbuff);
 
+#ifdef TIMING
+		/*
+		 * send log start time as extra string
+		 */
+		memset(hbuff,0,sizeof(hbuff));
+		sprintf(hbuff, "%lf", ev[earliest_trigger_seq_no].timestamp);
+		mcurr = AddString(payload,mcurr,hbuff);
+#endif
 		/*
 		 * send the strings as one message
 		 */
@@ -730,8 +741,8 @@ void WooFForker(FARG *ta)
 #ifdef TIMING
 		sum = DURATION(start,end1) + DURATION(start2,end2) + DURATION(start3,end3) + DURATION(start4,end4);
 #endif
-		TIMING_PRINT("DISPATCH: duration: %f ms, sum: %f trips: %d start: %d last: %d trig: %d fire: %d find: %f,\n",
-				DURATION(start,end3)*1000,sum*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
+		TIMING_PRINT("DISPATCH: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d findtime: %f,\n",
+				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
 					DURATION(start,end1)*1000);
 
 		/*

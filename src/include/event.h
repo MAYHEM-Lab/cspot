@@ -38,7 +38,7 @@ struct event_stc {
     char woofc_namespace[1024];
     unsigned long ino; // for caching if enabled
 #ifndef COMPAT1_0
-    uint64_t timestamp;
+    double timestamp;
 #endif
 // handler tracking
 #ifdef TRACK
