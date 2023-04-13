@@ -45,6 +45,9 @@ struct woof_stc {
 typedef struct woof_stc WOOF;
 
 struct element_stc {
+#ifdef COMPAT1.0
+    unsigned long busy;
+#endif
     unsigned long long seq_no;
 #ifdef TRACK
     int hid;
