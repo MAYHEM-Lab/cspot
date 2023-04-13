@@ -320,6 +320,7 @@ void WooFForker(FARG *ta)
 	double end2;
 	double end3;
 	double end4;
+	double end5;
 	double sum;
 	int trip_count;
 	int trig_count;
@@ -337,11 +338,8 @@ void WooFForker(FARG *ta)
 		 * wait for things to show up in the log
 		 */
 		DEBUG_LOG("WooFForker: namespace: %s caling P\n", WooF_namespace);
-//printf("Forker[%lu]: before wait\n",pthread_self());
-//fflush(stdout);
 		P(&Name_log->tail_wait);
-//printf("Forker[%lu]: after wait\n",pthread_self());
-//fflush(stdout);
+		STOPCLOCK(&end5); // so we can figure time to wake up
 		DEBUG_LOG("WooFForker (%lu): namespace: %s awake\n", pthread_self(), WooF_namespace);
 
 
@@ -741,9 +739,9 @@ void WooFForker(FARG *ta)
 #ifdef TIMING
 		sum = DURATION(start,end1) + DURATION(start2,end2) + DURATION(start3,end3) + DURATION(start4,end4);
 #endif
-		TIMING_PRINT("DISPATCH: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d findtime: %f,\n",
+	TIMING_PRINT("DISPATCH: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d awake: %f findtime: %f\n",
 				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
-					DURATION(start,end1)*1000);
+					DURATION(start,end5)*1000, DURATION(start,end1)*1000);
 
 		/*
 		* remember its sequence number for next time

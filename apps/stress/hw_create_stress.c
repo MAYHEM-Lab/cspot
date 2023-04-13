@@ -6,10 +6,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ARGS "W:"
-char* Usage = "hw -W woof_name\n";
+#define ARGS "W:s:"
+char* Usage = "hw_create_stress -W woof_name -s woof_size\n";
 
 char Wname[4096];
+int Size;
 
 int main(int argc, char** argv) {
     int c;
@@ -22,6 +23,9 @@ int main(int argc, char** argv) {
         case 'W':
             strncpy(Wname, optarg, sizeof(Wname));
             break;
+	case 's':
+	    Size = atoi(optarg);
+	    break;
         default:
             fprintf(stderr, "unrecognized command %c\n", (char)c);
             fprintf(stderr, "%s", Usage);
@@ -39,7 +43,7 @@ int main(int argc, char** argv) {
     WooFInit();
 
 
-    err = WooFCreate(Wname, sizeof(HW_EL), 10000);
+    err = WooFCreate(Wname, sizeof(HW_EL), Size);
     if (err < 0) {
         fprintf(stderr, "couldn't create woof from %s\n", Wname);
         fflush(stderr);
