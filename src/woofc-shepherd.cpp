@@ -58,12 +58,16 @@ int main(int argc, char** argv, char** envp) {
 #ifdef TIMING
 	double start = strtod(argv[1],NULL);
 	double end;
+	double end1;
 	double endhand;
 #endif
 
 	close(2);
 	dup2(1,2);
 	close(0);
+
+	STOPCLOCK(&end1);
+	TIMING_PRINT("SHEP: %lf\n",DURATION(start,end1)*1000);
 
 
 	if (envp != NULL) {
@@ -73,6 +77,7 @@ int main(int argc, char** argv, char** envp) {
 			i++;
 		}
 	}
+
 
 	DEBUG_LOG("WooFShepherd: called for handler %s\n", st);
 
