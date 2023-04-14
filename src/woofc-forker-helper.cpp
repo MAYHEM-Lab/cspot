@@ -29,7 +29,7 @@ int main(int argc,char **argv, char **env)
 	char c;
 	int status;
 	int splay_count = 0;
-#ifdef GROT
+#ifdef TIMING
 	double start;
 	double end;
 #endif
@@ -123,10 +123,14 @@ int main(int argc,char **argv, char **env)
 		if(err < 0) {
 			printf("woof-forker-helper: spawn of %s failed\n",fargv[0]);
 		}
-#ifdef GROT
+#ifdef TIMING
 		start = strtod(fargv[1],NULL);
 		STOPCLOCK(&end);
-		GROT_PRINT("SPAWNED: %lf ms\n",DURATION(start,end));
+		/*
+		 * must be printf since stderr is in use
+		 */
+		printf("[%d] [timing] SPAWNED %lf\n",getpid(),DURATION(start,end)*1000);
+		fflush(stdout);
 #endif
 		/*
 		 * send WooFForker completion signal
