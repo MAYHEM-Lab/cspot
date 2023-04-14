@@ -320,7 +320,7 @@ void setup() {
     }
 }
 
-void reset() {
+void laminar_reset() {
     // {namspace --> entries}
     subscribe_entries = std::map<int, int>();
     // {namespace --> {id --> [subscribers...]}}

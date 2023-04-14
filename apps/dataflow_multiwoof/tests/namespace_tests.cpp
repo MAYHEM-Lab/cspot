@@ -45,7 +45,7 @@ void simple_namespace_test() {
     subscribe("4:1:0", "3:2");
     subscribe("4:1:1", "3:3");
 
-    setup();
+    laminar_setup();
 
     operand op(1.0);
     woof_put(generate_woof_path(OUTPUT_WOOF_TYPE, 1, 1), OUTPUT_HANDLER, &op);

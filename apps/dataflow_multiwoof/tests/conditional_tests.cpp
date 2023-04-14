@@ -25,7 +25,7 @@ void selector_test() {
     subscribe(ns, 1, 1, ns, 3); // a --> SEL:1
     subscribe(ns, 1, 2, ns, 4); // b --> SEL:2
 
-    setup();
+    laminar_setup();
 
     for (int i = 1; i <= 2; i++) {
         operand op(i - 1, i); // Selector
@@ -67,7 +67,7 @@ void filter_test() {
     subscribe(ns, 1, 0, ns, 2);
     subscribe(ns, 1, 1, ns, 3);
 
-    setup();
+    laminar_setup();
 
     operand filter1(0.0, 1);
     operand data1(1.0, 1);

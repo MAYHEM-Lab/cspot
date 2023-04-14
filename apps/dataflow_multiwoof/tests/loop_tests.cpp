@@ -80,7 +80,7 @@ void sqrt_loop_test() {
 
     /* Run program */
 
-    setup();
+    laminar_setup();
 
     double x = 144.0;
     double epsilon = 10;
@@ -319,7 +319,7 @@ void multinode_regression() {
     // std::cout << graphviz_representation();
     // return;
 
-    setup();
+    laminar_setup();
 
     // Initialization
 

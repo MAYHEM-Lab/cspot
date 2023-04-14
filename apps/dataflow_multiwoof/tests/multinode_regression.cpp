@@ -164,7 +164,7 @@ void online_linreg_multinode() {
     // std::cout << graphviz_representation();
     // return;
 
-    setup();
+    laminar_setup();
 
     // Initialization
 

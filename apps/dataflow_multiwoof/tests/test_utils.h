@@ -6,7 +6,7 @@
 #define TEST(name)                       \
     bool assertion_failed = false;       \
     system("sudo rm -f laminar-*"); \
-    reset(); /* reset setup data structures */ \
+    laminar_reset(); /* reset setup data structures */ \
     std::cout << name << ": ";
 
 #define END_TEST()                          \

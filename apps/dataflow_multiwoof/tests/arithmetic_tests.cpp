@@ -24,7 +24,7 @@ void simple_arithmetic() {
     subscribe(ns, 1, 0, ns, 2);
     subscribe(ns, 1, 1, ns, 3);
 
-    setup();
+    laminar_setup();
     sleep(1);
 
     // 1 + 1 == 2
@@ -59,7 +59,7 @@ void complex_arithmetic() {
     subscribe(ns, 1, 0, ns, 2);
     subscribe(ns, 1, 1, ns, 3);
 
-    setup();
+    laminar_setup();
 
     // 1 + 1 == 2
     operand op1(1.0, 1);
@@ -130,7 +130,7 @@ void stream_arithmetic() {
     subscribe(ns, 1, 2, ns, 4);
     subscribe(ns, 1, 3, ns, 5);
 
-    setup();
+    laminar_setup();
 
     unsigned long iters = 20;
     double a = 1.0;
@@ -220,7 +220,7 @@ void quadratic_test() {
     subscribe(ns, 8, 1, ns, 11);
     subscribe(ns, 8, 2, ns, 14);
 
-    setup();
+    laminar_setup();
 
     operand op(a);
     woof_put(generate_woof_path(OUTPUT_WOOF_TYPE, ns, 9), OUTPUT_HANDLER, &op);
@@ -295,7 +295,7 @@ void stream_quadratic_test() {
     subscribe(ns, 8, 1, ns, 11);
     subscribe(ns, 8, 2, ns, 14);
 
-    setup();
+    laminar_setup();
 
     unsigned long iters = 15;
 
@@ -378,7 +378,7 @@ std::vector<std::vector<double>> mat_test(
     }
     
     /* Run program */
-    setup();
+    laminar_setup();
 
     // Write matrices to operands
     for (int i = 0; i < rows_a; i++) {

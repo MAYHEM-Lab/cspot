@@ -20,26 +20,25 @@ void set_host(int host_id);
 void add_host(int host_id,
               std::string host_ip,
               std::string woof_path,
-              enum LaminarRetryType laminar_retry_type = LAMINAR_HOST_RETRY_EXPONENTIAL_BACKOFF);
+              enum RetryType retry_type = RETRY_EXPONENTIAL_BACKOFF);
 void add_node(int ns, int host_id, int id, int opcode);
 void add_operand(int ns, int host_id, int id);
 
 void subscribe(int dst_ns, int dst_id, int dst_port, int src_ns, int src_id);
 void subscribe(std::string dst_addr, std::string src_addr);
 
-void setup();
-void reset();
+void laminar_setup();
+void laminar_reset();
 
 std::string graphviz_representation();
-
-std::string generate_woof_path(DFWoofType woof_type, int ns = -1, int id = -1, int host_id = -1, int port_id = -1);
-
+std::string generate_woof_path(DFWoofType woof_type, 
+                                int ns = -1, 
+                                int id = -1, 
+                                int host_id = -1, 
+                                int port_id = -1);
 unsigned long get_id_from_woof_path(std::string woof_path);
-
 int get_ns_from_woof_path(std::string woof_path);
-
-enum LaminarRetryType get_curr_retry_type();
-
+enum RetryType get_curr_retry_type();
 int get_curr_host_id();
 
 #endif // DFINTERFACE_H
