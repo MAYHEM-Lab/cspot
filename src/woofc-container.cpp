@@ -321,6 +321,7 @@ void WooFForker(FARG *ta)
 	double end3;
 	double end4;
 	double end5;
+	double end6;
 	double sum;
 	int trip_count;
 	int trig_count;
@@ -736,12 +737,6 @@ void WooFForker(FARG *ta)
 #endif
 		//WooFDrop(wf);
 		STOPCLOCK(&end3);
-#ifdef TIMING
-		sum = DURATION(start,end1) + DURATION(start2,end2) + DURATION(start3,end3) + DURATION(start4,end4);
-#endif
-	TIMING_PRINT("DISPATCH: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d awake: %f findtime: %f\n",
-				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
-					DURATION(start,end5)*1000, DURATION(start,end1)*1000);
 
 		/*
 		* remember its sequence number for next time
@@ -757,8 +752,10 @@ void WooFForker(FARG *ta)
 			perror("WoofForker");
 			exit(1);
 		 }
-//printf("Forker [%lu]: looping back\n",pthread_self());
-//fflush(stdout);
+		 STOPCLOCK(&end6);
+TIMING_PRINT("DISPATCH: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d awake: %f findtime: %f resp: %f\n",
+				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
+					DURATION(start,end5)*1000, DURATION(start,end1)*1000, DURATION(start,end6)*1000);
 		 V(&ForkerThrottle);
 		 Tcount++;
 		 DEBUG_LOG("WooFForker: helper signal received Tcount: %d\n", Tcount.load());

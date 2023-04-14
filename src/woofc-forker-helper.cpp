@@ -29,6 +29,10 @@ int main(int argc,char **argv, char **env)
 	char c;
 	int status;
 	int splay_count = 0;
+#ifdef GROT
+	double start;
+	double end;
+#endif
 #ifdef TRACK
 	int hid;
 	char tbuff[255];
@@ -119,39 +123,15 @@ int main(int argc,char **argv, char **env)
 		if(err < 0) {
 			printf("woof-forker-helper: spawn of %s failed\n",fargv[0]);
 		}
-#if 0
-		pid = vfork();
-//		pid = fork();
-		if(pid < 0) {
-			fprintf(stdout,"woofc-forker-helper: vfork failed\n");
-			fflush(stdout);
-			exit(1);
-		} else if(pid == 0) {
-			/*
-		 	 * reset stderr for handler to use
-		 	 */
-			close(2);
-			dup2(1,2);
-			/*
-			 * close 0 in case of SIGPIPE
-			 */
-			close(0);
-//			execve(hbuff,fargv,menv);
-			execve(fargv[0],fargv,menv);
-			fprintf(stdout,"execve of %s failed\n",fargv[0]);
-			fflush(stdout);
-			close(2);
-			_exit(0);
-		} else {
-//printf("Helper[%d]: forked pid %d, %s\n",getpid(),pid,fargv[0]);
-//fflush(stdout);
-		}
+#ifdef GROT
+		start = strtod(fargv[1],NULL);
+		STOPCLOCK(&end);
+		GROT_PRINT("SPAWNED: %lf ms\n",DURATION(start,end));
 #endif
-
-#ifdef DEBUG
-		fprintf(stdout,"woofc-forker-helper: vfork completed for handler %s\n",fargv[0]);
-		fflush(stdout);
-#endif
+		/*
+		 * send WooFForker completion signal
+		 */
+		write(2,&c,1);
 
 		/*
 		 * if SPLAY > 0, clean up as best we can when we have over
@@ -176,10 +156,6 @@ int main(int argc,char **argv, char **env)
 				}
 			}
 		}
-		/*
-		 * send WooFForker completion signal
-		 */
-		write(2,&c,1);
 		/*
 		 * if SPLAY is zero, wait
 		 */
