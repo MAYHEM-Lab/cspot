@@ -57,8 +57,9 @@ void cspot_print_timing(const char* format, ...) {
     va_start(myargs, format);
     [[maybe_unused]] auto ret = vfprintf(stderr, format, myargs);
     if (format[strlen(format) - 1] != '\n') {
-        std::cerr << '\n' << std::flush;
+        std::cerr << '\n';
     }
-    fflush(stderr);
+//    fflush(stderr);
+    std::cerr << std::flush;
     va_end(myargs);
 }
