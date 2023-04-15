@@ -32,6 +32,7 @@ int main(int argc,char **argv, char **env)
 #ifdef TIMING
 	double start;
 	double end;
+	double end1;
 #endif
 #ifdef TRACK
 	int hid;
@@ -119,17 +120,22 @@ int main(int argc,char **argv, char **env)
 		printf("%s %d RECVD\n",tbuff,hid);
 		fflush(stdout);
 #endif
+		STOPCLOCK(&end1);
 		err = posix_spawn(&pid,fargv[0],NULL,NULL,fargv,menv);
 		if(err < 0) {
 			printf("woof-forker-helper: spawn of %s failed\n",fargv[0]);
 		}
 #ifdef TIMING
-		start = strtod(fargv[1],NULL);
 		STOPCLOCK(&end);
+		start = strtod(fargv[1],NULL);
+		printf("[%d] [timing] PRESPWN %lf [%d]\n",getpid(),
+			DURATION(start,end1)*1000,pid);
+		fflush(stdout);
 		/*
 		 * must be printf since stderr is in use
 		 */
-		printf("[%d] [timing] SPAWNED %lf\n",getpid(),DURATION(start,end)*1000);
+		printf("[%d] [timing] SPAWNED %lf [%d]\n",
+			getpid(),DURATION(start,end)*1000,pid);
 		fflush(stdout);
 #endif
 		/*
