@@ -103,6 +103,7 @@ void *GetThread(void *arg)
 				if(err < 0) {
 					printf("get of seq_no %lu failed, retrying\n",seq_no);
 					retries++;
+					sleep(1);
 					continue;
 				}
 				break;
@@ -120,6 +121,7 @@ void *GetThread(void *arg)
 			}
 		} else {
 			pthread_mutex_unlock(&Glock);
+			sleep(1);
 		}
 				
 	}
