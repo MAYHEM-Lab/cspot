@@ -52,14 +52,22 @@ void cspot_print_fatal_if(bool val, const char* format, ...) {
 }
 
 void cspot_print_timing(const char* format, ...) {
+    char pbuf[1024];
+    int len;
     va_list myargs;
     va_start(myargs, format);
-    std::cerr << "[" << cur_pid << "] " << "[timing] ";
-    [[maybe_unused]] auto ret = vfprintf(stderr, format, myargs);
+    sprintf(pbuf,"%d TIMING ",getpid());
+    len = strlen(pbuf);
+//    std::cerr << "[" << cur_pid << "] " << "[timing] ";
+//    [[maybe_unused]] auto ret = vfprintf(stderr, format, myargs);
+    [[maybe_unused]] auto ret = vsprintf(&pbuf[len], format, myargs);
     if (format[strlen(format) - 1] != '\n') {
-        std::cerr << '\n';
+	len = strlen(pbuf);
+	pbuf[len] = '\n';
+	pbuf[len+1] = 0;
     }
+    std::cout << pbuf << std::flush;
 //    fflush(stderr);
-    std::cerr << std::flush;
+//    std::cerr << std::flush;
     va_end(myargs);
 }

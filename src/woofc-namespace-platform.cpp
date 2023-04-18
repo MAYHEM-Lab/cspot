@@ -163,7 +163,6 @@ public:
                 DEBUG_LOG("LAUNCH: %s\n", launch_string.c_str());
 
                 system(launch_string.c_str());
-
                 DEBUG_LOG("DONE: %s\n", launch_string.c_str());
             });
         }
@@ -388,7 +387,7 @@ int main(int argc, char** argv) {
 
     DEBUG_LOG("starting platform listening to port %lu\n", WooFPortHash(name_space));
 
-    //	fclose(stdin);
+    //fclose(stdin);
 
     CatchSignals();
     atexit(CleanUpDocker);
