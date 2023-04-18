@@ -126,14 +126,16 @@ int main(int argc,char **argv, char **env)
 			printf("woof-forker-helper: spawn of %s failed\n",fargv[0]);
 		}
 		STOPCLOCK(&end);
+#ifdef TIMING
 		start = strtod(fargv[1],NULL);
-		TIMING_PRINT("PRESPWN %lf [%d]\n",getpid(),
+#endif
+		TIMING_PRINT("PRESPWN %lf [%d]\n",
 			DURATION(start,end1)*1000,pid);
 		/*
 		 * must be printf since stderr is in use
 		 */
 		TIMING_PRINT("SPAWNED %lf [%d]\n",
-			getpid(),DURATION(start,end)*1000,pid);
+			DURATION(start,end)*1000,pid);
 		/*
 		 * send WooFForker completion signal
 		 */
