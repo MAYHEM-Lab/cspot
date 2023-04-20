@@ -26,6 +26,7 @@
 
 #define ARGS "M"
 
+
 struct forker_stc
 {
         int tid;
@@ -42,6 +43,9 @@ std::atomic<bool> should_exit;
 
 sema ForkerThrottle;
 std::atomic<int> Tcount;
+
+RB *TCache;
+
 } // namespace
 
 void WooFShutdown(int) {
@@ -141,6 +145,7 @@ int WooFContainerInit() {
     Name_id = name_id;
 
     InitSem(&ForkerThrottle, WOOF_CONTAINER_FORKERS);
+    TCache = RBInitI64();	// in memory unclaimed trigger cache
     Tcount = WOOF_CONTAINER_FORKERS;
 
     // set up helper processes
@@ -297,6 +302,7 @@ void WooFForker(FARG *ta)
 	EVENT* fev;
 	RB *ev_list; // trigger list
 	RB *rb;
+	RB *rb1;
 	int err;
 	char c;
 	char hbuff[255];
@@ -323,9 +329,10 @@ void WooFForker(FARG *ta)
 	double end5;
 	double end6;
 	double sum;
-	int trip_count;
-	int trig_count;
-	int fire_count;
+	int trip_count = 0;
+	int trig_count = 0;
+	int fire_count = 0;
+	int cache_count = 0;
 	int last_checked;
 	int start_checked;
 	int spurious = 0;
@@ -334,6 +341,8 @@ void WooFForker(FARG *ta)
 	DEBUG_LOG("WooFForker: namespace: %s started\n", WooF_namespace);
 	DEBUG_LOG("WooFForker: namespace: %s memset called\n", WooF_namespace);
 
+	ev = (EVENT*)(static_cast<unsigned char*>((unsigned char *)Name_log) + sizeof(LOG));
+	cache_count = 0;
 	while(1) {
        		/*
 		 * wait for things to show up in the log
@@ -348,82 +357,121 @@ void WooFForker(FARG *ta)
 		 * must lock to sync on log tail
 		 */
 		P(&Name_log->mutex);
-//printf("Forker[%lu]: in mutex\n",pthread_self());
-//fflush(stdout);
 		DEBUG_LOG("WooFForker (%lu): namespace: %s, in mutex, size: %lu, last: %llu\n",
 			  pthread_self(),
 			  WooF_namespace,
 			  Name_log->size,
 			  Name_log->last_checked);
-		/*
-		 * here, the idea is to scan the Namespace log backwards looking for the 
-		 * earliest TRIGGER event
-		 * for which there is now TRIGGER_FIRING record
-		 *
-		 * TRIGGER_FIRING will always be later than TRIGGER and the 
-		 * cause_seq_no for the TRIGGER_FIRING record
-		 */
-                ev = (EVENT*)(static_cast<unsigned char*>((unsigned char *)Name_log) + sizeof(LOG));
-		//ev = (EVENT*)(((unsigned char *)Name_log) + sizeof(LOG));
-		curr = Name_log->head;
-//printf("Forker[%lu]: head: %lu, tail: %lu\n",pthread_self(),curr, Name_log->tail);
-//fflush(stdout);
-		oldest_seq_no = Name_log->tail;
-		/*
-		 * remember starting position in case we don't find anything
-		 */
-		start_seq_no = curr;
-		earliest_trigger_seq_no = -1;
-		ev_list = RBInitI64();
-		if(ev_list == NULL) {
-			fprintf(stderr,"WooFForker: no space for RB list, exiting\n");
-			fflush(stderr);
-			exit(1);
-		}
-#ifdef TIMING
-		trip_count = 0;
-		trig_count = 0;
+
 		fire_count = 0;
-		start_checked = start_seq_no;
-		last_checked = Name_log->last_checked;
-#endif
-		while(curr != Name_log->tail) {
-			if(ev[curr].type == TRIGGER_FIRING){ // this has been handled, add its cause
-#ifdef TIMING
-				trig_count++;
-#endif
-				RBInsertI64(ev_list,ev[curr].cause_seq_no,dummy);
-			} else if(ev[curr].type == TRIGGER) {
-#ifdef TIMING
-				fire_count++;
-#endif
-				/*
-				 * this is a trigger, if we haven't seen, remember it as possibly the oldest
-				 */
-				rb = RBFindI64(ev_list,ev[curr].seq_no);
-				if(rb == NULL) {
-					earliest_trigger_seq_no = curr;
-				}
-			}
-			curr = curr - 1;
-			if((int)curr < 0) { // wrapped off the end of unsigned
-				curr = Name_log->size - 1;
-			}
+		trip_count = 0;
+		/*
+		 * here, check the glocal cache for an unclaimed trigger and claim it
+		 *
+		 * done under LOG mutex
+		 */
+		earliest_trigger_seq_no = -1;
+		if(RB_FIRST(TCache) != NULL) {
+			rb = RB_FIRST(TCache);
+			earliest_trigger_seq_no = rb->value.l;
 			/*
-			 * short cut when we reach the oldest we have looked at
+			 * delete head of the list after else since earliest might be
+			 * there after a scan
 			 */
 #ifdef TIMING
-			trip_count++;
+			cache_count++;
+			start_checked = Name_log->head;
+			last_checked = Name_log->last_checked;
+			TIMING_PRINT("CACHED %lu found\n",earliest_trigger_seq_no);
 #endif
-			if(curr == Name_log->last_checked) {
-				break;
+		} else {
+				
+			/*
+			 * here, the idea is to scan the Namespace log backwards looking for the 
+			 * earliest TRIGGER event
+			 * for which there is now TRIGGER_FIRING record
+			 *
+			 * TRIGGER_FIRING will always be later than TRIGGER and the 
+			 * cause_seq_no for the TRIGGER_FIRING record
+			 */
+			curr = Name_log->head;
+			oldest_seq_no = Name_log->tail;
+			/*
+			 * remember starting position in case we don't find anything
+			 */
+			start_seq_no = curr;
+			ev_list = RBInitI64();
+			if(ev_list == NULL) {
+				fprintf(stderr,"WooFForker: no space for RB list, exiting\n");
+				fflush(stderr);
+				exit(1);
 			}
+#ifdef TIMING
+			start_checked = start_seq_no;
+			last_checked = Name_log->last_checked;
+#endif
+			while(curr != Name_log->tail) {
+				if(ev[curr].type == TRIGGER_FIRING){ // this has been handled, add its cause
+#ifdef TIMING
+					trig_count++;
+#endif
+					RBInsertI64(ev_list,ev[curr].cause_seq_no,dummy);
+				} else if(ev[curr].type == TRIGGER) {
+#ifdef TIMING
+					fire_count++;
+#endif
+					/*
+					 * this is a trigger, if we haven't seen, remember it as 
+					 * possibly the earliest
+					 */
+					rb = RBFindI64(ev_list,ev[curr].seq_no);
+					if(rb == NULL) {
+						earliest_trigger_seq_no = curr;
+						/*
+						 * now, test to see if this is in the global
+						 * cache and, if not, add it so that each thread
+						 * avoid passing over it
+						 *
+						 * note that this is under a mutex for the LOG
+						 */
+						rb1 = RBFindI64(TCache,ev[curr].seq_no);
+						if(rb1 == NULL) {
+							dummy.l = curr;
+							RBInsertI64(TCache,ev[curr].seq_no,dummy);
+						}				
+					}
+				}
+				curr = curr - 1;
+				if((int)curr < 0) { // wrapped off the end of unsigned
+					curr = Name_log->size - 1;
+				}
+				/*
+				 * short cut when we reach the oldest we have looked at
+				 */
+#ifdef TIMING
+				trip_count++;
+#endif
+				if(curr == Name_log->last_checked) {
+					break;
+				}
+			}
+			/*
+			 * drop the tree since we don't need it regardless
+			 */
+			RBDestroyI(ev_list);
+		}
+
+		/*
+		 * here, either we have loaded up the cache and earliest is at the head,
+		 * in which case it is being claimed and need to come out of the
+		 * cache or we selected the head and it need to come out of the cache so
+		 * delete the head (if it is not NULL)
+		 */
+		if(RB_FIRST(TCache) != NULL) {
+			rb = RB_FIRST(TCache);
+			RBDeleteI64(TCache,rb);
 		}
 		STOPCLOCK(&end1);
-		/*
-		 * drop the tree since we don't need it regardless
-		 */
-		RBDestroyI(ev_list);
 		/*
 		 * here, we have swept back looking for unclaimed triggers.  If we didn't find any,
 		 * drop the lock and go back and wait
@@ -483,8 +531,6 @@ void WooFForker(FARG *ta)
 		 * must be LogAdd() call since inside of critical section
 		 */
 		ls = LogEventNoLock(Name_log, fev);
-//printf("Forker [%lu]: trigger_firing logged\n",pthread_self());
-//fflush(stdout);
 		if (ls == 0) {
 		    fprintf(stderr, "WooFForker: couldn't log event to log\n");
 		    fflush(stderr);
@@ -502,11 +548,7 @@ void WooFForker(FARG *ta)
 		/*
 		 * drop the mutex now that this TRIGGER is claimed
 		 */
-//printf("Forker [%lu]: forwarding TRIGGER\n",pthread_self());
-//fflush(stdout);
 		V(&Name_log->mutex);
-//printf("Forker [%lu]: out of mutex:\n",pthread_self());
-//fflush(stdout);
 		DEBUG_LOG("WooFForker: namespace: %s out of mutex with log tail\n", WooF_namespace);
 
 		/*
@@ -517,8 +559,6 @@ void WooFForker(FARG *ta)
 		STARTCLOCK(&start4);
 		P(&ForkerThrottle);
 		STOPCLOCK(&end4);
-//printf("Forker [%lu]: awake after throttle\n",pthread_self());
-//fflush(stdout);
 		STARTCLOCK(&start3);
 		Tcount--;
 		DEBUG_LOG("Forker awake, after decrement %d\n", Tcount.load());
@@ -547,7 +587,8 @@ void WooFForker(FARG *ta)
 
 		strncpy(woof_shepherd_dir, pathp, sizeof(woof_shepherd_dir));
 #ifdef DEBUG
-		fprintf(stdout,"WooFForker: sending env to helper\n");
+		fprintf(stdout,"%llu WooFForker: sending env to helper for %lu\n",
+			pthread_self(),earliest_trigger_seq_no);
 		fflush(stdout);
 #endif
 
@@ -753,11 +794,21 @@ void WooFForker(FARG *ta)
 			exit(1);
 		 }
 		 STOPCLOCK(&end6);
-TIMING_PRINT("DISPATCH: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d awake: %f findtime: %f resp: %f\n",
-				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, trig_count, fire_count,
-					DURATION(start,end5)*1000, DURATION(start,end1)*1000, DURATION(start,end6)*1000);
+TIMING_PRINT("%llu DISPATCH %lu: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d cache: %d awake: %f findtime: %f resp: %f\n",
+				pthread_self(),
+				earliest_trigger_seq_no,
+				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, 
+					trig_count, fire_count, cache_count,
+					DURATION(start,end5)*1000, 
+					DURATION(start,end1)*1000, 
+					DURATION(start,end6)*1000);
 		 V(&ForkerThrottle);
 		 Tcount++;
+#ifdef DEBUG
+		fprintf(stdout,"%llu WooFForker: sent env to helper for %lu\n",
+			pthread_self(),earliest_trigger_seq_no);
+		fflush(stdout);
+#endif
 		 DEBUG_LOG("WooFForker: helper signal received Tcount: %d\n", Tcount.load());
 	}
 
