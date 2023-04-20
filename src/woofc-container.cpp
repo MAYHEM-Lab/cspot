@@ -45,6 +45,7 @@ sema ForkerThrottle;
 std::atomic<int> Tcount;
 
 RB *TCache;
+int TC_count;
 
 } // namespace
 
@@ -438,6 +439,7 @@ void WooFForker(FARG *ta)
 						if(rb1 == NULL) {
 							dummy.l = curr;
 							RBInsertI64(TCache,ev[curr].seq_no,dummy);
+							TC_count++;
 						}				
 					}
 				}
@@ -470,6 +472,7 @@ void WooFForker(FARG *ta)
 		if(RB_FIRST(TCache) != NULL) {
 			rb = RB_FIRST(TCache);
 			RBDeleteI64(TCache,rb);
+			TC_count--;
 		}
 		STOPCLOCK(&end1);
 		/*
@@ -794,11 +797,11 @@ void WooFForker(FARG *ta)
 			exit(1);
 		 }
 		 STOPCLOCK(&end6);
-TIMING_PRINT("%llu DISPATCH %lu: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d cache: %d awake: %f findtime: %f resp: %f\n",
+TIMING_PRINT("%llu DISPATCH %lu: duration: %f ms, trips: %d start: %d last: %d trig: %d fire: %d cache: %d cache_pop: %d awake: %f findtime: %f resp: %f\n",
 				pthread_self(),
 				earliest_trigger_seq_no,
 				DURATION(start,end3)*1000,trip_count,start_checked, last_checked, 
-					trig_count, fire_count, cache_count,
+					trig_count, fire_count, cache_count, TC_count,
 					DURATION(start,end5)*1000, 
 					DURATION(start,end1)*1000, 
 					DURATION(start,end6)*1000);
