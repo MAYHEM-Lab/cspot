@@ -8,13 +8,15 @@
 #include "put-test.h"
 #include "dlist.h"
 
-#define ARGS "c:W:s:g:p:P:L"
+#define ARGS "c:W:s:g:p:P:LlV"
 char *Usage = "stress-test -W woof_name for stress test\n\
 \t-L <use local woofs>\n\
+\t-l <do latency test, otherwise throughput test>\n\
 \t-s number of puts\n\
 \t-g get threads\n\
 \t-p put threads\n\
-\t-P payload size\n";
+\t-P payload size\n\
+\t-V <verbose>\n";
 
 char Wname[4096];
 char Iname[4096];
@@ -27,12 +29,16 @@ char putbuf2[4096];
 int PutRemaining;
 pthread_mutex_t Plock;
 pthread_mutex_t Glock;
+pthread_cond_t Wait;
 
 Dlist *Pending;
 int Done;
 int Payload_size;
 double Total;
 double Count;
+int IsLatency;
+int Verbose;
+
 
 void *PutThread(void *arg)
 {
@@ -64,7 +70,9 @@ void *PutThread(void *arg)
 			fflush(stderr);
 			pthread_exit(NULL);
 		}
-		sleep(1);
+		if(IsLatency == 1) {
+			sleep(1);
+		}
 
 		pthread_mutex_lock(&Glock);
 		DlistAppend(Pending,(Hval)seq_no);
@@ -83,11 +91,12 @@ void *GetThread(void *arg)
 {
 	ST_EL st;
 	char Oname[4096];
-	unsigned long seq_no;
+	unsigned long seq_no = -1;
 	int err;
 	double elapsed;
 	DlistNode *dn;
 	int retries;
+	
 
 	MAKE_EXTENDED_NAME(Oname,Wname,"output");
 	while((Done == 0) || (Pending->first != NULL)) {
@@ -103,7 +112,9 @@ void *GetThread(void *arg)
 				if(err < 0) {
 					printf("get of seq_no %lu failed, retrying\n",seq_no);
 					retries++;
-					sleep(1);
+					if(IsLatency == 1) {
+						sleep(1);
+					}
 					continue;
 				}
 				break;
@@ -115,13 +126,19 @@ void *GetThread(void *arg)
 				elapsed=(st.fielded.tv_sec * 1000000.0 + st.fielded.tv_usec) -
 					(st.posted.tv_sec * 1000000.0 + st.posted.tv_usec);
 				elapsed = elapsed / 1000;
-				printf("seq_no %lu elapsed %f\n",seq_no,elapsed);
+				if(Verbose == 1) {
+					printf("seq_no %lu latency %f\n",seq_no,elapsed);
+				}
+				pthread_mutex_lock(&Glock);
 				Total += elapsed;
 				Count++;
+				pthread_mutex_unlock(&Glock);
 			}
 		} else {
 			pthread_mutex_unlock(&Glock);
-			sleep(1);
+			if(IsLatency == 1) {
+				sleep(1);
+			}
 		}
 				
 	}
@@ -164,6 +181,12 @@ int main(int argc, char **argv)
 				break;
 			case 'L':
 				local = 1;
+				break;
+			case 'l':
+				IsLatency = 1;
+				break;
+			case 'V':
+				Verbose = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -219,16 +242,36 @@ int main(int argc, char **argv)
 		}
 	}
 
-	for(i=0; i < gt; i++) {
-		err = pthread_create(&gtids[i],NULL,GetThread,NULL);
-		if(err < 0) {
-			exit(1);
+	/*
+	 * if this is a latency test, start the get threads
+	 */
+	if(IsLatency == 1) {
+		for(i=0; i < gt; i++) {
+			err = pthread_create(&gtids[i],NULL,GetThread,NULL);
+			if(err < 0) {
+				exit(1);
+			}
 		}
 	}
+
+	/*
+	 * otherwise, this is a throughput test.  Join with the put
+	 * threads and then parse the Dllist with get threads
+	 */
 
 	for(i=0; i < pt; i++) {
 		pthread_join(ptids[i],NULL);
 	}
+
+	if(IsLatency == 0) {
+		for(i=0; i < gt; i++) {
+			err = pthread_create(&gtids[i],NULL,GetThread,NULL);
+			if(err < 0) {
+				exit(1);
+			}
+		}
+	}
+
 	Done = 1;
 	for(i=0; i < gt; i++) {
 		pthread_join(gtids[i],NULL);
@@ -237,7 +280,11 @@ int main(int argc, char **argv)
 	free(gtids);
 	free(ptids);
 	DlistRemove(Pending);
-	printf("avg: %f ms\n",Total/Count);
+	if(IsLatency == 1) {
+		printf("avg latency: %f ms\n",Total/Count);
+	} else {
+		printf("avg throughput: %f puts/s\n",Count / (Total/1000.0));
+	}
 	
 	return(1);
 }
