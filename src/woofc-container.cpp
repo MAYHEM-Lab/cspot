@@ -343,7 +343,9 @@ void WooFForker(FARG *ta)
 	DEBUG_LOG("WooFForker: namespace: %s memset called\n", WooF_namespace);
 
 	ev = (EVENT*)(static_cast<unsigned char*>((unsigned char *)Name_log) + sizeof(LOG));
+#ifdef TIMING
 	cache_count = 0;
+#endif
 	while(1) {
        		/*
 		 * wait for things to show up in the log
@@ -364,8 +366,10 @@ void WooFForker(FARG *ta)
 			  Name_log->size,
 			  Name_log->last_checked);
 
+#ifdef TIMING
 		fire_count = 0;
 		trip_count = 0;
+#endif
 		/*
 		 * here, check the glocal cache for an unclaimed trigger and claim it
 		 *
