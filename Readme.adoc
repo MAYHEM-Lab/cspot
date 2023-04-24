@@ -13,7 +13,4 @@ the docker package that ships with CentOS 7.  To install CSPOT
 git clone https://github.com/MAYHEM-Lab/cspot.git
 cd cspot
 sudo ./install-centos7.sh
-cd build
-cmake .
-ninja
 ----
