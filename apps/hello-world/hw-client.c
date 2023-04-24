@@ -64,21 +64,12 @@ int main(int argc, char **argv)
 		strncpy(Wname,Fname,sizeof(Wname));
 	}
 
-	WooFInit(); // attach to namespace
-
-	err = WooFCreate(Wname,sizeof(HW_EL),5); // create a WOOF
-	if(err < 0) {
-		fprintf(stderr,"couldn't create woof from %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
 	/*
 	 * copy string into a structure to be stored as an element
 	 * in the WOOF
 	 */
 	memset(el.string,0,sizeof(el.string));
-	strncpy(el.string,"my first bark",sizeof(el.string));
+	strncpy(el.string,"my second bark",sizeof(el.string));
 
 	/*
 	 * put the string in the WOOF and trigger a handler
@@ -92,7 +83,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("successfully appended %s to %s at seq_no %llu\n",
-		"my first bark",
+		"my second bark",
 		Wname,
 		ndx);
 
