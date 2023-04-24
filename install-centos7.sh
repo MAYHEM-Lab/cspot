@@ -17,7 +17,7 @@ mv ninja /usr/bin/
 wget https://github.com/Kitware/CMake/releases/download/v3.19.1/cmake-3.19.1-Linux-x86_64.sh
 chmod +x cmake-3.19.1-Linux-x86_64.sh 
 ./cmake-3.19.1-Linux-x86_64.sh --skip-license --prefix=/usr
-yum localinstall https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/c/czmq-3.0.2-3.el7.x86_64.rpm
+yum -y localinstall https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/c/czmq-3.0.2-3.el7.x86_64.rpm
 #git clone --branch release-2.0 https://github.com/Mayhem-lab/cspot
 cd cspot/
 git submodule update --init --recursive
