@@ -33,3 +33,11 @@ seq_no 99 latency 49.361000
 seq_no 100 latency 48.209000
 avg throughput: 28.828845 puts/s
 ----
+
+To install CSPOT in /usr/local, 
+[source sh]
+----
+cd build
+sudo ninja install
+----
+
