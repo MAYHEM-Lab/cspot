@@ -114,7 +114,7 @@ The current WOOF C-language API consists of the following API calls
 
 [source c]
 ----
-* int *WooFCreate*(char *woof_name, unsigned long element_size, unsigned long history_size)
+int WooFCreate*(char *woof_name, unsigned long element_size, unsigned long history_size)
 ----
 ** creates a WooF with fixed-sized elements and specified history size
 ** #woof_name# is the local or fully qualified name of the WOOF to
