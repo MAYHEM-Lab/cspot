@@ -8,8 +8,7 @@
 
 #define ARGS "f:N:H:W:"
 char *Usage = "hw -f woof_name\n\
-\t-H namelog-path to host wide namelog\n\
-\t-N namespace\n";
+\t-N namespace <CWD is the default>\n";
 
 char Fname[4096];
 char Wname[4096];
@@ -25,7 +24,7 @@ int main(int argc, char **argv)
 	int c;
 	int err;
 	HW_EL el;
-	unsigned long ndx;
+	unsigned long long ndx;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -36,9 +35,6 @@ int main(int argc, char **argv)
 			case 'N':
 				UseNameSpace = 1;
 				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			case 'H':
-				strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
 				break;
 			default:
 				fprintf(stderr,
@@ -68,18 +64,25 @@ int main(int argc, char **argv)
 		strncpy(Wname,Fname,sizeof(Wname));
 	}
 
-	WooFInit();
+	WooFInit(); // attach to namespace
 
-	err = WooFCreate(Wname,sizeof(HW_EL),5);
+	err = WooFCreate(Wname,sizeof(HW_EL),5); // create a WOOF
 	if(err < 0) {
 		fprintf(stderr,"couldn't create woof from %s\n",Wname);
 		fflush(stderr);
 		exit(1);
 	}
 
+	/*
+	 * copy string into a structure to be stored as an element
+	 * in the WOOF
+	 */
 	memset(el.string,0,sizeof(el.string));
 	strncpy(el.string,"my first bark",sizeof(el.string));
 
+	/*
+	 * put the string in the WOOF and trigger a handler
+	 */
 	ndx = WooFPut(Wname,"hw",(void *)&el);
 
 	if(WooFInvalid(err)) {
@@ -87,6 +90,11 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+
+	printf("successfully appended %s to %s at seq_no %llu\n",
+		"my first bark",
+		Wname,
+		ndx);
 
 	return(0);
 }
