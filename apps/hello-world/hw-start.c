@@ -6,8 +6,8 @@
 #include "woofc.h"
 #include "hw.h"
 
-#define ARGS "f:N:H:W:"
-char *Usage = "hw -f woof_name\n\
+#define ARGS "f:N:W:"
+char *Usage = "hw-start -W woof_name\n\
 \t-N namespace <CWD is the default>\n";
 
 char Fname[4096];
