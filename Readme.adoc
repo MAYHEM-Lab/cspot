@@ -2,39 +2,18 @@
 
 image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
 
-== Dependencies
+== Installation
 
-cspot externally depends on `czmq`. You can install it either through a package manager or by compiling it from link:https://github.com/zeromq/czmq[sources].
+Currently, CSPOT builds from source using a bash installation script on CentOS
+7.  It requires docker ce, which it will install, but to do so it will remove
+the docker package that ships with CentOS 7.  To install CSPOT
 
-[source, sh]
+[source sh]
 ----
-git clone https://github.com/zeromq/czmq
-cd czmq
-mkdir build
+git clone https://github.com/MAYHEM-Lab/cspot.git
+cd cspot
+sudo ./install-centos-7.sh
 cd build
-cmake -G Ninja -DCZMQ_WITH_UUID=OFF -DCZMQ_WITH_SYSTEMD=OFF -DCZMQ_WITH_LZ4=OFF -DCZMQ_WITH_LIBCURL=OFF -DCZMQ_WITH_NSS=OFF -DCZMQ_WITH_LIBMICROHTTPD=OFF -DCZMQ_BUILD_SHARED=OFF -DBUILD_SHARED_LIBS=OFF ..
+cmake .
 ninja
-sudo ninja install
-----
-
-Other dependencies are either vendored or in git submodules, which can be cloned with `git submodule update --init --recursive`
-
-== Building
-
-[source, sh]
-----
-mkdir build
-cd build
-cmake -G Ninja ..
-ninja
-----
-
-If you don't have `ninja` installed, you can use make as well:
-
-[source, sh]
-----
-mkdir build
-cd build
-cmake ..
-make -j
 ----
