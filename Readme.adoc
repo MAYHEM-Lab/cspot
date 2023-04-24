@@ -1,6 +1,6 @@
 = CSPOT
 
-link:http://www.cs.ucsb.edu/~rich/spot.png
+image::http://www.cs.ucsb.edu/~rich/spot.png
 
 == Dependencies
 
