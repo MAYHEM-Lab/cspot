@@ -114,38 +114,34 @@ The current WOOF C-language API consists of the following API calls
 
 [source c]
 ----
-int WooFCreate*(char *woof_name, unsigned long element_size, unsigned long history_size)
+int WooFCreate(char *woof_name, unsigned long element_size, unsigned long history_size)
 ----
-** creates a WooF with fixed-sized elements and specified history size
-** #woof_name# is the local or fully qualified name of the WOOF to
-create
-** #element# size refers to the number of bytes in a memory region
-** #history# size refers to the number of elements (not bytes) in the
-WOOF history
-** returns < 0 on failure
-* unsigned long *WooFPut*(char __woof_name, char __handler_name, void *element)
-** #woof_name# is the local or fully qualified name of an existing WOOF
-** #handler_name# is the name of a file in the WOOF’s namespace that
-contains the handler code or NULL. When #handler_name# is NULL, no
-handler will be triggered after the append of the element.
-** #element# is an in parameter that points to an memory region to be
-appended to the WOOF
-** the call returns the sequence number of the element or a
-representation of -1 on failure
-* int *WooFGet*(char __woof_name, void __element, unsigned long long seq_no)
-** #woof_name# is the local or fully qualified name of an existing WOOF
-** #element# is an in parameter that points to an memory region to be
-set to the contents of the element from the WOOF (i.e. an out parameter)
-** #seq_no# is the sequence number, from the WOOF, of the element to be
-retrieved (sequence number zero is not a valid sequence number and,
-thus, when specified in a call WooFGet() returns the element having the
-largest sequence number stored in the WOOF). If the sequence number is
-invalid (i.e. out of the range of sequence numbers in the WOOF) and
-error is returned.
-* void *WooFInit()*
-** allows a Linux process external to CSPOT to make called to *WooFPut()*
-** reads its parameters from environment variables that the calling
-process must set
+* creates a WooF with fixed-sized elements and specified history size
+* *woof_name* is the local or fully qualified name of the WOOF to create
+* *element_size* refers to the number of bytes in a memory region
+* *history_size* refers to the number of elements (not bytes) in the WOOF history
+* returns < 0 on failure
+[source c]
+----
+unsigned long WooFPut(char *woof_name, char *handler_name, void *element)
+----
+* *woof_name* is the local or fully qualified name of an existing WOOF
+* *handler_name* is the name of a file in the WOOF’s namespace that contains the handler code or NULL. When #handler_name# is NULL, no handler will be triggered after the append of the element.
+* *element* is an in parameter that points to an memory region to be appended to the WOOF
+* the call returns the sequence number of the element or a representation of -1 on failure
+[source c]
+----
+int WooFGet(char woof_name, void element, unsigned long long seq_no)
+----
+* *woof_name* is the local or fully qualified name of an existing WOOF
+* *element* is an in parameter that points to an memory region to be set to the contents of the element from the WOOF (i.e. an out parameter)
+* *seq_no* is the sequence number, from the WOOF, of the element to be retrieved (sequence number zero is not a valid sequence number and, thus, when specified in a call WooFGet() returns the element having the largest sequence number stored in the WOOF). If the sequence number is invalid (i.e. out of the range of sequence numbers in the WOOF) an error is returned.
+[source c]
+----
+void WooFInit()
+----
+* allows a Linux process external to CSPOT to make called to *WooFPut()*
+* reads its parameters from environment variables that the calling process must set
 
 This API definition is, more or less, stable. There is an internal API
 for implementing ``fast-path'' WOOF accesses, but it is not maintained
