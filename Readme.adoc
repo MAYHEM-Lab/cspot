@@ -1,8 +1,6 @@
 = CSPOT
 
-<p align="center">
-  <img src="http://www.cs.ucsb.edu/~rich/spot.png">
-</p>
+image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,350]
 
 == Dependencies
 
