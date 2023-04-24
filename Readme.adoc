@@ -41,3 +41,737 @@ cd build
 sudo ninja install
 ----
 
+# Overview
+
+CSPOT is acronym (slightly reordered) for _Serverless Platform of Things
+in C_. It is an empirical coding experiment that amalgamates
+``Serverless'' computing (i.e. Functions as a Service – FaaS) and
+distributed computing principles targeting Internet of Things (IoT)
+applications.
+
+The goal of CSPOT is to explore the interplay between application
+programming abstractions, runtime systems and operating systems in a
+tiered cloud setting. The design presupposes that IoT sensors and
+actuators will communicate with computing elements at the ``edge'' of
+the network (e.g. edge clouds that can implement public cloud services
+near where data is gathered and actuation occurs). Edge computing, in
+turn, may need to employ resources at a regional level (e.g. a private
+cloud) or more globally (e.g. in a public cloud).
+
+CSPOT attempts to layer a platform across these three tiers that
+supports a common set of low-level abstractions for programmers to use
+to construct applications. The programming model that CSPOT supports is
+one akin to ``Functions as a Service'' in which control-flow is event
+driven. Thus a CSPOT program consists of events triggered by functions
+applied to a distributed set of storage objects that are implemented as
+part of a single, common storage abstraction.
+
+The initial implementation and its test applications use C as the
+programming language. However, functions execute within Linux containers
+making it possible to employ a mixed-language programming approach.
+
+== Current CSPOT Abstractions
+
+The current implementation supports three primary programming
+abstractions: * Wide-area Objects of Functions (WOOFs) – Append-only
+storage objects capable of persisting data in fixed-sized elements *
+Handlers – Functions that may be triggered by the platform when data is
+appended to a WOOF * Namespaces – Collections of WOOFs that share a
+common name prefix
+
+The intention is to begin with a minimal set of abstractions and API
+semantics and to expand as needed. Performance optimization, in
+particular, may drive modification and or expansion of the API
+semantics.
+
+=== Namespaces
+
+Each namespace defines a flat space for storing WOOFs and handler code.
+Each namespace is located on some host within the system. While yet to
+be implemented, the intention is to implement access control between
+namespaces. Initially, each namespace corresponds to a top level
+directory on a Linux host that contains related state (WOOFs and handler
+code).
+
+=== WOOFs
+
+A WOOF is an append-only sequence of fix-sized memory regions (called
+elements) managed as a circular buffer. The size of each element in a
+WOOF as well as the history size (the maximal number of the most recent
+appends to the WOOF) are specified when the WOOF is created and cannot
+be changed. CSPOT does not interpret the content of each memory element.
+However it does assign a unique 64-bit sequence number to each element
+when the element has been successfully added to a WOOF.
+
+Note that the historical capacity of a WOOF is programmer-determined.
+When the circular buffer wraps, the oldest data in the WOOF is simply
+overwritten. However, the sequence number space for each WOOF does not
+wrap.
+
+=== The CSPOT API
+
+The current WOOF C-language API consists of the following API calls
+
+* ****int WooFCreate****(char *woof_name, unsigned long element_size,
+unsigned long history_size)
+** creates a WooF with fixed-sized elements and specified history size
+** #woof_name# is the local or fully qualified name of the WOOF to
+create
+** #element# size refers to the number of bytes in a memory region
+** #history# size refers to the number of elements (not bytes) in the
+WOOF history
+** returns < 0 on failure
+* unsigned long ****WooFPut****(char __woof_name, char __handler_name,
+void *element)
+** #woof_name# is the local or fully qualified name of an existing WOOF
+** #handler_name# is the name of a file in the WOOF’s namespace that
+contains the handler code or NULL. When #handler_name# is NULL, no
+handler will be triggered after the append of the element.
+** #element# is an in parameter that points to an memory region to be
+appended to the WOOF
+** the call returns the sequence number of the element or a
+representation of -1 on failure
+* int ****WooFGet****(char __woof_name, void __element, unsigned long
+long seq_no)
+** #woof_name# is the local or fully qualified name of an existing WOOF
+** #element# is an in parameter that points to an memory region to be
+set to the contents of the element from the WOOF (i.e. an out parameter)
+** #seq_no# is the sequence number, from the WOOF, of the element to be
+retrieved (sequence number zero is not a valid sequence number and,
+thus, when specified in a call WooFGet() returns the element having the
+largest sequence number stored in the WOOF). If the sequence number is
+invalid (i.e. out of the range of sequence numbers in the WOOF) and
+error is returned.
+* void ****WooFInit()****
+** allows a Linux process external to CSPOT to make called to
+****WooFPut()****
+** reads its parameters from environment variables that the calling
+process must set
+
+This API definition is, more or less, stable. There is an internal API
+for implementing ``fast-path'' WOOF accesses, but it is not maintained
+in the current release and is definitely subject to change.
+
+There are several features of the API that, perhaps, require some
+scrutiny.
+
+First, this is the complete API (a WooFRemove() call will be included in
+a future release). A well-formed CSPOT program uses WOOFs as its only
+data structures and WooFCreate(), WooFPut(), and WooFGet() are the only
+operations supported for those data structures.
+
+Secondly, only a call to WooFPut() causes a computation to be initiated.
+That is, CSPOT requires that program state be appended to a WOOF as a
+prerequisite to executing a computation. As a result, the elements
+stored in a program’s set of WOOFs represent the full program state in
+the event of failure and the program can be resumed from that state.
+Parsing the program state so that the program can be resumed is not
+currently automated.
+
+Thirdly, handlers are concurrent and may execute out of order with
+respect to their invocation. Synchronization occurs when a sequence
+number is assigned to an element when it is appended to a WOOF. That is,
+a call to WooFPut() will append the element and return a sequence number
+as a transaction. Note that there are no primitives for synchronizing
+handlers beyond this transaction.
+
+Lastly, WooFInit() is included as an optimization that allows CSPOT
+client applications ``join'' a namespace. By default, each WOOF is
+addressed by a URN and when the API code parses the WOOF name, if the
+name is fully qualified, the request will generate a network request and
+response. As a local optimization, it is possible to address WOOFs by
+path name, but to do so, the process must initialize the namespace
+state. WooFInit() is a primitive that implements this initialization.
+
+==== WOOF Names
+
+WOOF names are either interpreted locally, with respect to the namespace
+of the handler that is referring to them or fully qualified as a URI
+beginning with the string ``woof://''. A name must be unique within each
+namespace. If the prefix of the name string is ``woof://'' the remainder
+of the string is interpreted by the current implementation as an
+absolute path to the WOOF on the host where it is located. If not, it is
+interpreted relative to the namespace path for the referring handler.
+
+Additionally, each namespace must contain binary files carrying the
+handlers that can be executed on WOOFs within the namespace. The handler
+names and the WOOF names must not conflict.
+
+==== WOOF Handlers
+
+Each WOOF handler must have the following function signature as its
+top-level entry point
+
+....
+int HandlerName(WOOF *woof, unsigned long seq_no, void *element)
+....
+
+When the CSPOT runtime system invokes the handler, it will pass an
+opaque handle for the WOOF, the sequence number of the element that the
+handler is to handle, and a pointer to the element. The handler should
+return a value >= on success and < 0 on failure. Handlers should not
+persist state other than by calling ****WooFPut()**** on one or more
+WOOFs (possibly creating them when needed).
+
+== CSPOT Runtime
+
+Each WOOF is implemented as a memory-mapped file within a namespace.
+Handlers run within a Docker container associated with the namespace
+that contained them. Thus, the CSPOT platform creates one or more
+containers per name space (the current implemented creates only one) and
+maps all WOOF referred to in an API call into the address space of the
+handler making the call. Thus, it is necessary to start a platform
+component for each namespace. Currently each namespace platform must be
+started manually using the commands
+
+....
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+woofc-namespace-platform -N path-to-namespace
+....
+
+The namespace platform must be executing before any puts to a namespace
+activate. That is, the platform is intended to function as a long
+running daemon that services the namespace for all applications that
+access WOOFs contained within it.
+
+The current CSPOT implementation uses CentOS 7 and CZMQ (see below). The
+default installation location for CZMQ is /usr/local/lib which is not in
+the default LD_LIBRARY_PATH for the Docker CentOS 7 container. Thus,
+LD_LIBRARY_PATH must be set before the platform is executed.
+
+The namespace platform creates an internal append-only log for the
+namespace that the runtime uses to trigger handlers. The containers that
+the platform starts open the log and monitor its tail to determine when
+a handler needs to fire. When an application calls ****WooFPut()**** and
+specifies a handler name, the API code appends a TRIGGER record to the
+log and wakes any containers that are monitoring the log tail. One of
+the containers accepts the TRIGGER, and executes the handler it
+specifies by forking a pthread() that then uses the Linux system() call
+to execute the handler.
+
+When the platform spawns a Docker container for a namespace, it passes
+the process that the container will first execute the parameters it
+needs via environment variables, and it specifies the namespace
+directory as a Docker volume.
+
+Each container is also run with the ``-i'' option. As a result, if a
+handler writes to standard out or standard error, the resulting output
+will appear on the tty associated with the shell that launched the
+platform. That is, the platform aggregates the standard out and standard
+error file descriptors from all handlers executing in the namespace it
+is managing.
+
+Because the handler is actually executing in a separate process within a
+namespace container, the process must execute bootstrap code to map the
+WOOF and pass the sequence number to the handler. As a result, the
+handler code must be wrapped in a C main() routine that is part of
+CSPOT. This main() routine is contained in the file woofc-shepherd.c.
+See the section on the ****Build Model**** for details on how to compile
+a handler.
+
+Additionally, it is possible to issue a ****WooFPut()**** from outside
+of a namespace so that a sensor or monitor can introduce new
+measurements without the need to connect a device interface to a
+container.
+
+Cross-namespace puts use a network message sent to the namespace
+platform which acts as a proxy for the handler or external sensor
+calling ****WooFPut()****. The current CSPOT implementation uses the
+CZMQ API to ZeroMQ to implement this messaging. Each incoming put
+request is assigned to a separate pthread() in the namespace container
+main process that proxies the request. It does so my calling
+****WooFPut()**** within the local name space and returning the
+resulting sequence number via another network message sent back to the
+originating call.
+
+The decision to use CZMQ is motivated by the ability (eventually) to
+incorporate the CURVE certificate-based authentication mechanism. All
+other communication within the system is via the local file system,
+Docker volumes, and environment variables set by the CSPOT runtime
+system.
+
+== Example Applications
+
+A CSPOT application consists of an initial Linux process that starts the
+application by issuing one or more calls to ****WooFPut()****, a set of
+WOOFs that the application will access, and a set of handlers that the
+runtime triggers optionally when data is appended to a WOOF. Each
+handler must be wrapped by the code contained in woofc-shepherd.c so
+that the API can find the internal runtime system log and also map the
+WOOFs referred to in any API calls. The initial process must make a call
+to ****WooFInit()**** after setting one or more environment variables
+appropriately before it attempts to issue a ****WooFPut()**** call. All
+of the namespace platforms must be running for the WOOFs that are
+mentioned in the application or the application will not execute.
+
+=== Build Model
+
+The CSPOT runtime causes the namespace containers to mount the namespace
+top-level directory from the host as a Docker volume. Each namespace
+container assumes that the handler binary is compiled for the baseline
+distribution used by the container (currently CentOS 7) and is present
+in the top-level namespace directory before it is invoked.
+
+The example applications contained in this repo build using make and
+copy the binaries into the namespace. This methodology works when the
+Linux distribution that is used to build CSPOT is matches the baseline
+used in the containers (CentOS 7, at present). However, if the
+distribution that builds CSPOT is different than the container
+distribution, the in-container binaries should be built in a container,
+separately, so that the dynamically loaded libraries are compatible.
+
+=== Hello World (cspot/apps/hello-world)
+
+The ``Hello world'' application consists of a single handler which
+prints to the string ``Hello world'' and then prints a string that the
+initial process has appended to the WOOF.
+
+....
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include "woofc.h"
+#include "hw.h"
+
+int hw(WOOF *wf, unsigned long seq_no, void *ptr)
+{
+    HW_EL *el = (HW_EL *)ptr;
+    fprintf(stdout,"hello world\n");
+    fprintf(stdout,"from woof %s at %lu with string: %s\n",
+                    wf->shared->filename, seq_no, el->string);
+    fflush(stdout);
+    return(1);
+
+}
+....
+
+The header file woofc.h defines a C structure that the application uses
+as the type of each element in the WOOF.
+
+....
+#ifndef HW_H
+#define HW_H
+struct obj_stc
+{
+    char string[255];
+};
+typedef struct obj_stc HW_EL;
+#endif
+....
+
+Finally, the initial start process takes a WOOF name to use, creates the
+WOOF (with a history size of 5), types element as an HW_EL, fills in a
+string, and calls ****WooFPut()**** with ``hw'' specified as a handler.
+
+....
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "woofc.h"
+#include "woofc-host.h"
+#include "hw.h"
+
+#define ARGS "f:N:H:W:"
+char *Usage = "hw -f woof_name\n\
+\t-H namelog-path to host wide namelog\n\
+\t-N namespace\n";
+
+char Fname[4096];
+char Wname[4096];
+char NameSpace[4096];
+char Namelog_dir[4096];
+int UseNameSpace;
+
+char putbuf1[1024];
+char putbuf2[1024];
+
+int main(int argc, char **argv)
+{
+int c;
+int err;
+HW_EL el;
+unsigned long ndx;
+
+while((c = getopt(argc,argv,ARGS)) != EOF) {
+    switch(c) {
+        case 'f':
+        case 'W':
+            strncpy(Fname,optarg,sizeof(Fname));
+            break;
+        case 'N':
+            UseNameSpace = 1;
+            strncpy(NameSpace,optarg,sizeof(NameSpace));
+            break;
+        case 'H':
+            strncpy(Namelog_dir,optarg,sizeof(Namelog_dir));
+            break;
+        default:
+            fprintf(stderr,
+            "unrecognized command %c\n",(char)c);
+            fprintf(stderr,"%s",Usage);
+            exit(1);
+    }
+}
+
+if(Fname[0] == 0) {
+    fprintf(stderr,"must specify filename for woof\n");
+    fprintf(stderr,"%s",Usage);
+    fflush(stderr);
+    exit(1);
+}
+
+if(Namelog_dir[0] != 0) {
+    sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
+    putenv(putbuf2);
+}
+
+if(UseNameSpace == 1) {
+    sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
+    sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+    putenv(putbuf1);
+} else {
+    strncpy(Wname,Fname,sizeof(Wname));
+}
+
+WooFInit();
+
+
+err = WooFCreate(Wname,sizeof(HW_EL),5);
+if(err < 0) {
+    fprintf(stderr,"couldn't create woof from %s\n",Wname);
+    fflush(stderr);
+    exit(1);
+}
+
+memset(el.string,0,sizeof(el.string));
+strncpy(el.string,"my first bark",sizeof(el.string));
+
+ndx = WooFPut(Wname,"hw",(void *)&el);
+
+if(WooFInvalid(err)) {
+    fprintf(stderr,"first WooFPut failed for %s\n",Wname);
+    fflush(stderr);
+    exit(1);
+}
+
+pthread_exit(NULL);
+return(0);
+}
+....
+
+The code for this application is in the apps/hello-world subdirectory of
+the CSPOT repo as is a makefile that assumes that CSPOT has already been
+compiled in the main directory. The makefile creates a ``cspot''
+subdirectory which is used as the namespace for the application. It it
+also copies the binaries, when they are compiled, into this namespace
+directory.
+
+To run ``Hello world'', first start the namespace platform for the
+application’s namespace. The easiest way to start the platform is to cd
+into the namespace on the host and to run it without any arguments. It
+will use the current working directory as the namespace in this case.
+
+....
+cd spot/apps/hello-world/cspot
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+./woofc-namespace-platform
+....
+
+Once the platform is running, it will spawn a Docker container.
+Unfortunately, the interaction between pthreads, the Linux system
+command, and docker isn’t completely bug free in CentOS 7. Currently,
+woofc-namespace-platform can be terminated with a when running in the
+foreground, but must be typed twice (the second causes SIGINT to be
+caught). Alternatively, killing the process ID with ``kill -TERM'' will
+also trigger a clean up of the docker container. Any other form of
+termination may leave the container running which holds the port
+associated with the namespace.
+
+Once the platform is running, run the application
+
+....
+cd spot/apps/hello-world/cspot
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+./hw-start -W woof://<uri-for-woof-to-use>
+....
+
+Because the handler prints to stdout, the output of the handler will be
+sent to the controlling tty of the shell that is running the platform.
+
+=== Ping-pong (cspot/apps/ping-pong)
+
+The ping-pong application uses a start program (``ping-pong-start'') and
+two separate handlers (``ping'' and ``pong'') to alternatively increment
+a shared counter carried in the WOOF. The makefile in
+cspot/apps/ping-pong creates a cspot subdirectory to use as a namespace.
+Thus, once the platform is running,
+
+....
+cd spot/apps/ping-pong/cspot
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+./ping-pong-start -s 10 -f pp-woof
+....
+
+will start the application. The ``-s'' parameter specifies the maximum
+value of the counter. When the counter’s value reaches this value, the
+application will stop. Thus, in this example, the counter will count to
+10 before the application stops executing. Both handlers send output to
+standard out which will appear on the controlling tty of the shell that
+launched the platform.
+
+The ping-pong application can also be run with two separate namespaces.
+The name of the WOOF specified to the ``-f'' parameter will be created
+in each namespace. Note that the makefile that is in the repo does not
+create two namespaces automatically. To use this application in multiple
+namespaces, create each and copy the binaries from the ``cspot''
+subdirectory created by the name file into each namespace. The start
+program, ``ping-pong-start'' takes a ``-N'' and ``-n'' argument which
+must be used to specify the path, on the host, to each namespace.
+
+Finally, the apps/ping-pong directory also includes a version that can
+be run in two separate namespaces on two separate machines. It uses the
+same handlers as the one that uses ping-pong-start, but initializing the
+application is different.
+
+Specifically, when run in two namespaces on the same machine,
+ping-pong-start creates the WOOF specified with the ``-f'' argument in
+both namespaces. WOOFC does not currently support the ability to create
+a WOOF in a remote namespace (although it might need to at some point).
+Thus, to run ping-pong between two separate machines, the application
+needs a component that creates the WOOF on the machine that runs ping,
+and another component that creates the WOOF on the machine that runs
+pong. These components are ``ping-start'' and ``pong-start''
+respectively.
+
+To run this version, first run pong-start with a URI specification for
+both namespaces and the name of the WOOF on the target machine (after
+starting up the woof-namespace-platform for the local namespace). This
+function will create the WOOF in the local namespace and exit. Then run
+ping-start on the other machine (after the woof-namespace-platform is
+running), again specifying both namespaces and the WOOF name as well as
+the maximum counter value.
+
+Note that pong-start need only be run once if the same WOOF is used for
+multiple runs. Once the WOOF is created, ping-start can initiate
+execution by putting to it.
+
+So, for example, imagine that machine 1 has IP address 10.0.1.4 and
+machine 2 has IP address 10.0.1.5 and that /tmp/cspot is a valid
+namespace on both machines (i.e. it contains the ping and pong
+handlers).
+
+On machine 2, run
+
+....
+pong-start -N woof://10.0.1.4/tmp/cspot -n woof://10.0.1.5/tmp/cspot -f ping-pong-woof
+....
+
+This command creates the WOOF ping-pong-woof in the namespace (assuming
+the platform is up and running for that namespace) and then exits. Then
+on machine 1, run
+
+....
+ping-start -N woof://10.0.1.4/tmp/cspot -n woof://10.0.1.5/tmp/cspot -f ping-pong-woof -s 10
+....
+
+(again, assuming the platform is running) and it should initiate a
+ping-pong between the two. Running ping-start again, with the same WOOF
+will recreate the WOOF on machine 1, but use the existing WOOF on
+machine 2 (which will be evident by the sequence numbers).
+
+=== Runs Test (cspot/apps/runs-test)
+
+The Runs test application is intended to simulate an IoT processing
+pipeline. A producing handler (``RHandler in the application) generates
+a stream of pseudo-random numbers. The next stage of the pipeline
+(''SHandler”) processes the stream in batches of ``sample size''
+(specified as the ``-s'' parameter) and compute the Runs test statistic
+for each sample. It then puts each statistic in a WOOF for the final
+stage of the pipeline (``KHandler'') which runs a KS-test for the set of
+statistics against a z-transformed, empirically generated Normal
+distribution of the same size. The number of such samples it considers
+is specified by the ``-c'' parameter to the start program.
+
+The apps/runs-test subdirectory contains several versions of this
+program
+
+* c-runstest.c: sequential C implementation
+* c-runstat.c: C implementation using pthreads and shared memory in an
+event-driven style
+* cspot-runstat: CSPOT implementation of c-runstat running in a single
+namespace
+* cspot-runstat-fast: CSPOT implementation that does not run
+``RHandler'' in a container
+* cspot-runstat-multi-ns: CSPOT implementation of c-runstat that runs
+handlers in separate namespaces
+
+The makefile in this subdirectory creates both single and
+multi-namespace versions for comparative purposes.
+
+== On-going and Future Work
+
+There is a lot left to do.
+
+=== On Puts, Gets, Appends, and Reads
+
+The minimalist initial API uses ****WooFPut()**** as the primary API
+abstraction for moving state between application components. This
+emphasis is intended to promote the use of append-only semantics in a
+FaaS context. For IoT, doing so will (may) make it possible to program
+_distributed_ IoT applications in a FaaS style.
+
+However, it introduces an asymmetry between writing and reading program
+state that may make application programming more difficult.
+Specifically, all reads must be namespace local (requiring a
+****WooFOpen()**** to obtain in internal WOOF handle). Logically, no
+asymmetry is mandated. Thus it will be important to understand whether
+building it into the API is useful or confusing.
+
+The API design also influences the performance of the system. In
+particular, mapping a WOOF into the memory space of a process running in
+a container is a performance-expensive operation under the current
+implementation supported by Linux. Thus, it is useful, as a
+programmer-controlled optimization, to allow the mapping to be reused.
+Because ****WooFPut()**** takes a WOOF name, it must first map the WOOF,
+then do the put, and then unmap the WOOF (there are optimization
+possibilities here, to be sure). To make make multiple puts to the same
+WOOF more efficient, the API currently includes ****WooFAppend()****
+which takes a handle returned from ****WooFOpen()**** (in the same way
+****WooFRead()**** does) to a WOOF in the local namespace. Indeed,
+****WooFPut()**** uses ****WooFAppend()**** internally. Its
+implementation looks something like
+
+....
+unsigned long WooFPut(char *woof_name, char *handler_name, void *element)
+{
+   if(woof_name is a local WOOF) {
+      woof = WooFOpen(woof_name);
+      seq_no = WooFAppend(woof, handler_name, element);
+      WooFFree(woof);
+   } else {
+      seq_no = send a put request to the put proxy for the WOOF's namespace
+   }
+   return(seq_no);
+ }
+....
+
+=== I/O
+
+I/O creates another related question that the project must investigate.
+In particular, it is possible for a process outside of a namespace to
+make a call to ****WooFPut()**** to introduce data but without an
+analogous ****WooFGet()**** call, there is no way to get data back out
+of a namespace. Thus the put/get API that, ultimately, is part of the
+prototype is richer than the minimalist API:
+
+* unsigned long ****WooFPut****(char __woof_name, char __handler_name,
+void *element)
+** #woof_name# is the local or fully qualified name of an existing WOOF
+** #handler_name# is the name of a file in the WOOF’s namespace that
+contains the handler code or NULL. When #handler_name# is NULL, no
+handler will be triggered after the append of the element.
+** #element# is an in parameter that points to an memory region to be
+appended to the WOOF
+** the call returns the sequence number of the element or a
+representation of -1 on failure
+** can be called from either wishing a handler or from a process outside
+of a namespace
+* int ****WooFGet****(char __woof_name, void __element, unsigned long
+seq_no)
+** #woof_name# is the local or fully qualified name of an existing WOOF
+** #element# is an out parameter pointing to memory that will be filled
+in by the specified WOOF element
+** #seq_no# is the sequence number of the element to be returned through
+the #element# pointer
+** returns < 0 if the call fails to successfully return the element
+** WOOF can either be in the local namespace or a remote namespace
+* WOOF * ****WooFOpen****(char *woof_name)
+** #woof_name# is the local or fully qualified name of an existing WOOF
+** returns an opaque handle to an in-memory data structure referring to
+the WOOF or NULL on failure
+** if the WOOF is not in the local namespace, the call fails
+* int WooFAppend(WOOF __woof, char __handler_name, void *element)
+** #woof# is an opaque handle returned from a call to WooFOpen()
+** #handler_name# is the name of a file in the WOOF’s namespace that
+contains the handler code or NULL. When #handler_name# is NULL, no
+handler will be triggered after the append of the element.
+** #element# is an in parameter that points to an memory region to be
+appended to the WOOF
+** the call returns the sequence number of the element or a
+representation of -1 on failure
+** the WOOF must be in the local namespace
+* int ****WooFRead****(WOOF __woof, void __element, unsigned long
+seq_no)
+** #woof# is an opaque handle returned from a call to WooFOpen()
+** #element# is an out parameter pointing to memory that will be filled
+in by the specified WOOF element
+** #seq_no# is the sequence number of the element to be returned through
+the #element# pointer
+** returns < 0 if the call fails to successfully return the element
+* void ****WooFFree****(WOOF *woof)
+** releases the in-memory data structure created by a call to WooFOpen()
+
+There are two possibilities for the API, long-term. The first is that
+****WooFPut()**** and ****WooFGet()**** are symmetric meaning that they
+can both be called from within a handler or outside of a namespace. From
+an API design perspective, this option is attractive but it promotes the
+use of WOOFs as random access memories from a read perspective. The
+second option is that ****WooFGet()**** which turns out to be necessary
+in some forms – see below) is restricted to be executed only _outside_
+of a handler.
+
+The current CSPOT implementation does not restrict ****WooFGet()**** –
+it is symmetric with respect to ****WooFPut()****. However, the
+applications will not use it to implement cross-namespace random access
+memory in an attempt to determine if it should be restricted.
+
+****WooFGet()**** turns out to be necessary in order to get application
+state out of the application. That is, without ****WooFGet()**** the
+final output of an application must reside inside a namespace (as a file
+– not a WOOF). To get access to this state, then, the application user
+must have read access to the Linux directory which implements the
+namespace on the machine where the output is stored. Thus, it is
+necessary to implement an API primitive to extract application state
+from the various namespaces it uses (which is ****WooFGet()**** in the
+current API). As mentioned above, there is a question regarding whether
+****WooFGet()**** should be a _full-fledged_ CSPOT API call (symmetric
+with respect to ****WooFPut()****) or not.
+
+=== To Delete or Not to Delete – a Question of Access Controls
+
+One glaring omission from the current API is a lack of a way to destroy
+an existing WOOF. That’s not strictly true in the sense that
+****WooFCreate()**** resets an existing WOOF if it already exists,
+thereby overwriting its original contents. However, there is currently
+no way to remove a WOOF permanently from a namespace.
+
+Because WOOFs can grow and shrink (by being ``recreated'' with different
+sizes) the argument for a destroy API call is one regarding WOOF name
+conflicts within a namespace. That is, one wishes to remove a WOOF from
+the namespace because the name conflicts with another name. However,
+allowing the name to reused by a subsequent call to ****WooFCreate()****
+simply delays the conflict resolution until the create. That is,
+removing a name really only needs to happen when another create wants to
+use the name.
+
+This delayed binding of name conflict resolution is possible as long as
+the access control permissions are not associated with the WOOF name. If
+they are, then a ****WooFCreate()**** cannot resolve a name conflict
+since the caller may not have permission to ``take over'' the name (and
+thereby delete the WOOF’s contents).
+
+It is possible to use something similar to user-group-world but then the
+namespace cannot be flat. That is, each user would need to be able to
+carve out a subtree within the namespace.
+
+Another possibility is that namespaces carry access controls, but all
+WOOFs within a namespace are viewed to be part of the same trust domain.
+From the perspective of using messaging as an an authentication
+mechanism (e.g. CURVE in ZeroMQ), this option makes the most sense, but
+it then creates the possibility of a proliferation of namespaces.
+
+The project must resolve this issue when determining the security model.
+At present, there are no authentication mechanisms or access controls
+implemented.
