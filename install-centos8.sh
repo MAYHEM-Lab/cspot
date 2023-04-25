@@ -3,6 +3,11 @@
 
 #yum -y install centos-release-scl && yum -y install devtoolset-9
 #yum -y install centos-release-scl && sudo yum -y install devtoolset-9
+dnf -y install gcc-toolset-9-gcc gcc-toolset-9-gcc-c++
+GTEST=`grep gcc-toolset-9 ~/.bashrc | grep enable`
+if ( test -z "$GTEST" ) ; then
+	echo "source /opt/rh/gcc-toolset-9/enable" >> ~/.bashrc
+fi	
 yum -y install glibc-static
 yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
 yum install -y yum-utils
