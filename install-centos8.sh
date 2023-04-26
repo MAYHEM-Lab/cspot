@@ -34,10 +34,11 @@ cd build/
 #echo "ninja" >> helper.sh
 #echo "ninja install" >> helper.sh
 #chmod 755 helper.sh
+source ~/.bashrc
 cmake -G Ninja ..
 ninja
 ninja install
-cp ../SELF-TEST.sh bin
+cp ../SELF-TEST.sh ./bin
 #scl enable devtoolset-9 ./helper.sh
 docker pull racelab/cspot-docker-centos7
 docker tag racelab/cspot-docker-centos7 cspot-docker-centos7
@@ -46,5 +47,5 @@ if ! [[ $LD_LIBRARY_PATH == *"/usr/local/lib"* ]]; then
     echo -e "if ! [[ \$LD_LIBRARY_PATH == *\"/usr/local/lib\"* ]]; then\nexport  LD_LIBRARY_PATH=\"\$LD_LIBRARY_PATH:/usr/local/lib\"\nfi" >> ~/.bashrc
     source ~/.bashrc
 fi
-cd bin
+cd ./bin
 ./SELF-TEST.sh
