@@ -8,7 +8,7 @@ GTEST=`grep gcc-toolset-9 ~/.bashrc | grep enable`
 if ( test -z "$GTEST" ) ; then
 	echo "source /opt/rh/gcc-toolset-9/enable" >> ~/.bashrc
 fi	
-yum -y install glibc-static
+yum -y install glibc-static unzip
 yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
 yum install -y yum-utils
 yum -y install wget
@@ -37,6 +37,7 @@ cd build/
 cmake -G Ninja ..
 ninja
 ninja install
+cp ../SELF-TEST.sh bin
 #scl enable devtoolset-9 ./helper.sh
 docker pull racelab/cspot-docker-centos7
 docker tag racelab/cspot-docker-centos7 cspot-docker-centos7
@@ -45,3 +46,5 @@ if ! [[ $LD_LIBRARY_PATH == *"/usr/local/lib"* ]]; then
     echo -e "if ! [[ \$LD_LIBRARY_PATH == *\"/usr/local/lib\"* ]]; then\nexport  LD_LIBRARY_PATH=\"\$LD_LIBRARY_PATH:/usr/local/lib\"\nfi" >> ~/.bashrc
     source ~/.bashrc
 fi
+cd bin
+./SELF-TEST.sh
