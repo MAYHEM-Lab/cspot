@@ -1,7 +1,11 @@
 #!/bin/bash
 
 
+
 apt-get update && apt-get -y install ninja-build g++-9 cmake g++
+apt-get remove docker docker-engine docker.io containerd runc
+curl -fsSL https://get.docker.com -o get-docker.sh
+./get-docker.sh
 #yum -y install glibc-static unzip
 #yum -y remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
 #yum install -y yum-utils
