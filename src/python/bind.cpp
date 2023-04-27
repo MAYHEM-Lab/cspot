@@ -5,7 +5,6 @@
 #include <global.h>
 #include <pybind11/stl.h>
 #include <net.h>
-#include "net.h"
 
 namespace py = pybind11;
 
