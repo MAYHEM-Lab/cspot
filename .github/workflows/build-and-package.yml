@@ -38,7 +38,7 @@ jobs:
       env:
         CXX: g++-9
         CC: gcc-9
-      run: cmake -G Ninja $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=ON
+      run: cmake -G Ninja $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF
 
     - name: Build
       working-directory: ${{runner.workspace}}/build
