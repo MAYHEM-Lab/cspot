@@ -36,7 +36,7 @@ jobs:
       # and build directories, but this is only available with CMake 3.13 and higher.  
       # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
       env:
-        CXX: g++-9 -std=gnu++17
+        CXX: g++-9
         CC: gcc-9
       run: cmake -G Ninja $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=ON
 
