@@ -32,7 +32,7 @@ mv deps/libzmq/src/compat.hpp deps/libzmq/src/compat.orig.hpp
 echo "#define HAVE_STRNLEN" > deps/libzmq/src/compat.hpp
 cat deps/libzmq/src/compat.orig.hpp >> deps/libzmq/src/compat.hpp
 mv CMakeLists.txt CMakeLists.orig.txt
-mv CMakeLists-centos9.txt CMakeLists.txt
+cp CMakeLists-centos9.txt CMakeLists.txt
 mkdir build
 cd build/
 source ~/.bashrc
