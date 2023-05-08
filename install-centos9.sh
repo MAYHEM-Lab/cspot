@@ -1,6 +1,10 @@
 #!/bin/bash
 
 
+# turn off TESTS build in deps/libzmq/CMakeLists.txt to avoid linker confusion
+# set SIGSTSZ to 16K in cspot/src/tests/doctest.h
+
+
 dnf -y install gcc g++ wget scl-utils unzip
 dnf -y install glibc-static
 dnf -y install wget
