@@ -24,9 +24,10 @@ cd ..
 yum -y localinstall https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/c/czmq-3.0.2-3.el7.x86_64.rpm
 cd cspot/
 git submodule update --init --recursive
-sed 's/build the tests" ON/build the tests" OFF/' deps/libzmq/CMakeLists.txt > deps/libzmq/CMakeLists-notests.txt
-cp deps/libzmq/CMakeLists.txt deps/libzmq/CMakeLists-tests.txt
-cp deps/libzmq/CMakeLists-notests.txt deps/libzmq/CMakeLists.txt
+echo "set(HAVE_SELECT 1)" > deps/libzmq/CMakeLists-notests.txt
+sed 's/build the tests" ON/build the tests" OFF/' deps/libzmq/CMakeLists.txt >> deps/libzmq/CMakeLists-notests.txt
+mv deps/libzmq/CMakeLists.txt deps/libzmq/CMakeLists-tests.txt
+mv deps/libzmq/CMakeLists-notests.txt deps/libzmq/CMakeLists.txt
 mkdir build
 cd build/
 source ~/.bashrc
