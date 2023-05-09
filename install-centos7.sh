@@ -36,3 +36,7 @@ if ! [[ $LD_LIBRARY_PATH == *"/usr/local/lib"* ]]; then
     echo -e "if ! [[ \$LD_LIBRARY_PATH == *\"/usr/local/lib\"* ]]; then\nexport  LD_LIBRARY_PATH=\"\$LD_LIBRARY_PATH:/usr/local/lib\"\nfi" >> ~/.bashrc
     source ~/.bashrc
 fi
+cp ../SELF-TEST.sh ./bin
+cd bin
+./SELF-TEST.sh
+
