@@ -1,0 +1,41 @@
+= CSPOT Release 2.0 Release Notes
+
+The 2.0 release of CSPOT include several improvements compared to the 1.0
+release and a few important omissions.
+
+== switch to g++-9 or later
+
+The original CSPOT code has been written in C.  However, to enable non-Linux
+platforms and/or the use of different communication back ends, the
+communication code has been refactored.  To make this refacoring "easier" the
+entire code base has been shifted to use g++-9 or later.
+
+== use of cmake and a docker image
+
+The build model (which still builds from source) uses cmake 3.13 or later in
+release 2.0.  The installation scripts for CentOS install cmake at the
+appropriate release level.  Also, while a Dockerfile is still part of the
+repo, the image that will be used for the CSPOT container is downloaded from
+Dockerhub (rather than constructed locally).
+
+== static linking of zeromq and czmq
+
+In the 2.0 release, for the Linux platforms, zeromq an czmq (which CSPOT
+depends upon) are build and linked with the platform statically.  Static
+linking allows the platform to be built using the local environment and
+to remain compatible with the Docker image.
+
+== deprication of CSPOT apps
+
+The 2.0 release contains a "hello world" example, a self-test, and an example
+statistical application.  Other example CSPOT applications are available from
+the link:https://github.com/MAYHEM-Lab/cspot-apps[cspot-apps] github repo.
+Going forward, this repo will contain contributed applications and
+other services that use CSPOT.
+
+== faster handler dispatch
+
+The 2.0 release refactors the the handler dispatch code, primarily to make it
+faster.  Handler dispatch is still log based.  That is, a call to WooFPut()
+with a handler appends a dispatch record to the end of a shared log and
+triggers a dispatch thread (inside the container) to service the handler.

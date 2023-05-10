@@ -5,36 +5,24 @@ image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
 == Installation
 
 Currently, CSPOT builds from source using a bash installation script on CentOS
-7.  It requires docker ce, which it will install, but to do so it will remove
-the docker package that ships with CentOS 7.  To install CSPOT
+7, CentOS 8 Stream, and Ubuntu 20.04.  It requires docker ce, which it will install, but to do so it will remove
+the docker package that ships with the distro.  There are install scripts
+(written in bash).  It would be best to read them before running them to make
+sure that the installation will not "corrupt" the local installation.  CSPOT
+was originally designed to work in a virtualized environments (e.g. clouds) so
+it is not "gentle" with respect to software installation.
+
+The following shows the installation procedure for CentOS 7.
 
 [source sh]
 ----
 git clone https://github.com/MAYHEM-Lab/cspot.git
 cd cspot
 sudo ./install-centos7.sh
-sudo ./SELF-TEST.sh
-----
-The self test will run 5 latency tests and a throughput test using 100 puts.  The output should show latencies for all of the tests.  For example, 
-[source sh]
-----
-avg latency: 399.088000 ms
-avg latency: 2.939000 ms
-avg latency: 2.649000 ms
-avg latency: 2.821000 ms
-avg latency: 2.907000 ms
-seq_no 1 latency 2.351000
-seq_no 2 latency 3.535000
-.
-.
-.
-seq_no 98 latency 47.380000
-seq_no 99 latency 49.361000
-seq_no 100 latency 48.209000
-avg throughput: 28.828845 puts/s
 ----
 
 To install CSPOT in /usr/local, 
+
 [source sh]
 ----
 cd build
