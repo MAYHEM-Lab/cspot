@@ -21,6 +21,8 @@ chmod +x cmake-3.19.1-Linux-x86_64.sh
 yum -y localinstall https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/c/czmq-3.0.2-3.el7.x86_64.rpm
 cd cspot/
 git submodule update --init --recursive
+mv deps/libzmq/CMakeLists.txt deps/libzmq/CMakeLists.orig.txt
+sed 's/build the tests" ON/build the tests" OFF/' deps/libzmq/CMakeLists.orig.txt > deps/libzmq/CMakeLists.txt
 mkdir build
 cd build/
 source ~/.bashrc
