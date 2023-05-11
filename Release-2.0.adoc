@@ -38,4 +38,16 @@ other services that use CSPOT.
 The 2.0 release refactors the the handler dispatch code, primarily to make it
 faster.  Handler dispatch is still log based.  That is, a call to WooFPut()
 with a handler appends a dispatch record to the end of a shared log and
-triggers a dispatch thread (inside the container) to service the handler.
+triggers a dispatch thread (inside the init process in the container container) to 
+service the handler.  Each handler runs in its own process within the
+container but the process is created using posix_spawn() to improve
+performance.
+
+== compile-time instrumentatiuon control
+
+The file src/include/debug.h defines compile-time constants that turn on and
+off debugging, timing, and handler tracking information, and causal even
+tracking in which all events
+(and not just handler invocations) are appended to the namespace log.  The 
+default is for all of these to be turned off, there by yielding the
+lowest-latency handler dispatch (about 1 ms on a medium-powered cloud CPU).
