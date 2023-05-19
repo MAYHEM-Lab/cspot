@@ -5,8 +5,8 @@ image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
 == Installation
 
 Currently, CSPOT builds from source using a bash installation script on CentOS
-7, CentOS 8 Stream, and Ubuntu 20.04.  It requires docker ce, which it will install, but to do so it will remove
-the docker package that ships with the distro.  There are install scripts
+7, CentOS 8 Stream, CentOS 9 Stream, and Ubuntu 20.04.  It requires docker ce, which it will 
+install, but to do so it will remove the docker package that ships with the distro.  There are install scripts
 (written in bash).  It would be best to read them before running them to make
 sure that the installation will not "corrupt" the local installation.  CSPOT
 was originally designed to work in a virtualized environments (e.g. clouds) so

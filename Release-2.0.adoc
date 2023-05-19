@@ -13,7 +13,7 @@ entire code base has been shifted to use g++-9 or later.
 == use of cmake and a docker image
 
 The build model (which still builds from source) uses cmake 3.13 or later in
-release 2.0.  The installation scripts for CentOS install cmake at the
+Release 2.0.  The installation scripts for CentOS install cmake at the
 appropriate release level.  Also, while a Dockerfile is still part of the
 repo, the image that will be used for the CSPOT container is downloaded from
 Dockerhub (rather than constructed locally).
@@ -49,5 +49,5 @@ The file src/include/debug.h defines compile-time constants that turn on and
 off debugging, timing, and handler tracking information, and causal even
 tracking in which all events
 (and not just handler invocations) are appended to the namespace log.  The 
-default is for all of these to be turned off, there by yielding the
+default is for all of these to be turned off, thereby yielding the
 lowest-latency handler dispatch (about 1 ms on a medium-powered cloud CPU).
