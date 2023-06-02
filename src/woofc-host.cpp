@@ -23,12 +23,25 @@ const char* from_env_or(const char* env_key, const char* or_) {
 
 namespace cspot {
 bool is_platform = false;
+bool init_called = false;
+}
+
+void WooFSetInit()
+{
+	cspot::init_called = true;
+	return;
 }
 
 int WooFInit() {
     struct timeval tm;
     int err;
     char* str;
+
+    if(cspot::init_called == true) {
+	DEBUG_LOG("WooFInit: called after init has been called\n");
+	return(1);
+    }
+	
 
     gettimeofday(&tm, NULL);
     srand48(tm.tv_sec + tm.tv_usec);
@@ -83,6 +96,8 @@ int WooFInit() {
         }
         Name_log = static_cast<LOG*>(MIOAddr(lmio));
     }
+
+    cspot::init_called = true;
 
     return 1;
 }

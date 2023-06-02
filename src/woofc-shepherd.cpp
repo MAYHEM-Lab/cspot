@@ -238,6 +238,7 @@ int main(int argc, char** argv, char** envp) {
 	fflush(stdout);
 #endif
 
+	WooFSetInit(); // so that a handler that inadevertantly calls WooFInit() does not leak file desc
 
 	STOPCLOCK(&end);
 	TIMING_PRINT("HANDAT: %lf ms\n",DURATION(start,end)*1000);
