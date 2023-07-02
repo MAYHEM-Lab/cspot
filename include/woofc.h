@@ -7,6 +7,7 @@ extern "C" {
 typedef struct woof_stc WOOF;
 
 int WooFInit();
+void WooFSetInit();
 void WooFExit();
 
 int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size);

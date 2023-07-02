@@ -14,9 +14,9 @@ option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Emitting static binaries")
-    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,--gc-sections")
+    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic")
     set(CMAKE_C_FLAGS "-ffunction-sections -fdata-sections")
-    set(CMAKE_CXX_FLAGS "-ffunction-sections -fdata-sections")
+    set(CMAKE_CXX_FLAGS "-std=gnu++17 -ffunction-sections -fdata-sections -Wl,-Bstatic")
 
 #    if (CMAKE_BUILD_TYPE MATCHES "Release")
 #        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto")

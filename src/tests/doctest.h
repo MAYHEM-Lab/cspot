@@ -4024,6 +4024,8 @@ namespace {
                                {SIGTERM, "SIGTERM - Termination request signal"},
                                {SIGABRT, "SIGABRT - Abort (abnormal termination) signal"}};
 
+#undef SIGSTKSZ
+#define SIGSTKSZ (4096)
     struct FatalConditionHandler
     {
         static bool             isSet;

@@ -5,36 +5,24 @@ image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
 == Installation
 
 Currently, CSPOT builds from source using a bash installation script on CentOS
-7.  It requires docker ce, which it will install, but to do so it will remove
-the docker package that ships with CentOS 7.  To install CSPOT
+7, CentOS 8 Stream, CentOS 9 Stream, and Ubuntu 20.04.  It requires docker ce, which it will 
+install, but to do so it will remove the docker package that ships with the distro.  There are install scripts
+(written in bash).  It would be best to read them before running them to make
+sure that the installation will not "corrupt" the local installation.  CSPOT
+was originally designed to work in a virtualized environments (e.g. clouds) so
+it is not "gentle" with respect to software installation.
+
+The following shows the installation procedure for CentOS 7.
 
 [source sh]
 ----
 git clone https://github.com/MAYHEM-Lab/cspot.git
 cd cspot
 sudo ./install-centos7.sh
-sudo ./SELF-TEST.sh
-----
-The self test will run 5 latency tests and a throughput test using 100 puts.  The output should show latencies for all of the tests.  For example, 
-[source sh]
-----
-avg latency: 399.088000 ms
-avg latency: 2.939000 ms
-avg latency: 2.649000 ms
-avg latency: 2.821000 ms
-avg latency: 2.907000 ms
-seq_no 1 latency 2.351000
-seq_no 2 latency 3.535000
-.
-.
-.
-seq_no 98 latency 47.380000
-seq_no 99 latency 49.361000
-seq_no 100 latency 48.209000
-avg throughput: 28.828845 puts/s
 ----
 
 To install CSPOT in /usr/local, 
+
 [source sh]
 ----
 cd build
@@ -297,7 +285,8 @@ separately, so that the dynamically loaded libraries are compatible.
 
 The ``Hello world'' application consists of a single handler which
 prints to the string ``Hello world'' and then prints a string that the
-initial process has appended to the WOOF.
+initial process has appended to the WOOF.  Here is the source code fpr the
+handler *hw()*.
 
 [source c]
 ----
@@ -319,6 +308,12 @@ int hw(WOOF *wf, unsigned long seq_no, void *ptr)
 }
 ----
 
+Note that the handler's entry point must be a C function and that all handlers
+take 3 arguments:
+* a pointer ot a WOOF structure (defined in woofc.h)
+* a sequence number
+* a void * pointer to an element
+The size of the elements are defined when the WOOF is created.
 The header file woofc.h defines a C structure that the application uses
 as the type of each element in the WOOF.
 
@@ -446,124 +441,190 @@ int main(int argc, char **argv)
 The code for this application is in the apps/hello-world subdirectory of
 the CSPOT repo.
 
- as is a makefile that assumes that CSPOT has already been
-compiled in the main directory. The makefile creates a ``cspot''
-subdirectory which is used as the namespace for the application. It it
-also copies the binaries, when they are compiled, into this namespace
-directory.
-
 To run ``Hello world'', first start the namespace platform for the
-application’s namespace. The easiest way to start the platform is to cd
-into the namespace on the host and to run it without any arguments. It
+application’s namespace. Typically, the method is to copy the CSPOT
+runtime into a directory to use as the name space and then to copy the code
+(handlers and start program) to the name space.  The easiest way to start the platform is to cd
+into the namespace on the host and to run the platform without any arguments. It
 will use the current working directory as the namespace in this case.
 
-....
+[source sh]
+----
+mkdir test-name-space
+cp cspot/build/bin/woofc* test-name-space
+cp cspot/apps/hello-world/hw-start test-name-space
+cp cspot/apps/hello-world/hw test-name-space
 cd spot/apps/hello-world/cspot
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+cd test-name-space
 ./woofc-namespace-platform
-....
+----
 
 Once the platform is running, it will spawn a Docker container.
 Unfortunately, the interaction between pthreads, the Linux system
 command, and docker isn’t completely bug free in CentOS 7. Currently,
-woofc-namespace-platform can be terminated with a when running in the
-foreground, but must be typed twice (the second causes SIGINT to be
-caught). Alternatively, killing the process ID with ``kill -TERM'' will
+woofc-namespace-platform can't be terminated with a when running in the
+foreground.
+Alternatively, killing the process ID with ``kill -HUP'' will
 also trigger a clean up of the docker container. Any other form of
 termination may leave the container running which holds the port
 associated with the namespace.
 
 Once the platform is running, run the application
 
-....
-cd spot/apps/hello-world/cspot
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-./hw-start -W woof://<uri-for-woof-to-use>
-....
+[source sh]
+----
+./hw-start -W hello-woof
+----
+
+So, for example, if CSPOT were installed in /home/centos/cspot, the commands
+would be
+[source sh]
+----
+cd /home/centos
+mkdir /home/centos/test-name-space
+cp /home/centos/cspot/build/bin/woofc* test-name-space
+cp /home/centos/cspot/build/bin/hello-world/hw test-name-space
+cp /home/centos/cspot/build/bin/hello-world/hw-start test-name-space
+cp /home/centos/cspot/build/bin/hello-world/hw-client test-name-space
+cd /home/centos/test-name-space
+./woofc-namespace-plaotform >& namespace.log &
+./hw-start hello-woof
+----
+
+Because the start program creates the WOOF ``hello-woof'' in this example, the
+WOOF name is specified as a path.  If successful, in this example, the start
+program should have printed
+
+[source sh]
+----
+successfully appended my first bark to hello-woof at seq_no 1
+----
+
+and the file namespace.log should contain
+
+[source sh]
+----
+hello world
+at 1 with string: my first bark
+----
 
 Because the handler prints to stdout, the output of the handler will be
 sent to the controlling tty of the shell that is running the platform.
 
-=== Ping-pong (cspot/apps/ping-pong)
+To continue appending to ``hello-woof'' without recreating the woof each time,
+a client program (contained in cspot/apps/hello-word/hw-client) simply calls
+*WooFPut()* on the same WOOF.  
 
-The ping-pong application uses a start program (``ping-pong-start'') and
-two separate handlers (``ping'' and ``pong'') to alternatively increment
-a shared counter carried in the WOOF. The makefile in
-cspot/apps/ping-pong creates a cspot subdirectory to use as a namespace.
-Thus, once the platform is running,
+[source C]
 
-....
-cd spot/apps/ping-pong/cspot
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-./ping-pong-start -s 10 -f pp-woof
-....
+----
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
 
-will start the application. The ``-s'' parameter specifies the maximum
-value of the counter. When the counter’s value reaches this value, the
-application will stop. Thus, in this example, the counter will count to
-10 before the application stops executing. Both handlers send output to
-standard out which will appear on the controlling tty of the shell that
-launched the platform.
+#include "woofc.h"
+#include "hw.h"
 
-The ping-pong application can also be run with two separate namespaces.
-The name of the WOOF specified to the ``-f'' parameter will be created
-in each namespace. Note that the makefile that is in the repo does not
-create two namespaces automatically. To use this application in multiple
-namespaces, create each and copy the binaries from the ``cspot''
-subdirectory created by the name file into each namespace. The start
-program, ``ping-pong-start'' takes a ``-N'' and ``-n'' argument which
-must be used to specify the path, on the host, to each namespace.
+#define ARGS "f:N:W:"
+char *Usage = "hw-client -W woof_name\n\
+\t-N namespace <CWD is the default>\n";
 
-Finally, the apps/ping-pong directory also includes a version that can
-be run in two separate namespaces on two separate machines. It uses the
-same handlers as the one that uses ping-pong-start, but initializing the
-application is different.
+char Fname[4096];
+char Wname[4096];
+char NameSpace[4096];
+char Namelog_dir[4096];
+int UseNameSpace;
 
-Specifically, when run in two namespaces on the same machine,
-ping-pong-start creates the WOOF specified with the ``-f'' argument in
-both namespaces. WOOFC does not currently support the ability to create
-a WOOF in a remote namespace (although it might need to at some point).
-Thus, to run ping-pong between two separate machines, the application
-needs a component that creates the WOOF on the machine that runs ping,
-and another component that creates the WOOF on the machine that runs
-pong. These components are ``ping-start'' and ``pong-start''
-respectively.
+char putbuf1[1024];
+char putbuf2[1024];
 
-To run this version, first run pong-start with a URI specification for
-both namespaces and the name of the WOOF on the target machine (after
-starting up the woof-namespace-platform for the local namespace). This
-function will create the WOOF in the local namespace and exit. Then run
-ping-start on the other machine (after the woof-namespace-platform is
-running), again specifying both namespaces and the WOOF name as well as
-the maximum counter value.
+int main(int argc, char **argv)
+{
+	int c;
+	int err;
+	HW_EL el;
+	unsigned long long ndx;
 
-Note that pong-start need only be run once if the same WOOF is used for
-multiple runs. Once the WOOF is created, ping-start can initiate
-execution by putting to it.
+	while((c = getopt(argc,argv,ARGS)) != EOF) {
+		switch(c) {
+			case 'f':
+			case 'W':
+				strncpy(Fname,optarg,sizeof(Fname));
+				break;
+			case 'N':
+				UseNameSpace = 1;
+				strncpy(NameSpace,optarg,sizeof(NameSpace));
+				break;
+			default:
+				fprintf(stderr,
+				"unrecognized command %c\n",(char)c);
+				fprintf(stderr,"%s",Usage);
+				exit(1);
+		}
+	}
 
-So, for example, imagine that machine 1 has IP address 10.0.1.4 and
-machine 2 has IP address 10.0.1.5 and that /tmp/cspot is a valid
-namespace on both machines (i.e. it contains the ping and pong
-handlers).
+	if(Fname[0] == 0) {
+		fprintf(stderr,"must specify filename for woof\n");
+		fprintf(stderr,"%s",Usage);
+		fflush(stderr);
+		exit(1);
+	}
 
-On machine 2, run
+	if(Namelog_dir[0] != 0) {
+		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
+		putenv(putbuf2);
+	}
 
-....
-pong-start -N woof://10.0.1.4/tmp/cspot -n woof://10.0.1.5/tmp/cspot -f ping-pong-woof
-....
+	if(UseNameSpace == 1) {
+		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
+		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
+		putenv(putbuf1);
+	} else {
+		strncpy(Wname,Fname,sizeof(Wname));
+	}
 
-This command creates the WOOF ping-pong-woof in the namespace (assuming
-the platform is up and running for that namespace) and then exits. Then
-on machine 1, run
+	/*
+	 * copy string into a structure to be stored as an element
+	 * in the WOOF
+	 */
+	memset(el.string,0,sizeof(el.string));
+	strncpy(el.string,"my second bark",sizeof(el.string));
 
-....
-ping-start -N woof://10.0.1.4/tmp/cspot -n woof://10.0.1.5/tmp/cspot -f ping-pong-woof -s 10
-....
+	/*
+	 * put the string in the WOOF and trigger a handler
+	 */
+	ndx = WooFPut(Wname,"hw",(void *)&el);
 
-(again, assuming the platform is running) and it should initiate a
-ping-pong between the two. Running ping-start again, with the same WOOF
-will recreate the WOOF on machine 1, but use the existing WOOF on
-machine 2 (which will be evident by the sequence numbers).
+	if(WooFInvalid(err)) {
+		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
+		fflush(stderr);
+		exit(1);
+	}
+
+	printf("successfully appended %s to %s at seq_no %llu\n",
+		"my second bark",
+		Wname,
+		ndx);
+
+	return(0);
+}
+
+----
+
+
+If the client is running in the same
+namespace, it can refer to the WOOF by a path name.  Otherwise, as in the
+following example, the client uses a fully-qualified WOOF name.
+
+[source sh]
+----
+./hw-client -W woof://127.0.0.1/home/centos/test-name-space/hello-woof
+----
+
+Note that of the client had been located on another machine, the IP address
+or DNS name of the machine hosting the namespace would be substituted for the
+local IP address ``127.0.0.1'' in this example.
 
 === Runs Test (cspot/apps/runs-test)
 
@@ -590,9 +651,6 @@ namespace
 ``RHandler'' in a container
 * cspot-runstat-multi-ns: CSPOT implementation of c-runstat that runs
 handlers in separate namespaces
-
-The makefile in this subdirectory creates both single and
-multi-namespace versions for comparative purposes.
 
 == On-going and Future Work
 

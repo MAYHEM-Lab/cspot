@@ -145,6 +145,7 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
      */
 
     renamed = 0;
+#if 0
     if (stat(local_name, &sbuf) >= 0) {
         memset(temp_name, 0, sizeof(temp_name));
         r = drand48();
@@ -153,6 +154,7 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
         renamed = 1;
         DEBUG_LOG("WooFCreate: renamed %s to %s\n", local_name, temp_name);
     }
+#endif
 
     mio = MIOOpen(local_name, "w+", space);
     if (mio == NULL) {
