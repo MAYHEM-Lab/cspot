@@ -25,6 +25,7 @@ int MM_mul_handler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	add.B_i = mul->B_i;
 	add.B_j = mul->B_j;
 	add.dim = mul->dim;
+	add.start = mul->start;
 
 
 	// scan A matrix backwards looking for i,j value

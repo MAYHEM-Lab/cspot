@@ -16,6 +16,9 @@ int MM_ctrl_handler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	int dim = ctrl->dim;
 	int i;
 	unsigned long seq_no;
+	double now;
+
+	STARTCLOCK(&now);
 
 
 	// trigger dot product multiplies
@@ -30,6 +33,7 @@ int MM_ctrl_handler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 		mul.R_i = row;
 		mul.R_j = col;
 		mul.dim = dim;
+		mul.start = now;
 		seq_no = WooFPut("MM_MUL_WooF","MM_mul_handler",&mul);
 		if(seq_no == (unsigned long)-1) {
 			fprintf(stderr,"MM_ctrl_handler failed at %d,%d (%d)\n",

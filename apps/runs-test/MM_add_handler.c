@@ -19,6 +19,7 @@ int MM_add_handler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	int dot_count;
 	double acc;
 	int i;
+	double now;
 
 	next_seq_no = WooFGetLatestSeqno("MM_ADD_WooF");
 	if(next_seq_no == (unsigned long)-1) {
@@ -75,6 +76,9 @@ int MM_add_handler(WOOF *wf, unsigned long wf_seq_no, void *ptr)
 	res.R_j = add->R_j; 
 	res.val = acc;
 	res.dim = add->dim;
+	res.start = add->start;
+	STOPCLOCK(&now);
+	res.end = now;
 	seq_no = WooFPut("MM_RES_WooF",NULL,&res);
 	if(seq_no == (unsigned long)-1) {
 		fprintf(stderr,"MM_add_handler: couldn't write result\n");

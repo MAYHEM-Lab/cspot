@@ -10,7 +10,7 @@
 
 #include "debug.h"
 
-#define SPLAY (5)
+#define SPLAY (0)
 
 
 int main(int argc,char **argv, char **env)

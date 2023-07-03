@@ -21,6 +21,9 @@ int main(int argc, char **argv)
 	int *found;
 	int i;
 	int j;
+	double earliest;
+	double latest;
+	double duration;
 
 	// init the CSPOT environment
 	WooFInit();
@@ -55,6 +58,9 @@ int main(int argc, char **argv)
 
 	array[res.R_i*dim+res.R_j] = res.val;
 	found[res.R_i*dim+res.R_j] = 1;
+	earliest = res.start;
+	latest = res.end;
+	
 	count = 1;
 	seq_no--;
 	while(count < (dim*dim)) {
@@ -64,6 +70,7 @@ int main(int argc, char **argv)
 				seq_no,count);
 			exit(1);
 		}
+
 		//
 		// prevents an additional scan in MM_add_handler to determine if
 		// R[i,j] has been produced already
@@ -74,6 +81,13 @@ int main(int argc, char **argv)
 		}
 		array[res.R_i*dim+res.R_j] = res.val;
 		found[res.R_i*dim+res.R_j] = 1;
+		if(res.start < earliest) {
+			earliest = res.start;
+		}
+
+		if(res.end > latest) {
+			latest = res.end;
+		}
 		seq_no--;
 		count++;
 	}
@@ -90,6 +104,12 @@ int main(int argc, char **argv)
 		}
 		printf("\n");
 	}
+
+	duration = DURATION(earliest,latest) * 1000;
+
+	printf("total time: %f ms, avg: %f ms\n",
+		duration,
+		duration/(double)(dim*dim));
 
 	free(array);
 
