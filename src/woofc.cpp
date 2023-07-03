@@ -1256,7 +1256,7 @@ int WooFReadWithCause(
 
 
     if(seq_no == 0) { // use 0 to indicate read end of log
-	if(wfs->seq_no == 0) {
+	if(wfs->seq_no <= 1) {
 #ifdef DEBUG
 		fprintf(stdout,"reading empty woof %s\n",
 			wfs->filename);
