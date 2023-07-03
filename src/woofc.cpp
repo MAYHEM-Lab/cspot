@@ -1250,6 +1250,7 @@ int WooFReadWithCause(
     unsigned long l_seq_no;
 
     wfs = wf->shared;
+    P(&wfs->mutex);
 
     buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
 
@@ -1272,7 +1273,6 @@ int WooFReadWithCause(
      * must compute oldest, youngest, test, and copy the element inside critical section
      * since it might wrap if puts are happening at the same time
      */
-    P(&wfs->mutex);
     ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
     youngest = el_id->seq_no;
