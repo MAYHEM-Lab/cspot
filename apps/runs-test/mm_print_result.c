@@ -34,7 +34,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	// get the tail
-	err = WooFGet("MM_RES_WooF",&res,seq_no);
+//	err = WooFGet("MM_RES_WooF",&res,seq_no);
+	err = WooFGet("MM_RES_WooF",&res,1);
 	if(err < 0) {
 		fprintf(stderr,"mm_print_result: could not get tail of result at %lu\n",
 			seq_no);
