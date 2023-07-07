@@ -62,7 +62,8 @@ int main(int argc, char **argv)
 	latest = res.end;
 	
 	count = 1;
-	seq_no--;
+//	seq_no--;
+	seq_no = 1;
 	while(count < (dim*dim)) {
 		err = WooFGet("MM_RES_WooF",&res,seq_no);
 		if(err < 0) {
@@ -76,7 +77,8 @@ int main(int argc, char **argv)
 		// R[i,j] has been produced already
 		//
 		if(found[res.R_i*dim+res.R_j] == 1) {
-			seq_no--;
+//			seq_no--;
+			seq_no++;
 			continue;
 		}
 		array[res.R_i*dim+res.R_j] = res.val;
@@ -88,7 +90,8 @@ int main(int argc, char **argv)
 		if(res.end > latest) {
 			latest = res.end;
 		}
-		seq_no--;
+//		seq_no--;
+		seq_no++;
 		count++;
 	}
 
