@@ -20,6 +20,7 @@ extern "C" {
 #include <time.h>
 #include <unistd.h>
 #include <woofc-priv.h>
+#include <caplets.h>
 
 void WooFDrop(WOOF* wf);
 
@@ -513,8 +514,6 @@ unsigned long WooFAppend(WOOF* wf, const char* hand_name, const void* element) {
     return seq_no;
 }
 
-
-
 unsigned long WooFAppendWithCause(
     WOOF* wf, const char* hand_name, const void* element, unsigned long cause_host, unsigned long long cause_seq_no) {
     MIO* mio;
@@ -785,6 +784,21 @@ bool IsRemoteWoof(const char* wf_name) {
     return false;
 }
 } // namespace
+
+unsigned long WooFPutWithToken(const char* cap_token, const char* wf_name, const char* wf_handler, const void* element) {
+    std::string s = cap_token;
+    fprintf(stdout, "%s\n", s.c_str());
+    Token token;
+    token.from_string(s);
+    fprintf(stdout, "Token: %s\n", token.to_string_w_tag().c_str());
+    fflush(stdout);
+    bool is_valid = Token::is_valid_token(token);
+    fprintf(stdout, "Token is %s\n", is_valid? "true": "false");
+    fflush(stdout);
+    
+    return WooFPut(wf_name, wf_handler, element);
+}
+
 
 unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element) {
     DEBUG_LOG("WooFPut: called %s %s\n", wf_name, wf_handler);

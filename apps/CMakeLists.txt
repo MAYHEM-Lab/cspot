@@ -1,6 +1,8 @@
-add_subdirectory(hello-world)
-add_subdirectory(runs-test)
-add_subdirectory(self-test)
+#add_subdirectory(hello-world)
+#add_subdirectory(runs-test)
+#add_subdirectory(self-test)
+
+add_subdirectory(caplets)
 
 
 

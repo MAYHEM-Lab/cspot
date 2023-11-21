@@ -28,6 +28,9 @@ endif ()
 add_subdirectory(deps)
 add_subdirectory(src)
 
+set(caplets_DIR "/usr/local/lib/cmake/caplets")
+find_package(caplets REQUIRED)
+
 add_library(woof
         src/log.cpp
         src/include/log.h
@@ -61,7 +64,7 @@ target_include_directories(woof PUBLIC
 
 find_package(Threads REQUIRED)
 
-target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net)
+target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net caplets)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
