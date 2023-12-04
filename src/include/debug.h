@@ -12,10 +12,11 @@ void cspot_print_fatal_if(bool val, const char* format, ...);
 
 void cspot_print_timing(const char* format, ...);
 
-#define QUIET
+//#define QUIET
 
 //#define TRACK
-#define TIMING
+//#define TIMING
+#define DEBUG
 
 #ifdef QUIET
 #undef TIMING
