@@ -1,5 +1,6 @@
 #!/bin/bash
 
+USEMAKE=0
 
 yum -y install centos-release-scl && yum -y install devtoolset-9
 yum -y install centos-release-scl && sudo yum -y install devtoolset-9
@@ -23,10 +24,18 @@ cd cspot/
 git submodule update --init --recursive
 mkdir build
 cd build/
+
 echo "#!/bin/bash" > helper.sh
-echo "cmake -G Ninja .." >> helper.sh
-echo "ninja" >> helper.sh
-echo "ninja install" >> helper.sh
+if ( test USEMAKE -eq 0 ) ; then
+	echo "cmake -G Ninja .." >> helper.sh
+	echo "ninja" >> helper.sh
+	echo "ninja install" >> helper.sh
+else
+	mkdir -p bin
+	echo "cmake .." >> helper.sh
+	echo "make" >> helper.sh
+	echo "make install" >> helper.sh
+fi
 chmod 755 helper.sh
 scl enable devtoolset-9 ./helper.sh
 docker pull racelab/cspot-docker-centos7

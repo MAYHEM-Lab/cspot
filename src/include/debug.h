@@ -15,7 +15,8 @@ void cspot_print_timing(const char* format, ...);
 #define QUIET
 
 //#define TRACK
-#define TIMING
+//#define TIMING
+//#define DEBUG
 
 #ifdef QUIET
 #undef TIMING
