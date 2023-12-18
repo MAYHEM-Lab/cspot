@@ -785,18 +785,23 @@ bool IsRemoteWoof(const char* wf_name) {
 }
 } // namespace
 
-unsigned long WooFPutWithToken(const char* cap_token, const char* wf_name, const char* wf_handler, const void* element) {
-    std::string s = cap_token;
-    fprintf(stdout, "%s\n", s.c_str());
-    Token token;
-    token.from_string(s);
-    fprintf(stdout, "Token: %s\n", token.to_string_w_tag().c_str());
-    fflush(stdout);
-    bool is_valid = Token::is_valid_token(token);
+unsigned long WooFPutWithToken(const char* cap_token_char, const char* id_token_char, const char* wf_name, const char* wf_handler, const void* element) {
+    std::string cap_token_str = cap_token_char, id_token_str = id_token_char;
+    CapabilityToken cap_token;
+    cap_token.from_string(cap_token_str);
+
+    IdentityToken id_token;
+    id_token.from_string(id_token_str);
+
+    int operation_bits = (wf_handler == NULL)? 2 : 6;
+    bool is_valid = cap_token.is_valid_request_cspot(&id_token, operation_bits);
+    
     fprintf(stdout, "Token is %s\n", is_valid? "true": "false");
     fflush(stdout);
     
-    return WooFPut(wf_name, wf_handler, element);
+    if (is_valid)
+        return WooFPut(wf_name, wf_handler, element);
+    return (-1);
 }
 
 
@@ -959,6 +964,25 @@ unsigned long WooFPutWithCause(const char* wf_name,
 #endif
     WooFDrop(wf);
     return (seq_no);
+}
+
+int WooFGetWithToken(const char* cap_token_char, const char* id_token_char, const char* wf_name, void* element, unsigned long seq_no){
+    std::string cap_token_str = cap_token_char, id_token_str = id_token_char;
+    CapabilityToken cap_token;
+    cap_token.from_string(cap_token_str);
+
+    IdentityToken id_token;
+    id_token.from_string(id_token_str);
+
+    int operation_bits = 1;
+    bool is_valid = cap_token.is_valid_request_cspot(&id_token, operation_bits);
+    
+    fprintf(stdout, "Token is %s\n", is_valid? "true": "false");
+    fflush(stdout);
+    
+    if (is_valid)
+        return WooFGet(wf_name, element, seq_no);
+    return (-1);
 }
 
 int WooFGet(const char* wf_name, void* element, unsigned long seq_no) {

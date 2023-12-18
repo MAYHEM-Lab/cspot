@@ -9,7 +9,7 @@ int main(int argc, char **argv)
 {
     int err;
     char Wname[300];
-    strncpy(Wname,"sensor_log",sizeof(Wname));
+    strncpy(Wname,"log",sizeof(Wname));
 
     WooFInit();
     err = WooFCreate(Wname, sizeof(EL), 1025); /*3*4 + 2 + some extra */
@@ -20,9 +20,12 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    char val_token[2048];
-    strncpy(val_token,"4EB744B4B49783B51C308D1998765EC4B7FD267209F56859412BDEC3EF499D70%FRAME%/home/centos/*+0+111%FRAME%/home/centos/cspot-caplets/*+0+111",sizeof(val_token));
+    char cap_token[1000];
+    strncpy(cap_token,"6EC5AA523E19B916A4576718AF8AAEB78EF6856E775EE19CB92D1D3DC17A0569%FRAME%/home/centos/*+0+111%FRAME%/home/centos/cspot-caplets/*+0+111$FUNCTION:identity_constraint:855354fee30548e7c266e5a4a625fb3552a4d1f97050282fb5db8768902793bb%FRAME%request:/home/centos/cspot-caplets/log:my_handler:0:110",sizeof(cap_token));
     
+    char id_token[1000];
+    strncpy(id_token,"5671E3CDD07D330DF944E49C662D528AE242B9156D94620A3CA7A42F1CC9C688%FRAME%DummyBody%FRAME%855354fee30548e7c266e5a4a625fb3552a4d1f97050282fb5db8768902793bb%FRAME%6EC5AA523E19B916A4576718AF8AAEB78EF6856E775EE19CB92D1D3DC17A0569",sizeof(id_token));
+
     EL el;
     memset(el.string,0,sizeof(el.string));
 	strncpy(el.string,"my first bark",sizeof(el.string));
@@ -36,12 +39,11 @@ int main(int argc, char **argv)
         
         }
         
-        
         fprintf(stdout, "PUTTING NOW\n");
         fflush(stdout);
 
 
-        seq_no = WooFPutWithToken(val_token, Wname,NULL,(void *)&el);
+        seq_no = WooFPutWithToken(cap_token, id_token, Wname, "temp",(void *)&el);
 
         if(WooFInvalid(seq_no)) {
             fprintf(stderr,"Failed to put\n");

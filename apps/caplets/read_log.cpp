@@ -10,7 +10,7 @@
 int main(int argc, char **argv)
 {
     unsigned long err;
-    char* Wname = "sensor_log";
+    char* Wname = "log";
     WooFInit();
     unsigned long ndx = WooFGetLatestSeqno(Wname);
     if (WooFInvalid(ndx)) {

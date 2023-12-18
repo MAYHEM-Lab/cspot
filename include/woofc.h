@@ -13,9 +13,10 @@ void WooFExit();
 int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size);
 
 unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
-unsigned long WooFPutWithToken(const char* cap_token, const char* wf_name, const char* wf_handler, const void* element);
+unsigned long WooFPutWithToken(const char* cap_token_char, const char* id_token_char, const char* wf_name, const char* wf_handler, const void* element);
 
 int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
+int WooFGetWithToken(const char* cap_token_char, const char* id_token_char, const char* wf_name, void* element, unsigned long seq_no);
 
 unsigned long WooFGetLatestSeqno(const char* wf_name);
 unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
