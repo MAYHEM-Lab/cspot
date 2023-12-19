@@ -17,6 +17,7 @@ extern "C" {
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 #include <woofc-priv.h>
@@ -789,18 +790,31 @@ unsigned long WooFPutWithToken(const char* cap_token_char, const char* id_token_
     std::string cap_token_str = cap_token_char, id_token_str = id_token_char;
     CapabilityToken cap_token;
     cap_token.from_string(cap_token_str);
+    //printf("WoofPutWithToken::CapabilityToken:: %s\n", cap_token.to_string().c_str());
 
     IdentityToken id_token;
     id_token.from_string(id_token_str);
+    //printf("WoofPutWithToken::IdentityToken:: %s\n", id_token.to_string().c_str());
+
 
     int operation_bits = (wf_handler == NULL)? 2 : 6;
     bool is_valid = cap_token.is_valid_request_cspot(&id_token, operation_bits);
     
-    fprintf(stdout, "Token is %s\n", is_valid? "true": "false");
+    //fprintf(stdout, "Token is %s\n", is_valid? "true": "false");
+    
+    struct timeval  tv;
+    gettimeofday(&tv,NULL);
+    double time =((double)((double)tv.tv_sec + (double)tv.tv_usec/1000000.0));
+    fprintf(stdout, "device: %s - Time after caplets in ms: %f\n", wf_name, time*1000);
     fflush(stdout);
     
-    if (is_valid)
-        return WooFPut(wf_name, wf_handler, element);
+    if (is_valid){
+        unsigned long result =  WooFPut(wf_name, wf_handler, element);
+        gettimeofday(&tv,NULL);                                                                                                                         time =((double)((double)tv.tv_sec + (double)tv.tv_usec/1000000.0));
+    	fprintf(stdout, "device: %s - Seq: %lu - Time after PUT in ms: %f\n", wf_name, result, time*1000);
+	fflush(stdout);
+	return result;
+    }
     return (-1);
 }
 
