@@ -93,6 +93,10 @@ add_library(woofc-shepherd src/woofc-shepherd.cpp)
 target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
 
+add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.cpp)
+target_link_libraries(woofc-mqtt-gateway woof)
+target_include_directories(woofc-mqtt-gateway PRIVATE src/include)
+
 function (add_handler name)
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp
 "#include \"woofc.h\"\n \
@@ -119,7 +123,7 @@ install(
     DESTINATION lib
 )
 install(
-    TARGETS woofc-shepherd woofc-container woofc-namespace-platform
+    TARGETS woofc-shepherd woofc-container woofc-namespace-platform woofc-mqtt-gateway
     EXPORT woof
     DESTINATION bin
 )
