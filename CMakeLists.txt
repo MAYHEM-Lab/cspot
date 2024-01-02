@@ -50,6 +50,12 @@ add_library(woof
         src/woofc-host.cpp
 )
 
+add_library(woof-mqtt
+	include/woofc-mqtt.h
+	src/woofc-mqtt.cpp
+)
+
+
 target_include_directories(woof PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
         )
@@ -59,10 +65,22 @@ target_include_directories(woof PUBLIC
         $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(woof-mqtt PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+        )
+
+target_include_directories(woof-mqtt PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+
 find_package(Threads REQUIRED)
 
 target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net)
 target_compile_features(woof PUBLIC cxx_std_17)
+
+target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)
+target_compile_features(woof-mqtt PUBLIC cxx_std_17)
 
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     target_compile_definitions(woof PUBLIC DEBUG=1)
@@ -94,7 +112,7 @@ target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
 
 add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.cpp)
-target_link_libraries(woofc-mqtt-gateway woof)
+target_link_libraries(woofc-mqtt-gateway woof woof-mqtt)
 target_include_directories(woofc-mqtt-gateway PRIVATE src/include)
 
 function (add_handler name)

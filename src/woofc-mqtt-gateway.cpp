@@ -2240,39 +2240,6 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 #endif // NOTRIGHTNOW
 
 /*
- * format is woof_name:command:args...
- */
-
-WMQTT *ParseMQTTString(char *str)
-{
-	WMQTT *wm;
-	TXL *tl;
-	int command;
-
-	wm = (WMQTT *)malloc(sizeof(WMQTT));
-	if(wm == NULL) {
-		return(NULL);
-	}
-	tl = ParseLine(str,"|");
-	if(tl == NULL) {
-		free(wm);
-		return(NULL);
-	}
-	/*
-	 * get the woof name
-	 */
-	strncpy(wm->woof_name,tl->list->first->value.s,sizeof(wm->woof_name));
-
-	/*
-	 * get the command
-	 */
-	wm->command = atoi(tl->list->first->next->value.s);
-
-	return(wm);
-}
-
-
-/*
  * thread subscribes to device output topic and forwards request to CSPOT
  * assumes that MQTT-SN gateway is transparent (e.g. message is coming from
  * mosquitto)
@@ -2282,10 +2249,14 @@ void *MQTTDeviceOutputThread(void *arg)
 	char *device_name; /* copy in device name */
 	int len;
 	char sub_string[1024];
+	char pub_string[1024];
 	FILE *fd;
+	FILE *pd;
 	char *mqtt_msg;
+	char *resp_string;
 	WMQTT *wm;
 	int size;
+	unsigned long seqno;
 
 	len = strlen((char *)arg) + 1;
 	device_name = (char *)malloc(len);
@@ -2297,6 +2268,13 @@ void *MQTTDeviceOutputThread(void *arg)
 	if(mqtt_msg == NULL) {
 		free(device_name);
 		fprintf(stderr,"MQTTDeviceOutputThread: no space for msg\n");
+		pthread_exit(NULL);
+	}
+
+	resp_string = (char *)malloc(WOOF_MQTT_MAX_SIZE);
+	if(resp_string == NULL) {
+		free(device_name);
+		fprintf(stderr,"MQTTDeviceOutputThread: no space for resp\n");
 		pthread_exit(NULL);
 	}
 
@@ -2313,17 +2291,54 @@ void *MQTTDeviceOutputThread(void *arg)
 		if(size <= 0) {
 			break;
 		}
-printf("mqtt_msg: %s\n",mqtt_msg);
 		wm = ParseMQTTString(mqtt_msg);
 		if(wm == NULL) {
 			fprintf(stderr,"MQTTDeviceOutputThread: couldn't parse %s\n",
 					mqtt_msg);
 		}
-printf("MQTTDeviceOutputThread received %s %d\n",wm->woof_name,wm->command);
-		free(wm);
+		/*
+		 * main processing dispatch
+		 */
+		memset(resp_string,0,WOOF_MQTT_MAX_SIZE);
+		switch(wm->command) {
+			case WOOF_MQTT_PUT:
+				seqno = WooFPut(wm->woof_name,
+						wm->handler_name,
+						wm->element);
+				sprintf(resp_string,"%s|%d|%d",
+						wm->woof_name,
+						WOOF_MQTT_PUT_RESP,
+						(int)seqno);
+printf("resp_string: %s\n",resp_string);
+				break;
+			default:
+				sprintf(resp_string,"%s|%d|%d",
+						wm->woof_name,
+						WOOF_MQTT_BAD_RESP,
+						-1);
+				break;
+		}
+		/*
+	 	 * send the respond back on the input channel
+	 	 */
+		memset(pub_string,0,sizeof(pub_string));
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -m \'%s\'",device_name, resp_string);
+		system(pub_string);
+		/*
+		if(pd == NULL) {
+			fprintf(stderr,"MQTTDeviceOutputThread failed to pub response\n");
+		} else {
+			pclose(pd);
+		}
+		*/
+
+		FreeWMQTT(wm);
 	}
+
+
 	pclose(fd);
 	free(mqtt_msg);
+	free(resp_string);
 	free(device_name);
 	free(wm);
 	pthread_exit(NULL);
