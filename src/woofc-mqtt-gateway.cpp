@@ -2257,6 +2257,7 @@ void *MQTTDeviceOutputThread(void *arg)
 	WMQTT *wm;
 	int size;
 	unsigned long seqno;
+	unsigned long lsize;
 
 	len = strlen((char *)arg) + 1;
 	device_name = (char *)malloc(len);
@@ -2310,6 +2311,13 @@ void *MQTTDeviceOutputThread(void *arg)
 						WOOF_MQTT_PUT_RESP,
 						(int)seqno);
 printf("resp_string: %s\n",resp_string);
+				break;
+			case WOOF_MQTT_GET_EL_SIZE:
+				lsize = WooFMsgGetElSize(wm->woof_name);
+				sprintf(resp_string,"%s|%d|%d",
+						wm->woof_name,
+						WOOF_MQTT_GET_EL_SIZE_RESP,
+						(int)lsize);
 				break;
 			default:
 				sprintf(resp_string,"%s|%d|%d",
