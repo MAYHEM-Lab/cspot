@@ -40,6 +40,9 @@ int ConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 
 void FreeWMQTT(WMQTT *wm)
 {
+	if(wm == NULL) {
+		return;
+	}
 	if(wm->element != NULL) {
 		free(wm->element);
 	}

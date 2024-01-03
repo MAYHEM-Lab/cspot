@@ -2333,14 +2333,15 @@ printf("resp_string: %s\n",resp_string);
 		*/
 
 		FreeWMQTT(wm);
+		wm = NULL;
 	}
 
 
+	FreeWMQTT(wm);
 	pclose(fd);
 	free(mqtt_msg);
 	free(resp_string);
 	free(device_name);
-	free(wm);
 	pthread_exit(NULL);
 }
 
