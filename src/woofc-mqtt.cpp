@@ -50,6 +50,26 @@ int ConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 	return(1);
 }
 
+int ConvertBinarytoASCII(char *dest, void *src, int len)
+{
+        unsigned char *csrc = (unsigned char *)src;
+        int count;
+        unsigned char *curr;
+        char *wbuf;
+
+        count = 0;
+        curr = csrc;
+        wbuf = dest;
+
+        while(count < len) {
+                sprintf(wbuf,"%0.2x",(unsigned int)curr[count]);
+                wbuf += 2;
+                count++;
+        }
+        return(count);
+}
+
+
 void FreeWMQTT(WMQTT *wm)
 {
 	if(wm == NULL) {
