@@ -12,7 +12,7 @@
 #define WOOF_MQTT_GET_EL_SIZE_RESP (6)
 #define WOOF_MQTT_BAD_RESP (99)
 
-#define WOOF_MQTT_MAX_SIZE (1024)
+#define WOOF_MQTT_MAX_SIZE (1024*16)
 
 #if defined(__cplusplus)
 extern "C" {

@@ -2284,6 +2284,7 @@ void *MQTTDeviceOutputThread(void *arg)
 
 	memset(sub_string,0,sizeof(sub_string));
 	sprintf(sub_string,"/usr/bin/mosquitto_sub -h localhost -t %s.output",device_name);
+printf("sub_string: %s\n",sub_string);
 
 	fd = popen(sub_string,"r");
 	while(fd != NULL) {
@@ -2292,6 +2293,7 @@ void *MQTTDeviceOutputThread(void *arg)
 		if(size <= 0) {
 			break;
 		}
+printf("mqtt_msg: %s\n",mqtt_msg);
 		wm = ParseMQTTString(mqtt_msg);
 		if(wm == NULL) {
 			fprintf(stderr,"MQTTDeviceOutputThread: couldn't parse %s\n",
@@ -2310,7 +2312,6 @@ void *MQTTDeviceOutputThread(void *arg)
 						wm->woof_name,
 						WOOF_MQTT_PUT_RESP,
 						(int)seqno);
-printf("resp_string: %s\n",resp_string);
 				break;
 			case WOOF_MQTT_GET_EL_SIZE:
 				lsize = WooFMsgGetElSize(wm->woof_name);
@@ -2326,11 +2327,13 @@ printf("resp_string: %s\n",resp_string);
 						-1);
 				break;
 		}
+printf("resp_string: %s\n",resp_string);
 		/*
 	 	 * send the respond back on the input channel
 	 	 */
 		memset(pub_string,0,sizeof(pub_string));
 		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -m \'%s\'",device_name, resp_string);
+printf("pub_string: %s\n",pub_string);
 		system(pub_string);
 		/*
 		if(pd == NULL) {

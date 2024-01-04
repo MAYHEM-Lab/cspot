@@ -22,6 +22,8 @@ int ConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 	int count;
 	char *curr;
 	unsigned char c;
+	unsigned char high;
+	unsigned char low;
 
 	/*
 	 * assumes data is encoded as 112233445566778899AABBCCDDEEFF in 2 char hex
@@ -30,7 +32,17 @@ int ConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 	curr = src;
 	count = 0;
 	while((count < len) && (*curr != 0)) {
-		c = (curr[0] * 16) + curr[1];
+		if((curr[0] >= '0') && (curr[0] <= '9')) {
+			high = (curr[0] - '0') * 16;
+		} else if ((curr[0] >= 'a') && (curr[0] <= 'f')) {
+			high = (curr[0] - 'a' + 10) * 16;
+		}
+		if((curr[1] >= '0') && (curr[1] <= '9')) {
+			low = (curr[1] - '0');
+		} else if ((curr[1] >= 'a') && (curr[1] <= 'f')) {
+			low = (curr[1] - 'a' + 10);
+		}
+		c = high+low;
 		dest[count] = c;
 		curr += 2;
 		count++;
@@ -133,6 +145,11 @@ WMQTT *ParseMQTTString(char *str)
 				DestroyTXL(tl);
 				return(NULL);
 			}
+			break;
+		case WOOF_MQTT_GET_EL_SIZE:
+			/*
+			 * we only need the woof name and the code
+			 */
 			break;
 		default:
 			FreeWMQTT(wm);
