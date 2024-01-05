@@ -2239,6 +2239,8 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 }
 #endif // NOTRIGHTNOW
 
+char User_name[256];
+char Password [256];
 /*
  * thread subscribes to device output topic and forwards request to CSPOT
  * assumes that MQTT-SN gateway is transparent (e.g. message is coming from
@@ -2283,7 +2285,10 @@ void *MQTTDeviceOutputThread(void *arg)
 	strncpy(device_name,(char *)arg,len);
 
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -h localhost -t %s.output",device_name);
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -h localhost -t %s.output -u \'%s\' -P \'%s\'",
+			device_name,
+			User_name,
+			Password);
 printf("sub_string: %s\n",sub_string);
 
 	fd = popen(sub_string,"r");
@@ -2332,7 +2337,11 @@ printf("resp_string: %s\n",resp_string);
 	 	 * send the respond back on the input channel
 	 	 */
 		memset(pub_string,0,sizeof(pub_string));
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -m \'%s\'",device_name, resp_string);
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -m \'%s\' -u \'%s\' -P \'%s\'",
+				device_name, 
+				resp_string,
+				User_name,
+				Password);
 printf("pub_string: %s\n",pub_string);
 		system(pub_string);
 		/*
@@ -2356,19 +2365,29 @@ printf("pub_string: %s\n",pub_string);
 	pthread_exit(NULL);
 }
 
-#define ARGS "n:"
-const char *Usage = "woofc-mqtt-gateway -n device-name-space\n";
+#define ARGS "n:u:p:"
+const char *Usage = "woofc-mqtt-gateway -n device-name-space\n\
+\t -u MQTT broker user name\n\
+\t -p MQTT broker pw\n";
 char Device_name_space[1024];
+
 int main(int argc, char **argv)
 {
 	int c;
 	pthread_t sub_thread;
 	int err;
+	char *cred;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'n':
 				strncpy(Device_name_space,optarg,sizeof(Device_name_space));
+				break;
+			case 'u':
+				strncpy(User_name,optarg,sizeof(User_name));
+				break;
+			case 'p':
+				strncpy(Password,optarg,sizeof(Password));
 				break;
 			default:
 				fprintf(stderr,"woofc-mqtt-gateway: unrecognized command %c\n",
@@ -2382,6 +2401,32 @@ int main(int argc, char **argv)
 		fprintf(stderr,"usage: %s",Usage);
 		exit(1);
 	}
+
+	if(User_name[0] == 0) {
+		cred = getenv("WOOFC_MQTT_USER");
+		if(cred == NULL) {
+			fprintf(stderr,"couldn't find user name for MQTT broker\n");
+			fprintf(stderr,"either specify WOOFC_MQTT_USER environment variable or\n");
+			fprintf(stderr,"usage: %s",Usage);
+			exit(1);
+		} else {
+			strncpy(User_name,cred,sizeof(User_name));
+		}
+	}
+
+	if(Password[0] == 0) {
+		cred = getenv("WOOFC_MQTT_PW");
+		if(cred == NULL) {
+			fprintf(stderr,"couldn't find password for MQTT broker\n");
+			fprintf(stderr,"either specify WOOFC_MQTT_PW environment variable or\n");
+			fprintf(stderr,"usage: %s",Usage);
+			exit(1);
+		} else {
+			strncpy(Password,cred,sizeof(Password));
+		}
+	}
+
+
 
 	err = pthread_create(&sub_thread,NULL,MQTTDeviceOutputThread,(void *)Device_name_space);
 	if(err < 0) {
