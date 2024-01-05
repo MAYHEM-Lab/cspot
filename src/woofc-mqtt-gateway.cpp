@@ -2250,8 +2250,8 @@ void *MQTTDeviceOutputThread(void *arg)
 {
 	char *device_name; /* copy in device name */
 	int len;
-	char sub_string[1024];
-	char pub_string[1024];
+	char sub_string[16*1024];
+	char pub_string[16*1024];
 	FILE *fd;
 	char *mqtt_msg;
 	char *resp_string;
@@ -2409,11 +2409,11 @@ printf("resp_string: %s\n",resp_string);
 	 	 * send the respond back on the input channel
 	 	 */
 		memset(pub_string,0,sizeof(pub_string));
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -m \'%s\' -u \'%s\' -P \'%s\'",
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
 				device_name, 
-				resp_string,
 				User_name,
-				Password);
+				Password,
+				resp_string);
 printf("pub_string: %s\n",pub_string);
 		system(pub_string);
 		FreeWMQTT(wm);
