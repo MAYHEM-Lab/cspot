@@ -2,10 +2,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <errno.h>
 #include <time.h>
-#include <czmq.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <netdb.h>
