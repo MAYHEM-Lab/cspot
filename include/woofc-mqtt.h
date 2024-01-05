@@ -10,6 +10,8 @@
 #define WOOF_MQTT_GET_RESP (4)
 #define WOOF_MQTT_GET_EL_SIZE (5)
 #define WOOF_MQTT_GET_EL_SIZE_RESP (6)
+#define WOOF_MQTT_GET_LATEST_SEQNO (7)
+#define WOOF_MQTT_GET_LATEST_SEQNO_RESP (8)
 #define WOOF_MQTT_BAD_RESP (99)
 
 #define WOOF_MQTT_MAX_SIZE (1024*16)
@@ -26,11 +28,13 @@ struct woof_mqtt_stc
 	int command;
 	char *handler_name;
 	unsigned char *element;
+	unsigned long seqno;
 };
 
 typedef struct woof_mqtt_stc WMQTT;
 
 int ConvertASCIItoBinary(unsigned char *dest, char *src, int len);
+int ConvertBinarytoASCII(char *dest, void *src, int len);
 void FreeWMQTT(WMQTT *wm);
 WMQTT *ParseMQTTString(char *str);
 

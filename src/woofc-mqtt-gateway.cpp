@@ -2253,13 +2253,15 @@ void *MQTTDeviceOutputThread(void *arg)
 	char sub_string[1024];
 	char pub_string[1024];
 	FILE *fd;
-	FILE *pd;
 	char *mqtt_msg;
 	char *resp_string;
 	WMQTT *wm;
 	int size;
 	unsigned long seqno;
 	unsigned long lsize;
+	void *element_buff;
+	char *element_string;
+	int err;
 
 	len = strlen((char *)arg) + 1;
 	device_name = (char *)malloc(len);
@@ -2325,6 +2327,76 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 						WOOF_MQTT_GET_EL_SIZE_RESP,
 						(int)lsize);
 				break;
+			case WOOF_MQTT_GET_LATEST_SEQNO:
+				seqno = WooFGetLatestSeqno(wm->woof_name);
+				sprintf(resp_string,"%s|%d|%d",
+						wm->woof_name,
+						WOOF_MQTT_GET_LATEST_SEQNO_RESP,
+						(int)seqno);
+				break;
+			case WOOF_MQTT_GET:
+				lsize = WooFMsgGetElSize(wm->woof_name);
+				if(lsize == (unsigned long)-1) {
+					/*
+					 * use 0 length to indicate err
+					 */
+					sprintf(resp_string,"%s|%d|%d",
+                                                wm->woof_name,
+                                                WOOF_MQTT_GET_RESP,
+                                                (int)0);
+					break;
+				}
+				element_buff = (void *)malloc(lsize);
+				if(element_buff == NULL) {
+					sprintf(resp_string,"%s|%d|%d",
+                                                wm->woof_name,
+                                                WOOF_MQTT_GET_RESP,
+                                                (int)0);
+					break;
+				}
+				err = WooFMsgGet(wm->woof_name,
+						element_buff,
+						lsize,
+						wm->seqno);
+				if(err < 0) {
+					free(element_buff);
+					/*
+					 * use 0 length to indicate err
+					 */
+					sprintf(resp_string,"%s|%d|%d",
+                                                wm->woof_name,
+                                                WOOF_MQTT_GET_RESP,
+                                                (int)0);
+					break;
+				}
+				element_string = (char *)malloc(2*lsize+1);
+				if(element_string == NULL) {
+					free(element_buff);
+					sprintf(resp_string,"%s|%d|%d",
+                                                wm->woof_name,
+                                                WOOF_MQTT_GET_RESP,
+                                                (int)0);
+					break;
+				}
+				memset(element_string,0,(lsize*2+1));
+				err = ConvertBinarytoASCII(element_string,element_buff,lsize);
+				if(err <= 0) {
+					free(element_buff);
+					free(element_string);
+					sprintf(resp_string,"%s|%d|%d",
+                                                wm->woof_name,
+                                                WOOF_MQTT_GET_RESP,
+                                                (int)0);
+					break;
+				}
+				sprintf(resp_string,"%s|%d|%d|%s",
+                                                wm->woof_name,
+                                                WOOF_MQTT_GET_RESP,
+                                                (int)lsize,
+						element_string);
+				free(element_string);
+				free(element_buff);
+				break;
 			default:
 				sprintf(resp_string,"%s|%d|%d",
 						wm->woof_name,
@@ -2344,14 +2416,6 @@ printf("resp_string: %s\n",resp_string);
 				Password);
 printf("pub_string: %s\n",pub_string);
 		system(pub_string);
-		/*
-		if(pd == NULL) {
-			fprintf(stderr,"MQTTDeviceOutputThread failed to pub response\n");
-		} else {
-			pclose(pd);
-		}
-		*/
-
 		FreeWMQTT(wm);
 		wm = NULL;
 	}

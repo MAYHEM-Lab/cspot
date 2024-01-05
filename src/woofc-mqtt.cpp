@@ -166,7 +166,17 @@ WMQTT *ParseMQTTString(char *str)
 				return(NULL);
 			}
 			break;
+		case WOOF_MQTT_GET:
+			/* first is name, next is command, next->next is seqno */
+			if(tl->list->first->next->next == NULL){
+				FreeWMQTT(wm);
+				DestroyTXL(tl);
+				return(NULL);
+			}
+			wm->seqno = (unsigned long)atoi(tl->list->first->next->next->value.s);
+			break;
 		case WOOF_MQTT_GET_EL_SIZE:
+		case WOOF_MQTT_GET_LATEST_SEQNO:
 			/*
 			 * we only need the woof name and the code
 			 */
