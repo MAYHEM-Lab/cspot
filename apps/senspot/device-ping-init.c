@@ -60,6 +60,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
+	WooFInit();
 
 	err = WooFCreate(wname,sizeof payload, history_size);
 
