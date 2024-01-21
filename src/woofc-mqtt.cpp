@@ -83,7 +83,7 @@ void FreeWMQTT(WMQTT *wm)
 	return;
 }
 /*
- * format is woof_name:command:args...
+ * format is woof_name|command|msgid|args...
  */
 
 WMQTT *ParseMQTTString(char *str)
@@ -101,8 +101,11 @@ WMQTT *ParseMQTTString(char *str)
 	}
 	memset(wm,0,sizeof(WMQTT));;
 	tl = ParseLine(str,"|");
-	if((tl == NULL) || (tl->list == NULL) ||
-			(tl->list->first == NULL) || (tl->list->first->next == NULL)) {
+	if((tl == NULL) || 
+	   (tl->list == NULL) ||
+	   (tl->list->first == NULL) || // woof name 
+	   (tl->list->first->next == NULL) || //command 
+	   (tl->list->first->next->next)) { // msgid
 		free(wm);
 		if(tl != NULL) {
 			DestroyTXL(tl);
@@ -120,19 +123,24 @@ WMQTT *ParseMQTTString(char *str)
 	wm->command = atoi(tl->list->first->next->value.s);
 
 	/*
+	 * get the msgid
+	 */
+	wm->msgid = atoi(tl->list->first->next->next->value.s);
+
+	/*
 	 * strings are operation dependent
 	 */
 	switch(wm->command) {
 		case WOOF_MQTT_PUT:
 			/* next is handler name (or NULL) */
-			if((tl->list->first->next->next == NULL) ||
-			   (tl->list->first->next->next->next == NULL)) {
+			if((tl->list->first->next->next->next == NULL) ||
+			   (tl->list->first->next->next->next->next == NULL)) {
 				FreeWMQTT(wm);
 				DestroyTXL(tl);
 				return(NULL);
 			}
-			if(strcmp(tl->list->first->next->next->value.s,"NULL") != 0) {
-				len = strlen(tl->list->first->next->next->value.s)+1;
+			if(strcmp(tl->list->first->next->next->next->value.s,"NULL") != 0) {
+				len = strlen(tl->list->first->next->next->next->value.s)+1;
 				wm->handler_name = (char *)malloc(len);
 				if(wm->handler_name == NULL) {
 					FreeWMQTT(wm);
@@ -140,13 +148,13 @@ WMQTT *ParseMQTTString(char *str)
 					return(NULL);
 				}
 				memset(wm->handler_name,0,len);
-				strncpy(wm->handler_name,tl->list->first->next->next->value.s,len-1);
+				strncpy(wm->handler_name,tl->list->first->next->next->next->value.s,len-1);
 			}
 
 			/*
 			 * the element (encoded as 2char hex ascii) is next
 			 */
-			blen = strlen(tl->list->first->next->next->next->value.s) / 2;
+			blen = strlen(tl->list->first->next->next->next->next->value.s) / 2;
 			while((blen%4) != 0) {
 				blen++;
 			}
@@ -157,7 +165,9 @@ WMQTT *ParseMQTTString(char *str)
 				return(NULL);
 			}
 			memset(wm->element,0,blen);
-			err = ConvertASCIItoBinary(wm->element,tl->list->first->next->next->next->value.s,blen);
+			err = ConvertASCIItoBinary(wm->element,
+				tl->list->first->next->next->next->next->value.s,
+				blen);
 			if(err < 0) {
 				FreeWMQTT(wm);
 				DestroyTXL(tl);
@@ -165,18 +175,19 @@ WMQTT *ParseMQTTString(char *str)
 			}
 			break;
 		case WOOF_MQTT_GET:
-			/* first is name, next is command, next->next is seqno */
-			if(tl->list->first->next->next == NULL){
+			/* first is name, next is command, next->next is msgid 
+			 * next->next->next is seqno */
+			if(tl->list->first->next->next->next == NULL){
 				FreeWMQTT(wm);
 				DestroyTXL(tl);
 				return(NULL);
 			}
-			wm->seqno = (unsigned long)atoi(tl->list->first->next->next->value.s);
+			wm->seqno = (unsigned long)atoi(tl->list->first->next->next->next->value.s);
 			break;
 		case WOOF_MQTT_GET_EL_SIZE:
 		case WOOF_MQTT_GET_LATEST_SEQNO:
 			/*
-			 * we only need the woof name and the code
+			 * we only need the woof name and the code and the msgid
 			 */
 			break;
 		default:

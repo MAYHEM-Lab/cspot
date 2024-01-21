@@ -2315,23 +2315,26 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 				seqno = WooFPut(wm->woof_name,
 						wm->handler_name,
 						wm->element);
-				sprintf(resp_string,"%s|%d|%d",
+				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_PUT_RESP,
+						wm->msgid,
 						(int)seqno);
 				break;
 			case WOOF_MQTT_GET_EL_SIZE:
 				lsize = WooFMsgGetElSize(wm->woof_name);
-				sprintf(resp_string,"%s|%d|%d",
+				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_GET_EL_SIZE_RESP,
+						wm->msgid,
 						(int)lsize);
 				break;
 			case WOOF_MQTT_GET_LATEST_SEQNO:
 				seqno = WooFGetLatestSeqno(wm->woof_name);
-				sprintf(resp_string,"%s|%d|%d",
+				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_GET_LATEST_SEQNO_RESP,
+						wm->msgid,
 						(int)seqno);
 				break;
 			case WOOF_MQTT_GET:
@@ -2340,17 +2343,19 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 					/*
 					 * use 0 length to indicate err
 					 */
-					sprintf(resp_string,"%s|%d|%d",
+					sprintf(resp_string,"%s|%d|%d|%d",
                                                 wm->woof_name,
                                                 WOOF_MQTT_GET_RESP,
+						wm->msgid,
                                                 (int)0);
 					break;
 				}
 				element_buff = (void *)malloc(lsize);
 				if(element_buff == NULL) {
-					sprintf(resp_string,"%s|%d|%d",
+					sprintf(resp_string,"%s|%d|%d|%d",
                                                 wm->woof_name,
                                                 WOOF_MQTT_GET_RESP,
+						wm->msgid,
                                                 (int)0);
 					break;
 				}
@@ -2363,18 +2368,20 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 					/*
 					 * use 0 length to indicate err
 					 */
-					sprintf(resp_string,"%s|%d|%d",
+					sprintf(resp_string,"%s|%d|%d|%d",
                                                 wm->woof_name,
                                                 WOOF_MQTT_GET_RESP,
+						wm->msgid,
                                                 (int)0);
 					break;
 				}
 				element_string = (char *)malloc(2*lsize+1);
 				if(element_string == NULL) {
 					free(element_buff);
-					sprintf(resp_string,"%s|%d|%d",
+					sprintf(resp_string,"%s|%d|%d|%d",
                                                 wm->woof_name,
                                                 WOOF_MQTT_GET_RESP,
+						wm->msgid,
                                                 (int)0);
 					break;
 				}
@@ -2383,24 +2390,27 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 				if(err <= 0) {
 					free(element_buff);
 					free(element_string);
-					sprintf(resp_string,"%s|%d|%d",
+					sprintf(resp_string,"%s|%d|%d|%d",
                                                 wm->woof_name,
                                                 WOOF_MQTT_GET_RESP,
+						wm->msgid,
                                                 (int)0);
 					break;
 				}
-				sprintf(resp_string,"%s|%d|%d|%s",
+				sprintf(resp_string,"%s|%d|%d|%d|%s",
                                                 wm->woof_name,
                                                 WOOF_MQTT_GET_RESP,
+						wm->msgid,
                                                 (int)lsize,
 						element_string);
 				free(element_string);
 				free(element_buff);
 				break;
 			default:
-				sprintf(resp_string,"%s|%d|%d",
+				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_BAD_RESP,
+						wm->msgid,
 						-1);
 				break;
 		}
