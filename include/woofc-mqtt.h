@@ -26,6 +26,7 @@ struct woof_mqtt_stc
 {
 	char woof_name[1024];
 	int command;
+	int msgid;
 	char *handler_name;
 	unsigned char *element;
 	unsigned long seqno;
