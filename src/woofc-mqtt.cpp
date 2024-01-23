@@ -105,7 +105,7 @@ WMQTT *ParseMQTTString(char *str)
 	   (tl->list == NULL) ||
 	   (tl->list->first == NULL) || // woof name 
 	   (tl->list->first->next == NULL) || //command 
-	   (tl->list->first->next->next)) { // msgid
+	   (tl->list->first->next->next == NULL)) { // msgid
 		free(wm);
 		if(tl != NULL) {
 			DestroyTXL(tl);

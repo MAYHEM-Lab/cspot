@@ -2305,6 +2305,7 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 		if(wm == NULL) {
 			fprintf(stderr,"MQTTDeviceOutputThread: couldn't parse %s\n",
 					mqtt_msg);
+			continue;
 		}
 		/*
 		 * main processing dispatch
