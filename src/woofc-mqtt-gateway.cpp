@@ -5,20 +5,29 @@
 #include <pthread.h>
 #include <errno.h>
 #include <time.h>
-#include <czmq.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 
+extern "C" {
+#include <czmq.h>
+}
 #include "uriparser2.h"
 
 #include "woofc.h" /* for WooFPut */
 #include "woofc-access.h"
 #include "woofc-mqtt.h"
 
-#ifdef NOTRIGHTNOW
+#define WOOF_MQTT_MSG_THREADS (1)
+#define WOOF_MQTT_MSG_REQ_TIMEOUT (3000)
 
+
+char User_name[256];
+char Password [256];
+char Device_name_space[1024];
+
+extern "C" {
 static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 {
 	zsock_t *server;
@@ -72,7 +81,7 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 	/*
 	 * wait for the reply, but not indefinitely
 	 */
-	server_resp = zpoller_wait(resp_poll, WOOF_MSG_REQ_TIMEOUT);
+	server_resp = (zsock_t *)zpoller_wait(resp_poll, WOOF_MQTT_MSG_REQ_TIMEOUT);
 	if (server_resp != NULL)
 	{
 		r_msg = zmsg_recv(server_resp);
@@ -92,7 +101,7 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 	if (zpoller_expired(resp_poll))
 	{
 		fprintf(stderr, "WooFMQTTRequest: msg recv timeout from %s after %d msec\n",
-				endpoint, WOOF_MSG_REQ_TIMEOUT);
+				endpoint, WOOF_MQTT_MSG_REQ_TIMEOUT);
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
@@ -126,13 +135,20 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	char *str;
 	char woof_name[2048];
 	char hand_name[2048];
-	char local_name[2048];
 	unsigned int copy_size;
 	void *element;
-	int count;
 	unsigned long seq_no;
 	char buffer[255];
 	int err;
+	char *device_name; /* copy in device name */
+	char sub_string[16*1024];
+	char pub_string[16*1024];
+	char resp_string[2048];
+	FILE *fd;
+	char *element_string;
+	int msgid;
+	int s;
+	char *curr;
 
 #ifdef DEBUG
 	printf("WooProcessPut: called\n");
@@ -205,7 +221,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	element = malloc(copy_size);
 	if (element == NULL)
 	{ /* element too big */
-		fprintf(stderr, "WooFMsgProcessPut: woof_name: %s, handler: %s, size %lu too big\n",
+		fprintf(stderr, "WooFMsgProcessPut: woof_name: %s, handler: %s, size %u too big\n",
 				woof_name, hand_name, copy_size);
 		fflush(stderr);
 		seq_no = -1;
@@ -224,32 +240,105 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		 * IP address so it can't determine whether the access is local or not.
 		 *
 		 * For now, assume that all Process functions convert to a local access
-		 */
 		memset(local_name, 0, sizeof(local_name));
 		err = WooFLocalName(woof_name, local_name, sizeof(local_name));
 		if (err < 0)
 		{
 			strncpy(local_name, woof_name, sizeof(local_name));
 		}
+		 */
+
+		element_string = (char *)malloc(copy_size*2+1); 
+		if(element_string == NULL) {
+			fprintf(stderr,"WooFProcessPut: not enough space to malloc %d for put element string\n",2*copy_size+1);
+			fflush(stderr);
+			free(element);
+			seq_no = -1;
+			goto out;
+		}
+		memset(element_string,0,copy_size*2+1);
+		ConvertBinarytoASCII(element_string,element,copy_size);
 
 		/*
-		 * attempt to put the element into the local woof_name
-		 *
-		 * note that we could sanity check the woof_name against the local woof_name
-		 * but WooFPut does this also
+		 * choose random number for inbound msgid
 		 */
-		if (hand_name[0] != 0)
-		{
-			seq_no = WooFPut(local_name, hand_name, element);
+		msgid = (int)(rand());
+
+		/*
+		 * use msgid to get back specific response
+		 */
+		memset(sub_string,0,sizeof(sub_string));
+		sprintf(sub_string,"/usr/bin/mosquitto_pub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+				device_name,
+				msgid,
+				User_name,
+				Password);
+		fd = popen(sub_string,"r");
+		if(fd == NULL) {
+			fprintf(stderr,"WooFProcessPut: open for %s failed\n",sub_string);
+			free(element);
+			free(element_string);
+			seq_no = -1;
+			goto out;
 		}
-		else
-		{
-			seq_no = WooFPut(local_name, NULL, element);
-		}
+		/*
+		 * create the mqtt message to put to the device
+		 */
+		memset(pub_string,0,sizeof(pub_string));
+		if(hand_name[0] == 0) {
+			strncpy(hand_name,"NULL",sizeof(hand_name));
+		} 
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
+				device_name, 
+				User_name,
+				Password,
+				woof_name,
+				WOOF_MQTT_PUT,
+				msgid,
+				hand_name,
+				element_string);
+printf("put_string: %s\n",pub_string);
+		system(pub_string);
 
 		free(element);
+		free(element_string);
+
+		memset(resp_string,0,sizeof(resp_string));
+		s = read(fileno(fd),resp_string,sizeof(resp_string));
+		if(s <= 0) {
+			fprintf(stderr,"WooFProcessPut: no resp string\n");
+			seq_no = -1;
+			goto out;
+		}
+		pclose(fd);
+printf("put resp string: %s\n",resp_string);
+		/*
+		 * resp should be 
+		 * woof_name|WOOF_MQTT_PUT_RESP|msgid|seqno
+		 */
+		curr = strstr(resp_string,"|"); // skip woof name
+		if(curr == NULL) {
+			seq_no = -1;
+			goto out;
+		}
+		curr++;
+		curr = strstr(curr,"|"); // skip resp code
+		if(curr == NULL) {
+			seq_no = -1;
+			goto out;
+		}
+		curr++;
+		curr = strstr(curr,"|"); // skip msgid
+		if(curr == NULL) {
+			seq_no = -1;
+			goto out;
+		}
+		curr++;
+		seq_no = atoi(curr);
+
 	}
 
+out:
 	/*
 	 * send seq_no back
 	 */
@@ -287,6 +376,8 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
+} // extern C
+#ifdef NOTRIGHTNOW
 void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -520,10 +611,10 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
-unsigned long WooFMsgGetLatestSeqno(char *woof_name)
+unsigned int WooFMsgGetLatestSeqno(char *woof_name)
 {
 	char endpoint[255];
-	char namespace[2048];
+	char wnamespace[2048];
 	char ip_str[25];
 	int port;
 	zmsg_t *msg;
@@ -535,8 +626,8 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	unsigned long lastest_seq_no;
 	int err;
 
-	memset(namespace, 0, sizeof(namespace));
-	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+	memset(wnamespace, 0, sizeof(wnamespace));
+	err = WooFNameSpaceFromURI(woof_name, wnamespace, sizeof(wnamespace));
 	if (err < 0)
 	{
 		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no name space\n",
@@ -565,7 +656,7 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	err = WooFPortFromURI(woof_name, &port);
 	if (err < 0)
 	{
-		port = WooFPortHash(namespace);
+		port = WooFPortHash(wnamespace);
 	}
 
 	memset(endpoint, 0, sizeof(endpoint));
@@ -698,195 +789,8 @@ unsigned long WooFMsgGetLatestSeqno(char *woof_name)
 	return (lastest_seq_no);
 }
 
-void WooFProcessGetTail(zmsg_t *req_msg, zsock_t *receiver)
-{
-	zmsg_t *r_msg;
-	zframe_t *frame;
-	zframe_t *r_frame;
-	char *str;
-	char woof_name[2048];
-	char local_name[2048];
-	unsigned int copy_size;
-	void *element;
-	unsigned el_size;
-	char buffer[255];
-	int err;
-	WOOF *wf;
-	unsigned long el_read;
-	unsigned long el_count;
-	void *ptr;
-
-#ifdef DEBUG
-	printf("WooFProcessGetTail: called\n");
-	fflush(stdout);
-#endif
-	/*
-	 * WooFElSize requires a woof_name
-	 *
-	 * first frame is the message type
-	 */
-	frame = zmsg_first(req_msg);
-	if (frame == NULL)
-	{
-		perror("WooFProcessGetTail: couldn't set cursor in msg");
-		return;
-	}
-
-	frame = zmsg_next(req_msg);
-	if (frame == NULL)
-	{
-		perror("WooFProcessGetTail: couldn't find woof_name in msg");
-		return;
-	}
-	/*
-	 * woof_name in the first frame
-	 */
-	memset(woof_name, 0, sizeof(woof_name));
-	str = (char *)zframe_data(frame);
-	copy_size = zframe_size(frame);
-	if (copy_size > (sizeof(woof_name) - 1))
-	{
-		copy_size = sizeof(woof_name) - 1;
-	}
-	strncpy(woof_name, str, copy_size);
-
-	/*
-	 * next frame is the number of elements
-	 */
-	frame = zmsg_next(req_msg);
-	if (frame == NULL)
-	{
-		perror("WooFProcessGetTail: couldn't find element count in msg");
-		return;
-	}
-	el_count = strtoul(zframe_data(frame), (char **)NULL, 10);
-
-	/*
-	 * FIX ME: for now, all process requests are local
-	 */
-	memset(local_name, 0, sizeof(local_name));
-	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
-
-	if (err < 0)
-	{
-		wf = WooFOpen(woof_name);
-	}
-	else
-	{
-		wf = WooFOpen(local_name);
-	}
-	if (wf == NULL)
-	{
-		fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
-		fflush(stderr);
-		el_read = 0;
-	}
-	else
-	{
-		el_size = wf->shared->element_size;
-//		WooFFree(wf);
-	}
-
-	if (wf != NULL)
-	{
-		ptr = malloc(el_size * el_count);
-		if (ptr == NULL)
-		{
-			fprintf(stderr, "WooFProcessGetTail: couldn't open %s\n", woof_name);
-			fflush(stderr);
-			WooFFree(wf);
-			return;
-		}
-
-		el_read = WooFReadTail(wf, ptr, el_count);
-		WooFFree(wf);
-		wf = NULL;
-	}
-
-#ifdef DEBUG
-	printf("WooFProcessGetTail: woof_name %s read %lu elements\n", woof_name, el_read);
-	fflush(stdout);
-#endif
-
-	/*
-	 * send el_read and elements back
-	 */
-	r_msg = zmsg_new();
-	if (r_msg == NULL)
-	{
-		perror("WooFProcessGetElSize: no reply message");
-		if (ptr != NULL)
-		{
-			free(ptr);
-		}
-		return;
-	}
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", el_read);
-	r_frame = zframe_new(buffer, strlen(buffer));
-	if (r_frame == NULL)
-	{
-		perror("WooFProcessGetTail: no reply frame");
-		zmsg_destroy(&r_msg);
-		if (ptr != NULL)
-		{
-			free(ptr);
-		}
-		return;
-	}
-	err = zmsg_append(r_msg, &r_frame);
-	if (err != 0)
-	{
-		perror("WooFProcessGetTail: couldn't append to r_msg");
-		zframe_destroy(&r_frame);
-		zmsg_destroy(&r_msg);
-		if (ptr != NULL)
-		{
-			free(ptr);
-		}
-		return;
-	}
-
-	r_frame = zframe_new(ptr, el_read * el_size);
-	if (r_frame == NULL)
-	{
-		perror("WooFProcessGetTail: no second reply frame");
-		zmsg_destroy(&r_msg);
-		if (ptr != NULL)
-		{
-			free(ptr);
-		}
-		return;
-	}
-	err = zmsg_append(r_msg, &r_frame);
-	if (err != 0)
-	{
-		perror("WooFProcessGetTail: couldn't second append to r_msg");
-		zframe_destroy(&r_frame);
-		zmsg_destroy(&r_msg);
-		if (ptr != NULL)
-		{
-			free(ptr);
-		}
-		return;
-	}
-	err = zmsg_send(&r_msg, receiver);
-	if (err != 0)
-	{
-		perror("WooFProcessGetElSize: couldn't send r_msg");
-		zmsg_destroy(&r_msg);
-		if (ptr != NULL)
-		{
-			free(ptr);
-		}
-		return;
-	}
-
-	free(ptr);
-
-	return;
-}
-
+#endif // NOTRIGHTNOW
+#ifdef NOTRIGHTNOW
 void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -1081,15 +985,14 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
+#endif // NOTRIGHTNOW
 void *WooFMsgThread(void *arg)
 {
 	zsock_t *receiver;
 	zmsg_t *msg;
-	zmsg_t *r_msg;
 	zframe_t *frame;
 	unsigned long tag;
 	char *str;
-	int err;
 
 	/*
 	 * right now, we use REQ-REP pattern from ZeroMQ.  need a way to timeout, however, as this
@@ -1142,18 +1045,20 @@ void *WooFMsgThread(void *arg)
 		case WOOF_MSG_PUT:
 			WooFProcessPut(msg, receiver);
 			break;
+#ifdef NOTRIGHTNOW
 		case WOOF_MSG_GET:
 			WooFProcessGet(msg, receiver);
 			break;
 		case WOOF_MSG_GET_EL_SIZE:
 			WooFProcessGetElSize(msg, receiver);
 			break;
-		case WOOF_MSG_GET_TAIL:
-			WooFProcessGetTail(msg, receiver);
-			break;
+//		case WOOF_MSG_GET_TAIL:
+//			WooFProcessGetTail(msg, receiver);
+//			break;
 		case WOOF_MSG_GET_LATEST_SEQNO:
 			WooFProcessGetLatestSeqno(msg, receiver);
 			break;
+#endif //NOTRIGHTNOW
 		default:
 			fprintf(stderr, "WooFMsgThread: unknown tag %s\n",
 					str);
@@ -1174,21 +1079,18 @@ void *WooFMsgThread(void *arg)
 	pthread_exit(NULL);
 }
 
-int WooFMsgServer(char *namespace)
+int WooFMsgServer(char *wnamespace)
 {
 
 	int port;
 	zactor_t *proxy;
 	int err;
 	char endpoint[255];
-	pthread_t tids[WOOF_MSG_THREADS];
+	pthread_t tids[WOOF_MQTT_MSG_THREADS];
 	int i;
 
-	zsock_t *frontend;
-	zsock_t *workers;
-	zmsg_t *msg;
 
-	if (namespace[0] == 0)
+	if (wnamespace[0] == 0)
 	{
 		fprintf(stderr, "WooFMsgServer: couldn't find namespace\n");
 		fflush(stderr);
@@ -1196,7 +1098,7 @@ int WooFMsgServer(char *namespace)
 	}
 
 #ifdef DEBUG
-	printf("WooFMsgServer: started for namespace %s\n", namespace);
+	printf("WooFMsgServer: started for namespace %s\n", wnamespace);
 	fflush(stdout);
 #endif
 
@@ -1205,7 +1107,7 @@ int WooFMsgServer(char *namespace)
 	 */
 	memset(endpoint, 0, sizeof(endpoint));
 
-	port = WooFPortHash(namespace);
+	port = WooFPortHash(wnamespace);
 
 	/*
 	 * listen to any tcp address on port hash of namespace
@@ -1247,7 +1149,7 @@ int WooFMsgServer(char *namespace)
 	 * create a single thread for now.  The DEALER pattern can handle multiple threads, however
 	 * so this can be increased if need be
 	 */
-	for (i = 0; i < WOOF_MSG_THREADS; i++)
+	for (i = 0; i < WOOF_MQTT_MSG_THREADS; i++)
 	{
 		err = pthread_create(&tids[i], NULL, WooFMsgThread, NULL);
 		if (err < 0)
@@ -1261,7 +1163,7 @@ int WooFMsgServer(char *namespace)
 	 * right now, there is no way for these threads to exit so the msg server will block
 	 * indefinitely in this join
 	 */
-	for (i = 0; i < WOOF_MSG_THREADS; i++)
+	for (i = 0; i < WOOF_MQTT_MSG_THREADS; i++)
 	{
 		pthread_join(tids[i], NULL);
 	}
@@ -1274,10 +1176,10 @@ int WooFMsgServer(char *namespace)
 	exit(0);
 }
 
-unsigned long WooFMsgGetElSize(char *woof_name)
+unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 {
 	char endpoint[255];
-	char namespace[2048];
+	char wnamespace[2048];
 	char ip_str[25];
 	int port;
 	zmsg_t *msg;
@@ -1285,18 +1187,20 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char buffer[255];
-	char *str;
+	unsigned char *str;
 	unsigned long el_size;
 	int err;
+#ifdef WOOFCACHE
 	unsigned long *el_size_cached;
-	void *payload;
+#endif
 
+#ifdef WOOFCACHE
 	if (WooF_cache == NULL)
 	{
 		WooF_cache = WooFCacheInit(WOOF_MSG_CACHE_SIZE);
 		if (WooF_cache == NULL)
 		{
-			fprintf(stderr, "WooFMsgGetElSize: woof: %s cache init failed\n",
+			fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s cache init failed\n",
 					woof_name);
 			fflush(stderr);
 			return (-1);
@@ -1307,18 +1211,19 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	if (el_size_cached != NULL)
 	{
 #ifdef DEBUG
-		fprintf(stdout, "WooFMsgGetElSize: found %lu size for %s\n",
+		fprintf(stdout, "WooFMQTTMsgGetElSize: found %lu size for %s\n",
 				*el_size_cached, woof_name);
 		fflush(stdout);
 #endif
 		return (*el_size_cached);
 	}
+#endif
 
-	memset(namespace, 0, sizeof(namespace));
-	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+	memset(wnamespace, 0, sizeof(wnamespace));
+	err = WooFNameSpaceFromURI(woof_name, wnamespace, sizeof(wnamespace));
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s no name space\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s no name space\n",
 				woof_name);
 		fflush(stderr);
 		return (-1);
@@ -1334,7 +1239,7 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 		err = WooFLocalIP(ip_str, sizeof(ip_str));
 		if (err < 0)
 		{
-			fprintf(stderr, "WooFMsgGetElSize: woof: %s invalid IP address\n",
+			fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s invalid IP address\n",
 					woof_name);
 			fflush(stderr);
 			return (-1);
@@ -1344,28 +1249,28 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	err = WooFPortFromURI(woof_name, &port);
 	if (err < 0)
 	{
-		port = WooFPortHash(namespace);
+		port = WooFPortHash(wnamespace);
 	}
 
 	memset(endpoint, 0, sizeof(endpoint));
 	sprintf(endpoint, ">tcp://%s:%d", ip_str, port);
 
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s trying enpoint %s\n", woof_name, endpoint);
+	printf("WooFMQTTMsgGetElSize: woof: %s trying enpoint %s\n", woof_name, endpoint);
 	fflush(stdout);
 #endif
 
 	msg = zmsg_new();
 	if (msg == NULL)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s no outbound msg to server at %s\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s no outbound msg to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGetElSize: allocating msg");
+		perror("WooFMQTTMsgGetElSize: allocating msg");
 		fflush(stderr);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s got new msg\n", woof_name);
+	printf("WooFMQTTMsgGetElSize: woof: %s got new msg\n", woof_name);
 	fflush(stdout);
 #endif
 
@@ -1373,28 +1278,28 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	 * this is a GetElSize message
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", WOOF_MSG_GET_EL_SIZE);
+	sprintf(buffer, "%u", WOOF_MSG_GET_EL_SIZE);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s no frame for WOOF_MSG_GET_EL_SIZE command in to server at %s\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s no frame for WOOF_MSG_GET_EL_SIZE command in to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGetElSize: couldn't get new frame");
+		perror("WooFMQTTMsgGetElSize: couldn't get new frame");
 		fflush(stderr);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s got WOOF_MSG_GET_EL_SIZE command frame frame\n", woof_name);
+	printf("WooFMQTTMsgGetElSize: woof: %s got WOOF_MSG_GET_EL_SIZE command frame frame\n", woof_name);
 	fflush(stdout);
 #endif
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s can't append WOOF_MSG_GET_EL_SIZE command frame to msg for server at %s\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s can't append WOOF_MSG_GET_EL_SIZE command frame to msg for server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGetElSize: couldn't append woof_name frame");
+		perror("WooFMQTTMsgGetElSize: couldn't append woof_name frame");
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
@@ -1406,15 +1311,15 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	frame = zframe_new(woof_name, strlen(woof_name));
 	if (frame == NULL)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s no frame for woof_name to server at %s\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s no frame for woof_name to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGetElSize: couldn't get new frame");
+		perror("WooFMQTTMsgGetElSize: couldn't get new frame");
 		fflush(stderr);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s got woof_name namespace frame\n", woof_name);
+	printf("WooFMQTTMsgGetElSize: woof: %s got woof_name namespace frame\n", woof_name);
 	fflush(stdout);
 #endif
 	/*
@@ -1423,20 +1328,20 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 	err = zmsg_append(msg, &frame);
 	if (err < 0)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s can't append woof_name to frame to server at %s\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s can't append woof_name to frame to server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGetElSize: couldn't append woof_name namespace frame");
+		perror("WooFMQTTMsgGetElSize: couldn't append woof_name namespace frame");
 		zframe_destroy(&frame);
 		zmsg_destroy(&msg);
 		return (-1);
 	}
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s added woof_name namespace to frame\n", woof_name);
+	printf("WooFMQTTMsgGetElSize: woof: %s added woof_name namespace to frame\n", woof_name);
 	fflush(stdout);
 #endif
 
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s sending message to server at %s\n",
+	printf("WooFMQTTMsgGetElSize: woof: %s sending message to server at %s\n",
 		   woof_name, endpoint);
 	fflush(stdout);
 #endif
@@ -1445,9 +1350,9 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 
 	if (r_msg == NULL)
 	{
-		fprintf(stderr, "WooFMsgGetElSize: woof: %s couldn't recv msg for element size from server at %s\n",
+		fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s couldn't recv msg for element size from server at %s\n",
 				woof_name, endpoint);
-		perror("WooFMsgGetElSize: no response received");
+		perror("WooFMQTTMsgGetElSize: no response received");
 		fflush(stderr);
 		return (-1);
 	}
@@ -1456,24 +1361,25 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 		r_frame = zmsg_first(r_msg);
 		if (r_frame == NULL)
 		{
-			fprintf(stderr, "WooFMsgGetElSize: woof: %s no recv frame for from server at %s\n",
+			fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s no recv frame for from server at %s\n",
 					woof_name, endpoint);
-			perror("WooFMsgGetElSize: no response frame");
+			perror("WooFMQTTMsgGetElSize: no response frame");
 			zmsg_destroy(&r_msg);
 			return (-1);
 		}
 		str = zframe_data(r_frame);
-		el_size = atol(str);
+		el_size = atol((char *)str);
 		zmsg_destroy(&r_msg);
 	}
 
 #ifdef DEBUG
-	printf("WooFMsgGetElSize: woof: %s recvd size: %lu message from server at %s\n",
+	printf("WooFMQTTMsgGetElSize: woof: %s recvd size: %lu message from server at %s\n",
 		   woof_name, el_size, endpoint);
 	fflush(stdout);
 
 #endif
 
+#ifdef WOOFCACHE
 	el_size_cached = (unsigned long *)malloc(sizeof(unsigned long));
 	if (el_size_cached != NULL)
 	{
@@ -1489,523 +1395,22 @@ unsigned long WooFMsgGetElSize(char *woof_name)
 			err = WooFCacheInsert(WooF_cache, woof_name, (void *)el_size_cached);
 			if (err < 0)
 			{
-				fprintf(stderr, "WooFMsgGetElSize: cache insert failed\n");
+				fprintf(stderr, "WooFMQTTMsgGetElSize: cache insert failed\n");
 				fflush(stderr);
 				free(el_size_cached);
 			}
 		}
 	}
+#endif
 
 	return (el_size);
 }
 
-unsigned long WooFMsgGetTail(char *woof_name, void *elements, unsigned long el_size, int el_count)
-{
-	char endpoint[255];
-	char namespace[2048];
-	char ip_str[25];
-	int port;
-	zmsg_t *msg;
-	zmsg_t *r_msg;
-	zframe_t *frame;
-	zframe_t *r_frame;
-	char buffer[255];
-	char *str;
-	int err;
-	unsigned long el_read;
-
-	memset(namespace, 0, sizeof(namespace));
-	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s no name space\n",
-				woof_name);
-		fflush(stderr);
-		return (-1);
-	}
-
-	memset(ip_str, 0, sizeof(ip_str));
-	err = WooFIPAddrFromURI(woof_name, ip_str, sizeof(ip_str));
-	if (err < 0)
-	{
-		/*
-		 * try local addr
-		 */
-		err = WooFLocalIP(ip_str, sizeof(ip_str));
-		if (err < 0)
-		{
-			fprintf(stderr, "WooFMsgGetTail: woof: %s invalid IP address\n",
-					woof_name);
-			fflush(stderr);
-			return (-1);
-		}
-	}
-
-	err = WooFPortFromURI(woof_name, &port);
-	if (err < 0)
-	{
-		port = WooFPortHash(namespace);
-	}
-
-	memset(endpoint, 0, sizeof(endpoint));
-	sprintf(endpoint, ">tcp://%s:%d", ip_str, port);
-
-#ifdef DEBUG
-	printf("WooFMsgGetElTail: woof: %s trying enpoint %s\n", woof_name, endpoint);
-	fflush(stdout);
-#endif
-
-	msg = zmsg_new();
-	if (msg == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s no outbound msg to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: allocating msg");
-		fflush(stderr);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s got new msg\n", woof_name);
-	fflush(stdout);
-#endif
-
-	/*
-	 * this is a GetTail message
-	 */
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", WOOF_MSG_GET_TAIL);
-	frame = zframe_new(buffer, strlen(buffer));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s no frame for WOOF_MSG_GET_TAIL command in to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s got WOOF_MSG_GET_TAIL command frame frame\n", woof_name);
-	fflush(stdout);
-#endif
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetTAIL: woof: %s can't append WOOF_MSG_GET_TAIL command frame to msg for server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: couldn't append woof_name frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-
-	/*
-	 * make a frame for the woof_name
-	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s no frame for woof_name to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s got woof_name namespace frame\n", woof_name);
-	fflush(stdout);
-#endif
-	/*
-	 * add the woof_name frame to the msg
-	 */
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s can't append woof_name to frame to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: couldn't append woof_name namespace frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s added woof_name namespace to frame\n", woof_name);
-	fflush(stdout);
-#endif
-
-	/*
-	 * make a frame with the element count
-	 */
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", el_count);
-	frame = zframe_new(buffer, strlen(buffer));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s no frame for el_count to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s got el_count frame\n", woof_name);
-	fflush(stdout);
-#endif
-	/*
-	 * add the el_count frame to the msg
-	 */
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s can't append el_count to frame to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetTail: couldn't append woof_name namespace frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s added el_count to frame\n", woof_name);
-	fflush(stdout);
-#endif
-
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s sending message to server at %s\n",
-		   woof_name, endpoint);
-	fflush(stdout);
-#endif
-
-	r_msg = WooFMQTTRequest(endpoint, msg);
-
-	if (r_msg == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetTail: woof: %s couldn't recv msg for element size from server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetElSize: no response received");
-		fflush(stderr);
-		return (-1);
-	}
-	else
-	{
-		r_frame = zmsg_first(r_msg);
-		if (r_frame == NULL)
-		{
-			fprintf(stderr, "WooFMsgGetTail: woof: %s no recv frame for from server at %s\n",
-					woof_name, endpoint);
-			perror("WooFMsgGetTail: no response frame");
-			zmsg_destroy(&r_msg);
-			return (-1);
-		}
-		str = zframe_data(r_frame);
-		el_read = strtoul(str, (char **)NULL, 10);
-
-		r_frame = zmsg_next(r_msg);
-		if (r_frame == NULL)
-		{
-			fprintf(stderr, "WooFMsgGetTail: woof: %s no second recv frame for from server at %s\n",
-					woof_name, endpoint);
-			perror("WooFMsgGetTail: no response frame");
-			zmsg_destroy(&r_msg);
-			return (-1);
-		}
-		if (el_read <= el_count)
-		{
-			memcpy(elements, zframe_data(r_frame), el_read * el_size);
-		}
-		else
-		{
-			memcpy(elements, zframe_data(r_frame), el_count * el_size);
-		}
-		zmsg_destroy(&r_msg);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgGetTail: woof: %s recvd size: %lu message from server at %s\n",
-		   woof_name, el_size, endpoint);
-	fflush(stdout);
-
-#endif
-
-	if (el_read <= el_count)
-	{
-		return (el_read);
-	}
-	else
-	{
-		return (el_count);
-	}
-}
-
-unsigned long WooFMsgPut(char *woof_name, char *hand_name, void *element, unsigned long el_size)
-{
-	char endpoint[255];
-	char namespace[2048];
-	char ip_str[25];
-	int port;
-	zmsg_t *msg;
-	zmsg_t *r_msg;
-	zframe_t *frame;
-	zframe_t *r_frame;
-	char buffer[255];
-	char *str;
-	struct timeval tm;
-	unsigned long seq_no;
-	int err;
-
-	if (el_size == (unsigned long)-1)
-	{
-		return (-1);
-	}
-
-	memset(namespace, 0, sizeof(namespace));
-	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no name space\n",
-				woof_name);
-		fflush(stderr);
-		return (-1);
-	}
-
-	memset(ip_str, 0, sizeof(ip_str));
-	err = WooFIPAddrFromURI(woof_name, ip_str, sizeof(ip_str));
-	if (err < 0)
-	{
-		/*
-		 * assume it is local
-		 */
-		memset(ip_str, 0, sizeof(ip_str));
-		err = WooFLocalIP(ip_str, sizeof(ip_str));
-		if (err < 0)
-		{
-			fprintf(stderr, "WooFMsgPut: woof: %s invalid IP address\n",
-					woof_name);
-			fflush(stderr);
-			return (-1);
-		}
-	}
-
-	err = WooFPortFromURI(woof_name, &port);
-	if (err < 0)
-	{
-		port = WooFPortHash(namespace);
-	}
-
-	memset(endpoint, 0, sizeof(endpoint));
-	sprintf(endpoint, ">tcp://%s:%d", ip_str, port);
-
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s trying enpoint %s\n", woof_name, endpoint);
-	fflush(stdout);
-#endif
-
-	msg = zmsg_new();
-	if (msg == NULL)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no outbound msg to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgPut: allocating msg");
-		fflush(stderr);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s got new msg\n", woof_name);
-	fflush(stdout);
-#endif
-
-	/*
-	 * this is a put message
-	 */
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", WOOF_MSG_PUT);
-	frame = zframe_new(buffer, strlen(buffer));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no frame for WOOF_MSG_PUT command in to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgPut: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s got WOOF_MSG_PUT command frame frame\n", woof_name);
-	fflush(stdout);
-#endif
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s can't append WOOF_MSG_PUT command frame to msg for server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgPut: couldn't append woof_name frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-
-	/*
-	 * make a frame for the woof_name
-	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no frame for woof_name to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgPut: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s got woof_name namespace frame\n", woof_name);
-	fflush(stdout);
-#endif
-	/*
-	 * add the woof_name frame to the msg
-	 */
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s can't append woof_name to frame to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgPut: couldn't append woof_name namespace frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s added woof_name namespace to frame\n", woof_name);
-	fflush(stdout);
-#endif
-
-	/*
-	 * make a frame for the handler name
-	 * could be NULL
-	 */
-
-	if (hand_name != NULL)
-	{
-		memset(buffer, 0, sizeof(buffer));
-		strncpy(buffer, hand_name, sizeof(buffer));
-		frame = zframe_new(buffer, strlen(buffer));
-	}
-	else
-	{ /* czmq indicate this will work */
-		frame = zframe_new_empty();
-	}
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no frame for handler name %s to server at %s\n",
-				woof_name, hand_name, endpoint);
-		perror("WooFMsgPut: couldn't get new handler frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s got frame for handler name %s\n", woof_name, hand_name);
-	fflush(stdout);
-#endif
-
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s couldn't append frame for handler name %s to server at %s\n",
-				woof_name, hand_name, endpoint);
-		perror("WooFMsgPut: couldn't append handler frame");
-		fflush(stderr);
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s appended frame for handler name %s\n", woof_name, hand_name);
-	fflush(stdout);
-#endif
-
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s for new frame for 0x%x, size %lu\n",
-		   woof_name, element, el_size);
-	fflush(stdout);
-#endif
-	frame = zframe_new(element, el_size);
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s no frame size %lu for handler name %s to server at %s\n",
-				woof_name, el_size, hand_name, endpoint);
-		perror("WooFMsgPut: couldn't get element frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s got frame for element size %d\n", woof_name, el_size);
-	fflush(stdout);
-#endif
-
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s couldn't append frame for element size %lu name %s to server at %s\n",
-				woof_name, el_size, hand_name, endpoint);
-		perror("WooFMsgPut: couldn't append element frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s appended frame for element size %d\n", woof_name, el_size);
-	fflush(stdout);
-#endif
-
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s sending message to server at %s\n",
-		   woof_name, endpoint);
-	fflush(stdout);
-#endif
-
-	r_msg = WooFMQTTRequest(endpoint, msg);
-	if (r_msg == NULL)
-	{
-		fprintf(stderr, "WooFMsgPut: woof: %s couldn't recv msg for element size %lu name %s to server at %s\n",
-				woof_name, el_size, hand_name, endpoint);
-		perror("WooFMsgPut: no response received");
-		fflush(stderr);
-		return (-1);
-	}
-	else
-	{
-		r_frame = zmsg_first(r_msg);
-		if (r_frame == NULL)
-		{
-			fprintf(stderr, "WooFMsgPut: woof: %s no recv frame for element size %lu name %s to server at %s\n",
-					woof_name, el_size, hand_name, endpoint);
-			perror("WooFMsgPut: no response frame");
-			zmsg_destroy(&r_msg);
-			return (-1);
-		}
-		str = zframe_data(r_frame);
-		seq_no = strtoul(str, (char **)NULL, 10);
-		zmsg_destroy(&r_msg);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgPut: woof: %s recvd seq_no %lu message to server at %s\n",
-		   woof_name, seq_no, endpoint);
-	fflush(stdout);
-
-#endif
-	return (seq_no);
-}
 
 int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned long seq_no)
 {
 	char endpoint[255];
-	char namespace[2048];
+	char wnamespace[2048];
 	char ip_str[25];
 	int port;
 	zmsg_t *msg;
@@ -2014,12 +1419,10 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char buffer[255];
-	char *str;
-	struct timeval tm;
 	int err;
 
-	memset(namespace, 0, sizeof(namespace));
-	err = WooFNameSpaceFromURI(woof_name, namespace, sizeof(namespace));
+	memset(wnamespace, 0, sizeof(wnamespace));
+	err = WooFNameSpaceFromURI(woof_name, wnamespace, sizeof(wnamespace));
 	if (err < 0)
 	{
 		fprintf(stderr, "WooFMsgGet: woof: %s no name space\n",
@@ -2048,7 +1451,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	err = WooFPortFromURI(woof_name, &port);
 	if (err < 0)
 	{
-		port = WooFPortHash(namespace);
+		port = WooFPortHash(wnamespace);
 	}
 
 	memset(endpoint, 0, sizeof(endpoint));
@@ -2077,7 +1480,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	 * this is a put message
 	 */
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", WOOF_MSG_GET);
+	sprintf(buffer, "%u", WOOF_MSG_GET);
 	frame = zframe_new(buffer, strlen(buffer));
 	if (frame == NULL)
 	{
@@ -2237,10 +1640,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 #endif
 	return (1);
 }
-#endif // NOTRIGHTNOW
 
-char User_name[256];
-char Password [256];
 /*
  * thread subscribes to device output topic and forwards request to CSPOT
  * assumes that MQTT-SN gateway is transparent (e.g. message is coming from
@@ -2323,7 +1723,7 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 						(int)seqno);
 				break;
 			case WOOF_MQTT_GET_EL_SIZE:
-				lsize = WooFMsgGetElSize(wm->woof_name);
+				lsize = WooFMQTTMsgGetElSize(wm->woof_name);
 				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_GET_EL_SIZE_RESP,
@@ -2339,7 +1739,7 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 						(int)seqno);
 				break;
 			case WOOF_MQTT_GET:
-				lsize = WooFMsgGetElSize(wm->woof_name);
+				lsize = WooFMQTTMsgGetElSize(wm->woof_name);
 				if(lsize == (unsigned long)-1) {
 					/*
 					 * use 0 length to indicate err
@@ -2440,11 +1840,13 @@ printf("pub_string: %s\n",pub_string);
 	pthread_exit(NULL);
 }
 
+
+
+
 #define ARGS "n:u:p:"
 const char *Usage = "woofc-mqtt-gateway -n device-name-space\n\
 \t -u MQTT broker user name\n\
 \t -p MQTT broker pw\n";
-char Device_name_space[1024];
 
 int main(int argc, char **argv)
 {
@@ -2506,6 +1908,14 @@ int main(int argc, char **argv)
 	err = pthread_create(&sub_thread,NULL,MQTTDeviceOutputThread,(void *)Device_name_space);
 	if(err < 0) {
 		printf("woofc-mqtt-gateway: couldn't create subscriber thread\n");
+		exit(1);
+	}
+	/*
+	 * WooFMsgSserver blocks forever
+	 */
+	err = WooFMsgServer(Device_name_space);
+	if(err < 0) {
+		printf("woofc-mqtt-gateway: couldn't create zmq msg server\n");
 		exit(1);
 	}
 	pthread_join(sub_thread,NULL);
