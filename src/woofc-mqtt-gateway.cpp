@@ -140,7 +140,6 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 	unsigned long seq_no;
 	char buffer[255];
 	int err;
-	char *device_name; /* copy in device name */
 	char sub_string[16*1024];
 	char pub_string[16*1024];
 	char resp_string[2048];
@@ -269,7 +268,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		 */
 		memset(sub_string,0,sizeof(sub_string));
 		sprintf(sub_string,"/usr/bin/mosquitto_pub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
-				device_name,
+				Device_name_space,
 				msgid,
 				User_name,
 				Password);
@@ -289,7 +288,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 			strncpy(hand_name,"NULL",sizeof(hand_name));
 		} 
 		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
-				device_name, 
+				Device_name_space, 
 				User_name,
 				Password,
 				woof_name,
@@ -377,7 +376,6 @@ out:
 }
 
 } // extern C
-#ifdef NOTRIGHTNOW
 void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -388,10 +386,19 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	char local_name[2048];
 	unsigned int copy_size;
 	void *element;
-	unsigned el_size;
+	unsigned int el_size;
 	char buffer[255];
 	int err;
 	WOOF *wf;
+	char *device_name; /* copy in device name */
+	char sub_string[16*1024];
+	char pub_string[16*1024];
+	char resp_string[2048];
+	FILE *fd;
+	char *element_string;
+	int msgid;
+	int s;
+	char *curr;
 
 #ifdef DEBUG
 	printf("WooFProcessGetElSize: called\n");
@@ -428,37 +435,79 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	strncpy(woof_name, str, copy_size);
 
 	/*
-	 * FIX ME: for now, make all Process requests local
+	 * choose random number for inbound msgid
 	 */
-	memset(local_name, 0, sizeof(local_name));
-	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
+	msgid = (int)(rand());
 
-	if (err < 0)
-	{
-		wf = WooFOpen(local_name);
-	}
-	else
-	{
-		wf = WooFOpen(woof_name);
-	}
-
-	if (wf == NULL)
-	{
-		fprintf(stderr, "WooFProcessGetElSize: couldn't open %s (%s)\n", local_name, woof_name);
-		fflush(stderr);
+	/*
+	 * use msgid to get back specific response
+	 */
+	memset(sub_string,0,sizeof(sub_string));
+	sprintf(sub_string,"/usr/bin/mosquitto_pub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+			Device_name_space,
+			msgid,
+			User_name,
+			Password);
+	fd = popen(sub_string,"r");
+	if(fd == NULL) {
+		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
+		free(element);
+		free(element_string);
 		el_size = -1;
+		goto out;
 	}
-	else
-	{
-		el_size = wf->shared->element_size;
-		WooFFree(wf);
+		/*
+		 * create the mqtt message to put to the device
+		 */
+	memset(pub_string,0,sizeof(pub_string));
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+		Device_name_space, 
+		User_name,
+		Password,
+		woof_name,
+		WOOF_MQTT_GET_EL_SIZE,
+		msgid);
+printf("get_el_size_string: %s\n",pub_string);
+	system(pub_string);
+	memset(resp_string,0,sizeof(resp_string));
+	s = read(fileno(fd),resp_string,sizeof(resp_string));
+	if(s <= 0) {
+		fprintf(stderr,"WooFProcessPut: no resp string\n");
+		el_size = -1;
+		goto out;
 	}
+	pclose(fd);
+printf("get_el_size resp string: %s\n",resp_string);
+	/*
+	 * resp should be 
+	 * woof_name|WOOF_MQTT_GET_EL_SIZE_RESP|msgid|size
+	 */
+	curr = strstr(resp_string,"|"); // skip woof name
+	if(curr == NULL) {
+		el_size = -1;
+		goto out;
+	}
+	curr++;
+	curr = strstr(curr,"|"); // skip resp code
+	if(curr == NULL) {
+		el_size = -1;
+		goto out;
+	}
+	curr++;
+	curr = strstr(curr,"|"); // skip msgid
+	if(curr == NULL) {
+		el_size = -1;
+		goto out;
+	}
+	curr++;
+	el_size = atoi(curr);
 
 #ifdef DEBUG
-	printf("WooFProcessGetElSize: woof_name %s has element size: %lu\n", woof_name, el_size);
+	printf("WooFProcessGetElSize: woof_name %s has element size: %u\n", woof_name, el_size);
 	fflush(stdout);
 #endif
 
+out:
 	/*
 	 * send el_size back
 	 */
@@ -469,7 +518,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 		return;
 	}
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", el_size);
+	sprintf(buffer, "%u", el_size);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -496,6 +545,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
+#ifdef NOTRIGHTNOW
 void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
