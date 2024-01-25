@@ -18,6 +18,9 @@ target_link_libraries(senspot-forward-init PUBLIC woof senspot)
 add_executable(device-ping-init device-ping-init.c)
 target_link_libraries(device-ping-init PUBLIC woof)
 
+add_executable(device-platform-ping device-platform-ping.c)
+target_link_libraries(device-platform-ping PUBLIC woof)
+
 # TODO: fix wf->shared->filename
 add_handler(senspot_log senspot_log.c)
 target_link_libraries(senspot_log PUBLIC woof senspot)
