@@ -267,7 +267,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		 * use msgid to get back specific response
 		 */
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_pub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
 				Device_name_space,
 				msgid,
 				User_name,
@@ -443,7 +443,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	 * use msgid to get back specific response
 	 */
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_pub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
 			Device_name_space,
 			msgid,
 			User_name,
@@ -1926,6 +1926,7 @@ int main(int argc, char **argv)
 	if(Device_name_space[0] == 0) {
 		fprintf(stderr,"woofc-mqtt-gateway: must specify device name space\n");
 		fprintf(stderr,"usage: %s",Usage);
+		fprintf(stderr,"device name space must begin with word 'devices'\n");
 		exit(1);
 	}
 
