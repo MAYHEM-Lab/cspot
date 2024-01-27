@@ -1095,12 +1095,12 @@ void *WooFMsgThread(void *arg)
 		case WOOF_MSG_PUT:
 			WooFProcessPut(msg, receiver);
 			break;
+		case WOOF_MSG_GET_EL_SIZE:
+			WooFProcessGetElSize(msg, receiver);
+			break;
 #ifdef NOTRIGHTNOW
 		case WOOF_MSG_GET:
 			WooFProcessGet(msg, receiver);
-			break;
-		case WOOF_MSG_GET_EL_SIZE:
-			WooFProcessGetElSize(msg, receiver);
 			break;
 //		case WOOF_MSG_GET_TAIL:
 //			WooFProcessGetTail(msg, receiver);
@@ -1129,6 +1129,7 @@ void *WooFMsgThread(void *arg)
 	pthread_exit(NULL);
 }
 
+#define DEBUG
 int WooFMsgServer(char *wnamespace)
 {
 
@@ -1226,6 +1227,7 @@ int WooFMsgServer(char *wnamespace)
 	exit(0);
 }
 
+#undef DEBUG
 unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 {
 	char endpoint[255];
@@ -1480,6 +1482,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 		fflush(stderr);
 		return (-1);
 	}
+
 
 	memset(ip_str, 0, sizeof(ip_str));
 	err = WooFIPAddrFromURI(woof_name, ip_str, sizeof(ip_str));
@@ -1904,17 +1907,18 @@ int main(int argc, char **argv)
 	pthread_t sub_thread;
 	int err;
 	char *cred;
+	char *tmp;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'n':
-				strncpy(Device_name_space,optarg,sizeof(Device_name_space));
+				strncpy(Device_name_space,optarg,sizeof(Device_name_space)-1);
 				break;
 			case 'u':
-				strncpy(User_name,optarg,sizeof(User_name));
+				strncpy(User_name,optarg,sizeof(User_name)-1);
 				break;
 			case 'p':
-				strncpy(Password,optarg,sizeof(Password));
+				strncpy(Password,optarg,sizeof(Password)-1);
 				break;
 			default:
 				fprintf(stderr,"woofc-mqtt-gateway: unrecognized command %c\n",
@@ -1952,6 +1956,21 @@ int main(int argc, char **argv)
 		} else {
 			strncpy(Password,cred,sizeof(Password));
 		}
+	}
+
+	/*
+	 * device namespace must begin with a /
+	 */
+	if(Device_name_space[0] != '/') {
+		tmp = (char *)malloc(strlen(Device_name_space));
+		if(tmp == NULL) {
+			exit(1);
+		}
+		strcpy(tmp,Device_name_space);
+		Device_name_space[0] = '/';
+		strncpy(&Device_name_space[1],tmp,sizeof(Device_name_space)-2);
+		Device_name_space[sizeof(Device_name_space)-1] = 0;
+		free(tmp);
 	}
 
 
