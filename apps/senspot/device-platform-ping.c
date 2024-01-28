@@ -56,7 +56,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-#if 0
 	err = WooFGet(wname,(void *)&gval,seq_no);
 
 	if(err < 0) {
@@ -76,7 +75,6 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
-#endif
 
 	exit(0);
 }

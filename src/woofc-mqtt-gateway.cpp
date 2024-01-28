@@ -915,7 +915,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 				msgid,
 				User_name,
 				Password);
-printf("sub_string: %s\n",pub_string);
+printf("sub_string: %s\n",sub_string);
 		fd = popen(sub_string,"r");
 		if(fd == NULL) {
 			fprintf(stderr,"WooFProcessGet: open for %s failed\n",sub_string);
@@ -953,6 +953,7 @@ printf("pub_string: %s\n",pub_string);
 			goto out;
 		}
 		pclose(fd);
+printf("resp_string: %s\n",resp_string);
 		/*
 		 * format is
 		 * woof_name | code | msgid | size | ASCII contents
@@ -1144,10 +1145,10 @@ void *WooFMsgThread(void *arg)
 		case WOOF_MSG_GET_EL_SIZE:
 			WooFProcessGetElSize(msg, receiver);
 			break;
-#ifdef notrightnow
 		case WOOF_MSG_GET:
 			WooFProcessGet(msg, receiver);
 			break;
+#ifdef notrightnow
 //		case WOOF_MSG_GET_tail:
 //			WooFProcessGettail(msg, receiver);
 //			break;
