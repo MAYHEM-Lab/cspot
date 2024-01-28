@@ -383,19 +383,14 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *r_frame;
 	char *str;
 	char woof_name[2048];
-	char local_name[2048];
 	unsigned int copy_size;
-	void *element;
 	unsigned int el_size;
 	char buffer[255];
 	int err;
-	WOOF *wf;
-	char *device_name; /* copy in device name */
 	char sub_string[16*1024];
 	char pub_string[16*1024];
 	char resp_string[2048];
 	FILE *fd;
-	char *element_string;
 	int msgid;
 	int s;
 	char *curr;
@@ -451,8 +446,6 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	fd = popen(sub_string,"r");
 	if(fd == NULL) {
 		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
-		free(element);
-		free(element_string);
 		el_size = -1;
 		goto out;
 	}
@@ -840,24 +833,27 @@ unsigned int WooFMsgGetLatestSeqno(char *woof_name)
 }
 
 #endif // NOTRIGHTNOW
-#ifdef NOTRIGHTNOW
 void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
 	zframe_t *frame;
 	zframe_t *r_frame;
 	char *str;
-	char woof_name[2048];
-	char hand_name[2048];
-	char local_name[2048];
+	char woof_name[1024];
 	unsigned int copy_size;
 	void *element;
 	unsigned long el_size;
-	int count;
 	unsigned long seq_no;
-	char buffer[255];
 	int err;
-	WOOF *wf;
+	char sub_string[3*1024];
+	char pub_string[3*1024];
+	char resp_string[17*1024];
+	FILE *fd;
+	int msgid;
+	int s;
+	char *curr;
+	char *next;
+	char lsize_buf[50];
 
 #ifdef DEBUG
 	printf("WooFProcessGet: called\n");
@@ -904,60 +900,110 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	copy_size = zframe_size(frame);
 	if (copy_size > 0)
 	{
-		seq_no = strtoul(zframe_data(frame), (char **)NULL, 10);
+		seq_no = strtoul((const char *)zframe_data(frame), (char **)NULL, 10);
 #ifdef DEBUG
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
 #endif
 		/*
-		 * FIX ME: for now, all process requests are local
+		 * create sub for response
 		 */
-		memset(local_name, 0, sizeof(local_name));
-		err = WooFLocalName(woof_name, local_name, sizeof(local_name));
-		/*
-		 * attempt to get the element from the local woof_name
-		 */
-		if (err < 0)
-		{
-			wf = WooFOpen(woof_name);
-		}
-		else
-		{
-			wf = WooFOpen(local_name);
-		}
-		if (wf == NULL)
-		{
-			fprintf(stderr, "WooFProcessGet: couldn't open woof: %s\n",
-					woof_name);
-			fflush(stderr);
+		msgid = rand();
+		memset(sub_string,0,sizeof(sub_string));
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+				Device_name_space,
+				msgid,
+				User_name,
+				Password);
+printf("sub_string: %s\n",pub_string);
+		fd = popen(sub_string,"r");
+		if(fd == NULL) {
+			fprintf(stderr,"WooFProcessGet: open for %s failed\n",sub_string);
 			element = NULL;
 			el_size = 0;
+			goto out;
 		}
-		else
-		{
-			el_size = wf->shared->element_size;
-			element = malloc(el_size);
-			if (element == NULL)
-			{
-				fprintf(stderr, "WooFProcessGet: no space woof: %s\n",
-						woof_name);
-				fflush(stderr);
-			}
-			else
-			{
-				err = WooFRead(wf, element, seq_no);
-				if (err < 0)
-				{
-					fprintf(stderr,
-							"WooFProcessGet: read failed: %s at %lu\n",
-							woof_name, seq_no);
-					free(element);
-					element = NULL;
-					el_size = 0;
-				}
-			}
-			WooFFree(wf);
+
+		/*
+		 * request the Get
+		 */
+		memset(pub_string,0,sizeof(pub_string));
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
+				Device_name_space, 
+				User_name,
+				Password,
+				woof_name,
+				WOOF_MQTT_GET,
+				msgid,
+				(int)seq_no);
+
+printf("pub_string: %s\n",pub_string);
+		system(pub_string);
+
+		/*
+		 * read the response
+		 */
+		memset(resp_string,0,sizeof(resp_string));
+		s = read(fileno(fd),resp_string,sizeof(resp_string));
+		if(s <= 0) {
+			fprintf(stderr,"WooFProcessGet: no resp string\n");
+			element = NULL;
+			el_size = 0;
+			pclose(fd);
+			goto out;
 		}
+		pclose(fd);
+		/*
+		 * format is
+		 * woof_name | code | msgid | size | ASCII contents
+		 * FIXME: could sanity check here to make sure we have a GET_RESP
+		 */
+		curr = strstr(resp_string,"|");
+		if(curr == NULL) {
+			fprintf(stderr,"no code delim in %s\n",resp_string);
+			element = NULL;
+			el_size = 0;
+			goto out;
+		}
+		curr++;
+		curr = strstr(curr,"|");
+		if(curr == NULL) {
+			fprintf(stderr,"no msgid delim in %s\n",resp_string);
+			element = NULL;
+			el_size = 0;
+			goto out;
+		}
+		curr++;
+		curr = strstr(curr,"|");
+		if(curr == NULL) {
+			fprintf(stderr,"no size delim in %s\n",resp_string);
+			element = NULL;
+			el_size = 0;
+			goto out;
+		}
+		curr++;
+		next = strstr(curr,"|");
+		if(next == NULL) {
+			fprintf(stderr,"no payload delim in %s\n",resp_string);
+			element = NULL;
+			el_size = 0;
+			goto out;
+		}
+		/*
+		 * copy out the element size
+		 */
+		memset(lsize_buf,0,sizeof(lsize_buf));
+		strncpy(lsize_buf,curr,(next - curr));
+		el_size = atoi(lsize_buf);
+		curr = next + 1;
+
+		element = malloc(el_size);
+		if(element == NULL) {
+			fprintf(stderr,"WooFProcessGet: no space\n");
+			el_size = 0;
+			goto out;
+		}
+		ConvertASCIItoBinary((unsigned char *)element,curr,el_size);
 	}
 	else
 	{ /* copy_size <= 0 */
@@ -968,6 +1014,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 		el_size = 0;
 	}
 
+out:
 	/*
 	 * send element back or empty frame indicating no dice
 	 */
@@ -1035,7 +1082,6 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
-#endif // NOTRIGHTNOW
 void *WooFMsgThread(void *arg)
 {
 	zsock_t *receiver;
@@ -1045,7 +1091,7 @@ void *WooFMsgThread(void *arg)
 	char *str;
 
 	/*
-	 * right now, we use REQ-REP pattern from ZeroMQ.  need a way to timeout, however, as this
+	 * right now, we use req-rep pattern from zeromq.  need a way to timeout, however, as this
 	 * pattern blocks indefinitely on network partition
 	 */
 
@@ -1071,7 +1117,7 @@ void *WooFMsgThread(void *arg)
 		fflush(stdout);
 #endif
 		/*
-		 * WooFMsg starts with a message tag for dispatch
+		 * woofmsg starts with a message tag for dispatch
 		 */
 		frame = zmsg_first(msg);
 		if (frame == NULL)
@@ -1098,17 +1144,17 @@ void *WooFMsgThread(void *arg)
 		case WOOF_MSG_GET_EL_SIZE:
 			WooFProcessGetElSize(msg, receiver);
 			break;
-#ifdef NOTRIGHTNOW
+#ifdef notrightnow
 		case WOOF_MSG_GET:
 			WooFProcessGet(msg, receiver);
 			break;
-//		case WOOF_MSG_GET_TAIL:
-//			WooFProcessGetTail(msg, receiver);
+//		case WOOF_MSG_GET_tail:
+//			WooFProcessGettail(msg, receiver);
 //			break;
 		case WOOF_MSG_GET_LATEST_SEQNO:
-			WooFProcessGetLatestSeqno(msg, receiver);
+			WoofProcessGetLatestSeqno(msg, receiver);
 			break;
-#endif //NOTRIGHTNOW
+#endif //notrightnow
 		default:
 			fprintf(stderr, "WooFMsgThread: unknown tag %s\n",
 					str);
@@ -1137,7 +1183,7 @@ int WooFMsgServer(char *wnamespace)
 	zactor_t *proxy;
 	int err;
 	char endpoint[255];
-	pthread_t tids[WOOF_MQTT_MSG_THREADS];
+	pthread_t tids[WOOF_MSG_THREADS];
 	int i;
 
 
@@ -1183,24 +1229,24 @@ int WooFMsgServer(char *wnamespace)
 	/*
 	 * create and bind endpoint with port has to frontend zsock
 	 */
-	zstr_sendx(proxy, "FRONTEND", "ROUTER", endpoint, NULL);
+	zstr_sendx(proxy, "frontend", "router", endpoint, NULL);
 	zsock_wait(proxy);
 
 	/*
-	 * inproc:// is a process internal enpoint for ZeroMQ
+	 * inproc:// is a process internal enpoint for zeromq
 	 *
 	 * if backend isn't in this process, this endpoint will need to be
-	 * some kind of IPC endpoit.  For now, assume it is within the process
+	 * some kind of ipc endpoit.  for now, assume it is within the process
 	 * and handled by threads
 	 */
-	zstr_sendx(proxy, "BACKEND", "DEALER", "inproc://workers", NULL);
+	zstr_sendx(proxy, "backend", "dealer", "inproc://workers", NULL);
 	zsock_wait(proxy);
 
 	/*
-	 * create a single thread for now.  The DEALER pattern can handle multiple threads, however
+	 * create a single thread for now.  the dealer pattern can handle multiple threads, however
 	 * so this can be increased if need be
 	 */
-	for (i = 0; i < WOOF_MQTT_MSG_THREADS; i++)
+	for (i = 0; i < WOOF_MSG_THREADS; i++)
 	{
 		err = pthread_create(&tids[i], NULL, WooFMsgThread, NULL);
 		if (err < 0)
@@ -1214,13 +1260,13 @@ int WooFMsgServer(char *wnamespace)
 	 * right now, there is no way for these threads to exit so the msg server will block
 	 * indefinitely in this join
 	 */
-	for (i = 0; i < WOOF_MQTT_MSG_THREADS; i++)
+	for (i = 0; i < WOOF_MSG_THREADS; i++)
 	{
 		pthread_join(tids[i], NULL);
 	}
 
 	/*
-	 * we'll get here if the Msg thread is ever pthread_canceled()
+	 * we'll get here if the msg thread is ever pthread_canceled()
 	 */
 	zactor_destroy(&proxy);
 
@@ -1242,15 +1288,15 @@ unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 	unsigned char *str;
 	unsigned long el_size;
 	int err;
-#ifdef WOOFCACHE
+#ifdef woofcache
 	unsigned long *el_size_cached;
 #endif
 
-#ifdef WOOFCACHE
-	if (WooF_cache == NULL)
+#ifdef woofcache
+	if (woof_cache == NULL)
 	{
-		WooF_cache = WooFCacheInit(WOOF_MSG_CACHE_SIZE);
-		if (WooF_cache == NULL)
+		woof_cache = woofcacheinit(woof_msg_cache_size);
+		if (woof_cache == NULL)
 		{
 			fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s cache init failed\n",
 					woof_name);
@@ -1259,7 +1305,7 @@ unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 		}
 	}
 
-	el_size_cached = (unsigned long *)WooFCacheFind(WooF_cache, woof_name);
+	el_size_cached = (unsigned long *)woofcachefind(woof_cache, woof_name);
 	if (el_size_cached != NULL)
 	{
 #ifdef DEBUG
@@ -1291,7 +1337,7 @@ unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 		err = WooFLocalIP(ip_str, sizeof(ip_str));
 		if (err < 0)
 		{
-			fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s invalid IP address\n",
+			fprintf(stderr, "WooFMQTTMsgGetElSize: woof: %s invalid ip address\n",
 					woof_name);
 			fflush(stderr);
 			return (-1);
@@ -1327,7 +1373,7 @@ unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 #endif
 
 	/*
-	 * this is a GetElSize message
+	 * this is a getelsize message
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%u", WOOF_MSG_GET_EL_SIZE);
@@ -1431,20 +1477,20 @@ unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 
 #endif
 
-#ifdef WOOFCACHE
+#ifdef woofcache
 	el_size_cached = (unsigned long *)malloc(sizeof(unsigned long));
 	if (el_size_cached != NULL)
 	{
 		*el_size_cached = el_size;
-		err = WooFCacheInsert(WooF_cache, woof_name, (void *)el_size_cached);
+		err = woofcacheinsert(woof_cache, woof_name, (void *)el_size_cached);
 		if (err < 0)
 		{
-			payload = WooFCacheAge(WooF_cache);
+			payload = woofcacheage(woof_cache);
 			if (payload != NULL)
 			{
 				free(payload);
 			}
-			err = WooFCacheInsert(WooF_cache, woof_name, (void *)el_size_cached);
+			err = woofcacheinsert(woof_cache, woof_name, (void *)el_size_cached);
 			if (err < 0)
 			{
 				fprintf(stderr, "WooFMQTTMsgGetElSize: cache insert failed\n");
@@ -1494,7 +1540,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 		err = WooFLocalIP(ip_str, sizeof(ip_str));
 		if (err < 0)
 		{
-			fprintf(stderr, "WooFMsgGet: woof: %s invalid IP address\n",
+			fprintf(stderr, "WooFMsgGet: woof: %s invalid ip address\n",
 					woof_name);
 			fflush(stderr);
 			return (-1);
@@ -1642,7 +1688,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 	r_msg = WooFMQTTRequest(endpoint, msg);
 	if (r_msg == NULL)
 	{
-		fprintf(stderr, "WooFMsgGet: woof: %s couldn't recv msg for seq_no %lu name %s to server at %s\n",
+		fprintf(stderr, "WooFMsgGet: woof: %s couldn't recv msg for seq_no %lu to server at %s\n",
 				woof_name, seq_no, endpoint);
 		perror("WooFMsgGet: no response received");
 		fflush(stderr);
@@ -1670,7 +1716,7 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 		}
 		else
 		{
-			if (r_size > el_size)
+			if ((unsigned)r_size > el_size)
 			{
 				r_size = el_size;
 			}
@@ -1695,8 +1741,8 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
 }
 
 /*
- * thread subscribes to device output topic and forwards request to CSPOT
- * assumes that MQTT-SN gateway is transparent (e.g. message is coming from
+ * thread subscribes to device output topic and forwards request to cspot
+ * assumes that mqtt-sn gateway is transparent (e.g. message is coming from
  * mosquitto)
  */
 void *MQTTDeviceOutputThread(void *arg)
@@ -1896,10 +1942,10 @@ printf("pub_string: %s\n",pub_string);
 
 
 
-#define ARGS "n:u:p:"
-const char *Usage = "woofc-mqtt-gateway -n device-name-space\n\
-\t -u MQTT broker user name\n\
-\t -p MQTT broker pw\n";
+#define args "n:u:p:"
+const char *usage = "woofc-mqtt-gateway -n device-name-space\n\
+\t -u mqtt broker user name\n\
+\t -p mqtt broker pw\n";
 
 int main(int argc, char **argv)
 {
@@ -1909,7 +1955,7 @@ int main(int argc, char **argv)
 	char *cred;
 	char *tmp;
 
-	while((c = getopt(argc,argv,ARGS)) != EOF) {
+	while((c = getopt(argc,argv,args)) != EOF) {
 		switch(c) {
 			case 'n':
 				strncpy(Device_name_space,optarg,sizeof(Device_name_space)-1);
@@ -1923,13 +1969,13 @@ int main(int argc, char **argv)
 			default:
 				fprintf(stderr,"woofc-mqtt-gateway: unrecognized command %c\n",
 						(char)c);
-				fprintf(stderr,"usage: %s",Usage);
+				fprintf(stderr,"usage: %s",usage);
 				exit(1);
 		}
 	}
 	if(Device_name_space[0] == 0) {
 		fprintf(stderr,"woofc-mqtt-gateway: must specify device name space\n");
-		fprintf(stderr,"usage: %s",Usage);
+		fprintf(stderr,"usage: %s",usage);
 		fprintf(stderr,"device name space must begin with word 'devices'\n");
 		exit(1);
 	}
@@ -1937,9 +1983,9 @@ int main(int argc, char **argv)
 	if(User_name[0] == 0) {
 		cred = getenv("WOOFC_MQTT_USER");
 		if(cred == NULL) {
-			fprintf(stderr,"couldn't find user name for MQTT broker\n");
+			fprintf(stderr,"couldn't find user name for mqtt broker\n");
 			fprintf(stderr,"either specify WOOFC_MQTT_USER environment variable or\n");
-			fprintf(stderr,"usage: %s",Usage);
+			fprintf(stderr,"usage: %s",usage);
 			exit(1);
 		} else {
 			strncpy(User_name,cred,sizeof(User_name));
@@ -1949,9 +1995,9 @@ int main(int argc, char **argv)
 	if(Password[0] == 0) {
 		cred = getenv("WOOFC_MQTT_PW");
 		if(cred == NULL) {
-			fprintf(stderr,"couldn't find password for MQTT broker\n");
+			fprintf(stderr,"couldn't find Password for mqtt broker\n");
 			fprintf(stderr,"either specify WOOFC_MQTT_PW environment variable or\n");
-			fprintf(stderr,"usage: %s",Usage);
+			fprintf(stderr,"usage: %s",usage);
 			exit(1);
 		} else {
 			strncpy(Password,cred,sizeof(Password));
@@ -1981,7 +2027,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	/*
-	 * WooFMsgSserver blocks forever
+	 * woofmsgsserver blocks forever
 	 */
 	err = WooFMsgServer(Device_name_space);
 	if(err < 0) {
