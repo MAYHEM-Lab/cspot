@@ -1229,7 +1229,7 @@ int WooFMsgServer(char *wnamespace)
 	/*
 	 * create and bind endpoint with port has to frontend zsock
 	 */
-	zstr_sendx(proxy, "frontend", "router", endpoint, NULL);
+	zstr_sendx(proxy, "FRONTEND", "ROUTER", endpoint, NULL);
 	zsock_wait(proxy);
 
 	/*
@@ -1239,7 +1239,7 @@ int WooFMsgServer(char *wnamespace)
 	 * some kind of ipc endpoit.  for now, assume it is within the process
 	 * and handled by threads
 	 */
-	zstr_sendx(proxy, "backend", "dealer", "inproc://workers", NULL);
+	zstr_sendx(proxy, "BACKEND", "DEALER", "inproc://workers", NULL);
 	zsock_wait(proxy);
 
 	/*
