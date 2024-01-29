@@ -76,6 +76,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	printf("device-platform-ping: SUCCESS: sent %d and got %d\n",randval,gval);
+
 	exit(0);
 }
 
