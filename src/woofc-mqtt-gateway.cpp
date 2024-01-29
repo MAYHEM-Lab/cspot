@@ -22,10 +22,15 @@ extern "C" {
 #define WOOF_MQTT_MSG_THREADS (1)
 #define WOOF_MQTT_MSG_REQ_TIMEOUT (3000)
 
+#define IPLEN (17)
 
 char User_name[256];
 char Password [256];
 char Device_name_space[1024];
+char Broker[IPLEN];
+int Timeout;
+
+#define DEFAULT_MQTT_TIMEOUT (3)
 
 extern "C" {
 static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
@@ -267,7 +272,9 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		 * use msgid to get back specific response
 		 */
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+				Timeout,
+				Broker,
 				Device_name_space,
 				msgid,
 				User_name,
@@ -438,7 +445,9 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	 * use msgid to get back specific response
 	 */
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+			Timeout,
+			Broker,
 			Device_name_space,
 			msgid,
 			User_name,
@@ -910,7 +919,9 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 		 */
 		msgid = rand();
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -C 1 -h localhost -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+				Timeout,
+				Broker,
 				Device_name_space,
 				msgid,
 				User_name,
@@ -1786,8 +1797,12 @@ void *MQTTDeviceOutputThread(void *arg)
 	memset(device_name,0,len);
 	strncpy(device_name,(char *)arg,len);
 
+	/*
+	 * no timeout here
+	 */
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -h localhost -t %s.output -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -h %s -t %s.output -u \'%s\' -P \'%s\'",
+			Broker,
 			device_name,
 			User_name,
 			Password);
@@ -1943,10 +1958,12 @@ printf("pub_string: %s\n",pub_string);
 
 
 
-#define args "n:u:p:"
+#define args "n:u:p:t:"
 const char *usage = "woofc-mqtt-gateway -n device-name-space\n\
 \t -u mqtt broker user name\n\
-\t -p mqtt broker pw\n";
+\t -p mqtt broker pw\n\
+\t -b IP address of mosquitto broker\n\
+\t -t mosquitto timeout\n";
 
 int main(int argc, char **argv)
 {
@@ -1966,6 +1983,12 @@ int main(int argc, char **argv)
 				break;
 			case 'p':
 				strncpy(Password,optarg,sizeof(Password)-1);
+				break;
+			case 'b':
+				strncpy(Broker,optarg,sizeof(Broker));
+				break;
+			case 't':
+				Timeout = atoi(optarg);
 				break;
 			default:
 				fprintf(stderr,"woofc-mqtt-gateway: unrecognized command %c\n",
@@ -2018,6 +2041,14 @@ int main(int argc, char **argv)
 		strncpy(&Device_name_space[1],tmp,sizeof(Device_name_space)-2);
 		Device_name_space[sizeof(Device_name_space)-1] = 0;
 		free(tmp);
+	}
+
+	if(Broker[0] == 0) {
+		strncpy(Broker,"127.0.0.1",sizeof(Broker));
+	}
+
+	if(Timeout == 0) {
+		Timeout = DEFAULT_MQTT_TIMEOUT;
 	}
 
 
