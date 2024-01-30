@@ -21,6 +21,7 @@ int main(int argc, char **argv)
 	int randval;
 	int gval;
 	unsigned long seq_no;
+	unsigned long last;
 
 	memset(wname,0,sizeof(wname));
 
@@ -76,7 +77,16 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	printf("device-platform-ping: SUCCESS: sent %d and got %d\n",randval,gval);
+	last = WooFGetLatestSeqno(wname);
+
+	if((long)last < 0) {
+		fprintf(stderr,"device-platform-ping got last %d\n",
+				last);
+		exit(1);
+	}
+
+	printf("device-platform-ping: SUCCESS: sent %d and got %d, last: %d\n",
+				randval,gval,last);
 
 	exit(0);
 }

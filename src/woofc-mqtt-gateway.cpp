@@ -294,7 +294,8 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		if(hand_name[0] == 0) {
 			strncpy(hand_name,"NULL",sizeof(hand_name));
 		} 
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
+				Broker,
 				Device_name_space, 
 				User_name,
 				Password,
@@ -462,7 +463,8 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 		 * create the mqtt message to put to the device
 		 */
 	memset(pub_string,0,sizeof(pub_string));
-	sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+		Broker,
 		Device_name_space, 
 		User_name,
 		Password,
@@ -547,7 +549,6 @@ out:
 	return;
 }
 
-#ifdef NOTRIGHTNOW
 void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -555,12 +556,17 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	zframe_t *r_frame;
 	char *str;
 	char woof_name[2048];
-	char local_name[2048];
 	unsigned int copy_size;
-	unsigned latest_seq_no;
+	unsigned long latest_seq_no;
 	char buffer[255];
 	int err;
-	WOOF *wf;
+	char sub_string[16*1024];
+	char pub_string[16*1024];
+	char resp_string[2048];
+	FILE *fd;
+	int msgid;
+	int s;
+	char *curr;
 
 #ifdef DEBUG
 	printf("WooFProcessGetLatestSeqno: called\n");
@@ -597,30 +603,75 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	strncpy(woof_name, str, copy_size);
 
 	/*
-	 * FIX ME: for now, all process requests are local
+	 * choose random number for inbound msgid
 	 */
-	memset(local_name, 0, sizeof(local_name));
-	err = WooFLocalName(woof_name, local_name, sizeof(local_name));
-	if (err < 0)
-	{
-		wf = WooFOpen(woof_name);
-	}
-	else
-	{
-		wf = WooFOpen(local_name);
-	}
-	if (wf == NULL)
-	{
-		fprintf(stderr, "WooFProcessGetLatestSeqno: couldn't open %s\n", woof_name);
-		fflush(stderr);
-		latest_seq_no = -1;
-	}
-	else
-	{
-		latest_seq_no = WooFLatestSeqno(wf);
-		WooFFree(wf);
-	}
+	msgid = (int)(rand());
 
+	/*
+	 * use msgid to get back specific response
+	 */
+	memset(sub_string,0,sizeof(sub_string));
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+			Timeout,
+			Broker,
+			Device_name_space,
+			msgid,
+			User_name,
+			Password);
+	fd = popen(sub_string,"r");
+	if(fd == NULL) {
+		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
+		latest_seq_no = -1;
+		goto out;
+	}
+		/*
+		 * create the mqtt message to put to the device
+		 */
+	memset(pub_string,0,sizeof(pub_string));
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+		Broker,
+		Device_name_space, 
+		User_name,
+		Password,
+		woof_name,
+		WOOF_MQTT_GET_LATEST_SEQNO,
+		msgid);
+printf("get_latest_seqno_string: %s\n",pub_string);
+	system(pub_string);
+	memset(resp_string,0,sizeof(resp_string));
+	s = read(fileno(fd),resp_string,sizeof(resp_string));
+	if(s <= 0) {
+		fprintf(stderr,"WooFProcessPut: no resp string\n");
+			latest_seq_no = -1;
+			goto out;
+	}
+	pclose(fd);
+printf("put resp string: %s\n",resp_string);
+	/*
+	 * resp should be 
+	 * woof_name|WOOF_MQTT_GET_LATEST_SEQNO_RESP|msgid|latest_seqno
+	 */
+	curr = strstr(resp_string,"|"); // skip woof name
+	if(curr == NULL) {
+		latest_seq_no = -1;
+		goto out;
+	}
+	curr++;
+	curr = strstr(curr,"|"); // skip resp code
+	if(curr == NULL) {
+		latest_seq_no = -1;
+		goto out;
+	}
+	curr++;
+	curr = strstr(curr,"|"); // skip msgid
+	if(curr == NULL) {
+		latest_seq_no = -1;
+		goto out;
+	}
+	curr++;
+	latest_seq_no = atoi(curr);
+
+out:
 #ifdef DEBUG
 	printf("WooFProcessGetLatestSeqno: woof_name %s has latest seq_no: %lu\n", woof_name, latest_seq_no);
 	fflush(stdout);
@@ -663,185 +714,6 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	return;
 }
 
-unsigned int WooFMsgGetLatestSeqno(char *woof_name)
-{
-	char endpoint[255];
-	char wnamespace[2048];
-	char ip_str[25];
-	int port;
-	zmsg_t *msg;
-	zmsg_t *r_msg;
-	zframe_t *frame;
-	zframe_t *r_frame;
-	char buffer[255];
-	char *str;
-	unsigned long lastest_seq_no;
-	int err;
-
-	memset(wnamespace, 0, sizeof(wnamespace));
-	err = WooFNameSpaceFromURI(woof_name, wnamespace, sizeof(wnamespace));
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no name space\n",
-				woof_name);
-		fflush(stderr);
-		return (-1);
-	}
-
-	memset(ip_str, 0, sizeof(ip_str));
-	err = WooFIPAddrFromURI(woof_name, ip_str, sizeof(ip_str));
-	if (err < 0)
-	{
-		/*
-		 * try local addr
-		 */
-		err = WooFLocalIP(ip_str, sizeof(ip_str));
-		if (err < 0)
-		{
-			fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s invalid IP address\n",
-					woof_name);
-			fflush(stderr);
-			return (-1);
-		}
-	}
-
-	err = WooFPortFromURI(woof_name, &port);
-	if (err < 0)
-	{
-		port = WooFPortHash(wnamespace);
-	}
-
-	memset(endpoint, 0, sizeof(endpoint));
-	sprintf(endpoint, ">tcp://%s:%d", ip_str, port);
-
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s trying enpoint %s\n", woof_name, endpoint);
-	fflush(stdout);
-#endif
-
-	msg = zmsg_new();
-	if (msg == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no outbound msg to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetLatestSeqno: allocating msg");
-		fflush(stderr);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s got new msg\n", woof_name);
-	fflush(stdout);
-#endif
-
-	/*
-	 * this is a GetElSize message
-	 */
-	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%lu", WOOF_MSG_GET_LATEST_SEQNO);
-	frame = zframe_new(buffer, strlen(buffer));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no frame for WOOF_MSG_GET_LATEST_SEQNO command in to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetLatestSeqno: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s got WOOF_MSG_GET_LATEST_SEQNO (%s) command frame frame\n", woof_name, buffer);
-	fflush(stdout);
-#endif
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s can't append WOOF_MSG_GET_LATEST_SEQNO command frame to msg for server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetLatestSeqno: couldn't append woof_name frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-
-	/*
-	 * make a frame for the woof_name
-	 */
-	frame = zframe_new(woof_name, strlen(woof_name));
-	if (frame == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no frame for woof_name to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetLatestSeqno: couldn't get new frame");
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s got woof_name namespace frame\n", woof_name);
-	fflush(stdout);
-#endif
-	/*
-	 * add the woof_name frame to the msg
-	 */
-	err = zmsg_append(msg, &frame);
-	if (err < 0)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s can't append woof_name to frame to server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetLatestSeqno: couldn't append woof_name namespace frame");
-		zframe_destroy(&frame);
-		zmsg_destroy(&msg);
-		return (-1);
-	}
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s added woof_name namespace to frame\n", woof_name);
-	fflush(stdout);
-#endif
-
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s sending message to server at %s\n",
-		   woof_name, endpoint);
-	fflush(stdout);
-#endif
-
-	r_msg = WooFMQTTRequest(endpoint, msg);
-
-	if (r_msg == NULL)
-	{
-		fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s couldn't recv msg for element size from server at %s\n",
-				woof_name, endpoint);
-		perror("WooFMsgGetLatestSeqno: no response received");
-		fflush(stderr);
-		return (-1);
-	}
-	else
-	{
-		r_frame = zmsg_first(r_msg);
-		if (r_frame == NULL)
-		{
-			fprintf(stderr, "WooFMsgGetLatestSeqno: woof: %s no recv frame for from server at %s\n",
-					woof_name, endpoint);
-			perror("WooFMsgGetLatestSeqno: no response frame");
-			zmsg_destroy(&r_msg);
-			return (-1);
-		}
-		str = zframe_data(r_frame);
-		lastest_seq_no = strtoul(str, (char **)NULL, 10);
-		zmsg_destroy(&r_msg);
-	}
-
-#ifdef DEBUG
-	printf("WooFMsgGetLatestSeqno: woof: %s recvd size: %lu message from server at %s\n",
-		   woof_name, lastest_seq_no, endpoint);
-	fflush(stdout);
-
-#endif
-
-	return (lastest_seq_no);
-}
-
-#endif // NOTRIGHTNOW
 void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -939,7 +811,8 @@ printf("sub_string: %s\n",sub_string);
 		 * request the Get
 		 */
 		memset(pub_string,0,sizeof(pub_string));
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
+				Broker,
 				Device_name_space, 
 				User_name,
 				Password,
@@ -1159,14 +1032,12 @@ void *WooFMsgThread(void *arg)
 		case WOOF_MSG_GET:
 			WooFProcessGet(msg, receiver);
 			break;
-#ifdef notrightnow
 //		case WOOF_MSG_GET_tail:
 //			WooFProcessGettail(msg, receiver);
 //			break;
 		case WOOF_MSG_GET_LATEST_SEQNO:
-			WoofProcessGetLatestSeqno(msg, receiver);
+			WooFProcessGetLatestSeqno(msg, receiver);
 			break;
-#endif //notrightnow
 		default:
 			fprintf(stderr, "WooFMsgThread: unknown tag %s\n",
 					str);
@@ -1187,7 +1058,6 @@ void *WooFMsgThread(void *arg)
 	pthread_exit(NULL);
 }
 
-#define DEBUG
 int WooFMsgServer(char *wnamespace)
 {
 
@@ -1285,7 +1155,6 @@ int WooFMsgServer(char *wnamespace)
 	exit(0);
 }
 
-#undef DEBUG
 unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 {
 	char endpoint[255];
@@ -1875,6 +1744,9 @@ printf("mqtt_msg: %s\n",mqtt_msg);
                                                 (int)0);
 					break;
 				}
+				/*
+				 * calling MsgGet instead of Get saves a call to GetElSize
+				 */
 				err = WooFMsgGet(wm->woof_name,
 						element_buff,
 						lsize,
@@ -1935,7 +1807,8 @@ printf("resp_string: %s\n",resp_string);
 	 	 * send the respond back on the input channel
 	 	 */
 		memset(pub_string,0,sizeof(pub_string));
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -h localhost -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
+				Broker,
 				device_name, 
 				User_name,
 				Password,
@@ -1958,7 +1831,7 @@ printf("pub_string: %s\n",pub_string);
 
 
 
-#define args "n:u:p:t:"
+#define ARGS "n:u:p:t:b:"
 const char *usage = "woofc-mqtt-gateway -n device-name-space\n\
 \t -u mqtt broker user name\n\
 \t -p mqtt broker pw\n\
@@ -1973,7 +1846,7 @@ int main(int argc, char **argv)
 	char *cred;
 	char *tmp;
 
-	while((c = getopt(argc,argv,args)) != EOF) {
+	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'n':
 				strncpy(Device_name_space,optarg,sizeof(Device_name_space)-1);
