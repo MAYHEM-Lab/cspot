@@ -315,6 +315,7 @@ printf("put_string: %s\n",pub_string);
 		if(s <= 0) {
 			fprintf(stderr,"WooFProcessPut: no resp string\n");
 			seq_no = -1;
+			pclose(fd);
 			goto out;
 		}
 		pclose(fd);
@@ -476,8 +477,9 @@ printf("get_el_size_string: %s\n",pub_string);
 	memset(resp_string,0,sizeof(resp_string));
 	s = read(fileno(fd),resp_string,sizeof(resp_string));
 	if(s <= 0) {
-		fprintf(stderr,"WooFProcessPut: no resp string\n");
+		fprintf(stderr,"WooFProcessElSize: no resp string\n");
 		el_size = -1;
+		pclose(fd);
 		goto out;
 	}
 	pclose(fd);
@@ -643,6 +645,7 @@ printf("get_latest_seqno_string: %s\n",pub_string);
 	if(s <= 0) {
 		fprintf(stderr,"WooFProcessPut: no resp string\n");
 			latest_seq_no = -1;
+			pclose(fd);
 			goto out;
 	}
 	pclose(fd);
@@ -983,6 +986,7 @@ void *WooFMsgThread(void *arg)
 	/*
 	 * create a reply zsock and connect it to the back end of the proxy in the msg server
 	 */
+again:
 	receiver = zsock_new_rep(">inproc://workers");
 	if (receiver == NULL)
 	{
@@ -1055,6 +1059,7 @@ void *WooFMsgThread(void *arg)
 	}
 
 	zsock_destroy(&receiver);
+goto again;
 	pthread_exit(NULL);
 }
 

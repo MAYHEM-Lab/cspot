@@ -20,6 +20,7 @@ int main(int argc, char **argv)
 	char wname[4096];
 	int randval;
 	int gval;
+	int pval;
 	unsigned long seq_no;
 	unsigned long last;
 
@@ -47,7 +48,10 @@ int main(int argc, char **argv)
 
 	randval = rand();
 
-	seq_no = WooFPut(wname,NULL,(void *)&randval);
+	/*
+	 * test this with PingHandler
+	 */
+	seq_no = WooFPut(wname,"PingHandler",(void *)&randval);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"device-platform-ping failed put for %s and value %d\n",
@@ -85,8 +89,25 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	printf("device-platform-ping: SUCCESS: sent %d and got %d, last: %d\n",
+	/*
+	 * if there is only one ping running against this device, then the last seqno
+	 * should contain the sent value -1 because PingHandler ran and decremented it
+	 */
+	err = WooFGet(wname,(void *)&pval,last);
+	if(err < 0) {
+		fprintf(stderr,"device-platform-ping get of last %d failed\n",
+				last);
+		exit(1);
+	}
+
+
+	if(pval == (gval-1)) {
+		printf("device-platform-ping: SUCCESS: sent %d and got %d, last: %d\n",
 				randval,gval,last);
+	} else {
+		printf("device-platform-ping: WARNING: sent %d and got %d, pval: %d, last: %d\n",
+				randval,gval,pval, last);
+	}
 
 	exit(0);
 }
