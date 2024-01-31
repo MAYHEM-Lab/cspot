@@ -21,6 +21,9 @@ target_link_libraries(device-ping-init PUBLIC woof)
 add_executable(device-platform-ping device-platform-ping.c)
 target_link_libraries(device-platform-ping PUBLIC woof)
 
+add_handler(PingHandler PingHandler.c)
+target_link_libraries(PingHandler PUBLIC woof)
+
 # TODO: fix wf->shared->filename
 add_handler(senspot_log senspot_log.c)
 target_link_libraries(senspot_log PUBLIC woof senspot)

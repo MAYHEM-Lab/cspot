@@ -1705,6 +1705,7 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 				seqno = WooFPut(wm->woof_name,
 						wm->handler_name,
 						wm->element);
+printf("woof: %s, handler: %s\n",wm->woof_name,wm->handler_name);
 				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_PUT_RESP,
