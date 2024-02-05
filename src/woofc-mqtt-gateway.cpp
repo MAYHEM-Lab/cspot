@@ -238,6 +238,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 		printf("WooFProcessPut: received %lu bytes for the element\n", copy_size);
 		fflush(stdout);
 #endif
+printf("WooFProcessPut: called on %s with size %d\n",woof_name,copy_size);
 
 		/*
 		 * FIX ME: in a cloud, the calling process doesn't know the publically viewable
@@ -304,7 +305,7 @@ void WooFProcessPut(zmsg_t *req_msg, zsock_t *receiver)
 				msgid,
 				hand_name,
 				element_string);
-printf("put_string: %s\n",pub_string);
+printf("WooFProcessPut: sending %s to device\n",pub_string);
 		system(pub_string);
 
 		free(element);
@@ -319,7 +320,7 @@ printf("put_string: %s\n",pub_string);
 			goto out;
 		}
 		pclose(fd);
-printf("put resp string: %s\n",resp_string);
+printf("WooFProcessPut resp string: %s\n",resp_string);
 		/*
 		 * resp should be 
 		 * woof_name|WOOF_MQTT_PUT_RESP|msgid|seqno
@@ -472,7 +473,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 		woof_name,
 		WOOF_MQTT_GET_EL_SIZE,
 		msgid);
-printf("get_el_size_string: %s\n",pub_string);
+printf("WooFProcessGetElSize: sending %s to device\n",pub_string);
 	system(pub_string);
 	memset(resp_string,0,sizeof(resp_string));
 	s = read(fileno(fd),resp_string,sizeof(resp_string));
@@ -483,7 +484,7 @@ printf("get_el_size_string: %s\n",pub_string);
 		goto out;
 	}
 	pclose(fd);
-printf("get_el_size resp string: %s\n",resp_string);
+printf("WooFProcessGetElSize received string: %s\n",resp_string);
 	/*
 	 * resp should be 
 	 * woof_name|WOOF_MQTT_GET_EL_SIZE_RESP|msgid|size
@@ -638,18 +639,18 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 		woof_name,
 		WOOF_MQTT_GET_LATEST_SEQNO,
 		msgid);
-printf("get_latest_seqno_string: %s\n",pub_string);
+printf("WooFProcessGetLatestSeqno: sending %s to device\n",pub_string);
 	system(pub_string);
 	memset(resp_string,0,sizeof(resp_string));
 	s = read(fileno(fd),resp_string,sizeof(resp_string));
 	if(s <= 0) {
-		fprintf(stderr,"WooFProcessPut: no resp string\n");
+		fprintf(stderr,"WooFProcessGetlatestSeqno: no resp string\n");
 			latest_seq_no = -1;
 			pclose(fd);
 			goto out;
 	}
 	pclose(fd);
-printf("put resp string: %s\n",resp_string);
+printf("WooFProcessGetLatestSeqno resp string: %s\n",resp_string);
 	/*
 	 * resp should be 
 	 * woof_name|WOOF_MQTT_GET_LATEST_SEQNO_RESP|msgid|latest_seqno
@@ -789,6 +790,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
 #endif
+printf("WooFProcessGet: called on %s el_size: %d for seqno %lu\n",woof_name,copy_size,seq_no);
 		/*
 		 * create sub for response
 		 */
@@ -801,7 +803,6 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 				msgid,
 				User_name,
 				Password);
-printf("sub_string: %s\n",sub_string);
 		fd = popen(sub_string,"r");
 		if(fd == NULL) {
 			fprintf(stderr,"WooFProcessGet: open for %s failed\n",sub_string);
@@ -824,7 +825,8 @@ printf("sub_string: %s\n",sub_string);
 				msgid,
 				(int)seq_no);
 
-printf("pub_string: %s\n",pub_string);
+printf("WooFProcessGet: send %s to device\n",pub_string);
+//printf("pub_string: %s\n",pub_string);
 		system(pub_string);
 
 		/*
@@ -840,7 +842,7 @@ printf("pub_string: %s\n",pub_string);
 			goto out;
 		}
 		pclose(fd);
-printf("resp_string: %s\n",resp_string);
+printf("WooFProcessGet resp_string: %s\n",resp_string);
 		/*
 		 * format is
 		 * woof_name | code | msgid | size | ASCII contents
@@ -1680,7 +1682,7 @@ void *MQTTDeviceOutputThread(void *arg)
 			device_name,
 			User_name,
 			Password);
-printf("sub_string: %s\n",sub_string);
+//printf("sub_string: %s\n",sub_string);
 
 	fd = popen(sub_string,"r");
 	while(fd != NULL) {
@@ -1689,7 +1691,7 @@ printf("sub_string: %s\n",sub_string);
 		if(size <= 0) {
 			break;
 		}
-printf("mqtt_msg: %s\n",mqtt_msg);
+printf("input msg from DEVICE: %s\n",mqtt_msg);
 		wm = ParseMQTTString(mqtt_msg);
 		if(wm == NULL) {
 			fprintf(stderr,"MQTTDeviceOutputThread: couldn't parse %s\n",
@@ -1705,7 +1707,7 @@ printf("mqtt_msg: %s\n",mqtt_msg);
 				seqno = WooFPut(wm->woof_name,
 						wm->handler_name,
 						wm->element);
-printf("woof: %s, handler: %s\n",wm->woof_name,wm->handler_name);
+//printf("woof: %s, handler: %s\n",wm->woof_name,wm->handler_name);
 				sprintf(resp_string,"%s|%d|%d|%d",
 						wm->woof_name,
 						WOOF_MQTT_PUT_RESP,
@@ -1808,7 +1810,7 @@ printf("woof: %s, handler: %s\n",wm->woof_name,wm->handler_name);
 						-1);
 				break;
 		}
-printf("resp_string: %s\n",resp_string);
+printf("output msg response to DEVICE: %s\n",resp_string);
 		/*
 	 	 * send the respond back on the input channel
 	 	 */
@@ -1819,7 +1821,7 @@ printf("resp_string: %s\n",resp_string);
 				User_name,
 				Password,
 				resp_string);
-printf("pub_string: %s\n",pub_string);
+//printf("pub_string: %s\n",pub_string);
 		system(pub_string);
 		FreeWMQTT(wm);
 		wm = NULL;
