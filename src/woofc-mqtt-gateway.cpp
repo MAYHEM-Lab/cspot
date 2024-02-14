@@ -280,6 +280,7 @@ printf("WooFProcessPut: called on %s with size %d\n",woof_name,copy_size);
 				msgid,
 				User_name,
 				Password);
+printf("sub_string: %s\n",sub_string);
 		fd = popen(sub_string,"r");
 		if(fd == NULL) {
 			fprintf(stderr,"WooFProcessPut: open for %s failed\n",sub_string);
@@ -455,6 +456,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 			msgid,
 			User_name,
 			Password);
+printf("sub_string: %s\n",sub_string);
 	fd = popen(sub_string,"r");
 	if(fd == NULL) {
 		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
@@ -621,6 +623,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 			msgid,
 			User_name,
 			Password);
+printf("sub_string: %s\n",sub_string);
 	fd = popen(sub_string,"r");
 	if(fd == NULL) {
 		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
@@ -803,6 +806,7 @@ printf("WooFProcessGet: called on %s el_size: %d for seqno %lu\n",woof_name,copy
 				msgid,
 				User_name,
 				Password);
+printf("sub_string: %s\n",sub_string);
 		fd = popen(sub_string,"r");
 		if(fd == NULL) {
 			fprintf(stderr,"WooFProcessGet: open for %s failed\n",sub_string);
@@ -1682,7 +1686,7 @@ void *MQTTDeviceOutputThread(void *arg)
 			device_name,
 			User_name,
 			Password);
-//printf("sub_string: %s\n",sub_string);
+printf("sub_string: %s\n",sub_string);
 
 	fd = popen(sub_string,"r");
 	while(fd != NULL) {

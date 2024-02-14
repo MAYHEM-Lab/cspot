@@ -52,6 +52,7 @@ int main(int argc, char **argv)
 	 * test this with PingHandler
 	 */
 	seq_no = WooFPut(wname,"PingHandler",(void *)&randval);
+//	seq_no = WooFPut(wname,NULL,(void *)&randval);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"device-platform-ping failed put for %s and value %d\n",
