@@ -527,7 +527,8 @@ out:
 		return;
 	}
 	memset(buffer, 0, sizeof(buffer));
-	sprintf(buffer, "%u", el_size);
+	sprintf(buffer, "%lu", el_size);
+printf("WooFProcesGetElSize: sening back %s (%lu)\n",buffer,el_size);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -550,6 +551,7 @@ out:
 		zmsg_destroy(&r_msg);
 		return;
 	}
+
 
 	return;
 }
@@ -695,6 +697,7 @@ out:
 	}
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "%lu", latest_seq_no);
+printf("WooFProcesGetLatestSeqno: sening back %s (%lu)\n",buffer,latest_seq_no);
 	r_frame = zframe_new(buffer, strlen(buffer));
 	if (r_frame == NULL)
 	{
@@ -793,7 +796,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 		printf("WooFProcessGet: received seq_no name %lu\n", seq_no);
 		fflush(stdout);
 #endif
-printf("WooFProcessGet: called on %s el_size: %d for seqno %lu\n",woof_name,copy_size,seq_no);
+printf("WooFProcessGet: called on %s for seqno %lu\n",woof_name,seq_no);
 		/*
 		 * create sub for response
 		 */
@@ -897,7 +900,9 @@ printf("WooFProcessGet resp_string: %s\n",resp_string);
 			el_size = 0;
 			goto out;
 		}
+printf("WoofProcessGet: created element size %d\n",el_size);
 		ConvertASCIItoBinary((unsigned char *)element,curr,el_size);
+printf("WoofProcessGet: converted %s to binary\n",curr);
 	}
 	else
 	{ /* copy_size <= 0 */
