@@ -20,7 +20,7 @@ extern "C" {
 #include "woofc-mqtt.h"
 
 #define WOOF_MQTT_MSG_THREADS (1)
-#define WOOF_MQTT_MSG_REQ_TIMEOUT (3000)
+#define WOOF_MQTT_MSG_REQ_TIMEOUT (10000)
 
 #define IPLEN (17)
 

@@ -3,6 +3,9 @@
 #include <debug.h>
 #include <woofc-access.h>
 
+#undef WOOF_MSG_REQ_TIMEOUT
+#define WOOF_MSG_REQ_TIMEOUT (10000)
+
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
     auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
