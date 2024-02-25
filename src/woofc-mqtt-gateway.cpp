@@ -1819,7 +1819,7 @@ printf("input msg from DEVICE: %s\n",mqtt_msg);
 						-1);
 				break;
 		}
-printf("output msg response to DEVICE: %s\n",resp_string);
+//printf("output msg response to DEVICE: %s\n",resp_string);
 		/*
 	 	 * send the respond back on the input channel
 	 	 */
@@ -1830,7 +1830,7 @@ printf("output msg response to DEVICE: %s\n",resp_string);
 				User_name,
 				Password,
 				resp_string);
-//printf("pub_string: %s\n",pub_string);
+printf("output msg pub TO DEVICE %s\n",pub_string);
 		system(pub_string);
 		FreeWMQTT(wm);
 		wm = NULL;
