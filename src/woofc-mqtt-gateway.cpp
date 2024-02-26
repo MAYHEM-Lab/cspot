@@ -30,6 +30,9 @@ char Device_name_space[1024];
 char Broker[IPLEN];
 int Timeout;
 
+struct timespec ardino_delay = {1,0}; /* 1/3 second for lwip tcp memory leak */
+//#define PAUSE nanosleep(&ardino_delay,NULL)
+
 #define DEFAULT_MQTT_TIMEOUT (3)
 
 extern "C" {
