@@ -27,6 +27,8 @@ per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
 ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
     auto ep_data = get_local_socket_for(endpoint);
     if (!ep_data) {
+	printf("ServerRequest: failed to create endpoint for %s\n",endpoint);
+	fflush(stdout);
         return nullptr;
     }
 
@@ -34,17 +36,27 @@ ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
 
     if (!sent) {
         DEBUG_WARN("ServerRequest: msg send to %s failed\n", endpoint);
+        printf("ServerRequest: msg send to %s failed\n", endpoint);
+	fflush(stdout);
         return nullptr;
     }
 
+#undef WOOF_MSG_REQ_TIMEOUT
+#define WOOF_MSG_REQ_TIMEOUT (120000)
     auto server_resp = static_cast<zsock_t*>(zpoller_wait(ep_data->resp_poll.get(), WOOF_MSG_REQ_TIMEOUT));
     if (!server_resp) {
         if (zpoller_expired(ep_data->resp_poll.get())) {
             DEBUG_WARN("ServerRequest: msg recv timeout from %s after %d msec\n", endpoint, WOOF_MSG_REQ_TIMEOUT);
+	    printf("ServerRequest: msg recv timeout from %s after %d msec\n", endpoint, WOOF_MSG_REQ_TIMEOUT);
+	    fflush(stdout);
         } else if (zpoller_terminated(ep_data->resp_poll.get())) {
             DEBUG_WARN("ServerRequest: msg recv interrupted from %s\n", endpoint);
+            printf("ServerRequest: msg recv interrupted from %s\n", endpoint);
+	    fflush(stdout);
         } else {
             DEBUG_WARN("ServerRequest: msg recv failed from %s\n", endpoint);
+            printf("ServerRequest: msg recv interrupted from %s\n", endpoint);
+	    fflush(stdout);
         }
         return nullptr;
     }
@@ -53,6 +65,8 @@ ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
 
     if (!resp) {
         DEBUG_WARN("ServerRequest: msg recv from %s failed\n", endpoint);
+        printf("ServerRequest: msg recv from %s failed\n", endpoint);
+	fflush(stdout);
     }
 
     DEBUG_LOG("ServerRequest: completed successfully");
