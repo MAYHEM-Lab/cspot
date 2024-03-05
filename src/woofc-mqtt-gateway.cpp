@@ -1138,6 +1138,7 @@ again:
 		 */
 		zmsg_destroy(&msg);
 
+break;
 		/*
 		 * wait for next request
 		 */
