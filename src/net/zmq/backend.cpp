@@ -8,12 +8,20 @@
 
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
-    auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
 
+    auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
     auto it = map_for_thread.find(endpoint);
     if (it == map_for_thread.end()) {
         // Socket does not exist
         auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
+        if (!ep_data) {
+            return nullptr;
+        }
+        auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
+        it = i;
+    } else {
+	map_for_thread.erase(endpoint); // should call destructor on server and poller
+	auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
         if (!ep_data) {
             return nullptr;
         }
