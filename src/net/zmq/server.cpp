@@ -16,6 +16,7 @@ void WooFMsgThread() {
     /*
      * create a reply zsock and connect it to the back end of the proxy in the msg server
      */
+again:
     auto receiver = ZServerPtr(zsock_new_rep(">inproc://workers"));
     if (!receiver) {
         perror("WooFMsgThread: couldn't open receiver");
@@ -89,8 +90,10 @@ void WooFMsgThread() {
         /*
          * wait for next request
          */
-        msg = Receive(*receiver);
+	break;
+//        msg = Receive(*receiver);
     }
+    goto again;
 }
 } // namespace
 
