@@ -90,8 +90,7 @@ again:
         /*
          * wait for next request
          */
-	break;
-//        msg = Receive(*receiver);
+/        msg = Receive(*receiver);
     }
     goto again;
 }
