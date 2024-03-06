@@ -108,25 +108,50 @@ printf("extracted msg[%d]: %s\n",count,cmsg);
 
 
 extern "C" {
+RB *ServerEndpoints = NULL;
 static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 {
-	zsock_t *server;
+	static zsock_t *server;
 	zpoller_t *resp_poll;
 	zsock_t *server_resp;
 	int err;
 	zmsg_t *r_msg;
+	RB *rb;
+	char *ep;
+	Hval hv;
 
+	if(ServerEndpoints == NULL) {
+		ServerEndpoints = RBInitS();
+		if(ServerEndpoints == NULL) {
+			return(NULL);
+		}
+	}
+
+
+	rb = RBFindS(ServerEndpoints,endpoint);
 	/*
 	 * get a socket to the server
 	 */
-	server = zsock_new_req(endpoint);
-	if (server == NULL)
-	{
-		fprintf(stderr, "WooFMQTTRequest: no server connection to %s\n",
-				endpoint);
-		fflush(stderr);
-		zmsg_destroy(&msg);
-		return (NULL);
+	if(rb == NULL) {
+		server = zsock_new_req(endpoint);
+		if (server == NULL)
+		{
+			fprintf(stderr, "WooFMQTTRequest: no server connection to %s\n",
+					endpoint);
+			fflush(stderr);
+			zmsg_destroy(&msg);
+			return (NULL);
+		}
+		ep = (char *)malloc(strlen(endpoint)+1);
+		if(ep == NULL) {
+			return(NULL);
+		}
+		memset(ep,0,strlen(endpoint)+1);
+		strncpy(ep,endpoint,strlen(endpoint));
+		hv.v = (void *)server;
+		RBInsertS(ServerEndpoints,ep,hv);
+	} else {
+		server = (zsock_t *)rb->value.v;
 	}
 
 	/*
@@ -140,6 +165,10 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zmsg_destroy(&msg);
+		rb = RBFindS(ServerEndpoints,endpoint);
+		if(rb != NULL) {
+			RBDeleteS(ServerEndpoints,rb);
+		}
 		return (NULL);
 	}
 
@@ -155,6 +184,10 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		zmsg_destroy(&msg);
+		rb = RBFindS(ServerEndpoints,endpoint);
+		if(rb != NULL) {
+			RBDeleteS(ServerEndpoints,rb);
+		}
 		return (NULL);
 	}
 
@@ -172,9 +205,13 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 			fflush(stderr);
 			zsock_destroy(&server);
 			zpoller_destroy(&resp_poll);
+			rb = RBFindS(ServerEndpoints,endpoint);
+			if(rb != NULL) {
+				RBDeleteS(ServerEndpoints,rb);
+			}
 			return (NULL);
 		}
-		zsock_destroy(&server);
+		//zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		return (r_msg);
 	}
@@ -185,6 +222,10 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
+		rb = RBFindS(ServerEndpoints,endpoint);
+		if(rb != NULL) {
+			RBDeleteS(ServerEndpoints,rb);
+		}
 		return (NULL);
 	}
 	else if (zpoller_terminated(resp_poll))
@@ -194,6 +235,10 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
+		rb = RBFindS(ServerEndpoints,endpoint);
+		if(rb != NULL) {
+			RBDeleteS(ServerEndpoints,rb);
+		}
 		return (NULL);
 	}
 	else
@@ -203,6 +248,10 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
+		rb = RBFindS(ServerEndpoints,endpoint);
+		if(rb != NULL) {
+			RBDeleteS(ServerEndpoints,rb);
+		}
 		return (NULL);
 	}
 }
@@ -1056,6 +1105,7 @@ out:
 	return;
 }
 
+#define DEBUG
 void *WooFMsgThread(void *arg)
 {
 	zsock_t *receiver;
@@ -1138,7 +1188,6 @@ again:
 		 */
 		zmsg_destroy(&msg);
 
-break;
 		/*
 		 * wait for next request
 		 */
@@ -1150,6 +1199,8 @@ printf("WooFMsgThread: STARTING OVER on NULL msg\n");
 goto again;
 	pthread_exit(NULL);
 } 
+
+#undef DEBUG
 
 
 int WooFMsgServer(char *wnamespace)

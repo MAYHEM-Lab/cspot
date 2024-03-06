@@ -4,7 +4,7 @@
 #include <woofc-access.h>
 
 #undef WOOF_MSG_REQ_TIMEOUT
-#define WOOF_MSG_REQ_TIMEOUT (10000)
+#define WOOF_MSG_REQ_TIMEOUT (120000)
 
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
