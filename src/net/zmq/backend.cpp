@@ -20,6 +20,7 @@ per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
         auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
         it = i;
     } else {
+    	return &it->second;
 	map_for_thread.erase(endpoint); // should call destructor on server and poller
 	auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
         if (!ep_data) {
@@ -49,8 +50,6 @@ ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
         return nullptr;
     }
 
-#undef WOOF_MSG_REQ_TIMEOUT
-#define WOOF_MSG_REQ_TIMEOUT (120000)
     auto server_resp = static_cast<zsock_t*>(zpoller_wait(ep_data->resp_poll.get(), WOOF_MSG_REQ_TIMEOUT));
     if (!server_resp) {
         if (zpoller_expired(ep_data->resp_poll.get())) {
@@ -78,6 +77,7 @@ ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
     }
 
     DEBUG_LOG("ServerRequest: completed successfully");
+zsock_destroy(&server_resp);
     return resp;
 }
 
