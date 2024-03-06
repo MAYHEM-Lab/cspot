@@ -77,7 +77,6 @@ ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
     }
 
     DEBUG_LOG("ServerRequest: completed successfully");
-zsock_destroy(&server_resp);
     return resp;
 }
 
