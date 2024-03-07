@@ -3,9 +3,6 @@
 #include <debug.h>
 #include <woofc-access.h>
 
-#undef WOOF_MSG_REQ_TIMEOUT
-#define WOOF_MSG_REQ_TIMEOUT (120000)
-
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
 
@@ -20,7 +17,7 @@ per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
         auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
         it = i;
     } else {
-    	return &it->second;
+#if 0 // doesn't work with cspot 2.0 but does with 1.0
 	map_for_thread.erase(endpoint); // should call destructor on server and poller
 	auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
         if (!ep_data) {
@@ -28,6 +25,8 @@ per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
         }
         auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
         it = i;
+#endif
+    	return &it->second;
     }
 
     return &it->second;

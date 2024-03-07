@@ -1105,7 +1105,6 @@ out:
 	return;
 }
 
-#define DEBUG
 void *WooFMsgThread(void *arg)
 {
 	zsock_t *receiver;
@@ -1200,7 +1199,6 @@ goto again;
 	pthread_exit(NULL);
 } 
 
-#undef DEBUG
 
 
 int WooFMsgServer(char *wnamespace)
