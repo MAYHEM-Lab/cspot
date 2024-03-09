@@ -8,6 +8,7 @@
 namespace cspot::zmq {
 int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
+    std::string woof_n(woof_name);
 
     if (!endpoint_opt) {
         return -1;
@@ -38,6 +39,8 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 
     if (!r_msg) {
         DEBUG_WARN("Could not receive reply for WoofMsgGet");
+	printf("WooFMsgGet: server request failed\n");
+	perror("WooFMsgGet");
         return -1;
     }
 
@@ -138,6 +141,8 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 
     if (!r_msg) {
         DEBUG_WARN("Could not receive reply for WoofMsgPut");
+	printf("WooFPut: server request failed");
+	perror("WooFMsgPut");
         return -1;
     }
 
@@ -177,7 +182,8 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
                 "server at %s\n",
                 woof_name.c_str(),
                 endpoint.c_str());
-        perror("WooFMsgGetElSize: no response received");
+	printf("WooFMsgGetElSize: server request failed\n");
+        perror("WooFMsgGetElSize");
         return -1;
     }
 
@@ -193,6 +199,8 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
                                           const char* cause_woof_name,
                                           uint32_t cause_woof_latest_seq_no) {
+
+    std::string woof_n(woof_name);
     auto endpoint_opt = endpoint_from_woof(woof_name);
 
     if (!endpoint_opt) {
@@ -220,6 +228,8 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
 
     if (!r_msg) {
         DEBUG_WARN("Could not receive reply for WoofMsgGet");
+	printf("WooFMsgGetLatestSeqno: server request failed\n");
+	perror("WooFMsgGetLatestSeqno");
         return -1;
     }
 

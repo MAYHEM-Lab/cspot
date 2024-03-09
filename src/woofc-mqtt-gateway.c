@@ -9,10 +9,8 @@
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-
-extern "C" {
 #include <czmq.h>
-}
+pthread_mutex_t ELock; // for endpoint cache
 #include "uriparser2.h"
 
 #include "woofc.h" /* for WooFPut */
@@ -21,6 +19,8 @@ extern "C" {
 
 #define WOOF_MQTT_MSG_THREADS (20)
 #define WOOF_MQTT_MSG_REQ_TIMEOUT (10000)
+
+void DeviceSend(char *s);
 
 #define IPLEN (17)
 
@@ -34,6 +34,131 @@ struct timespec ardino_delay = {1,0}; /* 1/3 second for lwip tcp memory leak */
 //#define PAUSE nanosleep(&ardino_delay,NULL)
 
 #define DEFAULT_MQTT_TIMEOUT (3)
+
+
+struct sem
+{
+        pthread_mutex_t lock;
+        pthread_cond_t wait;
+        int value;
+	int waiters;
+};
+
+typedef struct sem sema;
+
+sema *InitSemPT(int count)
+{
+	sema *s;
+
+	s = (sema *)malloc(sizeof(sema));
+	if(s == NULL) {
+		return(NULL);
+	}
+	s->value = count;
+	s->waiters = 0;
+	pthread_cond_init(&(s->wait),NULL);
+	pthread_mutex_init(&(s->lock),NULL);
+
+	return(s);
+}
+
+void FreeSemPT(sema *s)
+{
+	free(s);
+}
+
+void PSemPT(sema *s)
+{
+	pthread_mutex_lock(&(s->lock));
+
+	s->value--;
+
+	while(s->value < 0) {
+		/*
+		 * maintain semaphore invariant
+		 */
+		if(s->waiters < (-1 * s->value)) {
+			s->waiters++;
+			pthread_cond_wait(&(s->wait),&(s->lock));
+			s->waiters--;
+		} else {
+			break;
+		}
+	}
+
+	pthread_mutex_unlock(&(s->lock));
+
+	return;
+}
+
+void VSemPT(sema *s)
+{
+	
+	pthread_mutex_lock(&(s->lock));
+
+	s->value++;
+
+	if(s->value <= 0)
+	{
+		pthread_cond_signal(&(s->wait));
+	}
+
+	pthread_mutex_unlock(&(s->lock));
+}
+
+struct resp_stc
+{
+	int msgid;
+	sema *s;
+	char *resp_string;
+};
+
+typedef struct resp_stc RESP;
+
+pthread_mutex_t RLock;
+RB *RespList;
+
+RESP *MakeRESP(int msgid)
+{
+	RESP *r;
+
+	r = (RESP *)malloc(sizeof(RESP));
+	if(r == NULL) {
+		return(NULL);
+	}
+	memset(r,0,sizeof(RESP));
+	r->s = InitSemPT(0);
+	if(r->s == NULL) {
+		free(r);
+		return(NULL);
+	}
+	r->msgid = msgid;
+	pthread_mutex_lock(&RLock);
+	RBInsertI(RespList,msgid,(Hval)(void *)r);
+	pthread_mutex_unlock(&RLock);
+	return(r);
+}
+
+void FreeRESP(RESP *r)
+{
+	RB *rb;
+	if(r == NULL) {
+		return;
+	}
+	if(r->resp_string != NULL) {
+		free(r->resp_string);
+	}
+	pthread_mutex_lock(&RLock);
+	rb = RBFindI(RespList,r->msgid);
+	if(rb != NULL) {
+		RBDeleteI(RespList,rb);
+	}
+	pthread_mutex_unlock(&RLock);
+	FreeSemPT(r->s);
+	free(r);
+	return;
+}
+
 
 
 void FreeMsgList(char **msgs)
@@ -50,6 +175,52 @@ void FreeMsgList(char **msgs)
 	free(msgs);
 	return;
 }
+
+int ExtractMsgID(char *str)
+{
+        char *curr;
+        char *next;
+        char buf[128];
+        int max = sizeof(buf);
+        int msgid;
+        /*
+         * msgID is third element
+         */
+        curr = strstr(str,"|");
+        if(curr == NULL) {
+                return(-1);
+        }
+        curr++;
+
+        curr = strstr(curr,"|");
+
+        if(curr == NULL) {
+                return(-1);
+        }
+        curr++;
+
+        /*
+         * find the end
+         */
+        next = strstr(curr,"|");
+        if(next == NULL) {
+                /*
+                 * if not found, the consider last part of string the msgid
+                 */
+                msgid = atoi(curr);
+                return(msgid);
+        }
+
+        memset(buf,0,sizeof(buf));
+        if((next - curr + 1) > max) {
+                max = next - curr;
+        }
+        strncpy(buf,curr,max);
+        buf[sizeof(buf)-1] = 0;
+        msgid = atoi(buf);
+        return(msgid);
+}
+
 
 /*
  * mosquitto could pack multiple messages into a single read()
@@ -107,9 +278,9 @@ printf("extracted msg[%d]: %s\n",count,cmsg);
 }
 
 
-extern "C" {
 RB *ServerEndpoints = NULL;
-static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
+
+zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 {
 	static zsock_t *server;
 	zpoller_t *resp_poll;
@@ -119,37 +290,79 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 	RB *rb;
 	char *ep;
 	Hval hv;
+	RB *my_endpoints;
+	double tid = (double)pthread_self();
+	
+	ep = (char *)malloc(strlen(endpoint)+1);
+	if(ep == NULL) {
+		return(NULL);
+	}
+	memset(ep,0,strlen(endpoint)+1);
+	strncpy((char *)ep,endpoint,strlen(endpoint));
 
+
+	pthread_mutex_lock(&ELock);
+	/*
+	 * if threads map isn't initialized, initialize it
+	 */
 	if(ServerEndpoints == NULL) {
-		ServerEndpoints = RBInitS();
+		ServerEndpoints = RBInitD();
 		if(ServerEndpoints == NULL) {
+			pthread_mutex_unlock(&ELock);
 			return(NULL);
 		}
+		my_endpoints = RBInitS();
+		if(my_endpoints == NULL) {
+			pthread_mutex_unlock(&ELock);
+			return(NULL);
+		}
+		RBInsertD(ServerEndpoints,tid,(Hval)((void *)my_endpoints));
+//printf("inserted my_enpoints %p\n",my_endpoints);
 	}
+	/*
+	 * if my RB map of endpoints isn't in the thread map, add it
+	 */
+	rb = RBFindD(ServerEndpoints,tid);
+	if(rb == NULL) {
+		my_endpoints = RBInitS();
+//printf("Thread %f inited my_endpoints\n",tid);
+		if(my_endpoints == NULL) {
+			pthread_mutex_unlock(&ELock);
+			return(NULL);
+		}
+//		hv.v = (void *)my_endpoints;
+		RBInsertD(ServerEndpoints,tid,(Hval)((void *)my_endpoints));
+	} else {
+		my_endpoints = (RB *)rb->value.v;
+//printf("found my_enpoints %p\n",my_endpoints);
+	}
+	pthread_mutex_unlock(&ELock);
 
+	/*
+	 * here my_endpoints is this thread's list of endpoints exclusively
+	 */
 
-	rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest (%f): find endpoint: %s (%d)\n",tid,ep,strlen(ep));
+//printf("tring insert\n");
+	rb = RBFindS(my_endpoints,ep);
 	/*
 	 * get a socket to the server
 	 */
 	if(rb == NULL) {
-		server = zsock_new_req(endpoint);
+		server = zsock_new_req(ep);
 		if (server == NULL)
 		{
 			fprintf(stderr, "WooFMQTTRequest: no server connection to %s\n",
-					endpoint);
+					ep);
 			fflush(stderr);
 			zmsg_destroy(&msg);
 			return (NULL);
 		}
-		ep = (char *)malloc(strlen(endpoint)+1);
-		if(ep == NULL) {
-			return(NULL);
-		}
-		memset(ep,0,strlen(endpoint)+1);
-		strncpy(ep,endpoint,strlen(endpoint));
-		hv.v = (void *)server;
-		RBInsertS(ServerEndpoints,ep,hv);
+//		hv.v = (void *)server;
+//printf("RBInsertS: %p %s %s\n",ep,ep,endpoint);
+//printf("WooFMQTTRequest (%f): insert endpoint: %s (%d) ep: %s (%d)\n",tid,endpoint,strlen(endpoint),
+//		ep,strlen(ep));
+		RBInsertS(my_endpoints,ep,(Hval)(void *)server);
 	} else {
 		server = (zsock_t *)rb->value.v;
 	}
@@ -161,14 +374,16 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 	if (resp_poll == NULL)
 	{
 		fprintf(stderr, "WooFMQTTRequest: no poller for reply from %s\n",
-				endpoint);
+				ep);
 		fflush(stderr);
 		zsock_destroy(&server);
 		zmsg_destroy(&msg);
-		rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest: find endpoint poller: %s (%d)\n",endpoint,strlen(endpoint));
+		rb = RBFindS(my_endpoints,ep);
 		if(rb != NULL) {
-			RBDeleteS(ServerEndpoints,rb);
+			RBDeleteS(my_endpoints,rb);
 		}
+		free(ep);
 		return (NULL);
 	}
 
@@ -184,10 +399,12 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
 		zmsg_destroy(&msg);
-		rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest: find endpoint send: %s (%d)\n",endpoint,strlen(endpoint));
+		rb = RBFindS(my_endpoints,ep);
 		if(rb != NULL) {
-			RBDeleteS(ServerEndpoints,rb);
+			RBDeleteS(my_endpoints,rb);
 		}
+		free(ep);
 		return (NULL);
 	}
 
@@ -205,10 +422,12 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 			fflush(stderr);
 			zsock_destroy(&server);
 			zpoller_destroy(&resp_poll);
-			rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest: find endpoint wait: %s (%d)\n",endpoint,strlen(endpoint));
+			rb = RBFindS(my_endpoints,ep);
 			if(rb != NULL) {
-				RBDeleteS(ServerEndpoints,rb);
+				RBDeleteS(my_endpoints,rb);
 			}
+			free(ep);
 			return (NULL);
 		}
 		//zsock_destroy(&server);
@@ -222,10 +441,12 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
-		rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest: find endpoint expired: %s (%d)\n",endpoint,strlen(endpoint));
+		rb = RBFindS(my_endpoints,ep);
 		if(rb != NULL) {
-			RBDeleteS(ServerEndpoints,rb);
+			RBDeleteS(my_endpoints,rb);
 		}
+		free(ep);
 		return (NULL);
 	}
 	else if (zpoller_terminated(resp_poll))
@@ -235,10 +456,12 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
-		rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest: find endpoint terminated: %s (%d)\n",endpoint,strlen(endpoint));
+		rb = RBFindS(my_endpoints,ep);
 		if(rb != NULL) {
-			RBDeleteS(ServerEndpoints,rb);
+			RBDeleteS(my_endpoints,rb);
 		}
+		free(ep);
 		return (NULL);
 	}
 	else
@@ -248,10 +471,12 @@ static zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 		fflush(stderr);
 		zsock_destroy(&server);
 		zpoller_destroy(&resp_poll);
-		rb = RBFindS(ServerEndpoints,endpoint);
+//printf("WooFMQTTRequest: find endpoint failed: %s (%d)\n",endpoint,strlen(endpoint));
+		rb = RBFindS(my_endpoints,ep);
 		if(rb != NULL) {
-			RBDeleteS(ServerEndpoints,rb);
+			RBDeleteS(my_endpoints,rb);
 		}
+		free(ep);
 		return (NULL);
 	}
 }
@@ -396,8 +621,10 @@ printf("WooFProcessPut: called on %s with size %d\n",woof_name,copy_size);
 		/*
 		 * use msgid to get back specific response
 		 */
+#ifdef FP
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+				msgid,
 				Timeout,
 				Broker,
 				Device_name_space,
@@ -413,6 +640,18 @@ printf("sub_string: %s\n",sub_string);
 			seq_no = -1;
 			goto out;
 		}
+#else
+		RESP *rs;
+		rs = MakeRESP(msgid);
+		if(rs == NULL) {
+			fprintf(stderr,"WooFProcessPut: open for %s failed\n",sub_string);
+			free(element);
+			free(element_string);
+			seq_no = -1;
+			goto out;
+		}
+		
+#endif
 		/*
 		 * create the mqtt message to put to the device
 		 */
@@ -420,7 +659,8 @@ printf("sub_string: %s\n",sub_string);
 		if(hand_name[0] == 0) {
 			strncpy(hand_name,"NULL",sizeof(hand_name));
 		} 
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
+#ifdef FP
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
 				Broker,
 				Device_name_space, 
 				User_name,
@@ -432,10 +672,6 @@ printf("sub_string: %s\n",sub_string);
 				element_string);
 printf("WooFProcessPut: sending %s to device\n",pub_string);
 		system(pub_string);
-
-		free(element);
-		free(element_string);
-
 		memset(resp_string,0,sizeof(resp_string));
 		s = read(fileno(fd),resp_string,sizeof(resp_string));
 		if(s <= 0) {
@@ -445,7 +681,26 @@ printf("WooFProcessPut: sending %s to device\n",pub_string);
 			goto out;
 		}
 		pclose(fd);
-printf("WooFProcessPut resp string: %s\n",resp_string);
+#else
+		sprintf(pub_string,"%s|%d|%d|%s|%s\n",
+				woof_name,
+				WOOF_MQTT_PUT,
+				msgid,
+				hand_name,
+				element_string);
+		DeviceSend(pub_string);
+printf("WooFProcessPut: sending %s to device\n",pub_string);
+printf("WooFProcessPut: calling P on %d\n",msgid);
+		PSemPT(rs->s);
+printf("WooFProcessPut: awake on %d\n",msgid);
+		strncpy(resp_string,rs->resp_string,sizeof(resp_string));
+		FreeRESP(rs);
+#endif
+
+		free(element);
+		free(element_string);
+
+printf("WooFProcessPut resp string FROM DEVICE: %s\n",resp_string);
 		/*
 		 * resp should be 
 		 * woof_name|WOOF_MQTT_PUT_RESP|msgid|seqno
@@ -510,7 +765,6 @@ out:
 	return;
 }
 
-} // extern C
 void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 {
 	zmsg_t *r_msg;
@@ -572,8 +826,10 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	/*
 	 * use msgid to get back specific response
 	 */
+#ifdef FP
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+			msgid,
 			Timeout,
 			Broker,
 			Device_name_space,
@@ -587,11 +843,20 @@ printf("sub_string: %s\n",sub_string);
 		el_size = -1;
 		goto out;
 	}
+#else
+	RESP *rs;
+	rs = MakeRESP(msgid);
+	if(rs == NULL) {
+		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
+		el_size = -1;
+	}
+#endif
 		/*
 		 * create the mqtt message to put to the device
 		 */
 	memset(pub_string,0,sizeof(pub_string));
-	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+#ifdef FP
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
 		Broker,
 		Device_name_space, 
 		User_name,
@@ -610,7 +875,21 @@ printf("WooFProcessGetElSize: sending %s to device\n",pub_string);
 		goto out;
 	}
 	pclose(fd);
-printf("WooFProcessGetElSize received string: %s\n",resp_string);
+#else
+	sprintf(pub_string,"%s|%d|%d\n",
+		woof_name,
+		WOOF_MQTT_GET_EL_SIZE,
+		msgid);
+	DeviceSend(pub_string);
+printf("WooFProcessGetElSize: sending %s to device\n",pub_string);
+printf("WooFProcessGetElSize: calling P on %d\n",msgid);
+	PSemPT(rs->s);
+printf("WooFProcessGetElSize: awake on %d\n",msgid);
+	strncpy(resp_string,rs->resp_string,sizeof(resp_string));
+	FreeRESP(rs);
+#endif
+
+printf("WooFProcessGetElSize resp string FROM DEVICE: %s\n",resp_string);
 	/*
 	 * resp should be 
 	 * woof_name|WOOF_MQTT_GET_EL_SIZE_RESP|msgid|size
@@ -741,8 +1020,10 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	/*
 	 * use msgid to get back specific response
 	 */
+#ifdef FP
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+			msgid,
 			Timeout,
 			Broker,
 			Device_name_space,
@@ -756,11 +1037,21 @@ printf("sub_string: %s\n",sub_string);
 		latest_seq_no = -1;
 		goto out;
 	}
+#else
+	RESP *rs;
+	rs = MakeRESP(msgid);
+	if(rs == NULL) {
+		fprintf(stderr,"WooFProcessGetElSize: open for %s failed\n",sub_string);
+		latest_seq_no = -1;
+		goto out;
+	}
+#endif
 		/*
 		 * create the mqtt message to put to the device
 		 */
 	memset(pub_string,0,sizeof(pub_string));
-	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+#ifdef FP
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
 		Broker,
 		Device_name_space, 
 		User_name,
@@ -779,7 +1070,20 @@ printf("WooFProcessGetLatestSeqno: sending %s to device\n",pub_string);
 			goto out;
 	}
 	pclose(fd);
-printf("WooFProcessGetLatestSeqno resp string: %s\n",resp_string);
+#else
+	sprintf(pub_string,"%s|%d|%d\n",
+		woof_name,
+		WOOF_MQTT_GET_LATEST_SEQNO,
+		msgid);
+	DeviceSend(pub_string);
+printf("WooFProcessGetLatestSeqno: sending %s to device\n",pub_string);
+printf("WooFProcessGetLatestSeqno: calling P on %d\n",msgid);
+	PSemPT(rs->s);
+printf("WooFProcessGetLatestSeqno: awake on %d\n",msgid);
+	strncpy(resp_string,rs->resp_string,sizeof(resp_string));
+	FreeRESP(rs);
+#endif
+printf("WooFProcessGetLatestSeqno resp string FROM DEVICE: %s\n",resp_string);
 	/*
 	 * resp should be 
 	 * woof_name|WOOF_MQTT_GET_LATEST_SEQNO_RESP|msgid|latest_seqno
@@ -862,7 +1166,7 @@ void WooFProcessGet(zmsg_t *req_msg, zsock_t *receiver)
 	int err;
 	char sub_string[3*1024];
 	char pub_string[3*1024];
-	char resp_string[17*1024];
+	char resp_string[2*1024];
 	FILE *fd;
 	int msgid;
 	int s;
@@ -925,8 +1229,10 @@ printf("WooFProcessGet: called on %s for seqno %lu\n",woof_name,seq_no);
 		 * create sub for response
 		 */
 		msgid = rand();
+#ifdef FP
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+				msgid,
 				Timeout,
 				Broker,
 				Device_name_space,
@@ -941,12 +1247,23 @@ printf("sub_string: %s\n",sub_string);
 			el_size = 0;
 			goto out;
 		}
+#else
+		RESP *rs;
+		rs = MakeRESP(msgid);
+		if(rs == NULL) {
+			fprintf(stderr,"WooFProcessGet: open for %s failed\n",sub_string);
+			element = NULL;
+			el_size = 0;
+			goto out;
+		}
+#endif
 
 		/*
 		 * request the Get
 		 */
 		memset(pub_string,0,sizeof(pub_string));
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
+#ifdef FP
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
 				Broker,
 				Device_name_space, 
 				User_name,
@@ -959,7 +1276,6 @@ printf("sub_string: %s\n",sub_string);
 printf("WooFProcessGet: send %s to device\n",pub_string);
 //printf("pub_string: %s\n",pub_string);
 		system(pub_string);
-
 		/*
 		 * read the response
 		 */
@@ -973,7 +1289,22 @@ printf("WooFProcessGet: send %s to device\n",pub_string);
 			goto out;
 		}
 		pclose(fd);
-printf("WooFProcessGet resp_string: %s\n",resp_string);
+#else
+		sprintf(pub_string,"%s|%d|%d|%d\n",
+				woof_name,
+				WOOF_MQTT_GET,
+				msgid,
+				(int)seq_no);
+		DeviceSend(pub_string);
+printf("WooFProcessGetLatest: calling P on %d\n",msgid);
+		PSemPT(rs->s);
+printf("WooFProcessGetLatest: awake on %d\n",msgid);
+		strncpy(resp_string,rs->resp_string,sizeof(resp_string));
+		FreeRESP(rs);
+printf("WooFProcessGet: send %s to device\n",pub_string);
+#endif
+
+printf("WooFProcessGet resp_string FROM DEVICE: %s\n",resp_string);
 		/*
 		 * format is
 		 * woof_name | code | msgid | size | ASCII contents
@@ -1105,6 +1436,7 @@ out:
 	return;
 }
 
+#define DEBUG
 void *WooFMsgThread(void *arg)
 {
 	zsock_t *receiver;
@@ -1200,8 +1532,9 @@ goto again;
 } 
 
 
+#undef DEBUG
 
-int WooFMsgServer(char *wnamespace)
+int WooFMsgServerMQTT(const char *wnamespace)
 {
 
 	int port;
@@ -1271,6 +1604,7 @@ int WooFMsgServer(char *wnamespace)
 	 * create a single thread for now.  the dealer pattern can handle multiple threads, however
 	 * so this can be increased if need be
 	 */
+	pthread_mutex_init(&ELock,NULL); // init global lock for thread map
 	for (i = 0; i < WOOF_MSG_THREADS; i++)
 	{
 		err = pthread_create(&tids[i], NULL, WooFMsgThread, NULL);
@@ -1529,7 +1863,7 @@ unsigned long WooFMQTTMsgGetElSize(char *woof_name)
 }
 
 
-int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned long seq_no)
+int WooFMsgGetMQTT(const char *woof_name, void *element, unsigned long el_size, unsigned long seq_no)
 {
 	char endpoint[255];
 	char wnamespace[2048];
@@ -1769,6 +2103,8 @@ int WooFMsgGet(char *woof_name, void *element, unsigned long el_size, unsigned l
  * assumes that mqtt-sn gateway is transparent (e.g. message is coming from
  * mosquitto)
  */
+
+
 void *MQTTDeviceOutputThread(void *arg)
 {
 	char *device_name; /* copy in device name */
@@ -1778,6 +2114,8 @@ void *MQTTDeviceOutputThread(void *arg)
 	FILE *fd;
 	char *mqtt_msg;
 	char *resp_string;
+	char *mstring;
+	int msgid;
 	WMQTT *wm;
 	int size;
 	unsigned long seqno;
@@ -1787,6 +2125,8 @@ void *MQTTDeviceOutputThread(void *arg)
 	int err;
 	char **msgs;
 	int i;
+	RB *rb;
+	RESP *rs;
 
 	len = strlen((char *)arg) + 1;
 	device_name = (char *)malloc(len);
@@ -1811,11 +2151,12 @@ void *MQTTDeviceOutputThread(void *arg)
 	memset(device_name,0,len);
 	strncpy(device_name,(char *)arg,len);
 
+
 	/*
 	 * no timeout here
 	 */
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -q 1 -h %s -t %s.output -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -q 0 -h %s -t %s.output -u \'%s\' -P \'%s\'",
 			Broker,
 			device_name,
 			User_name,
@@ -1834,141 +2175,180 @@ printf("sub_string: %s\n",sub_string);
 			i = 0;
 			while(msgs[i] != NULL) {
 printf("input msg from DEVICE: %s\n",msgs[i]);
-			wm = ParseMQTTString(msgs[i]);
-			if(wm == NULL) {
-				fprintf(stderr,"MQTTDeviceOutputThread: couldn't parse %s\n",
-					msgs[i]);
-				i++;
-				continue;
-			}
-		/*
-		 * main processing dispatch
-		 */
-			memset(resp_string,0,WOOF_MQTT_MAX_SIZE);
-			switch(wm->command) {
-			case WOOF_MQTT_PUT:
-				seqno = WooFPut(wm->woof_name,
-						wm->handler_name,
-						wm->element);
-//printf("woof: %s, handler: %s\n",wm->woof_name,wm->handler_name);
-				sprintf(resp_string,"%s|%d|%d|%d",
-						wm->woof_name,
-						WOOF_MQTT_PUT_RESP,
-						wm->msgid,
-						(int)seqno);
-				break;
-			case WOOF_MQTT_GET_EL_SIZE:
-				lsize = WooFMQTTMsgGetElSize(wm->woof_name);
-				sprintf(resp_string,"%s|%d|%d|%d",
-						wm->woof_name,
-						WOOF_MQTT_GET_EL_SIZE_RESP,
-						wm->msgid,
-						(int)lsize);
-				break;
-			case WOOF_MQTT_GET_LATEST_SEQNO:
-				seqno = WooFGetLatestSeqno(wm->woof_name);
-				sprintf(resp_string,"%s|%d|%d|%d",
-						wm->woof_name,
-						WOOF_MQTT_GET_LATEST_SEQNO_RESP,
-						wm->msgid,
-						(int)seqno);
-				break;
-			case WOOF_MQTT_GET:
-				lsize = WooFMQTTMsgGetElSize(wm->woof_name);
-				if(lsize == (unsigned long)-1) {
-					/*
-					 * use 0 length to indicate err
-					 */
-					sprintf(resp_string,"%s|%d|%d|%d",
-                                                wm->woof_name,
-                                                WOOF_MQTT_GET_RESP,
-						wm->msgid,
-                                                (int)0);
-					break;
-				}
-				element_buff = (void *)malloc(lsize);
-				if(element_buff == NULL) {
-					sprintf(resp_string,"%s|%d|%d|%d",
-                                                wm->woof_name,
-                                                WOOF_MQTT_GET_RESP,
-						wm->msgid,
-                                                (int)0);
-					break;
-				}
+				msgid = ExtractMsgID(msgs[i]);
+				pthread_mutex_lock(&RLock);
+				rb = RBFindI(RespList,msgid);
+				if(rb != NULL) {
+printf("FOUND msg id %d\n",msgid);
+					rs = (RESP *)rb->value.v;
+					mstring = (char *)malloc(strlen(msgs[i])+1);
+					if(mstring == NULL) {
+						RBDeleteI(RespList,rb);
+						pthread_mutex_unlock(&RLock);
+						FreeRESP(rs);
+						i++;
+						continue;
+					}
+					memset(mstring,0,strlen(msgs[i])+1);
+					strncpy(mstring,msgs[i],strlen(msgs[i]));
+					rs->resp_string = mstring;
+					pthread_mutex_unlock(&RLock);
+					VSemPT(rs->s);
+					i++;
+					continue;
+				} else {
+					pthread_mutex_unlock(&RLock);
+printf("ORIGIN msg id %d\n",msgid);
+					wm = ParseMQTTString(msgs[i]);
+					if(wm == NULL) {
+						fprintf(stderr,"MQTTDeviceOutputThread: couldn't parse %s\n",
+							msgs[i]);
+						i++;
+						continue;
+					}
 				/*
-				 * calling MsgGet instead of Get saves a call to GetElSize
+				 * main processing dispatch
 				 */
-				err = WooFMsgGet(wm->woof_name,
-						element_buff,
-						lsize,
-						wm->seqno);
-				if(err < 0) {
-					free(element_buff);
-					/*
-					 * use 0 length to indicate err
-					 */
-					sprintf(resp_string,"%s|%d|%d|%d",
-                                                wm->woof_name,
-                                                WOOF_MQTT_GET_RESP,
-						wm->msgid,
-                                                (int)0);
-					break;
-				}
-				element_string = (char *)malloc(2*lsize+1);
-				if(element_string == NULL) {
-					free(element_buff);
-					sprintf(resp_string,"%s|%d|%d|%d",
-                                                wm->woof_name,
-                                                WOOF_MQTT_GET_RESP,
-						wm->msgid,
-                                                (int)0);
-					break;
-				}
-				memset(element_string,0,(lsize*2+1));
-				err = ConvertBinarytoASCII(element_string,element_buff,lsize);
-				if(err <= 0) {
-					free(element_buff);
-					free(element_string);
-					sprintf(resp_string,"%s|%d|%d|%d",
-                                                wm->woof_name,
-                                                WOOF_MQTT_GET_RESP,
-						wm->msgid,
-                                                (int)0);
-					break;
-				}
-				sprintf(resp_string,"%s|%d|%d|%d|%s",
-                                                wm->woof_name,
-                                                WOOF_MQTT_GET_RESP,
-						wm->msgid,
-                                                (int)lsize,
-						element_string);
-				free(element_string);
-				free(element_buff);
-				break;
-			default:
-				sprintf(resp_string,"%s|%d|%d|%d",
-						wm->woof_name,
-						WOOF_MQTT_BAD_RESP,
-						wm->msgid,
-						-1);
-				break;
+					memset(resp_string,0,WOOF_MQTT_MAX_SIZE);
+					switch(wm->command) {
+					case WOOF_MQTT_PUT:
+						seqno = WooFPut(wm->woof_name,
+								wm->handler_name,
+								wm->element);
+		//printf("woof: %s, handler: %s\n",wm->woof_name,wm->handler_name);
+						sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_PUT_RESP,
+								wm->msgid,
+								(int)seqno);
+						break;
+					case WOOF_MQTT_GET_EL_SIZE:
+						//lsize = WooFMQTTMsgGetElSize(wm->woof_name);
+						lsize = WooFMsgGetElSize(wm->woof_name);
+						sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_EL_SIZE_RESP,
+								wm->msgid,
+								(int)lsize);
+						break;
+					case WOOF_MQTT_GET_LATEST_SEQNO:
+						seqno = WooFGetLatestSeqno(wm->woof_name);
+						sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_LATEST_SEQNO_RESP,
+								wm->msgid,
+								(int)seqno);
+						break;
+					case WOOF_MQTT_GET:
+						//lsize = WooFMQTTMsgGetElSize(wm->woof_name);
+						lsize = WooFMsgGetElSize(wm->woof_name);
+						if(lsize == (unsigned long)-1) {
+							/*
+							 * use 0 length to indicate err
+							 */
+							sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_RESP,
+								wm->msgid,
+								(int)0);
+							break;
+						}
+						element_buff = (void *)malloc(lsize);
+						if(element_buff == NULL) {
+							sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_RESP,
+								wm->msgid,
+								(int)0);
+							break;
+						}
+						/*
+						 * calling MsgGet instead of Get saves a call to GetElSize
+						err = WooFMsgGetMQTT(wm->woof_name,
+								element_buff,
+								lsize,
+								wm->seqno);
+						*/
+						err = WooFGet(wm->woof_name,
+								element_buff,
+								wm->seqno);
+						if(err < 0) {
+							free(element_buff);
+							/*
+							 * use 0 length to indicate err
+							 */
+							sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_RESP,
+								wm->msgid,
+								(int)0);
+							break;
+						}
+						element_string = (char *)malloc(2*lsize+1);
+						if(element_string == NULL) {
+							free(element_buff);
+							sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_RESP,
+								wm->msgid,
+								(int)0);
+							break;
+						}
+						memset(element_string,0,(lsize*2+1));
+						err = ConvertBinarytoASCII(element_string,element_buff,lsize);
+						if(err <= 0) {
+							free(element_buff);
+							free(element_string);
+							sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_GET_RESP,
+								wm->msgid,
+								(int)0);
+							break;
+						}
+						sprintf(resp_string,"%s|%d|%d|%d|%s",
+								wm->woof_name,
+								WOOF_MQTT_GET_RESP,
+								wm->msgid,
+								(int)lsize,
+								element_string);
+						free(element_string);
+						free(element_buff);
+						break;
+					default:
+						sprintf(resp_string,"%s|%d|%d|%d",
+								wm->woof_name,
+								WOOF_MQTT_BAD_RESP,
+								wm->msgid,
+								-1);
+						break;
+					}
+
+		//printf("output msg response to DEVICE: %s\n",resp_string);
+				/*
+				 * send the respond back on the input channel
+				 */
+					memset(pub_string,0,sizeof(pub_string));
+#ifdef FP
+					sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
+						Broker,
+						device_name, 
+						User_name,
+						Password,
+						resp_string);
+		printf("output msg pub TO DEVICE %s\n",pub_string);
+					system(pub_string);
+#else
+					sprintf(pub_string,"%s\n",
+						resp_string);
+					DeviceSend(pub_string);
+		printf("output msg pub TO DEVICE %s\n",pub_string);
+
+#endif
+					FreeWMQTT(wm);
+					wm = NULL;
+					i++;
 			}
-//printf("output msg response to DEVICE: %s\n",resp_string);
-		/*
-	 	 * send the respond back on the input channel
-	 	 */
-			memset(pub_string,0,sizeof(pub_string));
-			sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
-				Broker,
-				device_name, 
-				User_name,
-				Password,
-				resp_string);
-printf("output msg pub TO DEVICE %s\n",pub_string);
-			system(pub_string);
-			FreeWMQTT(wm);
-			wm = NULL;
-			i++;
 		}
 		FreeMsgList(msgs);
 	}
@@ -1983,6 +2363,17 @@ printf("output msg pub TO DEVICE %s\n",pub_string);
 	pthread_exit(NULL);
 }
 
+
+FILE *InputPD; // for message going to the device
+void DeviceSend(char *s)
+{
+	int size;
+	size = write(fileno(InputPD),s,strlen(s));
+	if(size != strlen(s)) {
+		printf("DeviceSend failed for %s\n",s);
+	}
+	return;
+}
 
 
 
@@ -2000,6 +2391,7 @@ int main(int argc, char **argv)
 	int err;
 	char *cred;
 	char *tmp;
+	char pub_string[128];
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -2080,16 +2472,44 @@ int main(int argc, char **argv)
 	}
 
 
+	/*
+	 * for responses
+	 */
+	RespList = RBInitI();
+	if(RespList == NULL) {
+		printf("no space for resp list\n");
+		pthread_exit(NULL);
+	}
+	pthread_mutex_init(&RLock,NULL);
 
+	/*
+	 * create thread that subscribes to device output
+	 */
 	err = pthread_create(&sub_thread,NULL,MQTTDeviceOutputThread,(void *)Device_name_space);
 	if(err < 0) {
 		printf("woofc-mqtt-gateway: couldn't create subscriber thread\n");
 		exit(1);
 	}
+
+	/*
+	 * create connection to broker for device input pubs
+	 */
+	memset(pub_string,0, sizeof(pub_string));
+	sprintf(pub_string,"/usr/bin/mosquitto_pub --stdin-line -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\'",
+                                Broker,
+                                Device_name_space,
+                                User_name,
+                                Password);
+	InputPD = popen(pub_string,"w");
+	if(InputPD == NULL) {
+		printf("woofc-mqq-gateway: could not contact broker with %s\n",pub_string);
+		exit(1);
+	}
+
 	/*
 	 * woofmsgsserver blocks forever
 	 */
-	err = WooFMsgServer(Device_name_space);
+	err = WooFMsgServerMQTT(Device_name_space);
 	if(err < 0) {
 		printf("woofc-mqtt-gateway: couldn't create zmq msg server\n");
 		exit(1);

@@ -40,6 +40,37 @@
 
 #include "redblack.h"
 
+int Strcmp(char *s1, char *s2)
+{
+	int i;
+	char *c1;
+	char *c2;
+	c1 = s1;
+	c2 = s2;
+//printf("Strcmp: s1: %s\n",s1);
+//printf("Strcmp: s2: %s\n",s2);
+	if((s1 == NULL) && (s2 != NULL)) {
+		return(-1);
+	} else if ((s2 == NULL) && (s1 != NULL)) {
+		return(1);
+	}
+	else if((s1 == NULL) && (s2 == NULL)) {
+		return(0);
+	}
+	while((*c1 != 0) && (*c2 != 0)) {
+		if(*c1 != *c2) {
+			break;
+		}
+		c1++;
+		c2++;
+	}
+	if((*c1 == 0) && (*c2 == 0)) {
+		return(0);
+	} else {
+		return(*(unsigned char *)s1 - *(unsigned char *)s2);
+	}
+}
+
 int CompareKeyType(KEY_t op1, KEY_t op2)
 {
 	int i1, i2;
@@ -145,6 +176,7 @@ RB *RBTreeInit(unsigned char type)
 	RB *node;
 
 	node = RBInit();
+	memset(node,0,sizeof(node));
 	node->color = RB_GREEN; /* need this if the root rotates */
 	node->key.type = type;
 

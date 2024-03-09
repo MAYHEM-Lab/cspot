@@ -992,7 +992,7 @@ int WooFGet(const char* wf_name, void* element, unsigned long seq_no) {
     if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
         el_size = WooFMsgGetElSize(wf_name);
         if (el_size != (unsigned long)-1) {
-            WooFMsgPut;
+//            WooFMsgPut;
             err = WooFMsgGet(wf_name, element, el_size, seq_no);
             return (err);
         } else {
