@@ -4,6 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+#include <sys/time.h>
 #include <time.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
@@ -35,6 +36,17 @@ struct timespec ardino_delay = {1,0}; /* 1/3 second for lwip tcp memory leak */
 
 #define DEFAULT_MQTT_TIMEOUT (3)
 
+
+double GetTime()
+{
+	struct timeval tm;
+	double ts;
+
+	gettimeofday(&tm,NULL);
+	ts = (double)tm.tv_sec + (double)tm.tv_usec/1000000.0;
+	return(ts);
+}
+	
 
 struct sem
 {
@@ -109,8 +121,10 @@ void VSemPT(sema *s)
 struct resp_stc
 {
 	int msgid;
+	double time;
 	sema *s;
 	char *resp_string;
+	int abort;
 };
 
 typedef struct resp_stc RESP;
@@ -133,7 +147,9 @@ RESP *MakeRESP(int msgid)
 		return(NULL);
 	}
 	r->msgid = msgid;
+	r->abort = 0;
 	pthread_mutex_lock(&RLock);
+	r->time = GetTime();
 	RBInsertI(RespList,msgid,(Hval)(void *)r);
 	pthread_mutex_unlock(&RLock);
 	return(r);
@@ -158,6 +174,32 @@ void FreeRESP(RESP *r)
 	free(r);
 	return;
 }
+
+void *RespTimeoutThread(void *arg)
+{
+	int *timeout = (int *)arg;
+	RB *rb;
+	RESP *r;
+	double ts;
+
+	while(1) {
+		pthread_mutex_lock(&RLock);
+		RB_FORWARD(RespList,rb) {
+			r = (RESP *)rb->value.v;
+			ts = GetTime();
+			if((ts - r->time) > *timeout) {
+				r->abort = 1;
+				if(r->s != NULL) {
+					VSemPT(r->s);
+				}
+			}
+		}
+		pthread_mutex_unlock(&RLock);
+		sleep(*timeout);
+	}
+	pthread_exit(NULL);
+}
+			
 
 
 
@@ -693,6 +735,13 @@ printf("WooFProcessPut: sending %s to device\n",pub_string);
 printf("WooFProcessPut: calling P on %d\n",msgid);
 		PSemPT(rs->s);
 printf("WooFProcessPut: awake on %d\n",msgid);
+		if(rs->abort == 1) {
+			printf("WooFProcessPut: response to %s timed out\n",pub_string);
+			FreeRESP(rs);
+			free(element);
+			free(element_string);
+			goto out;
+		}
 		strncpy(resp_string,rs->resp_string,sizeof(resp_string));
 		FreeRESP(rs);
 #endif
@@ -884,6 +933,13 @@ printf("WooFProcessGetElSize: sending %s to device\n",pub_string);
 printf("WooFProcessGetElSize: sending %s to device\n",pub_string);
 printf("WooFProcessGetElSize: calling P on %d\n",msgid);
 	PSemPT(rs->s);
+	if(rs->abort == 1) {
+		printf("WooFProcessGetElSize: response timed out for %s\n",pub_string);
+		FreeRESP(rs);
+		el_size = -1;
+		goto out;
+	}
+
 printf("WooFProcessGetElSize: awake on %d\n",msgid);
 	strncpy(resp_string,rs->resp_string,sizeof(resp_string));
 	FreeRESP(rs);
@@ -1079,6 +1135,12 @@ printf("WooFProcessGetLatestSeqno: sending %s to device\n",pub_string);
 printf("WooFProcessGetLatestSeqno: sending %s to device\n",pub_string);
 printf("WooFProcessGetLatestSeqno: calling P on %d\n",msgid);
 	PSemPT(rs->s);
+	if(rs->abort == 1) {
+		printf("WooFProcessGetLatestSeqno: response timed out for %s\n",pub_string);
+		FreeRESP(rs);
+		latest_seq_no = -1;
+		goto out;
+	}
 printf("WooFProcessGetLatestSeqno: awake on %d\n",msgid);
 	strncpy(resp_string,rs->resp_string,sizeof(resp_string));
 	FreeRESP(rs);
@@ -1296,9 +1358,16 @@ printf("WooFProcessGet: send %s to device\n",pub_string);
 				msgid,
 				(int)seq_no);
 		DeviceSend(pub_string);
-printf("WooFProcessGetLatest: calling P on %d\n",msgid);
+printf("WooFProcessGet: calling P on %d\n",msgid);
 		PSemPT(rs->s);
-printf("WooFProcessGetLatest: awake on %d\n",msgid);
+		if(rs->abort == 1) {
+			printf("WooFProcessGet response timed out for %s\n",pub_string);
+			FreeRESP(rs);
+			element = NULL;
+			el_size = 0;
+			goto out;
+		}
+printf("WooFProcessGet: awake on %d\n",msgid);
 		strncpy(resp_string,rs->resp_string,sizeof(resp_string));
 		FreeRESP(rs);
 printf("WooFProcessGet: send %s to device\n",pub_string);
@@ -2388,6 +2457,7 @@ int main(int argc, char **argv)
 {
 	int c;
 	pthread_t sub_thread;
+	pthread_t resp_to_thread;
 	int err;
 	char *cred;
 	char *tmp;
@@ -2490,6 +2560,13 @@ int main(int argc, char **argv)
 		printf("woofc-mqtt-gateway: couldn't create subscriber thread\n");
 		exit(1);
 	}
+
+	err = pthread_create(&resp_to_thread,NULL,RespTimeoutThread,(void *)&Timeout);
+	if(err < 0) {
+		printf("woofc-mqtt-gateway: couldn't create RespTimeoutThread thread\n");
+		exit(1);
+	}
+	pthread_detach(resp_to_thread);
 
 	/*
 	 * create connection to broker for device input pubs

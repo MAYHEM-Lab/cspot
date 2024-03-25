@@ -39,9 +39,9 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 /*
  * 90 second timeout for slow clients
  */
-#define WOOF_MSG_REQ_TIMEOUT (90000)
+//#define WOOF_MSG_REQ_TIMEOUT (90000)
 //#define WOOF_MSG_REQ_TIMEOUT (500)
-//#define WOOF_MSG_REQ_TIMEOUT (10000)
+#define WOOF_MSG_REQ_TIMEOUT (5000)
 
 #define WOOF_MSG_THREADS (15)
 
