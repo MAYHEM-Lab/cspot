@@ -36,6 +36,7 @@ public:
 private:
     ZMsgPtr ServerRequest(const char* endpoint, ZMsgPtr msg_arg);
     per_endpoint_data* get_local_socket_for(const std::string& endpoint);
+    per_endpoint_data* reset_local_socket_for(const std::string& endpoint);
 
     using AddrSockMapT = std::unordered_map<std::string, per_endpoint_data>;
 

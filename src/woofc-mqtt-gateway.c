@@ -19,6 +19,7 @@ pthread_mutex_t ELock; // for endpoint cache
 #include "woofc-mqtt.h"
 
 #define WOOF_MQTT_MSG_THREADS (20)
+#define WOOF_MQTT_THREADS (20)
 #define WOOF_MQTT_MSG_REQ_TIMEOUT (10000)
 
 void DeviceSend(char *s);
@@ -34,7 +35,7 @@ int Timeout;
 struct timespec ardino_delay = {1,0}; /* 1/3 second for lwip tcp memory leak */
 //#define PAUSE nanosleep(&ardino_delay,NULL)
 
-#define DEFAULT_MQTT_TIMEOUT (3)
+#define DEFAULT_MQTT_TIMEOUT (5)
 
 
 double GetTime()
@@ -187,7 +188,7 @@ void *RespTimeoutThread(void *arg)
 		RB_FORWARD(RespList,rb) {
 			r = (RESP *)rb->value.v;
 			ts = GetTime();
-			if((ts - r->time) > *timeout) {
+			if((ts - r->time) > (*timeout/4)) {
 				r->abort = 1;
 				if(r->s != NULL) {
 					VSemPT(r->s);
@@ -195,7 +196,7 @@ void *RespTimeoutThread(void *arg)
 			}
 		}
 		pthread_mutex_unlock(&RLock);
-		sleep(*timeout);
+		sleep(*timeout/4);
 	}
 	pthread_exit(NULL);
 }
@@ -665,7 +666,7 @@ printf("WooFProcessPut: called on %s with size %d\n",woof_name,copy_size);
 		 */
 #ifdef FP
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
 				msgid,
 				Timeout,
 				Broker,
@@ -702,7 +703,7 @@ printf("sub_string: %s\n",sub_string);
 			strncpy(hand_name,"NULL",sizeof(hand_name));
 		} 
 #ifdef FP
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%s|%s\'",
 				Broker,
 				Device_name_space, 
 				User_name,
@@ -877,7 +878,7 @@ void WooFProcessGetElSize(zmsg_t *req_msg, zsock_t *receiver)
 	 */
 #ifdef FP
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
 			msgid,
 			Timeout,
 			Broker,
@@ -905,7 +906,7 @@ printf("sub_string: %s\n",sub_string);
 		 */
 	memset(pub_string,0,sizeof(pub_string));
 #ifdef FP
-	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
 		Broker,
 		Device_name_space, 
 		User_name,
@@ -1078,7 +1079,7 @@ void WooFProcessGetLatestSeqno(zmsg_t *req_msg, zsock_t *receiver)
 	 */
 #ifdef FP
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
 			msgid,
 			Timeout,
 			Broker,
@@ -1107,7 +1108,7 @@ printf("sub_string: %s\n",sub_string);
 		 */
 	memset(pub_string,0,sizeof(pub_string));
 #ifdef FP
-	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
+	sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d\'",
 		Broker,
 		Device_name_space, 
 		User_name,
@@ -1293,7 +1294,7 @@ printf("WooFProcessGet: called on %s for seqno %lu\n",woof_name,seq_no);
 		msgid = rand();
 #ifdef FP
 		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 0 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
+		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
 				msgid,
 				Timeout,
 				Broker,
@@ -1325,7 +1326,7 @@ printf("sub_string: %s\n",sub_string);
 		 */
 		memset(pub_string,0,sizeof(pub_string));
 #ifdef FP
-		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
+		sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s|%d|%d|%d\'",
 				Broker,
 				Device_name_space, 
 				User_name,
@@ -1610,7 +1611,7 @@ int WooFMsgServerMQTT(const char *wnamespace)
 	zactor_t *proxy;
 	int err;
 	char endpoint[255];
-	pthread_t tids[WOOF_MSG_THREADS];
+	pthread_t tids[WOOF_MQTT_THREADS];
 	int i;
 
 
@@ -1674,7 +1675,7 @@ int WooFMsgServerMQTT(const char *wnamespace)
 	 * so this can be increased if need be
 	 */
 	pthread_mutex_init(&ELock,NULL); // init global lock for thread map
-	for (i = 0; i < WOOF_MSG_THREADS; i++)
+	for (i = 0; i < WOOF_MQTT_THREADS; i++)
 	{
 		err = pthread_create(&tids[i], NULL, WooFMsgThread, NULL);
 		if (err < 0)
@@ -1688,7 +1689,7 @@ int WooFMsgServerMQTT(const char *wnamespace)
 	 * right now, there is no way for these threads to exit so the msg server will block
 	 * indefinitely in this join
 	 */
-	for (i = 0; i < WOOF_MSG_THREADS; i++)
+	for (i = 0; i < WOOF_MQTT_THREADS; i++)
 	{
 		pthread_join(tids[i], NULL);
 	}
@@ -2225,7 +2226,7 @@ void *MQTTDeviceOutputThread(void *arg)
 	 * no timeout here
 	 */
 	memset(sub_string,0,sizeof(sub_string));
-	sprintf(sub_string,"/usr/bin/mosquitto_sub -q 0 -h %s -t %s.output -u \'%s\' -P \'%s\'",
+	sprintf(sub_string,"/usr/bin/mosquitto_sub -q 1 -h %s -t %s.output -u \'%s\' -P \'%s\'",
 			Broker,
 			device_name,
 			User_name,
@@ -2399,7 +2400,7 @@ printf("ORIGIN msg id %d\n",msgid);
 				 */
 					memset(pub_string,0,sizeof(pub_string));
 #ifdef FP
-					sprintf(pub_string,"/usr/bin/mosquitto_pub -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
+					sprintf(pub_string,"/usr/bin/mosquitto_pub -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\' -m \'%s\'",
 						Broker,
 						device_name, 
 						User_name,
@@ -2572,7 +2573,7 @@ int main(int argc, char **argv)
 	 * create connection to broker for device input pubs
 	 */
 	memset(pub_string,0, sizeof(pub_string));
-	sprintf(pub_string,"/usr/bin/mosquitto_pub --stdin-line -q 0 -h %s -t %s.input -u \'%s\' -P \'%s\'",
+	sprintf(pub_string,"/usr/bin/mosquitto_pub --stdin-line -q 1 -h %s -t %s.input -u \'%s\' -P \'%s\'",
                                 Broker,
                                 Device_name_space,
                                 User_name,
