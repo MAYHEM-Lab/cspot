@@ -21,6 +21,7 @@ wget https://github.com/Kitware/CMake/releases/download/v3.19.1/cmake-3.19.1-Lin
 chmod +x cmake-3.19.1-Linux-x86_64.sh 
 ./cmake-3.19.1-Linux-x86_64.sh --skip-license --prefix=/usr
 #yum -y localinstall https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/c/czmq-3.0.2-3.el7.x86_64.rpm
+yum --nobest -y localinstall https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/glibc-static-2.34-105.el9.x86_64.rpm https://rpmfind.net/linux/centos-stream/9-stream/CRB/x86_64/os/Packages/libxcrypt-static-4.4.18-3.el9.x86_64.rpm
 cd cspot/
 git submodule update --init --recursive
 mv deps/libzmq/CMakeLists.txt deps/libzmq/CMakeLists.orig.txt
