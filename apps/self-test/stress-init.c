@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	err = WooFCreate(Oname,sizeof(ST_EL),woof_size);
+	err = WooFCreate(Oname,payload_size,woof_size);
 	if(err < 0) {
 		fprintf(stderr,"stress-init: can't init %s\n",Oname);
 		fflush(stderr);
