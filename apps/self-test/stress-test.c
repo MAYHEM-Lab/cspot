@@ -55,6 +55,8 @@ void *PutThread(void *arg)
 	/*
 	 * register backend is not thread safe?
 	 * do this to prime the pump
+	 *
+	 * much faster when each thread does this
 	 */
 	pthread_mutex_lock(&Plock);
 	seq_no = WooFGetLatestSeqno(Iname);
@@ -261,6 +263,13 @@ int main(int argc, char **argv)
 	pthread_mutex_init(&Plock,NULL);
 	pthread_mutex_init(&Glock,NULL);
 	PutRemaining = size;
+
+//	char Iname[4096];
+//	unsigned long seq_no;
+//	MAKE_EXTENDED_NAME(Iname,Wname,"input");
+//	pthread_mutex_lock(&Plock);
+//	seq_no = WooFGetLatestSeqno(Iname);
+//	pthread_mutex_unlock(&Plock);
 
 	if(local == 1) {
 		WooFInit();
