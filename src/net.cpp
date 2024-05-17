@@ -1,4 +1,7 @@
+#include <mutex>
+#include <thread>
 #include "net.h"
+#include <pthread.h>
 
 #include <debug.h>
 #include <functional>
@@ -41,11 +44,16 @@ void register_backend(std::string name, std::function<std::unique_ptr<network_ba
     backend_factories.emplace(std::move(name), std::move(factory));
 }
 
+std::mutex RegMutex;
+//pthread_mutex_t RLock;
 network_backend* get_active_backend() {
+    const std::lock_guard<std::mutex> lock(RegMutex);
+//    pthread_mutex_lock(&RLock);
     if (!active_backend) {
         cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
         DEBUG_WARN("No active network backend, using zmq");
     }
+//    pthread_mutex_unlock(&RLock);
     return active_backend.get();
 }
 
