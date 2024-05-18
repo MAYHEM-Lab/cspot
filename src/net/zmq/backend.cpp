@@ -1,11 +1,15 @@
+#include <mutex>
 #include "backend.hpp"
 
 #include <debug.h>
 #include <woofc-access.h>
 
+std::mutex EPMutex;
+
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
 
+    const std::lock_guard<std::mutex> lock(EPMutex);
     auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
     auto it = map_for_thread.find(endpoint);
     if (it == map_for_thread.end()) {
