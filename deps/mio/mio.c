@@ -19,7 +19,7 @@ void MIOClose(MIO *mio)
 		fflush(mio->bf);
 		fclose(mio->bf);
 	}
-	close(mio->fd);
+//	close(mio->fd);
 	if(mio->fname != NULL) {
 		free(mio->fname);
 	}
@@ -119,7 +119,7 @@ MIO *MIOOpen(const char *filename, const char *mode, unsigned long int size)
 	if(prot & PROT_WRITE) {
 		fsize = MIOFileSize(filename);
 		if(fsize < 0) {
-			perror("MIOOpen");
+			perror("MIOOpen file size");
 			MIOClose(mio);
 			return(NULL);
 		}
@@ -128,7 +128,7 @@ MIO *MIOOpen(const char *filename, const char *mode, unsigned long int size)
 			err = ftruncate(fd,size);
 		}
 		if(err < 0) {
-			perror("MIOOpen");
+			perror("MIOOpen truncate");
 			MIOClose(mio);
 			return(NULL);
 		}
@@ -138,7 +138,7 @@ MIO *MIOOpen(const char *filename, const char *mode, unsigned long int size)
 
 	mio->addr = mmap(NULL,size,prot,flags,mio->fd,0);
 	if(mio->addr == MAP_FAILED) {
-		perror("MIOOpen");
+		perror("MIOOpen mmap");
 		MIOClose(mio);
 		return(NULL);
 	}
@@ -215,7 +215,7 @@ MIO *MIOReOpen(const char *filename)
 
 	mio->addr = mmap(NULL,size,prot,flags,mio->fd,0);
 	if(mio->addr == MAP_FAILED) {
-		perror("MIOOpen");
+		perror("MIOReopen map");
 		MIOClose(mio);
 		return(NULL);
 	}
