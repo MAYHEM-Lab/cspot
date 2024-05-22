@@ -47,7 +47,7 @@ void register_backend(std::string name, std::function<std::unique_ptr<network_ba
 std::mutex RegMutex;
 //pthread_mutex_t RLock;
 network_backend* get_active_backend() {
-    const std::lock_guard<std::mutex> lock(RegMutex);
+//    const std::lock_guard<std::mutex> lock(RegMutex);
 //    pthread_mutex_lock(&RLock);
     if (!active_backend) {
         cspot::set_active_backend(cspot::get_backend_with_name("zmq"));

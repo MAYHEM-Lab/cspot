@@ -9,11 +9,13 @@ std::mutex EPMutex;
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
 
-    const std::lock_guard<std::mutex> lock(EPMutex);
+//    const std::lock_guard<std::mutex> lock(EPMutex);
     auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
     auto it = map_for_thread.find(endpoint);
     if (it == map_for_thread.end()) {
         // Socket does not exist
+//printf("creating socket for %s\n",endpoint.c_str());
+//fflush(stdout);
         auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
         if (!ep_data) {
             return nullptr;
@@ -30,6 +32,8 @@ per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
         auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
         it = i;
 #endif
+//printf("found socket for %s\n",endpoint.c_str());
+//fflush(stdout);
     	return &it->second;
     }
 
