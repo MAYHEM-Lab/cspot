@@ -21,7 +21,7 @@ fi
 
 ADDR=$2
 
-OUTLINE=`$BIN/iperf3 -c $ADDR -p 8008 | grep receiver`
+OUTLINE=`$BIN/iperf3 -c $ADDR -p 8008 -R | grep receiver`
 
 CNT=0
 MAX=6
