@@ -253,6 +253,8 @@ WOOF* WooFOpen(const char* name) {
 
     mio = MIOReOpen(local_name);
     if (mio == NULL) {
+        fprintf(stderr, "WooFOpen: reopen woof: %s failed\n", local_name);
+        fflush(stderr);
         return (NULL);
     }
     DEBUG_LOG("WooFOpen: opened %s\n", local_name);

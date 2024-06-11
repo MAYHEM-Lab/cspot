@@ -664,26 +664,6 @@ printf("WooFProcessPut: called on %s with size %d\n",woof_name,copy_size);
 		/*
 		 * use msgid to get back specific response
 		 */
-#ifdef FP
-		memset(sub_string,0,sizeof(sub_string));
-		sprintf(sub_string,"/usr/bin/mosquitto_sub -c -i %d -q 1 -W %d -C 1 -h %s -t %s.%d -u \'%s\' -P \'%s\'",
-				msgid,
-				Timeout,
-				Broker,
-				Device_name_space,
-				msgid,
-				User_name,
-				Password);
-printf("sub_string: %s\n",sub_string);
-		fd = popen(sub_string,"r");
-		if(fd == NULL) {
-			fprintf(stderr,"WooFProcessPut: open for %s failed\n",sub_string);
-			free(element);
-			free(element_string);
-			seq_no = -1;
-			goto out;
-		}
-#else
 		RESP *rs;
 		rs = MakeRESP(msgid);
 		if(rs == NULL) {
@@ -694,7 +674,6 @@ printf("sub_string: %s\n",sub_string);
 			goto out;
 		}
 		
-#endif
 		/*
 		 * create the mqtt message to put to the device
 		 */

@@ -80,10 +80,10 @@ void *PutThread(void *arg)
 	while(PutRemaining > 0) {
 		PutRemaining--;
 		gettimeofday(&st->posted,NULL);
-//printf("Put: pr: %d\n",PutRemaining);
+//printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
 		pthread_mutex_unlock(&Plock);
 		seq_no = WooFPut(Iname,"stress_handler",st);
-//printf("Put: seq_no: %ld\n",seq_no);
+//printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
@@ -263,6 +263,16 @@ int main(int argc, char **argv)
 	pthread_mutex_init(&Plock,NULL);
 	pthread_mutex_init(&Glock,NULL);
 	PutRemaining = size;
+
+#if 0
+	if(pt > size) {
+		pt = size;
+	}
+
+	if(gt > size) {
+		gt = size;
+	}
+#endif
 
 //	char Iname[4096];
 //	unsigned long seq_no;
