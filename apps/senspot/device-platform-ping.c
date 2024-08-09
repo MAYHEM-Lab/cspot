@@ -12,6 +12,16 @@ char *Usage = "device-platform-ping -W woof_name for ping test on device\n";
 
 char Wname[4096];
 
+double GetTime()
+{
+	struct timeval tm;
+	double ts;
+
+	gettimeofday(&tm,NULL);
+	ts = (double)(tm.tv_sec * 1000.0) + (((double)tv_usec)/1000.0);
+	return(ts);
+}
+	
 
 int main(int argc, char **argv)
 {
@@ -23,6 +33,8 @@ int main(int argc, char **argv)
 	int pval;
 	unsigned long seq_no;
 	unsigned long last;
+	double start;
+	double end;
 
 	memset(wname,0,sizeof(wname));
 
@@ -51,6 +63,7 @@ int main(int argc, char **argv)
 	/*
 	 * test this with PingHandler
 	 */
+	start = GetTime();
 	seq_no = WooFPut(wname,"PingHandler",(void *)&randval);
 //	seq_no = WooFPut(wname,NULL,(void *)&randval);
 
@@ -62,6 +75,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+
 	err = WooFGet(wname,(void *)&gval,seq_no);
 
 	if(err < 0) {
@@ -71,6 +85,9 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+	end = GetTime();
+
+	printf("ping rtt: %f ms\n",end-start);
 
 	if(randval != gval) {
 		fprintf(stderr,"device-platform-ping sent %d but got %d for %s at seq_no %lu\n",
