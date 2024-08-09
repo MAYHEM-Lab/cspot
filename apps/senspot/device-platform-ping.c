@@ -18,7 +18,7 @@ double GetTime()
 	double ts;
 
 	gettimeofday(&tm,NULL);
-	ts = (double)(tm.tv_sec * 1000.0) + (((double)tv_usec)/1000.0);
+	ts = (double)(tm.tv_sec * 1000.0) + (((double)tm.tv_usec)/1000.0);
 	return(ts);
 }
 	
