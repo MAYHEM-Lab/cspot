@@ -12,22 +12,16 @@ sure that the installation will not "corrupt" the local installation.  CSPOT
 was originally designed to work in a virtualized environments (e.g. clouds) so
 it is not "gentle" with respect to software installation.
 
-The following shows the installation procedure for CentOS 7.
+The following shows the installation procedure for Ubuntu 20.04:
 
 [source sh]
 ----
 git clone https://github.com/MAYHEM-Lab/cspot.git
 cd cspot
-sudo ./install-centos7.sh
+sudo ./install-ubuntu-20.04.sh
 ----
 
-To install CSPOT in /usr/local, 
-
-[source sh]
-----
-cd build
-sudo ninja install
-----
+The build process puts the CSPOT tools and apps (e.g. senspot) in ./build/bin and installs CSPOT in /usr/local. 
 
 # Overview
 
