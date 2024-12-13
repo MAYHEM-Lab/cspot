@@ -67,6 +67,7 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #include <string_view>
 #include <algorithm>
 #include <optional>
+#include <cstdint>
 
 namespace cspot {
 inline std::optional<std::string> ip_from_uri(const char* woof_uri_str) {
