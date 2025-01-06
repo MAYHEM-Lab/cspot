@@ -1,6 +1,7 @@
 = CSPOT
 
 image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
+Reference: R. Wolski, C. Krintz, F. Bakir, G. George, and W-T. Lin, CSPOT: Portable, Multi-scale Functions-as-a-Service for IoT, ACM Symposium on Edge Computing (SEC), Nov 2019, https://sites.cs.ucsb.edu/~ckrintz/papers/cspot19.pdf
 
 == Installation
 
