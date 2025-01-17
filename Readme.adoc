@@ -653,7 +653,7 @@ There is a lot left to do.
 
 === On Puts, Gets, Appends, and Reads
 
-The minimalist initial API uses ****WooFPut()**** as the primary API
+The minimalist initial API uses *WooFPut()* as the primary API
 abstraction for moving state between application components. This
 emphasis is intended to promote the use of append-only semantics in a
 FaaS context. For IoT, doing so will (may) make it possible to program
@@ -662,7 +662,7 @@ _distributed_ IoT applications in a FaaS style.
 However, it introduces an asymmetry between writing and reading program
 state that may make application programming more difficult.
 Specifically, all reads must be namespace local (requiring a
-****WooFOpen()**** to obtain in internal WOOF handle). Logically, no
+*WooFOpen()* to obtain in internal WOOF handle). Logically, no
 asymmetry is mandated. Thus it will be important to understand whether
 building it into the API is useful or confusing.
 
@@ -671,13 +671,13 @@ particular, mapping a WOOF into the memory space of a process running in
 a container is a performance-expensive operation under the current
 implementation supported by Linux. Thus, it is useful, as a
 programmer-controlled optimization, to allow the mapping to be reused.
-Because ****WooFPut()**** takes a WOOF name, it must first map the WOOF,
+Because *WooFPut()* takes a WOOF name, it must first map the WOOF,
 then do the put, and then unmap the WOOF (there are optimization
 possibilities here, to be sure). To make make multiple puts to the same
-WOOF more efficient, the API currently includes ****WooFAppend()****
-which takes a handle returned from ****WooFOpen()**** (in the same way
-****WooFRead()**** does) to a WOOF in the local namespace. Indeed,
-****WooFPut()**** uses ****WooFAppend()**** internally. Its
+WOOF more efficient, the API currently includes *WooFAppend()*
+which takes a handle returned from *WooFOpen()* (in the same way
+*WooFRead()* does) to a WOOF in the local namespace. Indeed,
+*WooFPut()* uses *WooFAppend()* internally. Its
 implementation looks something like
 
 ....
@@ -698,12 +698,12 @@ unsigned long WooFPut(char *woof_name, char *handler_name, void *element)
 
 I/O creates another related question that the project must investigate.
 In particular, it is possible for a process outside of a namespace to
-make a call to ****WooFPut()**** to introduce data but without an
-analogous ****WooFGet()**** call, there is no way to get data back out
+make a call to *WooFPut()* to introduce data but without an
+analogous *WooFGet()* call, there is no way to get data back out
 of a namespace. Thus the put/get API that, ultimately, is part of the
 prototype is richer than the minimalist API:
 
-* unsigned long ****WooFPut****(char __woof_name, char __handler_name,
+* unsigned long *WooFPut*(char __woof_name, char __handler_name,
 void *element)
 ** #woof_name# is the local or fully qualified name of an existing WOOF
 ** #handler_name# is the name of a file in the WOOF’s namespace that
@@ -715,7 +715,7 @@ appended to the WOOF
 representation of -1 on failure
 ** can be called from either wishing a handler or from a process outside
 of a namespace
-* int ****WooFGet****(char __woof_name, void __element, unsigned long
+* int *WooFGet*(char __woof_name, void __element, unsigned long
 seq_no)
 ** #woof_name# is the local or fully qualified name of an existing WOOF
 ** #element# is an out parameter pointing to memory that will be filled
@@ -724,12 +724,12 @@ in by the specified WOOF element
 the #element# pointer
 ** returns < 0 if the call fails to successfully return the element
 ** WOOF can either be in the local namespace or a remote namespace
-* WOOF * ****WooFOpen****(char *woof_name)
+* WOOF &#42; *WooFOpen*(char *woof_name)
 ** #woof_name# is the local or fully qualified name of an existing WOOF
 ** returns an opaque handle to an in-memory data structure referring to
 the WOOF or NULL on failure
 ** if the WOOF is not in the local namespace, the call fails
-* int WooFAppend(WOOF __woof, char __handler_name, void *element)
+* int *WooFAppend*(WOOF __woof, char __handler_name, void *element)
 ** #woof# is an opaque handle returned from a call to WooFOpen()
 ** #handler_name# is the name of a file in the WOOF’s namespace that
 contains the handler code or NULL. When #handler_name# is NULL, no
@@ -739,7 +739,7 @@ appended to the WOOF
 ** the call returns the sequence number of the element or a
 representation of -1 on failure
 ** the WOOF must be in the local namespace
-* int ****WooFRead****(WOOF __woof, void __element, unsigned long
+* int *WooFRead*(WOOF __woof, void __element, unsigned long
 seq_no)
 ** #woof# is an opaque handle returned from a call to WooFOpen()
 ** #element# is an out parameter pointing to memory that will be filled
@@ -747,40 +747,40 @@ in by the specified WOOF element
 ** #seq_no# is the sequence number of the element to be returned through
 the #element# pointer
 ** returns < 0 if the call fails to successfully return the element
-* void ****WooFFree****(WOOF *woof)
+* void *WooFFree*(WOOF *woof)
 ** releases the in-memory data structure created by a call to WooFOpen()
 
 There are two possibilities for the API, long-term. The first is that
-****WooFPut()**** and ****WooFGet()**** are symmetric meaning that they
+*WooFPut()* and *WooFGet()* are symmetric meaning that they
 can both be called from within a handler or outside of a namespace. From
 an API design perspective, this option is attractive but it promotes the
 use of WOOFs as random access memories from a read perspective. The
-second option is that ****WooFGet()**** which turns out to be necessary
+second option is that *WooFGet()* which turns out to be necessary
 in some forms – see below) is restricted to be executed only _outside_
 of a handler.
 
-The current CSPOT implementation does not restrict ****WooFGet()**** –
-it is symmetric with respect to ****WooFPut()****. However, the
+The current CSPOT implementation does not restrict *WooFGet()* –
+it is symmetric with respect to *WooFPut()*. However, the
 applications will not use it to implement cross-namespace random access
 memory in an attempt to determine if it should be restricted.
 
-****WooFGet()**** turns out to be necessary in order to get application
-state out of the application. That is, without ****WooFGet()**** the
+*WooFGet()* turns out to be necessary in order to get application
+state out of the application. That is, without *WooFGet()* the
 final output of an application must reside inside a namespace (as a file
 – not a WOOF). To get access to this state, then, the application user
 must have read access to the Linux directory which implements the
 namespace on the machine where the output is stored. Thus, it is
 necessary to implement an API primitive to extract application state
-from the various namespaces it uses (which is ****WooFGet()**** in the
+from the various namespaces it uses (which is *WooFGet()* in the
 current API). As mentioned above, there is a question regarding whether
-****WooFGet()**** should be a _full-fledged_ CSPOT API call (symmetric
-with respect to ****WooFPut()****) or not.
+*WooFGet()* should be a _full-fledged_ CSPOT API call (symmetric
+with respect to *WooFPut()*) or not.
 
 === To Delete or Not to Delete – a Question of Access Controls
 
 One glaring omission from the current API is a lack of a way to destroy
 an existing WOOF. That’s not strictly true in the sense that
-****WooFCreate()**** resets an existing WOOF if it already exists,
+*WooFCreate()* resets an existing WOOF if it already exists,
 thereby overwriting its original contents. However, there is currently
 no way to remove a WOOF permanently from a namespace.
 
@@ -788,14 +788,14 @@ Because WOOFs can grow and shrink (by being ``recreated'' with different
 sizes) the argument for a destroy API call is one regarding WOOF name
 conflicts within a namespace. That is, one wishes to remove a WOOF from
 the namespace because the name conflicts with another name. However,
-allowing the name to reused by a subsequent call to ****WooFCreate()****
+allowing the name to reused by a subsequent call to *WooFCreate()*
 simply delays the conflict resolution until the create. That is,
 removing a name really only needs to happen when another create wants to
 use the name.
 
 This delayed binding of name conflict resolution is possible as long as
 the access control permissions are not associated with the WOOF name. If
-they are, then a ****WooFCreate()**** cannot resolve a name conflict
+they are, then a *WooFCreate()* cannot resolve a name conflict
 since the caller may not have permission to ``take over'' the name (and
 thereby delete the WOOF’s contents).
 
