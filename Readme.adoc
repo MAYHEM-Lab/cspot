@@ -624,15 +624,15 @@ local IP address ``127.0.0.1'' in this example.
 === Runs Test (cspot/apps/runs-test)
 
 The Runs test application is intended to simulate an IoT processing
-pipeline. A producing handler (``RHandler in the application) generates
+pipeline. A producing handler (RHandler in the application) generates
 a stream of pseudo-random numbers. The next stage of the pipeline
-(''SHandler”) processes the stream in batches of ``sample size''
-(specified as the ``-s'' parameter) and compute the Runs test statistic
+(SHandler) processes the stream in batches of ``sample size''
+(specified as the -s parameter) and compute the Runs test statistic
 for each sample. It then puts each statistic in a WOOF for the final
-stage of the pipeline (``KHandler'') which runs a KS-test for the set of
+stage of the pipeline (Handler) which runs a KS-test for the set of
 statistics against a z-transformed, empirically generated Normal
 distribution of the same size. The number of such samples it considers
-is specified by the ``-c'' parameter to the start program.
+is specified by the -c parameter to the start program.
 
 The apps/runs-test subdirectory contains several versions of this
 program
