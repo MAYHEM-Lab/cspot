@@ -482,7 +482,7 @@ cp /home/centos/cspot/build/bin/hello-world/hw test-name-space
 cp /home/centos/cspot/build/bin/hello-world/hw-start test-name-space
 cp /home/centos/cspot/build/bin/hello-world/hw-client test-name-space
 cd /home/centos/test-name-space
-./woofc-namespace-plaotform >& namespace.log &
+./woofc-namespace-platform >& namespace.log &
 ./hw-start hello-woof
 ----
 
