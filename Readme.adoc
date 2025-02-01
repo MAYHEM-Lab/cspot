@@ -24,7 +24,149 @@ sudo ./install-ubuntu-20.04.sh
 
 The build process puts the CSPOT tools and apps (e.g. senspot) in ./build/bin and installs CSPOT in /usr/local. 
 
-# Overview
+# Quick Client/Server Tutorial
+
+The following tutorial assumes that the path to the CSPOT source directory is
+[source sh]
+----
+/home/ubuntu/cspot
+----
+The installation script (which uses cmake) will create
+/home/ubuntu/cspot/build and will put the cspot binaries and some testing code
+in /home/ubuntu/cspot/build/bin. 
+
+Among these tests codes are a Linux command-line client toolset called senspot
+that consists of three client programs
+[source sh]
+----
+sensput-init
+senspot-put
+senspot-get
+----
+
+These programs are designed to be called form the shell to create a CSPOT WOOF
+(a persistent log in CSPOT is called a WOOF which stands for "Wide-area Object
+of Functions"), to append values to the end of a WOOF, and to fetch values
+from a WOOF. 
+
+To test a CSPOT installation with senspot, one needs to first start a CSPOT
+namespace server, run senspot-init to create an initial test WOOF, run
+sesnpot-put to append an initial value to that WOOF, and then run senspot-get
+to fetch the value back.  Note that senspot-init must be run in the directory
+that serves as the namespace with the namespace server running and (for
+security reasons) it only works locally.  Both senspot-put and senspot-get
+take URNs with IP addresses specifying the host IP addresses.
+
+The following example assumes that cspot has been installed on two hosts with
+the IP addresses
+[source sh]
+----
+192.168.10.2
+192.168.10.3
+----
+and that ports 50000 to 60000 are open for ingress and egress between both
+hosts.
+
+To test, using senspot, the cspot installtion on these two hosts, log into
+192.168.10.2 as the ubuntu user and type the following
+[source sh]
+----
+cd cspot/build/bin
+./woofc-namespace-platform -b spawn >& namespace.log &
+----
+This command sequence will start the namespace server in
+/home/ubuntu/cspor/build/bin where the binaries have been deposited by the
+cmake build.  If there is an error it will be printed to namespace.log.  Note
+that woofc-namespace-platform will need read and write permission to
+cspot/build/bin.  If the installation was done as root, change the ownership
+of this directory to ubuntu:ubuntu.
+
+Next, in that same directory, initialize a test WOOF using senspot-init
+[source sh]
+----
+./senspot-init -W testwoof -s 100
+----
+This command will create a CSPOT WOOF that is capable of storing the last 100
+entries that have been appended to it as a log.  The -s command sets this
+history size.
+
+The next step is to test senspot locally.  To append a first entry to testwoof
+type
+[source sh]
+----
+echo "3.1415" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof -T d 
+----
+the senspot-put command takes a full URN for the WOOF which is woof://IPaddress/path-to-namespace/woofname
+with the -W argument.  It reads a string from standard in and converts it to a
+data type specified by the -T parameter (-d indicates a double precision value
+in this case).  If this command completes without printing an error message,
+then the value 3.1415 will have been appended to testwooof in the namespace
+/home/ubuntu/cspot/build/bin.
+
+To read the value back, type
+[source sh]
+----
+./senspot-get -W woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+----
+This command will read the most recent value appended to the WOOF and print it
+along with a timestamp and a sequence number.
+
+In this example, the output should be
+[source sh]
+----
+3.141500 time: 1738353021.8613910675 192.168.10.2 seq_no: 1
+----
+where the time value is Linux epoch.
+
+The next step is to test senspot between machines, running it on each
+referencing a namespace on the other.  In the next example, 192.168.10.2 will be
+the client and 192.168.10.3 will be the server.
+
+Log into 192.168.10.3 as the ubuntu user and type
+[source sh]
+----
+cd cspot/build/bin
+./woofc-namespace-platform -b spawn >& namespace.log &
+./senspot-init -W testwoof
+----
+which will start a namespace server at /home/ubuntu/cspot/build/bin and then
+create testwoof as a WOOF in it.
+
+From 192.168.10.2 in the directory /home/ubuntu/cspot/build/bin run
+[source sh]
+----
+echo "2.71828" | ./senspot-put woof://192.168.10.3/home/ubuntu/cspot/build/bin/testwoof -T d
+./senspot-get woof://192.168.10.3/home/ubuntu/cspot/build/bin/testwoof
+----
+If this sequence is a success, the output should be something like
+[source sh]
+----
+2.718280 time: 1738353221.8613910675 192.168.10.2 seq_no: 1
+----
+
+Next, test the reverse direction. On the host 192.168.10.3, from the directory
+/home/ubuntu/cspot/build/bin run the following commands
+[source sh]
+----
+echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof -T d
+./senspot-get woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+----
+If this test is successful, the output will be something like
+[source sh]
+----
+1234.000000 time: 1738431242.2993268967 192.168.10.3 seq_no: 2
+----
+indicating that the append from 192.168.10.3 to
+/home/ubuntu/cspot/build/bin/testwoof on 192.168.10.2 has been completed.  
+
+If senspot-put fails, it is usually for one of four reasons
+* woofc-namespace-platform on the server host is not running or has thrown an error
+* senspot-init has not been run in the namespace where a woofc-namespace-platform was started
+* the IP address or the path to the namespace specified in senspot-put do not match the IP address and/or path where woofc-namespace-platform is running
+* ports 50000 to 60000 are not open for TCP ingress on the server host or egress on the client host or both
+
+  
+# CSPOT Overview
 
 CSPOT is acronym (slightly reordered) for _Serverless Platform of Things
 in C_. It is an empirical coding experiment that amalgamates
