@@ -1,7 +1,10 @@
+add_subdirectory(chandra)
 add_subdirectory(hello-world)
 add_subdirectory(runs-test)
 add_subdirectory(self-test)
 add_subdirectory(senspot)
+add_subdirectory(master-slave)
+#add_subdirectory(put-test)
 
 
 

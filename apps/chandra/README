@@ -1,0 +1,58 @@
+Chandra's Hello World
+NOTE: all woofs created by chandra apps start with woof-cjk-*
+NOTE: all handlers created by chandra apps start with cjkH* (dashes are not allowed)
+NOTE: all handlers when built must be put in the namespace directory
+NOTE: all apps created by chandra start with cjk-*
+
+To build:
+cd ~/cspot/build
+sudo ninja
+cp ~/cspot/build/bin/cjk* /cspot-namespace1	#all handlers must go here
+cp ~/cspot/build/bin/cjk* ~/bin		#to invoke via PATH
+
+#if you change cspot code or build process:
+sudo ninja
+sudo ninja install
+cp ~/cspot/build/bin/cjk* /cspot-namespace1
+cp ~/cspot/build/bin/woofc* /cspot-namespace1
+cp ~/cspot/build/bin/* ~/bin
+cd ~/laminar/buid
+make
+cp ~/laminar/build/bin/subscription_event_handler /cspot-namespace1
+cp ~/laminar/build/bin/output_handler /cspot-namespace1
+
+
+To run:
+-----------cjk-hw-init----------------------
+#create a woof that holds strings of 255 bytes (will overwrite if exists)
+cd /cspot-namespace1  #with woofc-namespace-platform running herein
+./cjk-hw-init -N /cspot-namespace1 -W woof-cjk-hw
+./cjk-hw-init -N /cspot-namespace1 -W woof-cjk-lw
+
+cd /cspot-namespace2  #with woofc-namespace-platform running herein
+./cjk-hw-init -N /cspot-namespace2 -W woof-cjk-hw
+./cjk-hw-init -N /cspot-namespace2 -W woof-cjk-lw
+
+-----------cjk-hw----------------------
+#call cjk-hw-init above to create the woof first
+#use the fast path (no messaging)
+./cjk-hw -N /cspot-namespace1 -W woof-cjk-hw
+#this also works if ~/bin is in your PATH - the handler binary must be in the namespace folder
+cjk-hw -N /cspot-namespace1 -W woof-cjk-hw
+
+#use messaging (this IP or another)
+./cjk-hw -W woof://172.17.0.2/cspot-namespace1/woof-cjk-hw
+#this also works if ~/bin is in your PATH  - the handler binary must be in the namespace folder
+cjk-hw -N /cspot-namespace1 -W woof-cjk-hw
+
+* for cjk-hw, the put will trigger /cspot-namespace1/cjkHhw handler -- this will print a message to stdout (goes into /cspot-namespace1/namespace.log)
+
+-----------cjk-ping----------------------
+#call cjk-hw-init above to create the woof first
+#see the comment in cjk-ping for details on function and use
+#same host/namespace
+cjk-ping -L woof://172.17.0.2/cspot-namespace1/woof-cjk-lw -R woof://172.17.0.2/cspot-namespace1/woof-cjk-rw
+#same host different namespaces
+cjk-ping -L woof://172.17.0.2/cspot-namespace1/woof-cjk-lw -R woof://172.17.0.2/cspot-namespace2/woof-cjk-rw
+#different hosts
+cjk-ping -L woof://172.17.0.2/cspot-namespace1/woof-cjk-lw -R woof://172.17.0.3/cspot-namespace1/woof-cjk-rw
