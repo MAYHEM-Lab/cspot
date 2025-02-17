@@ -43,7 +43,7 @@ int cmq_frame_create(unsigned char **f, unsigned char *ptr, unsigned int len)
 	}
 
 	if(ptr == NULL) {
-		memset(f,0,sizeof(CMQFRAME));
+		memset(frame,0,sizeof(CMQFRAME));
 		*f = (unsigned char *)frame;
 		return(0);
 	}
@@ -129,7 +129,7 @@ int cmq_frame_pop(unsigned char *fl, unsigned char **f)
 // appends #frame# to #fl# at the tail
 int cmq_frame_append(unsigned char *fl, unsigned char *f)
 {
-	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)frame_list;
+	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
 	CMQFRAME *frame = (CMQFRAME *)f;
 
 	if(fl == NULL) {
@@ -284,7 +284,7 @@ int main(int argc, char **argv)
 		fprintf(stderr,"cmq_frame SELFTEST: first pop count != 0\n");
 		exit(1);
 	}
-	if(cmq_frame_list_empty(fl) == 1) {
+	if(cmq_frame_list_empty(fl) != 1) {
 		fprintf(stderr,"cmq_frame SELFTEST: first pop head nonempty\n");
 		exit(1);
 	}
