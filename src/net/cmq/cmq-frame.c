@@ -229,7 +229,7 @@ int main(int argc, char **argv)
 	// create a frame and append it to the frame_list
 	err = cmq_frame_create(&f,(unsigned char *)"first frame",strlen("first frame"));
 	if(err < 0) {
-		fprintf(stderr,"cmq_frame SELFTEST: FAILED to create empty frame\n");
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to create frame with payload\n");
 		exit(1);
 	}
 
@@ -288,6 +288,92 @@ int main(int argc, char **argv)
 		fprintf(stderr,"cmq_frame SELFTEST: first pop head nonempty\n");
 		exit(1);
 	}
+
+
+	//
+	// add three strings and then pop them, one at a time
+	err = cmq_frame_create(&f,(unsigned char *)"first frame",strlen("first frame"));
+	if(err < 0) {
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to create first in list\n");
+		exit(1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to append first in list\n");
+		exit(1);
+	}
+
+	err = cmq_frame_create(&f,(unsigned char *)"second frame",strlen("second frame"));
+	if(err < 0) {
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to create second in list\n");
+		exit(1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to append second in list\n");
+		exit(1);
+	}
+
+	err = cmq_frame_create(&f,(unsigned char *)"third frame",strlen("third frame"));
+	if(err < 0) {
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to create third in list\n");
+		exit(1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"cmq_frame SELFTEST: FAILED to append third in list\n");
+		exit(1);
+	}
+
+	while(cmq_frame_list_count(fl) != 0) {
+		memset(test_payload,0,sizeof(test_payload));
+		err = cmq_frame_pop(fl,&f);
+		if(err < 0) {
+			fprintf(stderr,"cmq_frame SELFTEST: FAILED to pop with count %d\n",
+				cmq_frame_list_count(fl));
+			exit(1);
+		}
+		if(cmq_frame_list_count(fl) == 2) {
+			memcpy(test_payload,cmq_frame_payload(f),strlen("first frame"));
+			if(memcmp(test_payload,
+			   cmq_frame_payload(f),
+			   strlen("first frame")) != 0) {
+				fprintf(stderr,
+				"cmq_frame_list SELFTEST: FAILED payload first pop\n");
+					exit(1);
+			  }
+		} else {
+			cmq_frame_destroy(f);
+			continue;
+		}
+		if(cmq_frame_list_count(fl) == 1) {
+			memcpy(test_payload,cmq_frame_payload(f),strlen("second frame"));
+			if(memcmp(test_payload,
+			   cmq_frame_payload(f),
+			   strlen("second frame")) != 0) {
+				fprintf(stderr,
+				"cmq_frame_list SELFTEST: FAILED payload second pop\n");
+					exit(1);
+			  }
+		} else {
+			cmq_frame_destroy(f);
+			continue;
+		}
+		if(cmq_frame_list_count(fl) == 0) {
+			memcpy(test_payload,cmq_frame_payload(f),strlen("third frame"));
+			if(memcmp(test_payload,
+			   cmq_frame_payload(f),
+			   strlen("second frame")) != 0) {
+				fprintf(stderr,
+				"cmq_frame_list SELFTEST: FAILED payload third pop\n");
+					exit(1);
+			  }
+		} else {
+			cmq_frame_destroy(f);
+			continue;
+		}
+	}
+	
 	cmq_frame_list_destroy(fl);
 
 	fprintf(stderr,"cmq_frame SELFTEST: SUCCESS\n");
