@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "cmq-pkt.h"
 
@@ -29,6 +30,7 @@ int cmq_pkt_endpoint(char *addr, unsigned short port)
 
 	err = connect(sd,(struct sockaddr *)&ep_in,sizeof(ep_in));
 	if(err < 0) {
+		perror("ERROR: connect failed");
 		close(sd);
 		return(-1);
 	}
