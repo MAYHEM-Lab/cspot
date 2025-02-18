@@ -19,9 +19,11 @@ int cmq_pkt_endpoint(char *addr, unsigned short port)
 	if(sd < 0) {
 		return(-1);
 	}
+#ifdef __APPLE__
 	if(setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt))) {
 		return(-1);
 	}
+#endif
 
 	ep_in.sin_family = AF_INET;
 	ep_in.sin_port = htons(port);	
@@ -62,9 +64,11 @@ int cmq_pkt_listen(unsigned long port)
 	if(setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt))) {
 		return(-1);
 	}
+#ifdef __APPLE__
 	if(setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt))) {
 		return(-1);
 	}
+#endif
 
 	local_address.sin_family = AF_INET;
 	local_address.sin_addr.s_addr = INADDR_ANY;
