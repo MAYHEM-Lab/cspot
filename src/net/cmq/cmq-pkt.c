@@ -135,11 +135,12 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	unsigned char *f;
 	int err;
 	int i;
+	unsigned char size_buf[8];
 	unsigned long size;
 	unsigned char *payload;
 
 	// read the header
-	err = read(endpoint,&header,sizeof(header));
+	err = recv(endpoint,&header,sizeof(header),MSG_WAITALL);
 	if(err < sizeof(header)) {
 		return(-1);
 	}
@@ -159,8 +160,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 
 	// read the frames
 	for(i=0; i < header.frame_count; i++) {
-		// read the size
-		err = read(endpoint,&size,sizeof(size));
+		err = recv(endpoint,(unsigned char *)&size,sizeof(size),MSG_WAITALL);
 		if(err < sizeof(size)) {
 			return(-1);
 		}
@@ -169,7 +169,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			return(-1);
 		}
 		// read the payload
-		err = read(endpoint,payload,ntohl(size));
+		err = recv(endpoint,payload,ntohl(size), MSG_WAITALL);
 		if(err < ntohl(size)) {
 			free(payload);
 			return(-1);
