@@ -105,6 +105,7 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 
 	header.version = htonl(CMQ_PKT_VERSION);
 	header.frame_count = htonl(frame_list->count);
+	header.max_size = htonl(frame_list->max_size);
 
 	// send the header using write
 	err = write(endpoint,&header,sizeof(header));
@@ -142,6 +143,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	unsigned char size_buf[8];
 	unsigned long size;
 	unsigned char *payload;
+	unsigned long max_size;
 
 	// read the header
 	err = recv(endpoint,&header,sizeof(header),MSG_WAITALL);
@@ -151,6 +153,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 
 	header.version = ntohl(header.version);
 	header.frame_count = ntohl(header.frame_count);
+	max_size = ntohl(header.max_size);
 
 	if(header.version != CMQ_PKT_VERSION) {
 		return(-1);
@@ -162,13 +165,25 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 		return(-1);
 	}
 
+	// use hint to prallocate a bufffer
+	payload = (unsigned char *)malloc(max_size);
+	if(payload == NULL) {
+		return(-1);
+	}
+
 	// read the frames
 	for(i=0; i < header.frame_count; i++) {
 		err = recv(endpoint,(unsigned char *)&size,sizeof(size),MSG_WAITALL);
 		if(err < sizeof(size)) {
 			return(-1);
 		}
-		payload = (unsigned char *)malloc(ntohl(size));
+		// this could happen if a frame of max_size was popped
+		// after frame_list was created
+		if(ntohl(size) > max_size) {
+			free(payload);
+			max_size = ntohl(size);
+			payload = (unsigned char *)malloc(max_size);
+		}
 		if(payload == NULL) {
 			return(-1);
 		}
@@ -190,8 +205,8 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			free(payload);
 			return(-1);
 		}
-		free(payload);
 	}
+	free(payload);
 
 	*fl = l_fl;
 

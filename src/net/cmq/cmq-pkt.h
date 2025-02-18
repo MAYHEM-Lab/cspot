@@ -13,7 +13,7 @@ struct cmq_pkt_header_stc
 {
 	unsigned long version;
 	unsigned long frame_count;
-	// add max hint as optimization
+	unsigned long max_size;
 };
 
 typedef struct cmq_pkt_header_stc CMQPKTHEADER; 

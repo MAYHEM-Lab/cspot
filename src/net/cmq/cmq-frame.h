@@ -7,7 +7,6 @@ struct cmq_frame_stc
 {
 	unsigned int size;
 	unsigned char *payload;
-	int frame_no; // for multipart msg
 	struct cmq_frame_stc *next; // single linked list for now
 };
 
@@ -17,8 +16,8 @@ struct cmq_frame_list_stc
 {
 	CMQFRAME *head;
 	CMQFRAME *tail;
-	CMQFRAME *last_packed; // for multipart msg
 	unsigned int count;
+	unsigned int max_size;
 };
 
 typedef struct cmq_frame_list_stc CMQFRAMELIST;
@@ -33,6 +32,7 @@ void cmq_frame_list_destroy(unsigned char *fl);
 int cmq_frame_pop(unsigned char *fl, unsigned char **frame);
 int cmq_frame_append(unsigned char *fl, unsigned char *frame);
 int cmq_frame_list_count(unsigned char *fl);
+int cmq_frame_list_max_size(unsigned char *fl);
 int cmq_frame_list_empty(unsigned char *fl);
 unsigned char *cmq_frame_list_head(unsigned char *fl);
 unsigned char *cmq_frame_list_tail(unsigned char *fl);

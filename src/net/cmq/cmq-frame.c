@@ -55,7 +55,6 @@ int cmq_frame_create(unsigned char **f, unsigned char *ptr, unsigned int len)
 	}
 
 	frame->size = len;
-	frame->frame_no = 1;
 	memcpy(frame->payload,ptr,len);
 	*f = (unsigned char *)frame;
 	return(0);
@@ -150,12 +149,16 @@ int cmq_frame_append(unsigned char *fl, unsigned char *f)
 		frame_list->head = frame;
 		frame_list->tail = frame;
 		frame_list->count = 1;
-		frame->frame_no = 1;
 	} else {
 		frame_list->tail->next = frame;
 		frame_list->tail = frame;
 		frame_list->count++;
-		frame->frame_no++;
+	}
+
+	// hint to speed buffer handling
+	// could be wrong if a frame has been popped
+	if(frame->size > frame_list->max_size) {
+		frame_list->max_size = frame->size;
 	}
 
 	return(0);
@@ -194,6 +197,16 @@ int cmq_frame_list_count(unsigned char *fl)
 	}
 
 	return(frame_list->count);
+}
+
+int cmq_frame_list_max_size(unsigned char *fl)
+{
+	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
+	if(fl == NULL) {
+		return(0);
+	}
+
+	return(frame_list->max_size);
 }
 
 int cmq_frame_list_empty(unsigned char *fl)
