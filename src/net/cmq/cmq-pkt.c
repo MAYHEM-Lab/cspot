@@ -44,6 +44,7 @@ int cmq_pkt_listen(unsigned long port)
 	int c_fd;
 	struct sockaddr_in local_address;
 	socklen_t len = sizeof(local_address);
+	int opt = 1;
 	int err;
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
@@ -51,9 +52,13 @@ int cmq_pkt_listen(unsigned long port)
 		return(-1);
 	}
 
+	if(setsockopt(sd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+		return(-1);
+	}
+
 	local_address.sin_family = AF_INET;
 	local_address.sin_addr.s_addr = INADDR_ANY;
-	local_address.sin_port = htonl(port);
+	local_address.sin_port = htons(port);
 
 	err = bind(sd,(struct sockaddr *)&local_address, sizeof(local_address));
 	if(err < 0) {
@@ -84,7 +89,7 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 	int err;
 	unsigned long size;
 
-	header.version = CMQ_PKT_VERSION;
+	header.version = htonl(CMQ_PKT_VERSION);
 	header.frame_count = htonl(frame_list->count);
 
 	// send the header using write
@@ -126,6 +131,13 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	// read the header
 	err = read(endpoint,&header,sizeof(header));
 	if(err < sizeof(header)) {
+		return(-1);
+	}
+
+	header.version = ntohl(header.version);
+	header.frame_count = ntohl(header.frame_count);
+
+	if(header.version != CMQ_PKT_VERSION) {
 		return(-1);
 	}
 
@@ -362,7 +374,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if((f == NULL) && (i < cmq_frame_list_count(fl))) {
+	if((f == NULL) && (i < (cmq_frame_list_count(fl)-1))) {
 		fprintf(stderr,"ERROR: NULL frame at frame %d\n",i);
 		exit(1);
 	}
