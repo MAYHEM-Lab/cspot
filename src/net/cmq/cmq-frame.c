@@ -55,6 +55,7 @@ int cmq_frame_create(unsigned char **f, unsigned char *ptr, unsigned int len)
 	}
 
 	frame->size = len;
+	frame->frame_no = 1;
 	memcpy(frame->payload,ptr,len);
 	*f = (unsigned char *)frame;
 	return(0);
@@ -143,10 +144,12 @@ int cmq_frame_append(unsigned char *fl, unsigned char *f)
 		frame_list->head = frame;
 		frame_list->tail = frame;
 		frame_list->count = 1;
+		frame->frame_no = 1;
 	} else {
 		frame_list->tail->next = frame;
 		frame_list->tail = frame;
 		frame_list->count++;
+		frame->frame_no++;
 	}
 
 	return(0);
