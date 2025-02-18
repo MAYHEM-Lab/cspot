@@ -13,9 +13,13 @@ int cmq_pkt_endpoint(char *addr, unsigned short port)
 	int sd;
 	struct sockaddr_in ep_in;
 	int err;
+	int opt = 1;
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd < 0) {
+		return(-1);
+	}
+	if(setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt))) {
 		return(-1);
 	}
 
@@ -52,7 +56,13 @@ int cmq_pkt_listen(unsigned long port)
 		return(-1);
 	}
 
-	if(setsockopt(sd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+	if(setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+		return(-1);
+	}
+	if(setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt))) {
+		return(-1);
+	}
+	if(setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt))) {
 		return(-1);
 	}
 
@@ -347,6 +357,7 @@ int main(int argc, char **argv)
 	endpoint = cmq_pkt_listen(host_port);
 	if(endpoint < 0) {
 		fprintf(stderr,"ERROR: failed to create endpoint\n");
+		perror("listen");
 		exit(1);
 	}
 
