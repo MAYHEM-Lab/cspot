@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 #include <errno.h>
 
 #include "cmq-pkt.h"
@@ -23,6 +24,8 @@ int cmq_pkt_endpoint(char *addr, unsigned short port)
 	if(setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt))) {
 		return(-1);
 	}
+#else
+	signal(SIGPIPE,SIG_IGN);
 #endif
 
 	ep_in.sin_family = AF_INET;
@@ -68,6 +71,8 @@ int cmq_pkt_listen(unsigned long port)
 	if(setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt))) {
 		return(-1);
 	}
+#else
+	signal(SIGPIPE,SIG_IGN);
 #endif
 
 	local_address.sin_family = AF_INET;
