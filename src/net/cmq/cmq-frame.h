@@ -34,6 +34,9 @@ int cmq_frame_pop(unsigned char *fl, unsigned char **frame);
 int cmq_frame_append(unsigned char *fl, unsigned char *frame);
 int cmq_frame_list_count(unsigned char *fl);
 int cmq_frame_list_empty(unsigned char *fl);
+unsigned char *cmq_frame_list_head(unsigned char *fl);
+unsigned char *cmq_frame_list_tail(unsigned char *fl);
+unsigned char *cmq_frame_next(unsigned char *f);
 
 
 #endif

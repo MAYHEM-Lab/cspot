@@ -78,6 +78,12 @@ unsigned int cmq_frame_size(unsigned char *f)
 	}
 	return(frame->size);
 }
+
+unsigned char *cmq_frame_next(unsigned char *f)
+{
+	CMQFRAME *frame = (CMQFRAME *)f;
+	return((unsigned char *)frame->next);
+}
 		
 //
 // #fl# is an out parameter
@@ -199,6 +205,23 @@ int cmq_frame_list_empty(unsigned char *fl)
 	return(0);
 }
 
+unsigned char *cmq_frame_list_head(unsigned char *fl)
+{
+	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
+	if(fl == NULL) {
+		return(NULL);
+	}
+	return((unsigned char *)frame_list->head);
+}
+
+unsigned char *cmq_frame_list_tail(unsigned char *fl)
+{
+	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
+	if(fl == NULL) {
+		return(NULL);
+	}
+	return((unsigned char *)frame_list->tail);
+}
 
 #ifdef SELFTEST
 int main(int argc, char **argv)

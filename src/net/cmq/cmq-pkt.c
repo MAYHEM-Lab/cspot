@@ -1,287 +1,392 @@
-#include <stdin.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <strng.h>
+#include <string.h>
 
 #include "cmq-pkt.h"
 
-int cmq_pkt_xfer_size(unsigned char *fl)
+
+	
+int cmq_pkt_endpoint(char *addr, unsigned short port)
 {
-	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
-	int total = 0;
-	CMQFRAME *frame;
+	int sd;
+	struct sockaddr_in ep_in;
+	int err;
 
-	if(fl == NULL) {
-		return(0);
-	}
-	if(cmq_frame_list_empty(fl)) {
-		return(0);
+	sd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sd < 0) {
+		return(-1);
 	}
 
-	total += sizeof(CMQPKTHEADER);
+	ep_in.sin_family = AF_INET;
+	ep_in.sin_port = htons(port);	
 
-	if(frame_list->last_packed != NULL) {
-		// total from last packed frame for multipart
-		if(frame_list->last_packed->next == NULL) {
-			return(0);
-		}
-		frame = frame_list->last_packed->next;
-	} else {
-		frame = frame_list->head;
-	}
-	while(frame != NULL) {
-		total += sizeof(unsigned long); // add in size designator
-		total += frame->size;
-		frame = frame->next;
+	err = inet_pton(AF_INET,addr,&ep_in.sin_addr);
+	if(err <= 0) {
+		close(sd);
+		return(-1);
 	}
 
-	return(total);
+	err = connect(sd,(struct sockaddr *)&ep_in,sizeof(ep_in));
+	if(err < 0) {
+		close(sd);
+		return(-1);
+	}
+
+	return(sd);
 }
 
-int cmq_pkt_pack_frame_list(unsigned char *buffer, int buffer_size, 
-		unsigned char *fl, unsigned int *start_fno, unsigned int *end_fno)
+int cmq_pkt_listen(unsigned long port)
+{
+	int sd;
+	int c_fd;
+	struct sockaddr_in local_address;
+	socklen_t len = sizeof(local_address);
+	int err;
+
+	sd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sd == -1) {
+		return(-1);
+	}
+
+	local_address.sin_family = AF_INET;
+	local_address.sin_addr.s_addr = INADDR_ANY;
+	local_address.sin_port = htonl(port);
+
+	err = bind(sd,(struct sockaddr *)&local_address, sizeof(local_address));
+	if(err < 0) {
+		close(sd);
+		return(-1);
+	}
+
+	err = listen(sd,3);
+	if(err < 0) {
+		close(sd);
+		return(-1);
+	}
+
+	c_fd = accept(sd, (struct sockaddr *)&local_address, &len);
+	if(c_fd < 0) {
+		close(sd);
+		return(-1);
+	}
+
+	return(c_fd);
+}
+
+int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 {
 	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
 	CMQFRAME *frame;
-	CMQFRAME *last_packed;
-	CMQPKTHEADER *header;
-	unsigned char *curr;
+	CMQPKTHEADER header;
+	int err;
 	unsigned long size;
-	unsigned long xfer_size;
-	unsigned long next_size;
-	int start;
-	int end;
 
-	if(fl == NULL) {
-		return(-1);
-	}
-	if(cmq_frame_list_empty(fl)) {
-		return(-1);
-	}
-	if(buffer == NULL) {
+	header.version = CMQ_PKT_VERSION;
+	header.frame_count = htonl(frame_list->count);
+
+	// send the header using write
+	err = write(endpoint,&header,sizeof(header));
+	if(err < sizeof(header)) {
 		return(-1);
 	}
 
-	xfer_size = 0;
-	// find size to transfer in this buffer
-	// set last_packed for next transfer if size exceeds buffer size
-	xfer_size += sizeof(CMQPKTHEADER);
-	last_packed = frame_list->last_packed;
-	if(frame_list->last_packed == NULL) {
-		frame = frame_list->head;
-		start = 1;
-		end = 1;
-	} else {
-		frame = frame_list->last_packed;
-		if(frame->next == NULL) {
-			return(-1);
-		}
-		frame = frame->next;
-		start = frame->frame_no;
-	}
-	while(xfer_size < buffer_size) {
-		next_size = sizeof(unsigned long) + frame->size;
-		if((xfer_size + next_size) > buffer_size) {
-			break;
-		}
-		xfer_size += next_size;
-		end = frame->frame_no;
-		last_packed = frame;
-		frame = frame->next;
-		if(frame == NULL) {
-			break;
-		}
-	}
-
-
-	header = (CMQPKTHEADER *)buffer;
-	header->version = htonl(CMQ_PKT_VERSION); // put in version
-	header->xfer_size = htonl(xfer_size); // needed for unpack
-	header->msg_no = 0; // relaibility will set this
-	header->start_fno = htonl(start);
-	header->end_fno = htonl(end);
-	header->frame_count = htonl(frame_list->count);
-
-	curr = (buffer + sizeof(CMQPKTHEADER));
-	if(frame_list->last_packed == NULL) {
-		frame = frame_list->head;
-	} else {
-		frame = frame_list->last_packed;
-		if(frame->next == NULL) {
-			return(-1);
-		}
-		frame = frame->next;
-	}
-
+	// send the frames (if they are there)
+	frame = frame_list->head;
 	while(frame != NULL) {
+		// write the frame size
 		size = htonl(frame->size);
-		*((unsigned long *)curr) = size; // put in size
-		curr += sizeof(unsigned long);
-		memcpy(curr,frame->payload,frame->size);
+		err = write(endpoint,&size,sizeof(size));
+		if(err < sizeof(size)) {
+			return(-1);
+		}
+		// write the frame
+		err = write(endpoint,frame->payload,frame->size);
+		if(err < frame->size) {
+			return(-1);
+		}
 		frame = frame->next;
 	}
-	frame_list->last_packed = last_packed;
 
-	return(xfer_size);
+	return(0);
 }
 
-int cmq_pkt_unpack_frame_list(unsigned char *buffer, int buffer_size, unsigned char **fl)
+int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 {
-	CMQFRAMELIST *frame_list;
-	CMQPKTHEADER *header;
-	unsigned long size;
-	unsigned long version;
-	unsigned char *curr;
-	unsigned char *f;
 	unsigned char *l_fl;
-	unsigned long xfer_size;
-	unsigned long frame_count;
-	unsigned int xfer_size;
+	CMQPKTHEADER header;
+	unsigned char *f;
+	int err;
+	int i;
+	unsigned long size;
+	unsigned char *payload;
 
-	if(buffer == NULL) {
+	// read the header
+	err = read(endpoint,&header,sizeof(header));
+	if(err < sizeof(header)) {
 		return(-1);
 	}
 
-	header = (CMQPKTHEADER *)buffer;
-	version = ntohl(header->version);
-	if(version != CMQ_PKT_VERSION) { // check version number
-		return(-1);
-	}
-
-	frame_count = ntohl(header->frame_count);
-	if(frame_count == 0) { // this is an ack packet
-		*fl = NULL;
-		return(0);
-	}
-
+	// create an empty frame list
 	err = cmq_frame_list_create(&l_fl);
 	if(err < 0) {
 		return(-1);
 	}
 
-
-	xfer_size = sizeof(CMQPKTHEADER);
-	curr = buffer + sizeof(CMQPKTHEADER);
-	while(xfer_size < buffer_size) {
-		size = ntohl(*((unsigned long *)curr));
-		if((xfer_size + size) > buffer_size) {
-			*fl = l_fl;
-			return(0);
-		}
-		curr += sizeof(unsigned long);
-		err = cmq_frame_create(&f,buffer,size);
-		if(err < 0) {
-			cmq_frame_list_destroy(l_fl);
+	// read the frames
+	for(i=0; i < header.frame_count; i++) {
+		// read the size
+		err = read(endpoint,&size,sizeof(size));
+		if(err < sizeof(size)) {
 			return(-1);
 		}
+		payload = (unsigned char *)malloc(ntohl(size));
+		if(payload == NULL) {
+			return(-1);
+		}
+		// read the payload
+		err = read(endpoint,payload,ntohl(size));
+		if(err < ntohl(size)) {
+			free(payload);
+			return(-1);
+		}
+		// cerate the frame
+		err = cmq_frame_create(&f,payload,ntohl(size));
+		if(err < 0) {
+			free(payload);
+			return(-1);
+		}
+		// add frame to frame_list
 		err = cmq_frame_append(l_fl,f);
 		if(err < 0) {
-			cmq_frameList_destroy(l_fl);
+			free(payload);
 			return(-1);
 		}
-		curr += size;
-		xfer_size += size;
+		free(payload);
 	}
 
 	*fl = l_fl;
+
 	return(0);
-
 }
-	
+		
 
-//
-// client sends requests to server identified by address and port
-// #fl# is a frame_list to send
-// frame list can span multiple packets
-// response acks may or may not have accompaning payload
-// there can be multiple acks
-int cmq_pkt_send_rpc(char *dst_addr, unsigned short dst_port, 
-	unsigned char *fl, unsigned char **r_fl)
+#ifdef TESTCLIENT
+
+#define PORT 8079
+
+#define ARGS "h:p:c:"
+char *Usage = "cmq-test-client -h host_ip\n\
+\t-p host_port\n\
+\t-c frame_count\n";
+
+int main(int argc, char **argv)
 {
-	CMQFRAMELIST *frame_list (CMQFRAMELIST *)fl;
-	struct sockaddr_in dst;
-	int sock_fd;
-	int xfer_size;
+	int c;
+	char host_ip[50];
+	unsigned long host_port;
+	int endpoint;
+	int count;
+	char payload[1024];
+	int i;
+	unsigned char *fl;
+	unsigned char *f;
 	int err;
-	unsigned char *buffer;
-	unsigned int start;
-	unsigned int end;
-	unsigned int total;
-	int xfer_size;
-	unsigned char *l_rfl;
 
-	if((dst_addr == NULL) || (fl == NULL)) {
-		return(-1);
-	}
+	host_port = 8079;
+	memset(host_ip,0,sizeof(host_ip));
+	count = 1;
 
-	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if(sock_fd < 0) {
-		return(-1);
-	}
-	buffer = (unsigned char *)malloc(CMQ_MAK_PKT_SIZE);
-	if(buffer == NULL) {
-		return(-1);
-	}
-
-	memset(&dst,0,sizeof(dst));
-	dst.sin_family = AF_INET;
-	dst.sin_port = htons(dst_port);
-	dst.sin_addr.s_addr = inet_addr(dst_addr);
-
-
-	frame_list->last_packed = NULL; // reset packing cursor
-	total = 0;
-
-	while(total < frame_list->count) {
-		xfer_size = cmq_pkt_pack_frame_list(buffer,CMQ_MAX_PKT_SIZE,fl,&start,&end);
-		if(xfer_size < 0) {
-			free(buffer);
-			return(-1);
+	while((c = getopt(argc,argv,ARGS)) != EOF) {
+		switch(c) {
+			case 'c':
+				count = atoi(optarg);
+				break;
+			case 'h':
+				strncpy(host_ip,optarg,sizeof(host_ip));
+				break;
+			case 'p':
+				host_port = atoi(optarg);
+				break;
+			default:
+				fprintf(stderr,"unrecognized argument %c\n",
+					(char)c);
+				fprintf(stderr,"%s",Usage);
+				exit(1);
 		}
-		err = sendto(sock_fd,
-		     (const char *)buffer,
-		     xfer_size,
-		     MSG_CONFIRM,
-		     (const struct sockaddr *)&dst, 
-		     sizeof(dst));
+	}
+	if(host_ip[0] == 0) {
+		fprintf(stderr,"must specify server ip address\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
 
+	if(count <= 0) {
+		fprintf(stderr,"count must be >= 1\n");
+		fprintf(stderr,"%s",Usage);
+		exit(1);
+	}
+		
+	endpoint = cmq_pkt_endpoint(host_ip,host_port);
+	if(endpoint < 0) {
+		fprintf(stderr,"ERROR: failed to create endpoint\n");
+		exit(1);
+	}
+
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create frame list\n");
+		exit(1);
+	}
+
+	// create a frame list
+	for(i=0; i < count; i++) {
+		memset(payload,0,sizeof(payload));
+		sprintf(payload,"frame-%d",i);
+		printf("adding %s to frame list\n",(char *)payload);
+		err = cmq_frame_create(&f,(unsigned char *)payload,strlen(payload));
 		if(err < 0) {
-			return(-1);
+			fprintf(stderr,"ERROR: failed to create frame %d\n",i);
+			exit(1);
 		}
-		total += ((end - start) + 1);
+		err = cmq_frame_append(fl,f);
+		if(err < 0) {
+			fprintf(stderr,"ERROR: failed to append frame %d\n",i);
+			exit(1);
+		}
 	}
 
-	l_rfl = NULL;
-	start = 1;
-	while(recvfrom(sd,buffer,CMQ_MAX_PKT_SIZE,0,NULL,NULL) >= 0) {
-		header = (CMQPKTHEADER *)buffer;
-		end = ntohl(header->end_fno);
-		frame_count = ntohl(header->frame_count)
-		if(frame_count > 0) {
-			err = cmq_unpack_frame_list(buffer,CMQ_MAX_PKT_SIZE,&l_rfl);
-			if(err < 0) {
-				free(buffer);
-				close(sd);
-				return(-1);
-			}
+	// send frame list to server
+	printf("sending frame list to server %s:%lu\n",host_ip,host_port);
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to send msg\n");
+		exit(1);
+	}
+
+	// destroy the frame list
+	cmq_frame_list_destroy(fl);
+
+	// receive an echo of the frame list
+	printf("receiving frame list from server %s:%lu\n",host_ip,host_port);
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv msg\n");
+		exit(1);
+	}
+
+	// print out the frame list echoed from the server
+	printf("printing echoed frame list\n");
+	while(!cmq_frame_list_empty(fl)) {
+		err = cmq_frame_pop(fl,&f);
+		if(err < 0) {
+			fprintf(stderr,"ERROR: could not pop frame\n");
+			exit(1);
 		}
-		if((end - start + 1) >= frame_list->count) { // if all frames acked
+		memset(payload,0,sizeof(payload));
+		memcpy(payload,cmq_frame_payload(f),cmq_frame_size(f));
+		printf("echo: %s\n",(char *)payload);
+		cmq_frame_destroy(f);
+	}
+
+	cmq_frame_list_destroy(fl);
+	close(endpoint);
+	return(0);
+}
+
+#endif
+
+#ifdef TESTSERVER
+
+#define PORT 8079
+
+#define ARGS "p:"
+char *Usage = "cmq-test-server -p host_port\n";
+
+int main(int argc, char **argv)
+{
+	int c;
+	unsigned long host_port;
+	int endpoint;
+	int count;
+	char payload[1024];
+	int i;
+	unsigned char *fl;
+	unsigned char *f;
+	int err;
+
+	host_port = 8079;
+
+	while((c = getopt(argc,argv,ARGS)) != EOF) {
+		switch(c) {
+			case 'p':
+				host_port = atoi(optarg);
+				break;
+			default:
+				fprintf(stderr,"unrecognized argument %c\n",
+					(char)c);
+				fprintf(stderr,"%s",Usage);
+				exit(1);
+		}
+	}
+		
+	endpoint = cmq_pkt_listen(host_port);
+	if(endpoint < 0) {
+		fprintf(stderr,"ERROR: failed to create endpoint\n");
+		exit(1);
+	}
+
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv msg\n");
+		exit(1);
+	}
+
+	
+	// print out frame list without destroying it
+	printf("receiving frame list from client\n");
+	f = cmq_frame_list_head(fl);
+	if(f == NULL) {
+		fprintf(stderr,"ERROR: frame list head is NULL\n");
+		exit(1);
+	}
+	for(i=0; i < cmq_frame_list_count(fl); i++) {
+		memset(payload,0,sizeof(payload));
+		memcpy(payload,cmq_frame_payload(f),cmq_frame_size(f));
+		printf("recv: %s\n",(char *)payload);
+		f = cmq_frame_next(f);
+		if(f == NULL) {
 			break;
 		}
 	}
 
-	*r_fl = l_rfl;
-	close(sd);
-	free(buffer);
+	if((f == NULL) && (i < cmq_frame_list_count(fl))) {
+		fprintf(stderr,"ERROR: NULL frame at frame %d\n",i);
+		exit(1);
+	}
+			
+
+	// send frame list to server
+	printf("sending frame list to client\n");
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to send msg\n");
+		exit(1);
+	}
+
+	// destroy the frame list
+	cmq_frame_list_destroy(fl);
+
+	close(endpoint);
 	return(0);
-	
 }
-	
-	
-
-
+#endif
 	
 
+
+	
+	
+	
 
 	
 	
