@@ -1,12 +1,12 @@
-#include "backend.hpp"
 #include "common.hpp"
+#include "backend.hpp"
 
 #include <cstring>
 #include <debug.h>
 #include <global.h>
 
 extern "C" {
-#include <cmq_pkt.h>
+#include <cmq-pkt.h>
 }
 
 namespace cspot::cmq {
@@ -16,6 +16,10 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     std::string woof_n(woof_name);
     int sd;
     int err;
+    unsigned char *f;
+    unsigned char *fl;
+
+    
 
     if (!ip) {
         return -1;
@@ -28,70 +32,134 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
         return (-1);
     }
 
+    err = cmq_frame_list_create(&fl);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create msg for WoofMsgGet");
+	printf("WooFMsgGet: could not create msg\n");
+	return -1;
+    }
+
+    const char *cmd = std::to_string(WOOF_MSG_GET).c_str();
+    err = cmq_frame_create(&f,(unsigned char *)cmd,strlen(cmd)+1);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create cmd for WoofMsgGet");
+	printf("WooFMsgGet: could not create cmd\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+    err = cmq_frame_append(fl,f);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect append cmd for WoofMsgGet");
+	printf("WooFMsgGet: could not append cmd\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+
+    const unsigned char *w_ptr = reinterpret_cast<const unsigned char*>(woof_name.data());
+    err = cmq_frame_create(&f,(unsigned char *)w_ptr,strlen((const char *)w_ptr)+1);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create woof_name for WoofMsgGet");
+	printf("WooFMsgGet: could not create woof_name\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+    err = cmq_frame_append(fl,f);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect append woof_name for WoofMsgGet");
+	printf("WooFMsgGet: could not append woof_name\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+
+    const char *sn = std::to_string(seq_no).c_str();
+
+    err = cmq_frame_create(&f,(unsigned char *)sn,strlen(sn)+1);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create seqno for WoofMsgGet");
+	printf("WooFMsgGet: could not create seq_no\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+    err = cmq_frame_append(fl,f);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect append seq_no for WoofMsgGet");
+	printf("WooFMsgGet: could not append seq_no\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+
+
+    /*
     auto msg = CreateMessage(std::to_string(WOOF_MSG_GET),
                              std::string(woof_name),
                              std::to_string(seq_no)
                              );
+     */
 
-    sd = cmq_pkt_connect(ip.c_str(), stoi(port));
+    std::string ip_str = ip.value();
+    const char *c_ip_str = ip_str.c_str();
+
+    std::string port_str = port.value();
+
+    sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
     if(sd < 0) {
         DEBUG_WARN("Could not connect to server for WoofMsgGet");
-	printf("WooFMsgGet: server connect failed to %s:%s\n",
-		ip.c_str(),port.c_str());
-	cmq_frame_list_destroy(msg);
+	printf("WooFMsgGet: server connect failed to %s:%d\n",
+		c_ip_str,stoi(port_str));
+	cmq_frame_list_destroy(fl);
 	return -1;
     }
 
-    err = cmq_pkt_send_msg(sd,msg);
+    err = cmq_pkt_send_msg(sd,fl);
     if(err < 0) {
         DEBUG_WARN("Could not send to server for WoofMsgGet");
-	printf("WooFMsgGet: server request send failed to %s:%s\n",
-		ip.c_str(),
-		port.c_str());
-	cmq_frame_list_destroy(msg);
+	printf("WooFMsgGet: server request send failed to %s:%d\n",
+		c_ip_str,
+		stoi(port_str));
+	cmq_frame_list_destroy(fl);
         return -1;
     }
 
-    cmq_frame_list_destroy(msg);
+    cmq_frame_list_destroy(fl);
 
-    unsigned int *r_msg;
-    err = cmq_pkt_recv_msg(sd,&r_msg);
+    unsigned char *r_fl;
+    err = cmq_pkt_recv_msg(sd,&r_fl);
     if(err < 0) {
         DEBUG_WARN("Could not receive reply for WoofMsgGet");
-	printf("WooFMsgGet: server request recv failed from %s:%s\n",
-		ip.c_str(),port.c_str());
+	printf("WooFMsgGet: server request recv failed from %s:%d\n",
+		c_ip_str,stoi(port_str));
 	perror("WooFMsgGet");
         return -1;
     }
 
-    if(cmq_frame_list_empty(r_msg)) {
+    if(cmq_frame_list_empty(r_fl)) {
         DEBUG_WARN("Empty receive reply for WoofMsgGet");
-	printf("WooFMsgGet: empty recv from %s:%s\n",
-		ip.c_str(),port.c_str());
+	printf("WooFMsgGet: empty recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
 	perror("WooFMsgGet");
-	cmq_frame_list_destroy(r_msg);
+	cmq_frame_list_destroy(r_fl);
         return -1;
     }
 
     unsigned char *frame;
-    err = cmq_frame_pop(r_msg);
+    err = cmq_frame_pop(r_fl, &frame);
     if(err < 0) {
         DEBUG_WARN("msg pop failed receive reply for WoofMsgGet");
-	printf("WooFMsgGet: pop failed for recv from %s:%s\n",
-		ip.c_str(),port.c_str());
+	printf("WooFMsgGet: pop failed for recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
 	perror("WooFMsgGet");
-	cmq_frame_list_destroy(r_msg);
+	cmq_frame_list_destroy(r_fl);
         return -1;
     }
 
-    cmq_frame_list_destroy(r_msg);
+    cmq_frame_list_destroy(r_fl);
 
     if((cmq_frame_payload(frame) == NULL) ||
 	(cmq_frame_size(frame) == 0))
     {
         DEBUG_WARN("empty frame receive reply for WoofMsgGet");
-	printf("WooFMsgGet: empty frame for recv from %s:%s\n",
-		ip.c_str(),port.c_str());
+	printf("WooFMsgGet: empty frame for recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
 	perror("WooFMsgGet");
 	cmq_frame_destroy(frame);
         return -1;

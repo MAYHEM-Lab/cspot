@@ -6,41 +6,59 @@
 #include <vector>
 #include <debug.h>
 
+#include <string.h>
 #include <cmq-frame.h>
 
 namespace cspot::cmq {
 
 inline unsigned char*FrameFrom(const char* str) {
-    if (!str) {
-        return cmq_frame_create(NULL);
-    }
+    int err;
+    unsigned char *f;
 
-    return cmq_frame_create(str, strlen(str) + 1);
+
+    if (!str) {
+	err = cmq_frame_create(&f,NULL,0);
+	if(err < 0) {
+		return NULL;
+	} else {
+		return f;
+	}
+    }
+    err = cmq_frame_create(&f, (unsigned char *)str, strlen(str) + 1);
+    if(err < 0) {
+	    return NULL;
+    } else {
+    	return f;
+    }
 }
 
 
+#if 0
 template<class... DataTs>
 unsigned char *CreateMessage(const DataTs&... data) {
-    auto ptr = cmq_frame_list_create();
+    int err;
+    unsigned char *fl;
 
-    if(!ptr) {
-	return(nullptr);
+    err = cmq_frame_list_create(&fl);
+    if(err < 0) {
+	    return NULL;
     }
 
     auto append_one = [&](const auto& elem) {
-        auto frame = FrameFrom(elem);
+        auto frame = FrameFrom(elem.c_str());
         if (!frame) {
-            return nullptr;
+            return NULL;
         }
-        cmq_frame_append(ptr, frame);
-        return ptr;
+        cmq_frame_append(fl, frame);
+        return fl;
     };
 
     auto res = (append_one(data) && ...);
     if (res) {
-        return ptr;
+        return fl;
     }
-    return nullptr;
+    return NULL;
 }
+#endif
 
 } // cspot::cmq

@@ -44,7 +44,7 @@ std::optional<std::string> port_from_woof(std::string_view woof_name_v) {
         port = WooFPortHash(woof_namespace->c_str());
     }
 
-    return port;
+    return std::to_string(port.value());
 }
 
 } // namespace cspot::cmq
