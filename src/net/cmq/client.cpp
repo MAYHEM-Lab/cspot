@@ -72,7 +72,6 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     }
 
     const char *sn = std::to_string(seq_no).c_str();
-
     err = cmq_frame_create(&f,(unsigned char *)sn,strlen(sn)+1);
     if(err < 0) {
         DEBUG_WARN("Could not connect create seqno for WoofMsgGet");
@@ -171,49 +170,198 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     return 1;
 }
 
-#if 0
 int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) {
-    auto endpoint_opt = endpoint_from_woof(woof_name);
+    auto ip = ip_from_woof(woof_name);
+    auto port = port_from_woof(woof_name);
+    std::string woof_n(woof_name);
+    int sd;
+    int err;
+    unsigned char *f;
+    unsigned char *fl;
 
-    if (!endpoint_opt) {
+    if (!ip) {
+        return -1;
+    }
+    if (!port) {
         return -1;
     }
 
-    auto& endpoint = *endpoint_opt;
 
     if (el_size == (unsigned long)-1) {
         return (-1);
     }
 
+    err = cmq_frame_list_create(&fl);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create msg for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not create msg\n");
+	return -1;
+    }
+
+    const char *cmd = std::to_string(WOOF_MSG_GET_TAIL).c_str();
+    err = cmq_frame_create(&f,(unsigned char *)cmd,strlen(cmd)+1);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create cmd for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not create cmd\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+    err = cmq_frame_append(fl,f);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect append cmd for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not append cmd\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+
+    const unsigned char *w_ptr = reinterpret_cast<const unsigned char*>(woof_name.data());
+    err = cmq_frame_create(&f,(unsigned char *)w_ptr,strlen((const char *)w_ptr)+1);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create woof_name for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not create woof_name\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+    err = cmq_frame_append(fl,f);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect append woof_name for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not append woof_name\n");
+	cmq_frame_list_destroy(fl);
+    }
+
+    const char *els = std::to_string(el_size).c_str();
+    err = cmq_frame_create(&f,(unsigned char *)els,strlen(els)+1);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect create el_szie for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not create el_size\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+    err = cmq_frame_append(fl,f);
+    if(err < 0) {
+        DEBUG_WARN("Could not connect append el_size for WoofMsgGetTail");
+	printf("WooFMsgGet: could not append el_size\n");
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+
+    /*
     auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_TAIL), std::string(woof_name), std::to_string(el_count));
+    */
 
-    auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+    std::string ip_str = ip.value();
+    const char *c_ip_str = ip_str.c_str();
 
-    if (!r_msg) {
-        DEBUG_WARN("Could not receive reply for WooFMsgGetTail");
+    std::string port_str = port.value();
+
+    sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+    if(sd < 0) {
+        DEBUG_WARN("Could not connect to server for WoofMsgGetTail");
+	printf("WooFMsgGetTail: server connect failed to %s:%d\n",
+		c_ip_str,stoi(port_str));
+	cmq_frame_list_destroy(fl);
+	return -1;
+    }
+
+    err = cmq_pkt_send_msg(sd,fl);
+    if(err < 0) {
+        DEBUG_WARN("Could not send to server for WoofMsgGetTail");
+	printf("WooFMsgGetTail: server request send failed to %s:%d\n",
+		c_ip_str,
+		stoi(port_str));
+	cmq_frame_list_destroy(fl);
+        return -1;
+    }
+    cmq_frame_list_destroy(fl);
+
+    // auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+
+    unsigned char *r_fl;
+    err = cmq_pkt_recv_msg(sd,&r_fl);
+    if(err < 0) {
+        DEBUG_WARN("Could not receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: server request recv failed from %s:%d\n",
+		c_ip_str,stoi(port_str));
+	perror("WooFMsgGetTail");
         return -1;
     }
 
-    auto res = ExtractMessage<std::string, std::vector<uint8_t>>(*r_msg);
-    if (!res) {
+    if(cmq_frame_list_empty(r_fl)) {
+        DEBUG_WARN("Empty receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: empty recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
+	perror("WooFMsgGetTail");
+	cmq_frame_list_destroy(r_fl);
         return -1;
     }
 
-    auto& [len_str, vec] = *res;
-
-    auto len = std::stoul(len_str);
-    if (vec.size() != el_size * len) {
-        DEBUG_WARN("WooFMsgGetTail received a different element size than supplied, %d != %d!",
-                   int(vec.size() / len),
-                   int(el_size));
+    // first frame is element count
+    unsigned char *frame;
+    err = cmq_frame_pop(r_fl, &frame);
+    if(err < 0) {
+        DEBUG_WARN("msg pop failed receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: pop failed for recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
+	perror("WooFMsgGetTail");
+	cmq_frame_list_destroy(r_fl);
         return -1;
     }
 
-    len = std::min<uint32_t>(len, el_count);
+    if((cmq_frame_payload(frame) == NULL) ||
+	(cmq_frame_size(frame) == 0))
+    {
+        DEBUG_WARN("empty first frame receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: empty frame for recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
+	perror("WooFMsgGetTail");
+	cmq_frame_destroy(frame);
+        return -1;
+    }
 
-    std::memcpy(elements, vec.data(), len * el_size);
+    unsigned long el_cnt = strtol((char *)cmq_frame_payload(frame),NULL,10);
+    cmq_frame_destroy(frame);
+
+    // second frame is elements
+    err = cmq_frame_pop(r_fl,&frame);
+    if(err < 0) {
+        DEBUG_WARN("msg 2 pop failed receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: second pop failed for recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
+	perror("WooFMsgGetTail");
+	cmq_frame_list_destroy(r_fl);
+        return -1;
+    }
+
+    cmq_frame_list_destroy(r_fl);
+
+    if((cmq_frame_payload(frame) == NULL) ||
+	(cmq_frame_size(frame) == 0)) {
+        DEBUG_WARN("empty second frame receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: empty second frame for recv from %s:%d\n",
+		c_ip_str,stoi(port_str));
+	perror("WooFMsgGetTail");
+	cmq_frame_destroy(frame);
+        return -1;
+    }
+
+    // check to see if got eveything based on size
+    if(cmq_frame_size(frame) != (el_count*el_size)) {
+        DEBUG_WARN("frame size != el_count*el_size receive reply for WoofMsgGetTail");
+	printf("WooFMsgGetTail: size match failed for recv from %d, %d, %d\n",
+		cmq_frame_size(frame),el_count,el_size);
+    }
+    int len = cmq_frame_size(frame);
+    if(len < (el_count*el_size)) {
+	    len = el_count*el_size;
+    }
+
+    std::memcpy(elements, cmq_frame_payload(frame), len);
+
+    cmq_frame_destroy(frame);
     return 1;
+
 }
+#if 0
 
 int32_t
 backend::remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) {

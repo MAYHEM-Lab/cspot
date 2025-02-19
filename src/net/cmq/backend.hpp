@@ -21,8 +21,8 @@ public:
 #endif
 
     int32_t remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) override;
-#if 0
     int32_t remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) override;
+#if 0
     int32_t remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) override;
     int32_t remote_get_elem_size(std::string_view woof_name) override;
     int32_t remote_get_latest_seq_no(std::string_view woof_name,
