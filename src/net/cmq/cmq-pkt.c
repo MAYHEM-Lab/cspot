@@ -9,12 +9,13 @@
 
 
 	
-int cmq_pkt_endpoint(char *addr, unsigned short port)
+int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 {
 	int sd;
 	struct sockaddr_in ep_in;
 	int err;
 	int opt = 1;
+	struct timeval tv; // timeout is in ms
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd < 0) {
@@ -27,6 +28,12 @@ int cmq_pkt_endpoint(char *addr, unsigned short port)
 #else
 	signal(SIGPIPE,SIG_IGN);
 #endif
+	//tv.tv_sec = timeout / 1000;
+	tv.tv_sec = 3;
+	tv.tv_usec = 0;
+	if(setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv))) {
+		return(-1);
+	}
 
 	ep_in.sin_family = AF_INET;
 	ep_in.sin_port = htons(port);	
@@ -47,7 +54,7 @@ int cmq_pkt_endpoint(char *addr, unsigned short port)
 	return(sd);
 }
 
-int cmq_pkt_listen(unsigned long port)
+int cmq_pkt_listen(unsigned long port, unsigned long timeout)
 {
 	int sd;
 	int c_fd;
@@ -55,6 +62,7 @@ int cmq_pkt_listen(unsigned long port)
 	socklen_t len = sizeof(local_address);
 	int opt = 1;
 	int err;
+	struct timeval tv;
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd == -1) {
@@ -74,6 +82,13 @@ int cmq_pkt_listen(unsigned long port)
 #else
 	signal(SIGPIPE,SIG_IGN);
 #endif
+
+	tv.tv_sec = timeout/1000;
+	tv.tv_usec = 0;
+	if(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
+		return(-1);
+	}
+
 
 	local_address.sin_family = AF_INET;
 	local_address.sin_addr.s_addr = INADDR_ANY;
@@ -222,6 +237,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 #ifdef TESTCLIENT
 
 #define PORT 8079
+#define TIMEOUT 3000 // 3 second timeout
 
 #define ARGS "h:p:c:"
 char *Usage = "cmq-test-client -h host_ip\n\
@@ -275,7 +291,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 		
-	endpoint = cmq_pkt_endpoint(host_ip,host_port);
+	endpoint = cmq_pkt_connect(host_ip,host_port,TIMEOUT);
 	if(endpoint < 0) {
 		fprintf(stderr,"ERROR: failed to create endpoint\n");
 		exit(1);
@@ -347,6 +363,7 @@ int main(int argc, char **argv)
 #ifdef TESTSERVER
 
 #define PORT 8079
+#define TIMEOUT 3000 // 3 second accept timeout
 
 #define ARGS "p:"
 char *Usage = "cmq-test-server -p host_port\n";
@@ -378,7 +395,7 @@ int main(int argc, char **argv)
 		}
 	}
 		
-	endpoint = cmq_pkt_listen(host_port);
+	endpoint = cmq_pkt_listen(host_port, TIMEOUT);
 	if(endpoint < 0) {
 		fprintf(stderr,"ERROR: failed to create endpoint\n");
 		perror("listen");

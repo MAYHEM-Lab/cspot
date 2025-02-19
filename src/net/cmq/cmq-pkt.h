@@ -18,8 +18,8 @@ struct cmq_pkt_header_stc
 
 typedef struct cmq_pkt_header_stc CMQPKTHEADER; 
 
-int cmq_pkt_endpoint(char *addr, unsigned short port);
-int cmq_pkt_listen(unsigned long port);
+int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout);
+int cmq_pkt_listen(unsigned long port, unsigned long timeout);
 int cmq_pkt_send_msg(int endpoint, unsigned char *fl);
 int cmq_pkt_recv_msg(int endpoint, unsigned char **fl);
 
