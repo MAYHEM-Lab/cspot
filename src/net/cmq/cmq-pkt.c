@@ -54,7 +54,7 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 	return(sd);
 }
 
-int cmq_pkt_listen(unsigned long port, unsigned long timeout)
+int cmq_pkt_listen(unsigned long port)
 {
 	int sd;
 	int c_fd;
@@ -83,13 +83,6 @@ int cmq_pkt_listen(unsigned long port, unsigned long timeout)
 	signal(SIGPIPE,SIG_IGN);
 #endif
 
-	tv.tv_sec = timeout/1000;
-	tv.tv_usec = 0;
-	if(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
-		return(-1);
-	}
-
-
 	local_address.sin_family = AF_INET;
 	local_address.sin_addr.s_addr = INADDR_ANY;
 	local_address.sin_port = htons(port);
@@ -106,9 +99,29 @@ int cmq_pkt_listen(unsigned long port, unsigned long timeout)
 		return(-1);
 	}
 
+	return(sd);
+}
+
+
+int cmq_pkt_accept(int sd, unsigned long timeout)
+{
+	int c_fd;
+	struct sockaddr_in local_address;
+	socklen_t len = sizeof(local_address);
+	int opt = 1;
+	int err;
+	struct timeval tv;
+
+	if(timeout > 0) {
+		tv.tv_sec = timeout/1000;
+		tv.tv_usec = 0;
+		if(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
+			return(-1);
+		}
+	}
+
 	c_fd = accept(sd, (struct sockaddr *)&local_address, &len);
 	if(c_fd < 0) {
-		close(sd);
 		return(-1);
 	}
 
@@ -373,6 +386,7 @@ int main(int argc, char **argv)
 	int c;
 	unsigned long host_port;
 	int endpoint;
+	int server_sd;
 	int count;
 	char payload[1024];
 	int i;
@@ -395,12 +409,20 @@ int main(int argc, char **argv)
 		}
 	}
 		
-	endpoint = cmq_pkt_listen(host_port, TIMEOUT);
-	if(endpoint < 0) {
-		fprintf(stderr,"ERROR: failed to create endpoint\n");
+	server_sd = cmq_pkt_listen(host_port);
+	if(server_sd < 0) {
+		fprintf(stderr,"ERROR: failed to create server_sd\n");
 		perror("listen");
 		exit(1);
 	}
+
+	endpoint = cmq_pkt_accept(server_sd, 0); // zero timeout implies wait forever
+	if(endpoint < 0) {
+		fprintf(stderr,"ERROR: failed to accept endpoint\n");
+		perror("listen");
+		exit(1);
+	}
+
 
 	err = cmq_pkt_recv_msg(endpoint,&fl);
 	if(err < 0) {
