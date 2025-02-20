@@ -19,8 +19,6 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     unsigned char *f;
     unsigned char *fl;
 
-    
-
     if (!ip) {
         return -1;
     }
@@ -116,6 +114,7 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 		c_ip_str,
 		stoi(port_str));
 	cmq_frame_list_destroy(fl);
+	close(sd);
         return -1;
     }
 
@@ -128,8 +127,11 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 	printf("WooFMsgGet: server request recv failed from %s:%d\n",
 		c_ip_str,stoi(port_str));
 	perror("WooFMsgGet");
+	close(sd);
         return -1;
     }
+
+    close(sd);
 
     if(cmq_frame_list_empty(r_fl)) {
         DEBUG_WARN("Empty receive reply for WoofMsgGet");
@@ -270,6 +272,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 		c_ip_str,
 		stoi(port_str));
 	cmq_frame_list_destroy(fl);
+	close(sd);
         return -1;
     }
     cmq_frame_list_destroy(fl);
@@ -283,8 +286,11 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 	printf("WooFMsgGetTail: server request recv failed from %s:%d\n",
 		c_ip_str,stoi(port_str));
 	perror("WooFMsgGetTail");
+	close(sd);
         return -1;
     }
+
+    close(sd);
 
     if(cmq_frame_list_empty(r_fl)) {
         DEBUG_WARN("Empty receive reply for WoofMsgGetTail");
