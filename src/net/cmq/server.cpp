@@ -9,40 +9,33 @@ extern "C" {
 
 namespace cspot::cmq {
 namespace {
-void WooFMsgThread(unsigned short port) {
-	int sd;
+void WooFMsgThread(int sd) {
 	int c_fd;
 	int err;
 	unsigned char *fl;
 	unsigned char *f;
 	unsigned char *r_fl;
 	unsigned char *r_f;
-    /*
-     * create a server socket, listen, and accept
-     */
-	sd = cmq_pkt_listen(port);
-	if(sd < 0) {
-		perror("WooFMsgThread: couldn't open receiver");
-		return;
-	}
 	
 
-    	DEBUG_LOG("WooFMsgThread: about to call receive");
+    	DEBUG_LOG("WooFMsgThread: about to call accept");
 
-    	while (1) {
-		c_fd = cmq_pkt_accept(sd,0); // wait forever for an accept
-		if(c_fd < 0) {
-			DEBUG_WARN("WooFMsgThread: accept failed");
-			close(sd);
-			return;
-		}
-		err = cmq_pkt_recv_msg(c_fd,&fl);
-		if(err < 0) {
-			DEBUG_WARN("WooFMsgThread: recv failed");
-			close(sd);
-			close(c_fd);
-			return;
-		}
+	sd = cmq_pkt_accept(sd,WOOF_MSG_REQ_TIMEOUT);
+	if(sd < 0) {
+		DEBUG_WARN("WooFMsgThread: accept failed");
+		perror("WooFMsgThread: accept failed");
+		return;
+	}
+
+	err = cmq_pkt_recv_msg(sd,&fl);
+	if(err < 0) {
+		DEBUG_WARN("WooFMsgThread: recv failed");
+                perror("WooFMsgThread: recv failed");
+                return;
+        }
+
+    	while (err >= 0) {
+
         	DEBUG_LOG("WooFMsgThread: received");
 		err = cmq_frame_pop(fl,&f);
 		if(err < 0) {
@@ -67,15 +60,17 @@ void WooFMsgThread(unsigned short port) {
 		    break;
 #endif
 		case WOOF_MSG_GET:
-		    WooFProcessGet(fl, c_fd);
+		    WooFProcessGet(fl,sd);
 		    break;
 #if 0
 		case WOOF_MSG_GET_EL_SIZE:
 		    WooFProcessGetElSize(std::move(msg), receiver.get());
 		    break;
+#endif
 		case WOOF_MSG_GET_TAIL:
-		    WooFProcessGetTail(std::move(msg), receiver.get());
+		    WooFProcessGetTail(fl,sd);
 		    break;
+#if 0
 		case WOOF_MSG_GET_LATEST_SEQNO:
 		    WooFProcessGetLatestSeqno(std::move(msg), receiver.get());
 		    break;
@@ -103,13 +98,16 @@ void WooFMsgThread(unsigned short port) {
 		    DEBUG_WARN("WooFMsgThread: unknown tag %d\n", int(tag));
 		    break;
 		}
-		close(c_fd);
-    }
+		err = cmq_pkt_recv_msg(sd,&fl);
+    	}
+    	close(sd);
+    	return;
 }
 } // namespace
 
 bool backend::listen(std::string_view ns) {
     m_stop_called = false;
+    int sd;
 
     std::string woof_namespace(ns);
 
@@ -122,12 +120,13 @@ bool backend::listen(std::string_view ns) {
      */
     auto port = WooFPortHash(woof_namespace.c_str());
 
+    sd = cmq_pkt_listen(port);
+    
     /*
-     * create a single thread for now.  The DEALER pattern can handle multiple threads,
-     * however so this can be increased if need be
+     * create a single thread for now.  multiple threads can call accept
      */
     for (auto& t : m_threads) {
-        t = std::thread(WooFMsgThread, port);
+        t = std::thread(WooFMsgThread, sd);
     }
 
     return true;

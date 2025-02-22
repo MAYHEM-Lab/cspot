@@ -231,18 +231,18 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 	cmq_frame_list_destroy(fl);
     }
 
-    const char *els = std::to_string(el_size).c_str();
-    err = cmq_frame_create(&f,(unsigned char *)els,strlen(els)+1);
+    const char *el_c = std::to_string(el_count).c_str();
+    err = cmq_frame_create(&f,(unsigned char *)el_c,strlen(el_c)+1);
     if(err < 0) {
-        DEBUG_WARN("Could not connect create el_szie for WoofMsgGetTail");
-	printf("WooFMsgGetTail: could not create el_size\n");
+        DEBUG_WARN("Could not connect create el_count for WoofMsgGetTail");
+	printf("WooFMsgGetTail: could not create el_count\n");
 	cmq_frame_list_destroy(fl);
 	return -1;
     }
     err = cmq_frame_append(fl,f);
     if(err < 0) {
-        DEBUG_WARN("Could not connect append el_size for WoofMsgGetTail");
-	printf("WooFMsgGet: could not append el_size\n");
+        DEBUG_WARN("Could not connect append el_count for WoofMsgGetTail");
+	printf("WooFMsgGet: could not append el_count\n");
 	cmq_frame_list_destroy(fl);
 	return -1;
     }
