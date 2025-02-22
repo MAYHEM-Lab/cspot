@@ -324,7 +324,6 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
         return -1;
     }
 
-    unsigned long el_cnt = strtol((char *)cmq_frame_payload(frame),NULL,10);
     cmq_frame_destroy(frame);
 
     // second frame is elements
@@ -353,11 +352,11 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
     // check to see if got eveything based on size
     if(cmq_frame_size(frame) != (el_count*el_size)) {
         DEBUG_WARN("frame size != el_count*el_size receive reply for WoofMsgGetTail");
-	printf("WooFMsgGetTail: size match failed for recv from %d, %d, %d\n",
+	printf("WooFMsgGetTail: size match failed for recv from %d, %d, %ld\n",
 		cmq_frame_size(frame),el_count,el_size);
     }
     int len = cmq_frame_size(frame);
-    if(len < (el_count*el_size)) {
+    if((unsigned int)len < (el_count*el_size)) {
 	    len = el_count*el_size;
     }
 

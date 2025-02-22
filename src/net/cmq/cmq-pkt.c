@@ -14,7 +14,6 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 	int sd;
 	struct sockaddr_in ep_in;
 	int err;
-	int opt = 1;
 	struct timeval tv; // timeout is in ms
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
@@ -28,8 +27,7 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 #else
 	signal(SIGPIPE,SIG_IGN);
 #endif
-	//tv.tv_sec = timeout / 1000;
-	tv.tv_sec = 3;
+	tv.tv_sec = timeout * 1000;
 	tv.tv_usec = 0;
 	if(setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv))) {
 		return(-1);
@@ -57,12 +55,9 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 int cmq_pkt_listen(unsigned long port)
 {
 	int sd;
-	int c_fd;
 	struct sockaddr_in local_address;
-	socklen_t len = sizeof(local_address);
 	int opt = 1;
 	int err;
-	struct timeval tv;
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd == -1) {
@@ -108,8 +103,6 @@ int cmq_pkt_accept(int sd, unsigned long timeout)
 	int c_fd;
 	struct sockaddr_in local_address;
 	socklen_t len = sizeof(local_address);
-	int opt = 1;
-	int err;
 	struct timeval tv;
 
 	if(timeout > 0) {
@@ -142,7 +135,7 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 
 	// send the header using write
 	err = write(endpoint,&header,sizeof(header));
-	if(err < sizeof(header)) {
+	if((unsigned long int)err < sizeof(header)) {
 		return(-1);
 	}
 
@@ -152,12 +145,12 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 		// write the frame size
 		size = htonl(frame->size);
 		err = write(endpoint,&size,sizeof(size));
-		if(err < sizeof(size)) {
+		if((unsigned long int)err < sizeof(size)) {
 			return(-1);
 		}
 		// write the frame
 		err = write(endpoint,frame->payload,frame->size);
-		if(err < frame->size) {
+		if((unsigned long int)err < frame->size) {
 			return(-1);
 		}
 		frame = frame->next;
@@ -173,14 +166,13 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	unsigned char *f;
 	int err;
 	int i;
-	unsigned char size_buf[8];
 	unsigned long size;
 	unsigned char *payload;
 	unsigned long max_size;
 
 	// read the header
 	err = recv(endpoint,&header,sizeof(header),MSG_WAITALL);
-	if(err < sizeof(header)) {
+	if((unsigned long int)err < sizeof(header)) {
 		return(-1);
 	}
 
@@ -205,9 +197,9 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	}
 
 	// read the frames
-	for(i=0; i < header.frame_count; i++) {
+	for(i=0; i < (int)header.frame_count; i++) {
 		err = recv(endpoint,(unsigned char *)&size,sizeof(size),MSG_WAITALL);
-		if(err < sizeof(size)) {
+		if((unsigned long int)err < sizeof(size)) {
 			return(-1);
 		}
 		// this could happen if a frame of max_size was popped
@@ -222,7 +214,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 		}
 		// read the payload
 		err = recv(endpoint,payload,ntohl(size), MSG_WAITALL);
-		if(err < ntohl(size)) {
+		if((unsigned int)err < ntohl(size)) {
 			free(payload);
 			return(-1);
 		}

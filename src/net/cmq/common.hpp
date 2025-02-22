@@ -4,15 +4,15 @@
 #include <string>
 
 namespace cspot::cmq {
-void WooFProcessPut(int receiver, unsigned char *req_msg);
+void WooFProcessPut(unsigned char *fl, int sd);
 
-void WooFProcessGetElSize(int receiver, unsigned char *req_msg);
+void WooFProcessGetElSize(unsigned char *fl, int sd);
 
-void WooFProcessGetLatestSeqno(int receiver, unsigned char *req_msg);
+void WooFProcessGetLatestSeqno(unsigned char *fl, int sd);
 
-void WooFProcessGetTail(int receiver, unsigned char *req_msg);
+void WooFProcessGetTail(unsigned char *fl, int sd);
 
-void WooFProcessGet(int receiver, unsigned char *req_msg);
+void WooFProcessGet(unsigned char *fl, int sd);
 
 std::optional<std::string> ip_from_woof(std::string_view woof_name);
 std::optional<std::string> port_from_woof(std::string_view woof_name);

@@ -15,10 +15,8 @@ namespace cspot::cmq {
 
 class backend : public network_backend {
 public:
-#if 0
     bool listen(std::string_view ns) override;
     bool stop() override;
-#endif
 
     int32_t remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) override;
     int32_t remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) override;
@@ -29,21 +27,11 @@ public:
                                      const char* cause_woof_name,
                                      uint32_t cause_woof_latest_seq_no) override;
 
-private:
-    ZMsgPtr ServerRequest(const char* endpoint, ZMsgPtr msg_arg);
-    per_endpoint_data* get_local_socket_for(const std::string& endpoint);
-    per_endpoint_data* reset_local_socket_for(const std::string& endpoint);
-
-    using AddrSockMapT = std::unordered_map<std::string, per_endpoint_data>;
-
-    using ThreadMapT = std::unordered_map<std::thread::id, AddrSockMapT>;
-
-    ThreadMapT m_per_thread_socks;
-
-    std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
-
-    ZActorPtr m_proxy;
-    std::atomic<bool> m_stop_called = false;
 #endif
+private:
+    //ZMsgPtr ServerRequest(const char* endpoint, ZMsgPtr msg_arg);
+    std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
+    std::atomic<bool> m_stop_called = false;
+    int listen_sd;
 };
 }
