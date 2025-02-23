@@ -1,5 +1,8 @@
 #include "common.hpp"
 #include "backend.hpp"
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include <cstring>
 #include <debug.h>
@@ -155,13 +158,14 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 
     cmq_frame_list_destroy(r_fl);
 
+    // zero frame indicates read error
     if((cmq_frame_payload(frame) == NULL) ||
 	(cmq_frame_size(frame) == 0))
     {
         DEBUG_WARN("empty frame receive reply for WoofMsgGet");
 	printf("WooFMsgGet: empty frame for recv from %s:%d\n",
 		c_ip_str,stoi(port_str));
-	perror("WooFMsgGet");
+	//perror("WooFMsgGet");
 	cmq_frame_destroy(frame);
         return -1;
     }
@@ -324,9 +328,11 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
         return -1;
     }
 
+    unsigned long el_read = strtoul((char *)cmq_frame_payload(frame),NULL,10);
     cmq_frame_destroy(frame);
 
     // second frame is elements
+    // // could be zero frame
     err = cmq_frame_pop(r_fl,&frame);
     if(err < 0) {
         DEBUG_WARN("msg 2 pop failed receive reply for WoofMsgGetTail");
@@ -336,7 +342,6 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 	cmq_frame_list_destroy(r_fl);
         return -1;
     }
-
     cmq_frame_list_destroy(r_fl);
 
     if((cmq_frame_payload(frame) == NULL) ||
@@ -358,153 +363,367 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
     int len = cmq_frame_size(frame);
     if((unsigned int)len < (el_count*el_size)) {
 	    len = el_count*el_size;
+	    el_read = el_count;
     }
 
     std::memcpy(elements, cmq_frame_payload(frame), len);
 
     cmq_frame_destroy(frame);
-    return 1;
+    return el_read;
 
 }
-#if 0
 
 int32_t
 backend::remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) {
-    auto endpoint_opt = endpoint_from_woof(woof_name);
+	auto ip = ip_from_woof(woof_name);
+	auto port = port_from_woof(woof_name);
+	int err;
+	int sd;
+	unsigned char *fl;
+	unsigned char *f;
+	unsigned char *r_fl;
+	unsigned char *r_f;
 
-    if (!endpoint_opt) {
-        return -1;
-    }
+	if(!ip) {
+	    return(-1);
+	}
+	if(!port) {
+	    return(-1);
+	}
 
-    auto& endpoint = *endpoint_opt;
+	if (elem_size == (uint32_t)-1) {
+		return (-1);
+	}
 
-    if (elem_size == (uint32_t)-1) {
-        return (-1);
-    }
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not create frame list for WooFMsgPut");
+		return(-1);
+	}
 
-    unsigned long my_log_seq_no;
-    if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
-    } else {
-        my_log_seq_no = 0;
-    }
+	// tag is first
+	const char *t_str = std::to_string(WOOF_MSG_PUT).c_str();
+	err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create tag frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
 
-    auto elem_ptr = static_cast<const uint8_t*>(elem);
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_PUT),
-                             std::string(woof_name),
-                             handler_name,
-                            //  std::to_string(Name_id),
-                            //  std::to_string(my_log_seq_no),
-                             std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append tag frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
 
-    if (!msg) {
-        DEBUG_WARN("Could not create message for WooFMsgPut for %s", woof_name);
-        return -1;
-    }
+	const char *w_str = std::string(woof_name).c_str();
+	err = cmq_frame_create(&f,(unsigned char *)w_str,strlen(w_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create woof name frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
 
-    auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append woof name frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
 
-    if (!r_msg) {
-        DEBUG_WARN("Could not receive reply for WoofMsgPut");
-	printf("WooFPut: server request failed");
-	perror("WooFMsgPut");
-        return -1;
-    }
+	// send NULL as place holder when no handler name
+	const char *h_str;
+	if(handler_name == NULL) {
+	    h_str = "NULL";
+	} else {
+	    h_str = handler_name;
+	}
 
-    auto res = ExtractMessage<std::string>(*r_msg);
-    if (!res) {
-        return -1;
-    }
+	err = cmq_frame_create(&f,(unsigned char *)h_str,strlen(h_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create handler name frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
 
-    auto& [str] = *res;
-    return std::stoul(str, nullptr, 10);
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append handler name frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
+
+	err = cmq_frame_create(&f,(unsigned char *)elem, elem_size);
+	if(err < 0) {
+		DEBUG_WARN("Could not create element frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append element frame for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
+
+	std::string ip_str = ip.value();
+	const char *c_ip_str = ip_str.c_str();
+	std::string port_str = port.value();
+	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+	if(sd < 0) {
+		DEBUG_WARN("Could not connect to server for WooFMsgPut with timeout %d ms\n",
+				WOOF_MSG_REQ_TIMEOUT);
+		perror("MooFMsgPut: connect failed");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_pkt_send_msg(sd,fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not send msg for WooFMsgPut");
+		cmq_frame_list_destroy(fl);
+		close(sd);
+		return(-1);
+	}
+
+	err = cmq_pkt_recv_msg(sd,&r_fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not recv msg for WooFMsgPut response");
+		close(sd);
+		return(-1);
+	}
+	
+	close(sd);
+	err = cmq_frame_pop(r_fl,&r_f);
+	if(err < 0) {
+		DEBUG_WARN("Could not pop frame for WooFMsgPut response");
+		cmq_frame_list_destroy(r_fl);
+		return(-1);
+	}
+	cmq_frame_list_destroy(r_fl);
+
+	// response should be seq_no
+	int32_t seq_no = strtoul((char *)cmq_frame_payload(r_f),NULL,10);
+	cmq_frame_destroy(r_f);
+
+    	return seq_no;
 }
 
 int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
-    std::string woof_name(woof_name_v);
-    auto endpoint_opt = endpoint_from_woof(woof_name);
+	std::string woof_name(woof_name_v);
+	auto ip = ip_from_woof(woof_name);
+	auto port = port_from_woof(woof_name);
+	int err;
+	int sd;
+	unsigned char *fl;
+	unsigned char *f;
+	unsigned char *r_fl;
+	unsigned char *r_f;
 
-    if (!endpoint_opt) {
-        return -1;
-    }
+	if(!ip) {
+	    return(-1);
+	}
+	if(!port) {
+	    return(-1);
+	}
 
-    auto& endpoint = *endpoint_opt;
+	DEBUG_LOG("WooFMsgGetElSize: woof: %s trying enpoint\n", woof_name.c_str());
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+        	DEBUG_WARN("Could not create message for GetElSize for %s", woof_name.c_str());
+		return(-1);
+	}
 
-    DEBUG_LOG("WooFMsgGetElSize: woof: %s trying enpoint %s\n", woof_name.c_str(), endpoint.c_str());
+	// tag is first
+	const char *t_str = std::to_string(WOOF_MSG_GET_EL_SIZE).c_str();
+	err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create tag frame for GetElSize for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append tag frame for GetElSize for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
 
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE), std::string(woof_name));
+	// woof name next
+	const char *w_str = woof_name.c_str();
+	err = cmq_frame_create(&f,(unsigned char *)w_str,strlen(w_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create woof name frame for GetElSize for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append woof name frame for GetElSize for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
 
-    if (!msg) {
-        DEBUG_WARN("Could not create message for GetElSize for %s", woof_name.c_str());
-        return -1;
-    }
+	std::string ip_str = ip.value();
+	const char *c_ip_str = ip_str.c_str();
+	std::string port_str = port.value();
+	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+	if(sd < 0) {
+		DEBUG_WARN("Could not connect to server for GetElSize with timeout %d ms\n",
+				WOOF_MSG_REQ_TIMEOUT);
+		perror("MooFMsgPut: connect failed");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_pkt_send_msg(sd,fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not send msg for GetElSize");
+		cmq_frame_list_destroy(fl);
+		close(sd);
+		return(-1);
+	}
+	cmq_frame_list_destroy(fl);
 
-    auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+	err = cmq_pkt_recv_msg(sd,&r_fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not recv msg for GetElSize response");
+        	perror("WooFMsgGetElSize");
+		close(sd);
+		return(-1);
+	}
+	close(sd);
 
-    if (!r_msg) {
-        fprintf(stderr,
-                "WooFMsgGetElSize: woof: %s couldn't recv msg for element size from "
-                "server at %s\n",
-                woof_name.c_str(),
-                endpoint.c_str());
-	printf("WooFMsgGetElSize: server request failed\n");
-        perror("WooFMsgGetElSize");
-        return -1;
-    }
+	err = cmq_frame_pop(r_fl,&r_f);
+	if(err < 0) {
+		DEBUG_WARN("Could not pop frame for GetElSize response");
+		cmq_frame_list_destroy(r_fl);
+		return(-1);
+	}
+	 cmq_frame_list_destroy(r_fl);
 
-    auto res = ExtractMessage<std::string>(*r_msg);
-    if (!res) {
-        return -1;
-    }
+        // response should be seq_no
+        int32_t seq_no = strtoul((char *)cmq_frame_payload(r_f),NULL,10);
+        cmq_frame_destroy(r_f);
 
-    auto& [str] = *res;
-    return std::stoul(str, nullptr, 10);
+        return seq_no;
+
 }
 
-int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
+int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
                                           const char* cause_woof_name,
                                           uint32_t cause_woof_latest_seq_no) {
+	std::string woof_name(woof_name_v);
+	auto ip = ip_from_woof(woof_name);
+	auto port = port_from_woof(woof_name);
+	int err;
+	int sd;
+	unsigned char *fl;
+	unsigned char *f;
+	unsigned char *r_fl;
+	unsigned char *r_f;
 
-    std::string woof_n(woof_name);
-    auto endpoint_opt = endpoint_from_woof(woof_name);
+	if(!ip) {
+	    return(-1);
+	}
+	if(!port) {
+	    return(-1);
+	}
 
-    if (!endpoint_opt) {
-        return -1;
-    }
+	DEBUG_LOG("WooFMsgGetLatestSeqno: woof: %s trying enpoint\n", woof_name.c_str());
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+        	DEBUG_WARN("Could not create message for GetLatestSeqno for %s %s %d", 
+				woof_name.c_str(),
+				cause_woof_name,
+				(int)cause_woof_latest_seq_no);
+        	printf("Could not create message for GetLatestSeqno for %s %s %d", 
+				woof_name.c_str(),
+				cause_woof_name,
+				(int)cause_woof_latest_seq_no);
+		return(-1);
+	}
 
-    auto& endpoint = *endpoint_opt;
+	// tag is first
+	const char *t_str = std::to_string(WOOF_MSG_GET_LATEST_SEQNO).c_str();
+	err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create tag frame for GetLatestSeqno for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append tag frame for GetLatestSeqno for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
 
-    unsigned long my_log_seq_no;
-    if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
-    } else {
-        my_log_seq_no = 0;
-    }
+	// woof name next
+	const char *w_str = woof_name.c_str();
+	err = cmq_frame_create(&f,(unsigned char *)w_str,strlen(w_str)+1);
+	if(err < 0) {
+		DEBUG_WARN("Could not create woof name frame for GetLatestSeqno for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not append woof name frame for GetLatestSeqno for %s", woof_name.c_str());
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(-1);
+	}
 
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_LATEST_SEQNO),
-                             std::string(woof_name)
-                            //  ,std::to_string(Name_id),
-                            //  std::to_string(my_log_seq_no),
-                            //  cause_woof_name,
-                            //  std::to_string(cause_woof_latest_seq_no)
-                             );
+	std::string ip_str = ip.value();
+	const char *c_ip_str = ip_str.c_str();
+	std::string port_str = port.value();
+	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+	if(sd < 0) {
+		DEBUG_WARN("Could not connect to server for GetElSize with timeout %d ms\n",
+				WOOF_MSG_REQ_TIMEOUT);
+		perror("MooFMsgPut: connect failed");
+		cmq_frame_list_destroy(fl);
+		return(-1);
+	}
+	err = cmq_pkt_send_msg(sd,fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not send msg for LatestSeqno");
+		cmq_frame_list_destroy(fl);
+		close(sd);
+		return(-1);
+	}
+	cmq_frame_list_destroy(fl);
 
-    auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+	err = cmq_pkt_recv_msg(sd,&r_fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not recv msg for LatestSeqno response");
+        	perror("WooFMsgGetElSize");
+		close(sd);
+		return(-1);
+	}
+	close(sd);
 
-    if (!r_msg) {
-        DEBUG_WARN("Could not receive reply for WoofMsgGet");
-	printf("WooFMsgGetLatestSeqno: server request failed\n");
-	perror("WooFMsgGetLatestSeqno");
-        return -1;
-    }
+	err = cmq_frame_pop(r_fl,&r_f);
+	if(err < 0) {
+		DEBUG_WARN("Could not pop frame for LatestSeqno response");
+		cmq_frame_list_destroy(r_fl);
+		return(-1);
+	}
+	 cmq_frame_list_destroy(r_fl);
 
-    auto res = ExtractMessage<std::string>(*r_msg);
-    if (!res) {
-        return -1;
-    }
+        // response should be seq_no
+        int32_t seq_no = strtoul((char *)cmq_frame_payload(r_f),NULL,10);
+        cmq_frame_destroy(r_f);
 
-    auto& [str] = *res;
-    return std::stoul(str);
+        return seq_no;
+
 }
-#endif
-} // namespace cspot::zmq
+} // namespace cspot::cmq

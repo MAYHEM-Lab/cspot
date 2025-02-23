@@ -2,7 +2,6 @@
 
 #include "cmq_wrap.hpp"
 
-#include <czmq.h>
 #include <net.h>
 #include <optional>
 #include <string>
@@ -20,14 +19,12 @@ public:
 
     int32_t remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) override;
     int32_t remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) override;
-#if 0
     int32_t remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) override;
     int32_t remote_get_elem_size(std::string_view woof_name) override;
     int32_t remote_get_latest_seq_no(std::string_view woof_name,
                                      const char* cause_woof_name,
                                      uint32_t cause_woof_latest_seq_no) override;
 
-#endif
 private:
     //ZMsgPtr ServerRequest(const char* endpoint, ZMsgPtr msg_arg);
     std::vector<std::thread> m_threads{WOOF_MSG_THREADS};

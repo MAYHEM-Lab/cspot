@@ -1,6 +1,9 @@
 #include "backend.hpp"
 #include "common.hpp"
 #include "debug.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include <woofc-access.h>
 extern "C" {
@@ -16,84 +19,86 @@ void WooFMsgThread(int sd) {
 	unsigned char *f;
 	
 
-    	DEBUG_LOG("WooFMsgThread: about to call accept");
+	while(1) { // loop until something fails
+		DEBUG_LOG("WooFMsgThread: about to call accept");
 
-	c_sd = cmq_pkt_accept(sd,WOOF_MSG_REQ_TIMEOUT);
-	if(c_sd < 0) {
-		DEBUG_WARN("WooFMsgThread: accept failed");
-		perror("WooFMsgThread: accept failed");
-		return;
-	}
-
-	err = cmq_pkt_recv_msg(c_sd,&fl);
-	if(err < 0) {
-		DEBUG_WARN("WooFMsgThread: recv failed");
-                perror("WooFMsgThread: recv failed");
-                return;
-        }
-
-    	while (err >= 0) {
-
-        	DEBUG_LOG("WooFMsgThread: received");
-		err = cmq_frame_pop(fl,&f);
-		if(err < 0) {
-			cmq_frame_list_destroy(fl);
-        		DEBUG_WARN("WooFMsgThread: couldn't get tag");
-			close(c_sd);
+		c_sd = cmq_pkt_accept(sd,WOOF_MSG_REQ_TIMEOUT); // timeout is set for c_sd
+		if(c_sd < 0) {
+			DEBUG_WARN("WooFMsgThread: accept failed");
+			perror("WooFMsgThread: accept failed");
 			return;
 		}
 
-        /*
-         * WooFMsg starts with a message tag for dispatch
-         */
-		long tag = strtol((char *)cmq_frame_payload(f),NULL,10);
-        	DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
-		cmq_frame_destroy(f);
+		err = cmq_pkt_recv_msg(c_sd,&fl);
+		if(err < 0) {
+			DEBUG_WARN("WooFMsgThread: recv failed");
+			perror("WooFMsgThread: recv failed");
+			return;
+		}
 
-		// process routines destroy fl
-		switch (tag) {
-			case WOOF_MSG_PUT:
-			    WooFProcessPut(fl,c_sd);
-			    break;
-			case WOOF_MSG_GET:
-			    WooFProcessGet(fl,c_sd);
-			    break;
-			case WOOF_MSG_GET_EL_SIZE:
-			    WooFProcessGetElSize(fl,c_sd);
-			    break;
-			case WOOF_MSG_GET_TAIL:
-			    WooFProcessGetTail(fl,c_sd);
-			    break;
-			case WOOF_MSG_GET_LATEST_SEQNO:
-			    WooFProcessGetLatestSeqno(fl,c_sd);
-			    break;
-// these need to be  converte from zmq
+		while (err >= 0) {
+
+			DEBUG_LOG("WooFMsgThread: received");
+			err = cmq_frame_pop(fl,&f);
+			if(err < 0) {
+				cmq_frame_list_destroy(fl);
+				DEBUG_WARN("WooFMsgThread: couldn't get tag");
+				close(c_sd);
+				return;
+			}
+
+		/*
+		 * WooFMsg starts with a message tag for dispatch
+		 */
+			long tag = strtol((char *)cmq_frame_payload(f),NULL,10);
+			DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
+			cmq_frame_destroy(f);
+
+			// process routines destroy fl
+			switch (tag) {
+				case WOOF_MSG_PUT:
+				    WooFProcessPut(fl,c_sd);
+				    break;
+				case WOOF_MSG_GET:
+				    WooFProcessGet(fl,c_sd);
+				    break;
+				case WOOF_MSG_GET_EL_SIZE:
+				    WooFProcessGetElSize(fl,c_sd);
+				    break;
+				case WOOF_MSG_GET_TAIL:
+				    WooFProcessGetTail(fl,c_sd);
+				    break;
+				case WOOF_MSG_GET_LATEST_SEQNO:
+				    WooFProcessGetLatestSeqno(fl,c_sd);
+				    break;
+	// these need to be  converte from zmq
 #ifdef DONEFLAG
-			case WOOF_MSG_GET_DONE:
-			    WooFProcessGetDone(msg, receiver);
-			    break;
+				case WOOF_MSG_GET_DONE:
+				    WooFProcessGetDone(msg, receiver);
+				    break;
 #endif
 #ifdef REPAIR
-			case WOOF_MSG_REPAIR:
-			    WooFProcessRepair(msg, receiver);
-			    break;
-			case WOOF_MSG_REPAIR_PROGRESS:
-			    WooFProcessRepairProgress(msg, receiver);
-			    break;
-			case LOG_GET_REMOTE_SIZE:
-			    LogProcessGetSize(msg, receiver);
-			    break;
-			case LOG_GET_REMOTE:
-			    LogProcessGet(msg, receiver);
-			    break;
+				case WOOF_MSG_REPAIR:
+				    WooFProcessRepair(msg, receiver);
+				    break;
+				case WOOF_MSG_REPAIR_PROGRESS:
+				    WooFProcessRepairProgress(msg, receiver);
+				    break;
+				case LOG_GET_REMOTE_SIZE:
+				    LogProcessGetSize(msg, receiver);
+				    break;
+				case LOG_GET_REMOTE:
+				    LogProcessGet(msg, receiver);
+				    break;
 #endif
-			default:
-			    DEBUG_WARN("WooFMsgThread: unknown tag %d\n", int(tag));
-			    break;
+				default:
+				    DEBUG_WARN("WooFMsgThread: unknown tag %d\n", int(tag));
+				    break;
+			}
+			err = cmq_pkt_recv_msg(c_sd,&fl);
 		}
-		err = cmq_pkt_recv_msg(c_sd,&fl);
+		close(c_sd);
 	}
-	close(c_sd);
     	return;
 }
 } // namespace
@@ -143,4 +148,4 @@ bool backend::stop() {
     close(listen_sd);
     return true;
 }
-} // namespace cspot::zmq
+} // namespace cspot::cmq

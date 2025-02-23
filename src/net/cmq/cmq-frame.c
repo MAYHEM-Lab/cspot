@@ -42,7 +42,9 @@ int cmq_frame_create(unsigned char **f, unsigned char *ptr, unsigned int len)
 		return(-1);
 	}
 
-	if(ptr == NULL) {
+	//
+	// NULL frame
+	if((ptr == NULL) && (len == 0)) {
 		memset(frame,0,sizeof(CMQFRAME));
 		*f = (unsigned char *)frame;
 		return(0);
@@ -54,8 +56,11 @@ int cmq_frame_create(unsigned char **f, unsigned char *ptr, unsigned int len)
 		return(-1);
 	}
 
+	// if len > 0 but ptr == NULL, create empty frame with space
 	frame->size = len;
-	memcpy(frame->payload,ptr,len);
+	if(ptr != NULL) {
+		memcpy(frame->payload,ptr,len);
+	}
 	*f = (unsigned char *)frame;
 	return(0);
 }

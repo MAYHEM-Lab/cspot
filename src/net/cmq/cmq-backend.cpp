@@ -187,9 +187,9 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	unsigned char *woof_name;
 	unsigned char *seqno_frame;
 	unsigned long seq_no;
-	unsigned char *elem;
 	unsigned char *r_fl;
 	unsigned char *r_frame;
+
 
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGet Bad message");
@@ -233,36 +233,45 @@ void WooFProcessGet(unsigned char *fl, int sd)
         	wf = WooFOpen(local_name);
     	}
 
-	elem = NULL;
+
     	if (!wf) {
         	DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", (char *)cmq_frame_payload(woof_name));
+		// zero frame indicates error
+		err = cmq_frame_create(&r_frame,NULL,0); 
     	} else {
-		elem = (unsigned char *)malloc(wf->shared->element_size);
+		// create empty frame for response
+		err = cmq_frame_create(&r_frame,NULL,wf->shared->element_size);
+	}
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGet: couldn't create response frame woof: %s\n", (char *)cmq_frame_payload(woof_name));
+		cmq_frame_destroy(woof_name);
+		if(wf) {
+			WooFDrop(wf);
+		}
+		return;
 	}
 
-	if(elem != NULL) {
-		err = WooFReadWithCause(wf, elem, seq_no, cause_host, cause_seq_no);
+	if(cmq_frame_payload(r_frame) != NULL) {
+		err = WooFReadWithCause(wf, cmq_frame_payload(r_frame), seq_no, cause_host, cause_seq_no);
 		if (err < 0) {
 		    DEBUG_WARN("WooFProcessGet: read failed: %s at %lu\n", (char *)cmq_frame_payload(woof_name), seq_no);
-		    free(elem);
 		    cmq_frame_destroy(woof_name);
-		    elem = NULL;
 		}
 	}
-	 cmq_frame_destroy(woof_name);
+	cmq_frame_destroy(woof_name);
+	if(wf) {
+		WooFDrop(wf);
+	}
 
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
-        	DEBUG_WARN("WooFProcessGet: Could not allocate message");
-		free(elem);
-        	return;
+		DEBUG_WARN("WooFProcessGet: Could not allocate message");
+		cmq_frame_destroy(r_frame);
+		return;
 	}
-	err = cmq_frame_create(&r_frame,elem,wf->shared->element_size);
-	WooFDrop(wf);
-	free(elem);
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
-        	DEBUG_WARN("WooFProcessGet: Could not allocate frame");
+		DEBUG_WARN("WooFProcessGet: Could not allocate frame");
 		return;
 	}
 
@@ -270,16 +279,16 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(r_frame);
-        	DEBUG_WARN("WooFProcessGet: Could not append frame");
+		DEBUG_WARN("WooFProcessGet: Could not append frame");
 		return;
 	}
 
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
-        	DEBUG_WARN("WooFProcessGet: Could not send response");
+		DEBUG_WARN("WooFProcessGet: Could not send response");
 	}
 	cmq_frame_list_destroy(r_fl);
-        return;
+	return;
 }
 
 void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
@@ -369,6 +378,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	unsigned int el_count;
 	unsigned char *r_fl;
 	unsigned char *r_f;
+	unsigned char *e_f;
 	const char *s_str;
 
 
@@ -404,7 +414,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
         	wf = WooFOpen(local_name);
 	}
 
-	uint32_t el_read = -1;
+	uint32_t el_read = 0;
 	unsigned char *elements = NULL;
 	uint32_t el_size = 0;
 
@@ -412,13 +422,16 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
         	DEBUG_WARN("WooFProcessGetTail: couldn't open woof: %s\n", (char *)cmq_frame_payload(woof_name));
 	} else {
 		el_size = wf->shared->element_size;
-		elements = (unsigned char *)malloc(el_size * el_count);
-		if(elements == NULL) {
+		err = cmq_frame_create(&e_f,NULL,el_size * el_count); // create empty frame
+		if(err < 0) {
 			DEBUG_WARN("WooFProcessGetTail could not get space for elements");
 			cmq_frame_destroy(woof_name);
 			return;
 		}
-		el_read = WooFReadTail(wf, elements, el_count);
+		el_read = WooFReadTail(wf, cmq_frame_payload(e_f), el_count); // read into empty frame
+		if(el_read <= 0) {
+			cmq_frame_destroy(e_f);
+		}
         	WooFDrop(wf);
 	}
 
@@ -432,7 +445,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		return;
 	}
 	s_str = std::to_string(el_read).c_str();
-	err = cmq_frame_create(&r_f,(unsigned char *)s_str,strlen(s_str)+1); // send el_read as strong
+	err = cmq_frame_create(&r_f,(unsigned char *)s_str,strlen(s_str)+1); // send el_read
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
 		DEBUG_WARN("WooFProcessGetTail could not allocate frame for el_read");
@@ -445,16 +458,18 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessGetTail could not append frame for el_read");
 		return;
 	}
-	err = cmq_frame_create(&r_f,elements,el_size*el_count);
-	if(err < 0) {
-		cmq_frame_list_destroy(r_fl);
-		DEBUG_WARN("WooFProcessGetTail could not allocate frame for elements");
-		return;
+	if(el_read <= 0) {
+		err = cmq_frame_create(&e_f,NULL,0); // zero frame for elements
+		if(err < 0) {
+			cmq_frame_list_destroy(r_fl);
+			DEBUG_WARN("WooFProcessGetTail could not allocate frame for elements");
+			return;
+		}
 	}
-	err = cmq_frame_append(r_fl,r_f);
+	err = cmq_frame_append(r_fl,e_f);
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
-		cmq_frame_destroy(r_f);
+		cmq_frame_destroy(e_f);
 		DEBUG_WARN("WooFProcessGetTail could not append frame for elements");
 		return;
 	}
@@ -466,4 +481,4 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	cmq_frame_list_destroy(r_fl);
 	return;
 }
-} // namespace cspot::zmq
+} // namespace cspot::cmq

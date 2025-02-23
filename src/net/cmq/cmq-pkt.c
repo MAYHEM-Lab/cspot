@@ -27,7 +27,7 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 #else
 	signal(SIGPIPE,SIG_IGN);
 #endif
-	tv.tv_sec = timeout * 1000;
+	tv.tv_sec = timeout / 1000;
 	tv.tv_usec = 0;
 	if(setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv))) {
 		return(-1);
@@ -105,17 +105,19 @@ int cmq_pkt_accept(int sd, unsigned long timeout)
 	socklen_t len = sizeof(local_address);
 	struct timeval tv;
 
-	if(timeout > 0) {
-		tv.tv_sec = timeout/1000;
-		tv.tv_usec = 0;
-		if(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
-			return(-1);
-		}
-	}
 
+	// accept blocks forever but sets recv timeout for recv socket when
+	// accept completes
 	c_fd = accept(sd, (struct sockaddr *)&local_address, &len);
 	if(c_fd < 0) {
 		return(-1);
+	}
+	if(timeout > 0) {
+		tv.tv_sec = timeout/1000;
+		tv.tv_usec = 0;
+		if(setsockopt(c_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
+			return(-1);
+		}
 	}
 
 	return(c_fd);
@@ -148,10 +150,12 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 		if((unsigned long int)err < sizeof(size)) {
 			return(-1);
 		}
-		// write the frame
-		err = write(endpoint,frame->payload,frame->size);
-		if((unsigned long int)err < frame->size) {
-			return(-1);
+		// write the frame data if the size > 0
+		if(frame->size > 0) {
+			err = write(endpoint,frame->payload,frame->size);
+			if((unsigned long int)err < frame->size) {
+				return(-1);
+			}
 		}
 		frame = frame->next;
 	}
@@ -191,10 +195,16 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	}
 
 	// use hint to prallocate a bufffer
-	payload = (unsigned char *)malloc(max_size);
-	if(payload == NULL) {
-		return(-1);
+	// hint could be zero if only zero frame is received
+	if(max_size > 0) {
+		payload = (unsigned char *)malloc(max_size);
+		if(payload == NULL) {
+			return(-1);
+		}
+	} else {
+		payload = NULL;
 	}
+
 
 	// read the frames
 	for(i=0; i < (int)header.frame_count; i++) {
@@ -205,33 +215,47 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 		// this could happen if a frame of max_size was popped
 		// after frame_list was created
 		if(ntohl(size) > max_size) {
-			free(payload);
+			if(payload != NULL) {
+				free(payload);
+			}
 			max_size = ntohl(size);
 			payload = (unsigned char *)malloc(max_size);
+			if(payload == NULL) {
+				return(-1);
+			}
 		}
-		if(payload == NULL) {
-			return(-1);
-		}
-		// read the payload
-		err = recv(endpoint,payload,ntohl(size), MSG_WAITALL);
-		if((unsigned int)err < ntohl(size)) {
-			free(payload);
-			return(-1);
+		// read the payload if the size > 0
+		if(ntohl(size) > 0) {
+			err = recv(endpoint,payload,ntohl(size), MSG_WAITALL);
+			if((unsigned int)err < ntohl(size)) {
+				free(payload);
+				return(-1);
+			}
 		}
 		// cerate the frame
-		err = cmq_frame_create(&f,payload,ntohl(size));
+		if(ntohl(size) > 0) {
+			err = cmq_frame_create(&f,payload,ntohl(size));
+		} else {
+			err = cmq_frame_create(&f,NULL,0); // zero frame 
+		}
 		if(err < 0) {
-			free(payload);
+			if(payload != NULL) {
+				free(payload);
+			}
 			return(-1);
 		}
 		// add frame to frame_list
 		err = cmq_frame_append(l_fl,f);
 		if(err < 0) {
-			free(payload);
+			if(payload != NULL) {
+				free(payload);
+			}
 			return(-1);
 		}
 	}
-	free(payload);
+	if(payload != NULL) {
+		free(payload);
+	}
 
 	*fl = l_fl;
 
