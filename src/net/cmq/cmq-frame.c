@@ -29,10 +29,6 @@ int cmq_frame_create(unsigned char **f, unsigned char *ptr, unsigned int len)
 {
 	CMQFRAME *frame;
 
-	if(len < 0) {
-		return(-1);
-	}
-
 	if(f == NULL) {
 		return(-1);
 	}

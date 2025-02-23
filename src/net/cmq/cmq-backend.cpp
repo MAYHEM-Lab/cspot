@@ -153,6 +153,11 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		cmq_frame_destroy(hand_name);
 	}
 
+	cmq_frame_destroy(elem);
+	if(hand_name != NULL) {
+		cmq_frame_destroy(hand_name);
+	}
+
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessPut: Could not allocate message");
@@ -256,6 +261,12 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		if (err < 0) {
 		    DEBUG_WARN("WooFProcessGet: read failed: %s at %lu\n", (char *)cmq_frame_payload(woof_name), seq_no);
 		    cmq_frame_destroy(woof_name);
+		    cmq_frame_destroy(r_frame);
+		    err = cmq_frame_create(&r_frame,NULL,0); // create zero frame for error
+		    if(err < 0) {
+				DEBUG_WARN("WooFProcessGet: Could not allocate zero frame for error");
+				return;
+		    }
 		}
 	}
 	cmq_frame_destroy(woof_name);
@@ -275,6 +286,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		return;
 	}
 
+	// r_frame could be zero frame if open or read fails
 	err = cmq_frame_append(r_fl,r_frame);
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
@@ -415,7 +427,6 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	}
 
 	uint32_t el_read = 0;
-	unsigned char *elements = NULL;
 	uint32_t el_size = 0;
 
 	if (!wf) {
