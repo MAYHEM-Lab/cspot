@@ -383,6 +383,62 @@ int main(int argc, char **argv)
 	}
 
 	cmq_frame_list_destroy(fl);
+
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed create frame list for zero send\n");
+		exit(1);
+	}
+
+	printf("client send zero frame\n");
+	// now test zero frame send
+	err = cmq_frame_create(&f,NULL,0);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create zero frame\n");
+		exit(1);
+	}
+
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to append zero frame for send\n");
+		exit(1);
+	}
+
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to send zero frame\n");
+		exit(1);
+	}
+
+	cmq_frame_list_destroy(fl);
+	// recv a zero frame back
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv zero frame\n");
+		exit(1);
+	}
+
+	err = cmq_frame_pop(fl,&f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to pop zero frame\n");
+		exit(1);
+	}
+
+	cmq_frame_list_destroy(fl);
+
+	if(cmq_frame_size(f) != 0) {
+		fprintf(stderr,"ERROR: zero frame has size %d\n",
+				cmq_frame_size(f));
+		exit(1);
+	}
+	if(cmq_frame_payload(f) != NULL) {
+		fprintf(stderr,"ERROR: zero frame has non NULL payload\n");
+		exit(1);
+	}
+
+	cmq_frame_destroy(f);
+	printf("client recv zero frame echo\n");
+
 	close(endpoint);
 	return(0);
 }
@@ -480,6 +536,61 @@ int main(int argc, char **argv)
 
 	// destroy the frame list
 	cmq_frame_list_destroy(fl);
+
+	// test zero frame recv and echo
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv zero frame\n");
+		exit(1);
+	}
+
+	err = cmq_frame_pop(fl,&f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to pop zero frame\n");
+		exit(1);
+	}
+	cmq_frame_list_destroy(fl);
+
+	if(cmq_frame_size(f) != 0) {
+		fprintf(stderr,"ERROR: zero frame has size %d\n",
+				cmq_frame_size(f));
+		exit(1);
+	}
+
+	if(cmq_frame_payload(f) != NULL) {
+		fprintf(stderr,"ERROR: zero frame has non NULL payload\n");
+		exit(1);
+	}
+	cmq_frame_list_destroy(f);
+
+	printf("server recv zero frame\n");
+	// create zero frame response
+	
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create zero frame response list\n");
+		exit(1);
+	}
+
+	err = cmq_frame_create(&f,NULL,0);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create zero frame response\n");
+		exit(1);
+	}
+
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to append zero frame response\n");
+		exit(1);
+	}
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to send zero frame response\n");
+		exit(1);
+	}
+
+	cmq_frame_list_destroy(fl);
+	printf("server sent zero frame echo\n");
 
 	close(endpoint);
 	return(0);
