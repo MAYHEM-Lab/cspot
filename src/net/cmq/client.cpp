@@ -415,7 +415,8 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 }
 
 int32_t
-backend::remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) {
+backend::remote_put(std::string_view woof_name_v, const char* handler_name, const void* elem, uint32_t elem_size) {
+	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
 	int err;
@@ -463,13 +464,15 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 	}
 
 	// create frame for woof name
-	const char *w_str = std::string(woof_name).c_str();
+	const char *w_str = woof_name.c_str();
 	err = cmq_frame_create(&f,(unsigned char *)w_str,strlen(w_str)+1);
 	if(err < 0) {
 		DEBUG_WARN("Could not create woof name frame for WooFMsgPut");
 		cmq_frame_list_destroy(fl);
 		return(-1);
 	}
+printf("PUT: putting %s\n",cmq_frame_payload(f));
+fflush(stdout);
 
 	// add woof name to msg
 	err = cmq_frame_append(fl,f);
