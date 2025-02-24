@@ -17,12 +17,19 @@ struct cmq_pkt_header_stc
 };
 
 typedef struct cmq_pkt_header_stc CMQPKTHEADER; 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout);
 int cmq_pkt_listen(unsigned long port);
 int cmq_pkt_accept(int sd, unsigned long timeout);
 int cmq_pkt_send_msg(int endpoint, unsigned char *fl);
 int cmq_pkt_recv_msg(int endpoint, unsigned char **fl);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

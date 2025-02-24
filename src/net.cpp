@@ -12,12 +12,17 @@ namespace cspot {
 namespace zmq {
 void backend_register();
 } // namespace zmq
+namespace cmq {
+	void backend_register();
+} // namespace cmq
 std::unordered_map<std::string, std::function<std::unique_ptr<network_backend>()>> backend_factories;
 std::unique_ptr<network_backend> active_backend;
 namespace {
 struct registerer {
     registerer() {
         zmq::backend_register();
+// cmq is in testing mode
+//	cmq::backend_register();
 
         atexit([]{
             active_backend.reset();

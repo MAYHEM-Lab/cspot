@@ -9,7 +9,8 @@
 #include <global.h>
 
 extern "C" {
-#include <cmq-pkt.h>
+#include "cmq-frame.h"
+#include "cmq-pkt.h"
 }
 
 namespace cspot::cmq {

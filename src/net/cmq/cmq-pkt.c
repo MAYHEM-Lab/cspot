@@ -6,8 +6,6 @@
 #include <errno.h>
 
 #include "cmq-pkt.h"
-
-
 	
 int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 {
@@ -232,7 +230,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			err = recv(endpoint,payload,ntohl(size), MSG_WAITALL);
 			if((unsigned int)err < ntohl(size)) {
 				free(payload);
-				cma_frame_list_destroy(l_fl);
+				cmq_frame_list_destroy(l_fl);
 				return(-1);
 			}
 		}
@@ -246,7 +244,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			if(payload != NULL) {
 				free(payload);
 			}
-			cma_frame_list_destroy(l_fl);
+			cmq_frame_list_destroy(l_fl);
 			return(-1);
 		}
 		// add frame to frame_list
@@ -602,6 +600,7 @@ int main(int argc, char **argv)
 	close(endpoint);
 	return(0);
 }
+
 #endif
 	
 

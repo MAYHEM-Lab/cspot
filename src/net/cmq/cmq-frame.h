@@ -22,6 +22,9 @@ struct cmq_frame_list_stc
 
 typedef struct cmq_frame_list_stc CMQFRAMELIST;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 int cmq_frame_create(unsigned char **frame, unsigned char *ptr, unsigned int len);
 void cmq_frame_destroy(unsigned char *frame);
 unsigned char *cmq_frame_payload(unsigned char *frame);
@@ -37,6 +40,10 @@ int cmq_frame_list_empty(unsigned char *fl);
 unsigned char *cmq_frame_list_head(unsigned char *fl);
 unsigned char *cmq_frame_list_tail(unsigned char *fl);
 unsigned char *cmq_frame_next(unsigned char *f);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

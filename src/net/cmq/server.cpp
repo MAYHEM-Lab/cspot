@@ -6,9 +6,8 @@
 #include <stdio.h>
 
 #include <woofc-access.h>
-extern "C" {
-#include <cmq-pkt.h>
-}
+#include "cmq-frame.h"
+#include "cmq-pkt.h"
 
 namespace cspot::cmq {
 namespace {

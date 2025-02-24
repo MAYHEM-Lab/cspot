@@ -4,8 +4,6 @@
 #include <debug.h>
 #include <woofc-access.h>
 
-std::mutex EPMutex;
-
 namespace cspot::cmq {
 
 void backend_register() {
