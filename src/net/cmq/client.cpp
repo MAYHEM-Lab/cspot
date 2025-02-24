@@ -59,7 +59,7 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 		DEBUG_WARN("Could not connect append cmd for WoofMsgGet");
 		printf("WooFMsgGet: could not append cmd\n");
 		cmq_frame_list_destroy(fl);
-		cmq_fframe_destroy(f);
+		cmq_frame_destroy(f);
 		return -1;
 	}
 
@@ -391,7 +391,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 	}
 
 	// check to see if got eveything based on size
-	if(frame_size(r_f) != (el_count*el_size)) {
+	if(cmq_frame_size(r_f) != (el_count*el_size)) {
         	DEBUG_WARN("frame size != el_count*el_size receive reply for WoofMsgGetTail");
 		printf("WooFMsgGetTail: size match failed for recv from %d, %d, %ld\n",
 			cmq_frame_size(r_f),el_count,el_size);
