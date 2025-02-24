@@ -36,6 +36,14 @@ int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
 int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
+#define USE_CMQ
+
+#ifdef USE_CMQ
+#define BACKEND "cmq"
+#else
+#define BACKEND "zmq"
+#endif
+
 /*
  * 90 second timeout for slow clients
  */

@@ -20,9 +20,11 @@ std::unique_ptr<network_backend> active_backend;
 namespace {
 struct registerer {
     registerer() {
+#ifdef USE_CMQ
+	cmq::backend_register();
+#else
         zmq::backend_register();
-// cmq is in testing mode
-//	cmq::backend_register();
+#endif
 
         atexit([]{
             active_backend.reset();

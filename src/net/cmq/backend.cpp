@@ -1,8 +1,10 @@
 #include <mutex>
 #include "backend.hpp"
 
+#include <czmq.h>
 #include <debug.h>
 #include <woofc-access.h>
+#include <signal.h>
 
 namespace cspot::cmq {
 

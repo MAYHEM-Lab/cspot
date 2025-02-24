@@ -4,6 +4,7 @@
 #include "global.h"
 #include "net.h"
 #include "debug.h"
+#include "woofc-access.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -20,7 +21,7 @@ extern int handler(WOOF* wf, unsigned long seq_no, void* farg);
 }
 
 int main(int argc, char** argv, char** envp) {
-    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+    cspot::set_active_backend(cspot::get_backend_with_name(BACKEND));
 
 	char* wnld;
 	char* wf_ns;

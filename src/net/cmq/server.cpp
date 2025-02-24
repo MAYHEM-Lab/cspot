@@ -8,10 +8,13 @@
 #include <woofc-access.h>
 #include "cmq-frame.h"
 #include "cmq-pkt.h"
+#include <pthread.h>
 
 namespace cspot::cmq {
 namespace {
-void WooFMsgThread(int sd) {
+
+void *WooFMsgThread(void *arg) {
+	int sd = *((int *)arg);
 	int c_sd;
 	int err;
 	unsigned char *fl;
@@ -25,14 +28,14 @@ void WooFMsgThread(int sd) {
 		if(c_sd < 0) {
 			DEBUG_WARN("WooFMsgThread: accept failed");
 			perror("WooFMsgThread: accept failed");
-			return;
+			return(NULL);
 		}
 
 		err = cmq_pkt_recv_msg(c_sd,&fl);
 		if(err < 0) {
 			DEBUG_WARN("WooFMsgThread: recv failed");
 			perror("WooFMsgThread: recv failed");
-			return;
+			return(NULL);
 		}
 
 		while (err >= 0) {
@@ -43,7 +46,7 @@ void WooFMsgThread(int sd) {
 				cmq_frame_list_destroy(fl);
 				DEBUG_WARN("WooFMsgThread: couldn't get tag");
 				close(c_sd);
-				return;
+				return(NULL);
 			}
 
 		/*
@@ -98,7 +101,7 @@ void WooFMsgThread(int sd) {
 		}
 		close(c_sd);
 	}
-    	return;
+    	return(NULL);
 }
 } // namespace
 
@@ -126,21 +129,36 @@ bool backend::listen(std::string_view ns) {
     /*
      * create a single thread for now.  multiple threads can call accept
      */
+    /*
     for (auto& t : m_threads) {
         t = std::thread(WooFMsgThread, listen_sd);
+    }
+    */
+    int t;
+    for(t=0; t < WOOF_MSG_THREADS; t++) {
+	    int *sp = &listen_sd;
+	    pthread_create(&tids[t],NULL,WooFMsgThread,(void *)sp);
     }
 
     return true;
 }
 
 bool backend::stop() {
+printf("cmq::backend stop called\n");
     m_stop_called = true;
     /*
      * right now, there is no way for these threads to exit so the msg server will block
      * indefinitely in this join
      */
+    /*
     for (auto& t : m_threads) {
         t.join();
+    }
+    */
+
+    int t;
+    for(t=0; t < WOOF_MSG_THREADS; t++) {
+	    pthread_join(tids[t],NULL);
     }
 
     //m_proxy.reset();

@@ -23,6 +23,7 @@
 #include <thread>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #define ARGS "M"
 
@@ -61,7 +62,7 @@ void WooFShutdown(int) {
     }
 }
 
-void WooFForker(FARG *ta);
+void *WooFForker(void *arg);
 void WooFReaper();
 
 int WooFContainerInit() {
@@ -221,7 +222,14 @@ int WooFContainerInit() {
 
 
     for (i = 0; i < WOOF_CONTAINER_FORKERS; i++) {
-        std::thread(WooFForker,&tas[i]).detach();
+#ifdef USE_CMQ
+	  pthread_t tid;
+	  void *targ = (void *)(&tas[i]);
+	  pthread_create(&tid,NULL,WooFForker,targ);
+	  pthread_detach(tid);
+#else
+          std::thread(WooFForker,&tas[i]).detach();
+#endif
     }
     std::thread(WooFReaper).detach();
 
@@ -292,8 +300,9 @@ int AddString(char *buf, int end, char *str)
 }
 	
 
-void WooFForker(FARG *ta) 
+void *WooFForker(void *arg) 
 {
+	FARG *ta = (FARG *)arg;
 	unsigned long long ls;
 	unsigned long curr;
 	long earliest_trigger_seq_no;
@@ -1229,7 +1238,7 @@ void WooFForkerOld(FARG *ta) {
 int main(int argc, char** argv) {
     int message_server = 0;
 
-    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+    cspot::set_active_backend(cspot::get_backend_with_name(BACKEND));
 
     WooFContainerInit();
 

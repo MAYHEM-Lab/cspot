@@ -370,7 +370,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+    cspot::set_active_backend(cspot::get_backend_with_name(BACKEND));
 
     setenv("LD_LIBRARY_PATH", "$LD_LIBRARY_PATH:/usr/local/lib", 1);
 
