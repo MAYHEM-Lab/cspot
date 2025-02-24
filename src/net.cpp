@@ -57,7 +57,7 @@ network_backend* get_active_backend() {
 //    const std::lock_guard<std::mutex> lock(RegMutex);
 //    pthread_mutex_lock(&RLock);
     if (!active_backend) {
-        cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+        cspot::set_active_backend(cspot::get_backend_with_name(BACKEND));
         DEBUG_WARN("No active network backend, using zmq");
     }
 //    pthread_mutex_unlock(&RLock);
