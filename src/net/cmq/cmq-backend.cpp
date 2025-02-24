@@ -29,12 +29,16 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
         	return;
 	}
 	// tag  has been stripped
+	// first frame is woof name
 	err = cmq_frame_pop(fl,&woof_name);
 	if(err < 0) {
 		cmq_frame_list_destroy(fl);
         	DEBUG_WARN("WooFProcessGetElSize could not get woof name");
         	return;
 	}
+
+	// no more valid frames
+	cmq_frame_list_destroy(fl);
 
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
@@ -46,6 +50,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 		wf = WooFOpen((char *)cmq_frame_payload(woof_name));
 	}
 
+	// -1 is error return
     	unsigned long el_size = -1;
 	if (!wf) {
 		DEBUG_LOG("WooFProcessGetElSize: couldn't open %s (%s)\n", local_name, (char *)cmq_frame_payload(woof_name));
@@ -53,14 +58,18 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 		el_size = wf->shared->element_size;
 		WooFDrop(wf);
 	}
+
+	// done with woof_name
 	cmq_frame_destroy(woof_name);
 
+	// create reply msg
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetElSize could not create resp message");
         	return;
 	}
 
+	// convert el_size to a string
 	s_str = std::to_string(el_size).c_str();
 	err = cmq_frame_create(&r_frame,(unsigned char *)s_str,strlen(s_str)+1);
 	if(err < 0) {
@@ -68,6 +77,8 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 		cmq_frame_list_destroy(r_fl);
         	return;
 	}
+
+	// add it to the msg
 	err = cmq_frame_append(r_fl,r_frame);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetElSize could not append resp frame");
@@ -76,10 +87,13 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
         	return;
 	}
 
+	// send response
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetElSize: Could not send response");
 	}
+
+	// destreoy the message
 	cmq_frame_list_destroy(r_fl);
 	return;
 }
@@ -97,7 +111,8 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessPut Bad message");
 		return;
 	}
-	// pop woof name
+	// tag has been stripped
+	// pop woof name frame
 	err = cmq_frame_pop(fl,&woof_name);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessPut could not pop woof name");
@@ -114,8 +129,10 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		return;
 	}
 	if(strncmp((char *)cmq_frame_payload(hand_name),"NULL",strlen("NULL")) == 0) {
-		hand_name = NULL;
+		// use NULL ptr in this local routine if handler name is NULL
+		// FIX: use zero frame instead of NULL
 		cmq_frame_destroy(hand_name);
+		hand_name = NULL;
 	}
 	// pop elemnt frame
 	err = cmq_frame_pop(fl,&elem);
@@ -128,11 +145,14 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		}
 		return;
 	}
+
+	// destroy request msg
 	cmq_frame_list_destroy(fl);
 
 	auto cause_host = 0;
 	auto cause_seq_no = 0;
 		
+	// do the put
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
 	if (err < 0) {
@@ -143,27 +163,28 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		}
 		return;
 	}
+	// done with woof name
 	cmq_frame_destroy(woof_name);
 
+	// do the put using frame payloads as inputs
 	unsigned long seq_no = WooFPutWithCause(
         	local_name, (hand_name == NULL) ? nullptr : (char *)cmq_frame_payload(hand_name), 
 		cmq_frame_payload(elem), cause_host, cause_seq_no);
+	// destroy element frame
 	cmq_frame_destroy(elem);
+	// destroy hand_name frame if there was one not NULL
 	if(hand_name != NULL) {
 		cmq_frame_destroy(hand_name);
 	}
 
-	cmq_frame_destroy(elem);
-	if(hand_name != NULL) {
-		cmq_frame_destroy(hand_name);
-	}
-
+	// create response msg
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessPut: Could not allocate message");
         	return;
 	}
 
+	// convert seq_no to string and create a frame with it
 	s_str = std::to_string(seq_no).c_str();
 	err = cmq_frame_create(&r_frame,(unsigned char *)s_str,strlen(s_str)+1);
 	if(err < 0) {
@@ -171,17 +192,21 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		cmq_frame_list_destroy(r_fl);
         	return;
 	}
+	// add seq_no to response msg
 	err = cmq_frame_append(r_fl,r_frame);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessPut: Could not append response frame");
 		cmq_frame_list_destroy(r_fl);
+		cmq_frame_destroy(r_frame);
         	return;
 	}
 
+	// send response msg == timeout set by accept()
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessPut: Could not send response");
 	}
+	// destroy (deep delete) response msg
 	cmq_frame_list_destroy(r_fl);
 	return;
 }
@@ -201,9 +226,8 @@ void WooFProcessGet(unsigned char *fl, int sd)
         	return;
     	}
 
-	// the server thread has stripped the cmd
+	// the server thread has stripped the tag
 	// first remaining frame is woof_name
-	// second remaining frame is seq_no
 	err = cmq_frame_pop(fl,&woof_name);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: no woof name in msg\n");
@@ -218,11 +242,12 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		cmq_frame_list_destroy(fl);
 		return;
 	}
+	// destroy request msg
 	cmq_frame_list_destroy(fl);
+	// convert seq_no from second frame
     	seq_no = strtoul((char *)cmq_frame_payload(seqno_frame),NULL,10);
+	// destroy second frame
     	cmq_frame_destroy(seqno_frame);
-    // auto cause_host = std::stoul(name_id_str);
-    // auto cause_seq_no = std::stoul(log_seq_no_str);
     	auto cause_host = 0;
     	auto cause_seq_no = 0;
 
@@ -244,7 +269,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		// zero frame indicates error
 		err = cmq_frame_create(&r_frame,NULL,0); 
     	} else {
-		// create empty frame for response
+		// create empty frame (to be filled in later) for response
 		err = cmq_frame_create(&r_frame,NULL,wf->shared->element_size);
 	}
 	if(err < 0) {
@@ -256,6 +281,8 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		return;
 	}
 
+	// if response frame is not zero frame, fill it in with read using
+	// frame payload as read buffer
 	if(cmq_frame_payload(r_frame) != NULL) {
 		err = WooFReadWithCause(wf, cmq_frame_payload(r_frame), seq_no, cause_host, cause_seq_no);
 		if (err < 0) {
@@ -269,11 +296,14 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		    }
 		}
 	}
+	// done with woof name from request
 	cmq_frame_destroy(woof_name);
+	// done with local woof
 	if(wf) {
 		WooFDrop(wf);
 	}
 
+	// create response msg -- r_frame is holding response
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: Could not allocate message");
@@ -286,6 +316,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		return;
 	}
 
+	// add r_frame to response msg
 	// r_frame could be zero frame if open or read fails
 	err = cmq_frame_append(r_fl,r_frame);
 	if(err < 0) {
@@ -295,10 +326,12 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		return;
 	}
 
+	// send response -- timeout set in accept()
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: Could not send response");
 	}
+	// destroy response msg
 	cmq_frame_list_destroy(r_fl);
 	return;
 }
@@ -308,7 +341,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	int err;
 	unsigned char *woof_name;
 	unsigned char *r_fl;
-	unsigned char *r_frame;
+	unsigned char *r_f;
 	const char *s_str;
 	
 	if(cmq_frame_list_empty(fl)) {
@@ -324,6 +357,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 		return;
 	}
 
+	// destroy request msg
 	cmq_frame_list_destroy(fl);
 
 	auto cause_host = 0;
@@ -334,6 +368,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
 
+	// try and open the woof
 	WOOF* wf;
 	if (err < 0) {
 		wf = WooFOpen((char *)cmq_frame_payload(woof_name));
@@ -341,6 +376,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 		wf = WooFOpen(local_name);
 	}
 
+	// get latest seq_no if woof is open
 	unsigned long latest_seq_no = -1;
 	if (!wf) {
 		DEBUG_WARN("WooFProcessGetLatestSeqno: couldn't open woof: %s\n", (char *)cmq_frame_payload(woof_name));
@@ -349,33 +385,39 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
             		WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
 		WooFDrop(wf);
 	}
+	// done with woof_name
 	cmq_frame_destroy(woof_name);
 
+	// create response msg
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate message");
         	return;
 	}
 
+	// convbert latest seq_)no to string and create frame
 	s_str = std::to_string(latest_seq_no).c_str();
-	err = cmq_frame_create(&r_frame,(unsigned char *)s_str,strlen(s_str)+1);
+	err = cmq_frame_create(&r_f,(unsigned char *)s_str,strlen(s_str)+1);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate frame");
 		cmq_frame_list_destroy(r_fl);
         	return;
 	}
-	err = cmq_frame_append(r_fl,r_frame);
+	// add latest seqno to msg
+	err = cmq_frame_append(r_fl,r_f);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not append frame");
 		cmq_frame_list_destroy(r_fl);
-		cmq_frame_destroy(r_frame);
+		cmq_frame_destroy(r_f);
         	return;
 	}
+	// send the response
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not send response");
         	return;
 	}
+	// destroy response msg
 	cmq_frame_list_destroy(r_fl);
 	return;
 
@@ -399,6 +441,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		return;
 	}
 
+	// tag frame is stripped
 	// first frame is woof_name
 	err = cmq_frame_pop(fl,&woof_name);
 	if(err < 0) {
@@ -413,8 +456,13 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessGetTail could not pop woof_name");
 		return;
 	}
+	// convert frame payload to el_count
 	el_count = strtoul((char *)cmq_frame_payload(f),NULL,10);
+	// done with el_count frame
 	cmq_frame_destroy(f);
+
+	// done with request
+	cmq_frame_list_destroy(fl);
 
     	char local_name[1024] = {};
     	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
@@ -433,7 +481,8 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
         	DEBUG_WARN("WooFProcessGetTail: couldn't open woof: %s\n", (char *)cmq_frame_payload(woof_name));
 	} else {
 		el_size = wf->shared->element_size;
-		err = cmq_frame_create(&e_f,NULL,el_size * el_count); // create empty frame
+		// create empty frame for space for el_count elements
+		err = cmq_frame_create(&e_f,NULL,el_size * el_count);
 		if(err < 0) {
 			DEBUG_WARN("WooFProcessGetTail could not get space for elements");
 			cmq_frame_destroy(woof_name);
@@ -444,10 +493,11 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 			cmq_frame_destroy(e_f);
 		}
         	WooFDrop(wf);
+		wf = NULL;
 	}
 
+	// done with woof name
 	cmq_frame_destroy(woof_name);
-	cmq_frame_list_destroy(fl);
 
 	// create response message
 	err = cmq_frame_list_create(&r_fl);
@@ -455,13 +505,16 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessGetTail could not allocate response list");
 		return;
 	}
+
+	// convert el_read to string and create frame
 	s_str = std::to_string(el_read).c_str();
-	err = cmq_frame_create(&r_f,(unsigned char *)s_str,strlen(s_str)+1); // send el_read
+	err = cmq_frame_create(&r_f,(unsigned char *)s_str,strlen(s_str)+1); 
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
 		DEBUG_WARN("WooFProcessGetTail could not allocate frame for el_read");
 		return;
 	}
+	// add el_read to response
 	err = cmq_frame_append(r_fl,r_f);
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
@@ -469,6 +522,8 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessGetTail could not append frame for el_read");
 		return;
 	}
+
+	// if there is no data at the tail, send zero frame with no payload
 	if(el_read <= 0) {
 		err = cmq_frame_create(&e_f,NULL,0); // zero frame for elements
 		if(err < 0) {
@@ -477,6 +532,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 			return;
 		}
 	}
+	// append elements frame
 	err = cmq_frame_append(r_fl,e_f);
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
@@ -484,11 +540,14 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessGetTail could not append frame for elements");
 		return;
 	}
+
+	// send the response
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetTail could not send response");
 		return;
 	}
+	// destroy response msg
 	cmq_frame_list_destroy(r_fl);
 	return;
 }

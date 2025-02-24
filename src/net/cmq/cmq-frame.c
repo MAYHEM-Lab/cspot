@@ -119,6 +119,10 @@ int cmq_frame_pop(unsigned char *fl, unsigned char **f)
 	if(frame_list->count == 0) {
 		return(-1);
 	}
+
+	if(frame_list->head == NULL) {
+		return(-1);
+	}
 	frame = frame_list->head;
 	frame_list->head = frame_list->head->next;
 	frame_list->count--;
@@ -213,6 +217,15 @@ int cmq_frame_list_max_size(unsigned char *fl)
 int cmq_frame_list_empty(unsigned char *fl)
 {
 	CMQFRAMELIST *frame_list = (CMQFRAMELIST *)fl;
+
+	if(fl == NULL) {
+		return(1);
+	}
+
+	if(frame_list->count == 0) {
+		return(1);
+	}
+
 	if(frame_list->head == NULL) {
 		return(1);
 	}

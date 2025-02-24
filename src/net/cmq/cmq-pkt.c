@@ -199,6 +199,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	if(max_size > 0) {
 		payload = (unsigned char *)malloc(max_size);
 		if(payload == NULL) {
+			cmq_frame_list_destroy(l_fl);
 			return(-1);
 		}
 	} else {
@@ -210,6 +211,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	for(i=0; i < (int)header.frame_count; i++) {
 		err = recv(endpoint,(unsigned char *)&size,sizeof(size),MSG_WAITALL);
 		if((unsigned long int)err < sizeof(size)) {
+			cmq_frame_list_destroy(l_fl);
 			return(-1);
 		}
 		// this could happen if a frame of max_size was popped
@@ -221,6 +223,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			max_size = ntohl(size);
 			payload = (unsigned char *)malloc(max_size);
 			if(payload == NULL) {
+				cmq_frame_list_destroy(l_fl);
 				return(-1);
 			}
 		}
@@ -229,6 +232,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			err = recv(endpoint,payload,ntohl(size), MSG_WAITALL);
 			if((unsigned int)err < ntohl(size)) {
 				free(payload);
+				cma_frame_list_destroy(l_fl);
 				return(-1);
 			}
 		}
@@ -242,6 +246,7 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			if(payload != NULL) {
 				free(payload);
 			}
+			cma_frame_list_destroy(l_fl);
 			return(-1);
 		}
 		// add frame to frame_list
@@ -250,6 +255,8 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 			if(payload != NULL) {
 				free(payload);
 			}
+			cmq_frame_list_destroy(l_fl);
+			cmq_frame_destroy(f);
 			return(-1);
 		}
 	}
