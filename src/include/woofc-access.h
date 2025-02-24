@@ -36,7 +36,6 @@ int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
 int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
-
 #ifdef USE_CMQ
 #define BACKEND "cmq"
 #else
