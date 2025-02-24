@@ -14,10 +14,10 @@ extern "C" {
 }
 
 namespace cspot::cmq {
-int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) {
+int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t elem_size, uint32_t seq_no) {
+	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
-	std::string woof_n(woof_name);
 	int sd;
 	int err;
 	unsigned char *f;
@@ -66,7 +66,7 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 
 	// convert woof name as a string view to char *
 	// and create frame with it
-	const unsigned char *w_ptr = reinterpret_cast<const unsigned char*>(woof_name.data());
+	const char *w_ptr = woof_name.c_str();
 	err = cmq_frame_create(&f,(unsigned char *)w_ptr,strlen((const char *)w_ptr)+1);
 	if(err < 0) {
         	DEBUG_WARN("Could not connect create woof_name for WoofMsgGet");
@@ -191,10 +191,10 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 	return 1;
 }
 
-int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) {
+int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, unsigned long el_size, int el_count) {
+	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
-	std::string woof_n(woof_name);
 	int sd;
 	int err;
 	unsigned char *f;
@@ -243,7 +243,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 	}
 
 	// woof name is in next frame
-	const unsigned char *w_ptr = reinterpret_cast<const unsigned char*>(woof_name.data());
+	const char *w_ptr = woof_name.c_str();
 	err = cmq_frame_create(&f,(unsigned char *)w_ptr,strlen((const char *)w_ptr)+1);
 	if(err < 0) {
 		DEBUG_WARN("Could not connect create woof_name for WoofMsgGetTail");
