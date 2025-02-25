@@ -327,6 +327,33 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	return;
 }
 
+unsigned char *LeakTest()
+{
+	unsigned char *fl;
+	unsigned char *f;
+	int err;
+
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		return(NULL);
+	}
+
+	const char *str = std::to_string(100).c_str();
+
+	err = cmq_frame_create(&f,(unsigned char *)str,strlen(str)+1);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+		return(NULL);
+	}
+
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return(NULL);
+	}
+	return(fl);
+}
 void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 
 	int err;
@@ -352,10 +379,12 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	// destroy request msg
 	cmq_frame_list_destroy(fl);
 
+	/*
 	auto cause_host = 0;
 	auto cause_seq_no = 0;
 	auto cause_woof_latest_seq_no = 0;
 	std::string cause_woof = "";
+	*/
 
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
@@ -373,8 +402,8 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	if (!wf) {
 		DEBUG_WARN("WooFProcessGetLatestSeqno: couldn't open woof: %s\n", (char *)cmq_frame_payload(woof_name));
 	} else {
-		latest_seq_no =
-            		WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
+		//latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
+		latest_seq_no = WooFLatestSeqno(wf);
 		WooFDrop(wf);
 	}
 	// done with woof_name
