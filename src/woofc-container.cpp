@@ -225,8 +225,11 @@ int WooFContainerInit() {
 #ifdef USE_CMQ
 	  pthread_t tid;
 	  void *targ = (void *)(&tas[i]);
-	  pthread_create(&tid,NULL,WooFForker,targ);
-	  pthread_detach(tid);
+	  int perr;
+	  perr = pthread_create(&tid,NULL,WooFForker,targ);
+	  DEBUG_FATAL_IF(perr, "WooFContainerInit: couldn't create WooFForker %d\n", i);
+	  perr = pthread_detach(tid);
+	  DEBUG_FATAL_IF(perr, "WooFContainerInit: couldn't detach WooFForker %d\n", i);
 #else
           std::thread(WooFForker,&tas[i]).detach();
 #endif

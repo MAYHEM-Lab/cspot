@@ -137,7 +137,12 @@ bool backend::listen(std::string_view ns) {
     int t;
     for(t=0; t < WOOF_MSG_THREADS; t++) {
 	    int *sp = &listen_sd;
-	    pthread_create(&tids[t],NULL,WooFMsgThread,(void *)sp);
+	    int perr;
+	    perr = pthread_create(&tids[t],NULL,WooFMsgThread,(void *)sp);
+	    if(perr != 0) {
+		DEBUG_WARN("WooFMsgThread: could not create WooFMsgThread %d\n",t);
+		return false;
+	    }
     }
 
     return true;
