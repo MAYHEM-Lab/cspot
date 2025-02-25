@@ -218,6 +218,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGet Bad message");
+		cmq_frame_list_destroy(fl);
         	return;
     	}
 
@@ -305,11 +306,6 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		cmq_frame_destroy(r_frame);
 		return;
 	}
-	if(err < 0) {
-		cmq_frame_list_destroy(r_fl);
-		DEBUG_WARN("WooFProcessGet: Could not allocate frame");
-		return;
-	}
 
 	// add r_frame to response msg
 	// r_frame could be zero frame if open or read fails
@@ -341,6 +337,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
+		cmq_frame_list_destroy(fl);
 		return;
 	}
 	// tag has been stripped
