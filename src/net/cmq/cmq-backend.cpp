@@ -26,6 +26,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGetElSize Bad message");
+		cmq_frame_list_destroy(fl);
         	return;
 	}
 	// tag  has been stripped
@@ -109,6 +110,7 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 
 	if(cmq_frame_list_empty(fl)) {
 		DEBUG_WARN("WooFProcessPut Bad message");
+		cmq_frame_list_destroy(fl);
 		return;
 	}
 	// tag has been stripped
@@ -119,8 +121,6 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		cmq_frame_list_destroy(fl);
 		return;
 	}
-printf("PUT: received %s\n",cmq_frame_payload(woof_name));
-fflush(stdout);
 	// pop handler name
 	// "NULL" is place holder
 	err = cmq_frame_pop(fl,&hand_name);
@@ -130,8 +130,6 @@ fflush(stdout);
 		cmq_frame_destroy(woof_name);
 		return;
 	}
-printf("PUT: received %s\n",cmq_frame_payload(hand_name));
-fflush(stdout);
 	if(strncmp((char *)cmq_frame_payload(hand_name),"NULL",strlen("NULL")) == 0) {
 		// use NULL ptr in this local routine if handler name is NULL
 		// FIX: use zero frame instead of NULL
@@ -160,22 +158,6 @@ fflush(stdout);
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
 
-	WOOF *wf;
-	if (err < 0) {
-		wf = WooFOpen(local_name);
-	} else {
-		wf = WooFOpen((char *)cmq_frame_payload(woof_name));
-	}
-	if (!wf) {
-		DEBUG_WARN("WooFProcessPut local name failed for %s (%s)\n",
-				(char *)cmq_frame_payload(woof_name),
-				local_name);
-		cmq_frame_destroy(woof_name);
-		if(hand_name != NULL) {
-			cmq_frame_destroy(hand_name);
-		}
-		return;
-	}
 	// done with woof name
 	cmq_frame_destroy(woof_name);
 
