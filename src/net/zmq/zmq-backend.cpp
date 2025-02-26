@@ -154,10 +154,10 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
     // auto cause_host = std::stoul(name_id_str);
     // auto cause_seq_no = std::stoul(log_seq_no_str);
     // auto cause_woof_latest_seq_no = std::stoul(cause_woof_latest_seq_no_str);
-    auto cause_host = 0;
-    auto cause_seq_no = 0;
-    auto cause_woof_latest_seq_no = 0;
-    std::string cause_woof = "";
+    // auto cause_host = 0;
+    // auto cause_seq_no = 0;
+    // auto cause_woof_latest_seq_no = 0;
+    // std::string cause_woof = "";
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
@@ -173,8 +173,8 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
     if (!wf) {
         DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", woof_name.c_str());
     } else {
-        latest_seq_no =
-            WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
+        latest_seq_no = WooFLatestSeqno(wf);
+//            WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
         WooFDrop(wf);
     }
 
