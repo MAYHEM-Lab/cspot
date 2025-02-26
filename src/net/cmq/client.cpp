@@ -471,8 +471,8 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 		cmq_frame_list_destroy(fl);
 		return(-1);
 	}
-printf("PUT: putting %s\n",cmq_frame_payload(f));
-fflush(stdout);
+//printf("PUT: putting %s\n",cmq_frame_payload(f));
+//fflush(stdout);
 
 	// add woof name to msg
 	err = cmq_frame_append(fl,f);
