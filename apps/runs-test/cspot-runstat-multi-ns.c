@@ -5,6 +5,8 @@
 #include <time.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
+#include <pthread.h>
 
 #include "woofc.h"
 #include "cspot-runstat.h"
@@ -49,7 +51,7 @@ int main(int argc, char **argv)
 	FA fa;
 	struct timeval tm;
 	unsigned long ndx;
-	unsigned long pid;
+	pid_t pid;
 	char start_args[1024];
 
 	count = 100;
@@ -154,7 +156,7 @@ int main(int argc, char **argv)
 		}
 		exit(0);
 	} else {
-		wait(pid);
+		pid = wait(NULL);
 	}
 
 	pid = fork();
@@ -182,7 +184,7 @@ int main(int argc, char **argv)
 		}
 		exit(0);
 	} else {
-		wait(pid);
+		pid = wait(NULL);
 	}
 
 	/*

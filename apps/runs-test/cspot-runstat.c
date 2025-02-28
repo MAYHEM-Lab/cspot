@@ -4,7 +4,8 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#include <time.h>
+#include <sys/time.h>
+#include <pthread.h>
 
 #include "woofc.h"
 #include "cspot-runstat.h"

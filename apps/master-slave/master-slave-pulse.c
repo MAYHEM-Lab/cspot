@@ -4,7 +4,9 @@
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/time.h>
 
+#include "woofc-priv.h"
 #include "master-slave.h"
 
 #define ARGS "W:"

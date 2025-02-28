@@ -2,11 +2,13 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
 #include <math.h>
 
 #include "c-twist.h"
 #include "ks.h"
 #include "normal.h"
+#include "simple_input.h"
 
 #define DEBUG
 

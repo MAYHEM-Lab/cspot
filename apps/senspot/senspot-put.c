@@ -4,6 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "woofc.h"
 #include "senspot.h"
@@ -83,13 +84,13 @@ int main(int argc, char **argv)
 	}
 
 	memset(input_buf,0,sizeof(input_buf));
-	str = fgets(input_buf,sizeof(input_buf),stdin);
+	str = fgets((char *)input_buf,sizeof(input_buf),stdin);
 
 	if(str == NULL) {
 		exit(0);
 	}
 
-	SenspotAssign(&spt,type,input_buf);
+	SenspotAssign(&spt,type,(char *)input_buf);
 	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
 	gettimeofday(&tm,NULL);
 	spt.tv_sec = htonl(tm.tv_sec);

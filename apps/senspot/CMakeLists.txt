@@ -1,4 +1,4 @@
-include_directories("./include")
+include_directories("./include" "../../src/include")
 
 add_library(senspot senspot.c)
 target_link_libraries(senspot PUBLIC woof)

@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "woofc.h"
+#include "woofc-priv.h"
 #include "senspot.h"
 
 #define DEBUG

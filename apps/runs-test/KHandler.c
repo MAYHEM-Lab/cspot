@@ -14,6 +14,7 @@
 #include "c-runstest.h"
 #include "normal.h"
 #include "ks.h"
+#include "simple_input.h"
 
 #include "woofc.h"
 #include "cspot-runstat.h"

@@ -1,4 +1,4 @@
-include_directories("./Includes")
+include_directories("./Includes" "../../src/include")
 
 add_executable(master-slave-init master-slave-init.c)
 target_link_libraries(master-slave-init PUBLIC woof)

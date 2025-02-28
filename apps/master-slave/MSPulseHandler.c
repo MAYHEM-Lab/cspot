@@ -4,6 +4,8 @@
 #include <string.h>
 
 #include "woofc.h"
+#include "woofc-priv.h"
+#include "woofc-access.h"
 #include "master-slave.h"
 
 #define DEBUG
@@ -59,7 +61,7 @@ int PingPongTest(STATE *state, char target)
 		sprintf(r_pp_woof,"woof://%s/%s/%s",state->client_ip,namespace,l_pp_name);
 	} else {
 		fprintf(stderr,
-			"PingPongTest: unrecognized target %s\n",target);
+			"PingPongTest: unrecognized target %c\n",target);
 		fflush(stderr);
 		return(-1);
 	}
@@ -216,7 +218,7 @@ void PrintStatus(char *wname, STATUS *status)
 	printf("%s\n",wname);
 	printf("\tlocal_state: %c\n",status->local);
 	printf("\tremote_state: %c\n",status->remote);
-	printf("\tremote_seq_no: %c\n",status->remote_seq_no);
+	printf("\tremote_seq_no: %lu\n",status->remote_seq_no);
 	fflush(stdout);
 	return;
 }
@@ -495,7 +497,7 @@ void DoMaster(STATE *state, unsigned long start_seq_no)
 				new_state.my_state = 'M';
 			} else {
 				fprintf(stderr,
-			"ERROR DoMaster: bad remote state out of date %s\n",
+			"ERROR DoMaster: bad remote state out of date %c\n",
 					r_state.my_state);
 				fflush(stderr);
 				new_state.other_color = 'R';
@@ -793,7 +795,7 @@ void DoSlave(STATE *state, unsigned long start_seq_no)
 				new_state.my_state = 'M';
 			} else {
 				fprintf(stderr,
-			"ERROR DoSlave: bad remote state out of date %s\n",
+			"ERROR DoSlave: bad remote state out of date %c\n",
 					r_state.my_state);
 				fflush(stderr);
 				new_state.other_color = 'R';
@@ -957,7 +959,7 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 	int err;
 
 #ifdef DEBUG
-	printf("MSPulseHandler: called on %s with seq_no: %lu, time: %d\n",
+	printf("MSPulseHandler: called on %s with seq_no: %lu, time: %f\n",
 		pstc->wname,
 		pstc->last_seq_no,
 		(double)(pstc->tm.tv_sec));
@@ -1009,7 +1011,7 @@ int MSPulseHandler(WOOF *wf, unsigned long seq_no, void *ptr)
 			break;
 		default:
 			fprintf(stderr,
-				"MSPulseHandler: bad local state %s\n",
+				"MSPulseHandler: bad local state %c\n",
 					l_state.my_state);
 			exit(1);
 	}

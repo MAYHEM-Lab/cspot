@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
+#include <pthread.h>
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>

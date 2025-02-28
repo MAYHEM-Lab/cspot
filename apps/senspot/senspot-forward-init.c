@@ -4,8 +4,10 @@
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "woofc.h"
+#include "woofc-priv.h"
 #include "senspot.h"
 
 #define ARGS "W:F:"
