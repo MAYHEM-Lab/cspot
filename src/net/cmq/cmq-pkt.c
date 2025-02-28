@@ -13,6 +13,9 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 	struct sockaddr_in ep_in;
 	int err;
 	struct timeval tv; // timeout is in ms
+#ifdef __APPLE__
+	int opt = 1;
+#endif
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd < 0) {

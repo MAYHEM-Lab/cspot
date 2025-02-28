@@ -161,11 +161,19 @@ int WooFContainerInit() {
     }
     for(i=0; i < WOOF_CONTAINER_FORKERS; i++) {
 	tas[i].tid = i;
+#ifdef __APPLE__
+	err = pipe(tas[i].parenttochild);
+#else
 	err = pipe2(tas[i].parenttochild,O_DIRECT);
+#endif
 	if(err < 0) {
 		exit(1);
 	}
+#ifdef __APPLE__
+	err = pipe(tas[i].childtoparent);
+#else
 	err = pipe2(tas[i].childtoparent,O_DIRECT);
+#endif
 	if(err < 0) {
 		exit(1);
 	}
