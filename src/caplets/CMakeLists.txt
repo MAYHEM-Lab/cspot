@@ -1,0 +1,6 @@
+add_library(woof_caplets woof-caplets.c)
+target_link_libraries(woof_caplets PUBLIC woof)
+target_include_directories(woof_caplets PRIVATE "." "../../include")
+add_executable(woofc-init-principal woofc-init-principal.c)
+target_link_libraries(woofc-init-principal PRIVATE woof_caplets woof)
+target_include_directories(woofc-init-principal PRIVATE src/include)
