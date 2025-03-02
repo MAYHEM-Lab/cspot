@@ -43,7 +43,7 @@ int main(int argc, char**argv)
 
 	err = WooFCapInit(local_woof_name);
 	if(err < 0) {
-		fprintf(stderr,"principal cap init failed\n");
+		fprintf(stderr,"principal cap init failed for %s\n",local_woof_name);
 		exit(1);
 	}
 	exit(0);
