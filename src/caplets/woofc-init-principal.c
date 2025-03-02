@@ -29,7 +29,7 @@ int main(int argc, char**argv)
 				strncpy(local_woof_name,optarg,sizeof(local_woof_name));
 				break;
 			default:
-				fprintf(stderr,"unrecognized command %c\n",(char)c)
+				fprintf(stderr,"unrecognized command %c\n",(char)c);
 				fprintf(stderr,"%s",Usage);
 				exit(1);
 		}

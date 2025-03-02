@@ -2,12 +2,16 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <openssl/hmac.h>
 #include <time.h>
 #include <sys/time.h>
 
 #include "woofc-access.h"
 #include "woofc.h"
+#include "woofc-caplets.h"
+#include <stdbool.h>
+#include "debug.h"
 
 uint64_t WooFCapCheck(WCAP *cap, uint64_t key)
 {
