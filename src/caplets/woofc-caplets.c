@@ -94,17 +94,25 @@ WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm)
 	if(new_cap == NULL) {
 		return(NULL);
 	}
-	memcpy(new_cap,cap,sizeof(WCAP));
-printf("AT: start perms: %x %ld\n",new_cap->permissions, new_cap->check);
-	permitted = new_cap->permissions;
-	while(new_cap->permissions > perm) {
+
+	// attenuate down to the input cap's perms
+	while(cap->permissions < permitted) {
 		permitted = permitted / 2;
-		new_cap->permissions = permitted;
-		new_cap->check = WooFCapCheck(new_cap,new_cap->check);
-printf("AT: atten perms: %x %ld\n",new_cap->permissions, new_cap->check);
 	}
-printf("AT: final perms: %x %ld\n",new_cap->permissions, new_cap->check);
-	new_cap->permissions = permitted;
+	memcpy(new_cap,cap,sizeof(WCAP));
+	// clear out any extraneous bits
+	new_cap->permissions = new_cap->permissions & WCAP_PRINCIPAL;
+//printf("AT: start perms: %x %x %lu\n",new_cap->permissions, permitted, new_cap->check);
+	while(permitted > perm) {
+		// turn off permitted
+		new_cap->permissions = new_cap->permissions & ~permitted;
+		// attenuate to next lower perm
+		permitted = permitted / 2;
+		// compute new check
+		new_cap->check = WooFCapCheck(new_cap,new_cap->check);
+//printf("AT: atten perms: %x %x %lu\n",new_cap->permissions, permitted, new_cap->check);
+	}
+//printf("AT: final perms: %x %x %lu\n",new_cap->permissions, permitted, new_cap->check);
 
 	return(new_cap);
 
@@ -115,19 +123,23 @@ int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 	WCAP local;
 	uint32_t permitted = WCAP_MAX_PERM;
 
+	if(perm > WCAP_MAX_PERM) {
+		return(0);
+	}
+
 	local.permissions = WCAP_PRINCIPAL;
 	local.flags = 0;
 	local.frame_size = 0;
 	local.check = secret;
 
-printf("AUTH %d: start perms: %x %x %ld\n",perm,local.permissions,permitted,local.check);
-		while(permitted > perm) {
+//printf("AUTH %d: start perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+	while(permitted > perm) {
 		permitted = permitted / 2;
 		local.permissions = local.permissions / 2;
 		local.check = WooFCapCheck(&local,local.check);
-printf("AUTH %d: atten perms: %x %x %ld\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: atten perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
 	}
-printf("AUTH %d: final perms: %x %x %ld\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: final perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
 
 	if(local.check == cap->check) {
 		return(1);
@@ -136,9 +148,12 @@ printf("AUTH %d: final perms: %x %x %ld\n",perm,local.permissions,permitted,loca
 	}
 }
 
-void WooFCapPrint(WCAP *cap)
+// prints cap in YAML format
+void WooFCapPrint(char *woof_name, WCAP *cap)
 {
-	printf("permissions: %x\n",cap->permissions);
-	printf("check: %ld\n",cap->check);
+	printf("woof:\n");
+	printf("\tname: %s\n",woof_name);
+	printf("\tpermissions: %8.8x\n",cap->permissions);
+	printf("\tcheck: %lu\n",cap->check);
 	return;
 }

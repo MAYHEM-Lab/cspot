@@ -37,5 +37,5 @@ uint64_t WooFCapCheck(WCAP *cap, uint64_t key);
 int WooFCapInit(char *local_woof_name);
 WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm);
 int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm);
-void WooFCapPrint(WCAP *cap);
+void WooFCapPrint(char *woof_name, WCAP *cap);
 #endif
