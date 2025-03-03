@@ -19,7 +19,7 @@ uint64_t WooFCapCheck(WCAP *cap, uint64_t key)
 	unsigned int hmac_len;
 	unsigned char *ukey = (unsigned char *)&key;
 	unsigned char *udata = (unsigned char *)cap;
-	int data_len = 2 * sizeof(uint64_t); // do not include check field
+	int data_len = sizeof(WCAP);
 	uint64_t hm;
 
 	// Compute full HMAC using SHA-256
@@ -48,6 +48,8 @@ int WooFCapInit(char *local_woof_name)
 		return(-1);
 	}
 
+	sprintf(cap_name,"%s.CAP",local_woof_name);
+
 	err = WooFCreate(cap_name,sizeof(WCAP),WCAP_HISTORY);
 	if(err < 0) {
 		DEBUG_WARN("WooFCapInit: failed to create %s\n",cap_name);
@@ -58,7 +60,8 @@ int WooFCapInit(char *local_woof_name)
 	// init principal cap
 	// give it infinite lifetime
 	capability.permissions = WCAP_PRINCIPAL;
-	capability.expiration = 0;
+	capability.frame_size = 0;
+	capability.flags = 0;
 
 	// compute random nonce for principal secret
 	gettimeofday(&tm,NULL);
@@ -78,17 +81,64 @@ int WooFCapInit(char *local_woof_name)
 	free(cap_name);
 	return(0);
 }
-	
-	
-	
-	
-	
-	// 
 
-		
+WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm)
+{
+	WCAP *new_cap;
+	uint32_t permitted = WCAP_MAX_PERM;
+	// rules are listed in order of strength
+	if(perm > cap->permissions) {
+		return(NULL);  // cannot create  stronger cap
+	}
+	new_cap = (WCAP *)malloc(sizeof(WCAP));
+	if(new_cap == NULL) {
+		return(NULL);
+	}
+	memcpy(new_cap,cap,sizeof(WCAP));
+printf("AT: start perms: %x %ld\n",new_cap->permissions, new_cap->check);
+	permitted = new_cap->permissions;
+	while(new_cap->permissions > perm) {
+		permitted = permitted / 2;
+		new_cap->permissions = permitted;
+		new_cap->check = WooFCapCheck(new_cap,new_cap->check);
+printf("AT: atten perms: %x %ld\n",new_cap->permissions, new_cap->check);
+	}
+printf("AT: final perms: %x %ld\n",new_cap->permissions, new_cap->check);
+	new_cap->permissions = permitted;
 
-	
+	return(new_cap);
 
-	
+}
 
+int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
+{
+	WCAP local;
+	uint32_t permitted = WCAP_MAX_PERM;
 
+	local.permissions = WCAP_PRINCIPAL;
+	local.flags = 0;
+	local.frame_size = 0;
+	local.check = secret;
+
+printf("AUTH %d: start perms: %x %x %ld\n",perm,local.permissions,permitted,local.check);
+		while(permitted > perm) {
+		permitted = permitted / 2;
+		local.permissions = local.permissions / 2;
+		local.check = WooFCapCheck(&local,local.check);
+printf("AUTH %d: atten perms: %x %x %ld\n",perm,local.permissions,permitted,local.check);
+	}
+printf("AUTH %d: final perms: %x %x %ld\n",perm,local.permissions,permitted,local.check);
+
+	if(local.check == cap->check) {
+		return(1);
+	} else {
+		return(0);
+	}
+}
+
+void WooFCapPrint(WCAP *cap)
+{
+	printf("permissions: %x\n",cap->permissions);
+	printf("check: %ld\n",cap->check);
+	return;
+}
