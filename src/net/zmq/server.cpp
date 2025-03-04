@@ -18,9 +18,9 @@ int safe_stoul_to_int(const std::string& str) {
         unsigned long value = std::stoul(str, &pos);
 
         // Ensure no extra characters exist
-        if (pos != str.size()) {
-            throw std::invalid_argument("Invalid characters in input");
-        }
+//        if (pos != str.size()) {
+//            throw std::invalid_argument("Invalid characters in input");
+//        }
 
         // Check for overflow
         if (value > static_cast<unsigned long>(std::numeric_limits<int>::max())) {
