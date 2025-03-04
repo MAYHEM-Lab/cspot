@@ -1,3 +1,8 @@
+#include <iostream>
+#include <string>
+#include <limits>
+#include <optional>
+
 #include "backend.hpp"
 #include "common.hpp"
 #include "debug.h"
@@ -7,7 +12,30 @@
 
 namespace cspot::zmq {
 namespace {
+int safe_stoul_to_int(const std::string& str) {
+    try {
+        size_t pos;
+        unsigned long value = std::stoul(str, &pos);
+
+        // Ensure no extra characters exist
+        if (pos != str.size()) {
+            throw std::invalid_argument("Invalid characters in input");
+        }
+
+        // Check for overflow
+        if (value > static_cast<unsigned long>(std::numeric_limits<int>::max())) {
+            throw std::out_of_range("Value out of int range");
+        }
+
+        return static_cast<int>(value); // Safe conversion
+    } catch (const std::exception& e) {
+        std::cerr << "Conversion error: " << e.what() << std::endl;
+        return -1; // Use an error indicator
+    }
+}
+
 void WooFMsgThread() {
+	int ltag;
     /*
      * right now, we use REQ-REP pattern from ZeroMQ.  need a way to timeout, however, as
      * this pattern blocks indefinitely on network partition
@@ -25,6 +53,9 @@ void WooFMsgThread() {
     DEBUG_LOG("WooFMsgThread: about to call receive");
 
     auto msg = Receive(*receiver);
+    if(msg == NULL) {
+            DEBUG_WARN("WooFMsgThread: NULL msg\n");
+    }
     while (msg) {
         DEBUG_LOG("WooFMsgThread: received");
 
@@ -43,7 +74,11 @@ void WooFMsgThread() {
             return;
         }
 
-        auto tag = std::stoul(*str);
+        auto tag = safe_stoul_to_int(*str);
+	if(tag == -1) {
+		DEBUG_LOG("WooFMsgThread: processing msg with bad tag\n");
+		return;
+	}
         DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
 
         switch (tag) {
