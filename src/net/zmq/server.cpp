@@ -35,7 +35,6 @@ int safe_stoul_to_int(const std::string& str) {
 }
 
 void WooFMsgThread() {
-	int ltag;
     /*
      * right now, we use REQ-REP pattern from ZeroMQ.  need a way to timeout, however, as
      * this pattern blocks indefinitely on network partition
