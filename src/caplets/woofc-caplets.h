@@ -32,10 +32,18 @@ typedef struct cap_stc WCAP;
 	
 
 #define WCAP_HISTORY (10) // max history of principal caps
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 uint64_t WooFCapCheck(WCAP *cap, uint64_t key);
 int WooFCapInit(char *local_woof_name);
 WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm);
 int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm);
 void WooFCapPrint(char *woof_name, WCAP *cap);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
