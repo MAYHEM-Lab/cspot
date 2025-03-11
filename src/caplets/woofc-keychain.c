@@ -4,12 +4,22 @@
 #include <string.h>
 #include <stdint.h>
 #include <yaml.h>
+#include "woofc-caplets.h"
 
 #ifndef TEST
 #include "debug.h"
+#else
+void WooFCapPrint(char *woof_name, WCAP *cap)
+{
+        printf("woof:\n");
+        printf("\tname: %s\n",woof_name);
+        printf("\tpermissions: %8.8x\n",cap->permissions);
+        printf("\tcheck: %lu\n",cap->check);
+        return;
+}
 #endif
 
-int SearchKeychain(const char *filename, char *woof_name, uint64_t *cap_check) 
+int SearchKeychain(const char *filename, char *woof_name, WCAP *cap) 
 {
 	FILE *file = fopen(filename, "r");
 	yaml_parser_t parser;
@@ -17,6 +27,8 @@ int SearchKeychain(const char *filename, char *woof_name, uint64_t *cap_check)
 	int done = 0;
 	char k_woof_name[4096];
 	char k_check[21];
+	char k_perms[20];
+	uint32_t k_perm_value;
 	uint64_t k_check_value;
 	int state; // 0 => looking, 1 => woof: 2 => check: 
 	int found;
@@ -97,12 +109,11 @@ int SearchKeychain(const char *filename, char *woof_name, uint64_t *cap_check)
 						state = 3;
 					}
 				} else if(state == 3) {
-
-					memset(k_check,0,sizeof(k_check));
-					strncpy(k_check,event.data.scalar.value,
-							sizeof(k_check)-1);
-					if(strncmp(k_check,"check",
-							strlen("check")) == 0) {
+					memset(k_perms,0,sizeof(k_perms));
+					strncpy(k_perms,event.data.scalar.value,
+							sizeof(k_perms)-1);
+					if(strncmp(k_perms,"permissions",
+							strlen("permissions")) == 0) {
 						state = 4;
 					}
 					if(strncmp(k_check,"woof",
@@ -110,9 +121,24 @@ int SearchKeychain(const char *filename, char *woof_name, uint64_t *cap_check)
 						state = 1;
 					}
 				} else if(state == 4) {
+					k_perm_value = strtol(event.data.scalar.value,
+								NULL,16);
+					state = 5;
+				} else if(state == 5) {
+					memset(k_check,0,sizeof(k_check));
+					strncpy(k_check,event.data.scalar.value,
+							sizeof(k_check)-1);
+					if(strncmp(k_check,"check",
+							strlen("check")) == 0) {
+						state = 6;
+					}
+					if(strncmp(k_check,"woof",
+							strlen("woof")) == 0) {
+						state = 1;
+					}
+				} else if(state == 6) {
 					k_check_value = strtoll(event.data.scalar.value,
 								NULL,10);
-					*cap_check = k_check_value;
 					found = 1;
 					done = 1;
 					state = 0;
@@ -130,6 +156,10 @@ int SearchKeychain(const char *filename, char *woof_name, uint64_t *cap_check)
     yaml_parser_delete(&parser);
     fclose(file);
     if(found == 1) {
+	    cap->permissions = k_perm_value;
+	    cap->check = k_check_value;
+	    cap->flags = 0;
+	    cap->frame_size = 0;
 	    return(1);
     } else {
 	    return(-1);
@@ -147,6 +177,7 @@ int main(int argc, char **argv)
 	int c;
 	uint64_t check;
 	int err;
+	WCAP cap;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -169,14 +200,14 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	if(Wname[0] == 0) {
-		(void)SearchKeychain(Fname,NULL,&check);
+		(void)SearchKeychain(Fname,NULL,&cap);
 	} else {
-		err = SearchKeychain(Fname,Wname,&check);
+		err = SearchKeychain(Fname,Wname,&cap);
 		if(err < 0) {
 			fprintf(stderr,"could not find check for %s in %s\n",
 					Wname,Fname);
 		} else {
-			printf("%s %lx\n",Wname,check);
+			WooFCapPrint(Wname,&cap);
 		}
 	}
 	return 0;

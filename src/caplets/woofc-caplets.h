@@ -42,6 +42,8 @@ WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm);
 int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm);
 void WooFCapPrint(char *woof_name, WCAP *cap);
 
+#include "woofc-keychain.h"
+
 #ifdef __cplusplus
 }
 #endif
