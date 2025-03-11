@@ -152,8 +152,8 @@ int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 void WooFCapPrint(char *woof_name, WCAP *cap)
 {
 	printf("woof:\n");
-	printf("\tname: %s\n",woof_name);
-	printf("\tpermissions: %8.8x\n",cap->permissions);
-	printf("\tcheck: %lu\n",cap->check);
+	printf("  tname: %s\n",woof_name);
+	printf("  tpermissions: %8.8x\n",cap->permissions);
+	printf("  tcheck: %lu\n",cap->check);
 	return;
 }

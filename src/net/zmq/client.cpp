@@ -182,6 +182,7 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     if(has_cap == 1) {
 	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
 		auto cap_ptr = reinterpret_cast<const uint8_t*>(&cap);
+//WooFCapPrint((char *)std::string(woof_name).c_str(),&cap);
     		msg = CreateMessage(std::to_string(WOOF_MSG_PUT_CAP),
 			     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
                              std::string(woof_name),

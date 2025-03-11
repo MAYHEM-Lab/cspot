@@ -63,6 +63,7 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 	yaml_parser_set_input_file(&parser, file);
 
 	state = 0;
+	found = 0;
 	while(done == 0) {
 		if(!yaml_parser_parse(&parser, &event)) {
 #ifdef TEST
@@ -74,13 +75,11 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 
 		switch(event.type) {
 			case YAML_SCALAR_EVENT:
-#ifdef TEST
-				printf("Key/Value: %s\n", event.data.scalar.value);
+//				printf("Key/Value: %s\n", event.data.scalar.value);
 				// NULL implies just print
 				if(woof_name == NULL) {
 					break;
 				}
-#endif
 				if(state == 0) {
 					if(strncmp(event.data.scalar.value,
 						"woof",strlen("woof")) == 0) {
@@ -139,6 +138,7 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 				} else if(state == 6) {
 					k_check_value = strtoll(event.data.scalar.value,
 								NULL,10);
+//printf("k_check_value: %s -- %lu\n",event.data.scalar.value,k_check_value);
 					found = 1;
 					done = 1;
 					state = 0;
@@ -160,8 +160,11 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 	    cap->check = k_check_value;
 	    cap->flags = 0;
 	    cap->frame_size = 0;
+//printf("search: ");
+//WooFCapPrint(woof_name,cap);
 	    return(1);
     } else {
+//printf("search: no cap %s %s\n",filename, woof_name);
 	    return(-1);
     }
 }
