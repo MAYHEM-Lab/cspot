@@ -1,5 +1,5 @@
 include_directories("./include" "../include" "../../src/include" "../src/include")
-add_library(woof_caplets woofc-caplets.c)
+add_library(woof_caplets woofc-caplets.c woofc-keychain.c)
 target_link_libraries(woof_caplets PUBLIC woof)
 target_include_directories(woof_caplets PRIVATE "." "../../include")
 add_executable(woofc-init-principal woofc-init-principal.c)

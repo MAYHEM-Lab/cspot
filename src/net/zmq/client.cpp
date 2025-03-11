@@ -4,8 +4,55 @@
 #include <cstring>
 #include <debug.h>
 #include <global.h>
+#include "woofc-caplets.h"
 
 namespace cspot::zmq {
+int CapFile(char *capfile, int size)
+{
+	char *home_dir;
+	struct stat file_stat; 
+	char file_path[1024];
+	int found = 0;
+	memset(capfile,0,size);
+
+	// for caplets
+	// check local first
+	// must be user read but otherwise not accessible
+	if(access("./capabilities.yaml", R_OK) == 0) {
+		if(stat("./capabilities.yaml",&file_stat) == 0) {
+			if((file_stat.st_mode & S_IRUSR) != 0) {
+				  if((file_stat.st_mode & 
+				      (S_IRGRP | S_IWGRP | S_IXGRP |
+				       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
+					  strncpy(capfile,"./capabilities.yaml",size-1);
+					  found = 1;
+				  }
+			}
+		}
+	}
+
+	home_dir = getenv("HOME");
+	if(home_dir != NULL) {
+		memset(file_path,0,sizeof(file_path));
+		snprintf(file_path,sizeof(file_path),"%s/.cspot/capabilities.yaml",home_dir);
+		if(access(file_path, R_OK) == 0) {
+			if(stat(file_path,&file_stat) == 0) {
+				if((file_stat.st_mode & S_IRUSR) != 0) {
+					  if((file_stat.st_mode & 
+					      (S_IRGRP | S_IWGRP | S_IXGRP |
+					       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
+						  strncpy(capfile,file_path,size-1);
+						  found = 1;
+					  }
+				}
+			}
+		}
+	}
+
+
+	return(found);
+}
+
 int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
     std::string woof_n(woof_name);
@@ -106,6 +153,9 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
 int32_t
 backend::remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
+    char cap_file[1024];
+    int has_cap;
+    WCAP cap;
 
     if (!endpoint_opt) {
         return -1;
@@ -117,6 +167,9 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
         return (-1);
     }
 
+    has_cap = CapFile(cap_file,sizeof(cap_file));
+
+
     unsigned long my_log_seq_no;
     if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
         my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
@@ -125,12 +178,32 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     }
 
     auto elem_ptr = static_cast<const uint8_t*>(elem);
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_PUT),
+    ZMsgPtr msg;
+    if(has_cap == 1) {
+	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		auto cap_ptr = reinterpret_cast<const uint8_t*>(&cap);
+    		msg = CreateMessage(std::to_string(WOOF_MSG_PUT_CAP),
+			     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
                              std::string(woof_name),
                              handler_name,
                             //  std::to_string(Name_id),
                             //  std::to_string(my_log_seq_no),
                              std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
+	} else {
+		has_cap = 0;
+	}
+    }
+
+
+    // backwards compatibility: if we can't find a cap, try without one
+    if((has_cap == 0) && (!msg)) { 
+    	msg = CreateMessage(std::to_string(WOOF_MSG_PUT),
+                             std::string(woof_name),
+                             handler_name,
+                            //  std::to_string(Name_id),
+                            //  std::to_string(my_log_seq_no),
+                             std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
+    }
 
     if (!msg) {
         DEBUG_WARN("Could not create message for WooFMsgPut for %s", woof_name);

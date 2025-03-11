@@ -1,6 +1,8 @@
 #ifndef CSPOT_DEBUG_H
 #define CSPOT_DEBUG_H
 
+#include <stdbool.h>
+
 
 #if defined(__cplusplus)
 extern "C" {
@@ -12,11 +14,11 @@ void cspot_print_fatal_if(bool val, const char* format, ...);
 
 void cspot_print_timing(const char* format, ...);
 
-#define QUIET
+//#define QUIET
 
 //#define TRACK
 //#define TIMING
-//#define DEBUG
+#define DEBUG
 
 #ifdef QUIET
 #undef TIMING
