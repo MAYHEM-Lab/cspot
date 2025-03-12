@@ -138,14 +138,23 @@ int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 	local.frame_size = 0;
 	local.check = secret;
 
-//printf("AUTH %d: start perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: start perms: %x %x %llu %llu\n",perm,local.permissions,
+//		permitted,local.check,cap->check);
 	while(permitted > perm) {
 		permitted = permitted / 2;
 		local.permissions = local.permissions / 2;
 		local.check = WooFCapCheck(&local,local.check);
-//printf("AUTH %d: atten perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: atten perms: %x %x %llu %llu\n",perm,local.permissions,permitted,
+//		local.check, cap->check);
+
+		// if the cap has highr perms, okay
+		if((cap->check == local.check) &&
+		   (local.permissions >= perm)) {
+			break;
+		}
 	}
-//printf("AUTH %d: final perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: final perms: %x %x %llu %llu\n",perm,local.permissions,permitted,
+//		local.check, cap->check);
 
 	if(local.check == cap->check) {
 		return(1);
@@ -158,8 +167,8 @@ int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 void WooFCapPrint(char *woof_name, WCAP *cap)
 {
 	printf("woof:\n");
-	printf("  tname: %s\n",woof_name);
-	printf("  tpermissions: %8.8x\n",cap->permissions);
-	printf("  tcheck: %lu\n",cap->check);
+	printf("  name: %s\n",woof_name);
+	printf("  permissions: %8.8x\n",cap->permissions);
+	printf("  check: %llu\n",cap->check);
 	return;
 }
