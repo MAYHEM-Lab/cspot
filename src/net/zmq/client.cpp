@@ -341,7 +341,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
 			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
-    			msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE), 
+    			msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE_CAP), 
 					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
 					std::string(woof_name));
 			free(new_cap);
