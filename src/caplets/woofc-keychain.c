@@ -75,7 +75,7 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 
 		switch(event.type) {
 			case YAML_SCALAR_EVENT:
-//				printf("Key/Value: %s\n", event.data.scalar.value);
+printf("Key/Value: %s\n", event.data.scalar.value);
 				// NULL implies just print
 				if(woof_name == NULL) {
 					break;
@@ -136,9 +136,9 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 						state = 1;
 					}
 				} else if(state == 6) {
-					k_check_value = strtoll(event.data.scalar.value,
+					k_check_value = strtoull(event.data.scalar.value,
 								NULL,10);
-//printf("k_check_value: %s -- %lu\n",event.data.scalar.value,k_check_value);
+printf("k_check_value: %s -- %llu\n",event.data.scalar.value,k_check_value);
 					found = 1;
 					done = 1;
 					state = 0;
