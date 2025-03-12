@@ -60,7 +60,6 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	zframe_t *cframe;
 	WCAP *cap;
 	char *wname;
-	char *hname;
 	WOOF* wf;
 	WCAP principal;
 	unsigned long seq_no;
@@ -83,12 +82,6 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame\n");
-		return;
-	}
-
-	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
-	if(hname == NULL) {
-		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get handler frame\n");
 		return;
 	}
 
@@ -310,7 +303,6 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	zframe_t *cframe;
 	WCAP *cap;
 	char *wname;
-	char *hname;
 	WOOF* wf;
 	WCAP principal;
 	unsigned long seq_no;
@@ -333,12 +325,6 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame\n");
-		return;
-	}
-
-	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
-	if(hname == NULL) {
-		DEBUG_WARN("WooFProcessGetwithCAP: could not get handler frame\n");
 		return;
 	}
 
@@ -432,7 +418,6 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	zframe_t *cframe;
 	WCAP *cap;
 	char *wname;
-	char *hname;
 	WOOF* wf;
 	WCAP principal;
 	unsigned long seq_no;
@@ -455,12 +440,6 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof name frame\n");
-		return;
-	}
-
-	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
-	if(hname == NULL) {
-		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get handler frame\n");
 		return;
 	}
 
@@ -552,7 +531,6 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	zframe_t *cframe;
 	WCAP *cap;
 	char *wname;
-	char *hname;
 	WOOF* wf;
 	WCAP principal;
 	unsigned long seq_no;
@@ -575,12 +553,6 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof name frame\n");
-		return;
-	}
-
-	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
-	if(hname == NULL) {
-		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get handler frame\n");
 		return;
 	}
 
