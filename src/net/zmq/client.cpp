@@ -153,10 +153,16 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 
 int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
+    char cap_file[1024];
+    int has_cap;
+    WCAP cap;
+    WCAP *new_cap;
 
     if (!endpoint_opt) {
         return -1;
     }
+
+    has_cap = CapFile(cap_file,sizeof(cap_file));
 
     auto& endpoint = *endpoint_opt;
 
@@ -164,8 +170,45 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
         return (-1);
     }
 
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_TAIL), std::string(woof_name), std::to_string(el_count));
 
+    ZMsgPtr msg;
+    if(has_cap == 1) {
+	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		// attenuate down to read only
+		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
+		if(new_cap != NULL) {
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+    			msg = CreateMessage(std::to_string(WOOF_MSG_GET_TAIL_CAP), 
+					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
+					std::string(woof_name), 
+					std::to_string(el_count));
+			free(new_cap);
+			if(!msg) {
+				has_cap = 0;
+			}
+		} else {
+	    		DEBUG_WARN("WooFMsgGetTail: cap attenuate failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+			has_cap = 0;
+		}
+	} else {
+	    	DEBUG_WARN("WooFMsgGetTail: cap search failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+		has_cap = 0;
+	}
+    }
+    //
+    // backward compatibility
+    if((has_cap == 0) && (!msg)) {
+    	msg = CreateMessage(std::to_string(WOOF_MSG_GET_TAIL), 
+					std::string(woof_name), 
+					std::to_string(el_count));
+    }
+
+    if(!msg) {
+	    DEBUG_WARN("WooFMsgGetTail: could not create msg\n");
+	    return(-1);
+    }
     auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
 
     if (!r_msg) {
@@ -276,16 +319,51 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
     std::string woof_name(woof_name_v);
     auto endpoint_opt = endpoint_from_woof(woof_name);
+    char cap_file[1024];
+    int has_cap;
+    WCAP cap;
+    WCAP *new_cap;
 
     if (!endpoint_opt) {
         return -1;
     }
 
+    has_cap = CapFile(cap_file,sizeof(cap_file));
+
     auto& endpoint = *endpoint_opt;
 
     DEBUG_LOG("WooFMsgGetElSize: woof: %s trying enpoint %s\n", woof_name.c_str(), endpoint.c_str());
 
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE), std::string(woof_name));
+    ZMsgPtr msg;
+    if(has_cap == 1) {
+	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		// attenuate down to read only
+		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
+		if(new_cap != NULL) {
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+    			msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE), 
+					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
+					std::string(woof_name));
+			free(new_cap);
+			if(!msg) {
+				has_cap = 0;
+			}
+		} else {
+	    		DEBUG_WARN("WooFMsgGetElSize: cap attenuate failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+			has_cap = 0;
+		}
+	} else {
+	    	DEBUG_WARN("WooFMsgGetElSize: cap search failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+		has_cap = 0;
+	}
+    }
+
+    // backward compatibility
+    if((has_cap == 0) && (!msg)) {
+    	msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE), std::string(woof_name));
+    }
 
     if (!msg) {
         DEBUG_WARN("Could not create message for GetElSize for %s", woof_name.c_str());
@@ -320,10 +398,16 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
 
     std::string woof_n(woof_name);
     auto endpoint_opt = endpoint_from_woof(woof_name);
+    char cap_file[1024];
+    int has_cap;
+    WCAP cap;
+    WCAP *new_cap;
 
     if (!endpoint_opt) {
         return -1;
     }
+
+    has_cap = CapFile(cap_file,sizeof(cap_file));
 
     auto& endpoint = *endpoint_opt;
 
@@ -334,14 +418,47 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
         my_log_seq_no = 0;
     }
 
-    auto msg = CreateMessage(std::to_string(WOOF_MSG_GET_LATEST_SEQNO),
+    ZMsgPtr msg;
+    if(has_cap == 1) {
+	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		// attenuate down to read only
+		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
+		if(new_cap != NULL) {
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+    			msg = CreateMessage(std::to_string(WOOF_MSG_GET_LATEST_SEQNO_CAP), 
+					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
+					std::string(woof_name)); 
+			free(new_cap);
+			if(!msg) {
+				has_cap = 0;
+			}
+		} else {
+	    		DEBUG_WARN("WooFMsgGetLatestSeqno: cap attenuate failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+			has_cap = 0;
+		}
+	} else {
+	    	DEBUG_WARN("WooFMsgLatestSeqno: cap search failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+		has_cap = 0;
+	}
+    }
+
+    // backward compatibility
+    if((has_cap == 0) && (!msg)) {
+    	msg = CreateMessage(std::to_string(WOOF_MSG_GET_LATEST_SEQNO),
                              std::string(woof_name)
                             //  ,std::to_string(Name_id),
                             //  std::to_string(my_log_seq_no),
                             //  cause_woof_name,
                             //  std::to_string(cause_woof_latest_seq_no)
                              );
+    }
 
+    if(!msg) {
+	    DEBUG_WARN("WooFMsgGetLatestSeqno: could not create msg\n");
+	    return(-1);
+    }
     auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
 
     if (!r_msg) {

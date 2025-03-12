@@ -84,24 +84,33 @@ void WooFMsgThread() {
         case WOOF_MSG_PUT:
             WooFProcessPut(std::move(msg), receiver.get());
             break;
+	case WOOF_MSG_PUT_CAP:
+	    WooFProcessPutwithCAP(std::move(msg), receiver.get());
+	    break;
         case WOOF_MSG_GET:
             WooFProcessGet(std::move(msg), receiver.get());
-            break;
-        case WOOF_MSG_GET_EL_SIZE:
-            WooFProcessGetElSize(std::move(msg), receiver.get());
             break;
         case WOOF_MSG_GET_CAP:
             WooFProcessGetwithCAP(std::move(msg), receiver.get());
             break;
+        case WOOF_MSG_GET_EL_SIZE:
+            WooFProcessGetElSize(std::move(msg), receiver.get());
+            break;
+        case WOOF_MSG_GET_EL_SIZE_CAP:
+            WooFProcessGetElSizewithCAP(std::move(msg), receiver.get());
+            break;
         case WOOF_MSG_GET_TAIL:
             WooFProcessGetTail(std::move(msg), receiver.get());
+            break;
+        case WOOF_MSG_GET_TAIL_CAP:
+            WooFProcessGetTailwithCAP(std::move(msg), receiver.get());
             break;
         case WOOF_MSG_GET_LATEST_SEQNO:
             WooFProcessGetLatestSeqno(std::move(msg), receiver.get());
             break;
-	case WOOF_MSG_PUT_CAP:
-	    WooFProcessPutwithCAP(std::move(msg), receiver.get());
-	    break;
+        case WOOF_MSG_GET_LATEST_SEQNO_CAP:
+            WooFProcessGetLatestSeqnowithCAP(std::move(msg), receiver.get());
+            break;
 #ifdef DONEFLAG
         case WOOF_MSG_GET_DONE:
             WooFProcessGetDone(msg, receiver);

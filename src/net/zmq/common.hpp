@@ -11,10 +11,13 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* receiver);
 void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* receiver);
 void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
