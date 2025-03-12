@@ -149,28 +149,34 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 		DEBUG_WARN("WooFProcessPutwithCAP cap get failed\n");
 		return;
 	}
+	
+	DEBUG_LOG("WooFProcessPutwithCAP: read CAP woof\n");
 
 	// reset zmsg cursor
 	wname = (char *)zmsg_first(req_msg.get());
 	if(hname == NULL) { // no handler check write permse
 		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE)) {
 			WooFProcessPut(std::move(req_msg),resp_sock);
+			DEBUG_WARN("WooFProcessPutwithCAP: no handler auth %s\n",cap_name);
 			return;
+		} else {
+			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_WRITE: check %lu\n",
+					cap->check);
 		}
 	} else { // check execute perms
 		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC)) {
+			DEBUG_WARN("WooFProcessPutwithCAP: handler auth %s\n",cap_name);
 			WooFProcessPut(std::move(req_msg),resp_sock);
 			return;
+		} else {
+			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_EXEC: check %lu\n",
+					cap->check);
 		}
 	}
 
 	// denied
 	return;
 }
-
-
-
-
 
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
     auto res = ExtractMessage<std::string, std::string/*, std::string, std::string*/>(*req_msg);
@@ -222,6 +228,80 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
         DEBUG_WARN("WooFProcessGet: Could not send response");
         return;
     }
+}
+
+void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	char *hname;
+	WOOF* wf;
+	WCAP principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetwithCAP: no cap frame\n");
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof cap frame\n");
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
+	if(hname == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get handler frame\n");
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetwithCAP local name failed\n");
+		return;
+	}
+	char cap_name[1028] = {};
+	sprintf(cap_name,"%s.CAP",local_name);
+
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf) {
+		WooFProcessGet(std::move(req_msg),resp_sock);
+		return;
+	}
+	seq_no = WooFLatestSeqno(wf);
+	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+	WooFDrop(wf);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetwithCAP cap get failed\n");
+		return;
+	}
+	DEBUG_LOG("WooFProcessGetwithCAP: read CAP woof\n");
+
+	// reset curson
+	wname = (char *)zmsg_first(req_msg.get());
+	// check read perms
+	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
+		DEBUG_WARN("WooFProcessGetwithCAP: CAP auth %s\n",cap_name);
+		WooFProcessGet(std::move(req_msg),resp_sock);
+		return;
+	} 
+	DEBUG_WARN("WooFProcessGetwithCAP: read CAP denied %s\n",cap_name);
+	// denied
+	return;
 }
 
 void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {

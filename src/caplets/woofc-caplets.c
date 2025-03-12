@@ -95,6 +95,12 @@ WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm)
 		return(NULL);
 	}
 
+	if(perm == cap->permissions) { //no change
+		// just duplicate
+		memcpy(new_cap,cap,sizeof(WCAP));
+		return(new_cap);
+	}
+
 	// attenuate down to the input cap's perms
 	while(cap->permissions < permitted) {
 		permitted = permitted / 2;

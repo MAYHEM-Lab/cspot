@@ -17,6 +17,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* receiver);
 void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 std::optional<std::string> endpoint_from_woof(std::string_view woof_name);
 } // namespace cspot::zmq
