@@ -83,7 +83,7 @@ void *PutThread(void *arg)
 //printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
 		pthread_mutex_unlock(&Plock);
 		seq_no = WooFPut(Iname,"stress_handler",st);
-//printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
+printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
@@ -106,6 +106,8 @@ void *PutThread(void *arg)
 	pthread_exit(NULL);
 }
 
+#define RETRIES 10000
+
 void *GetThread(void *arg)
 {
 	ST_EL st;
@@ -117,8 +119,10 @@ void *GetThread(void *arg)
 	int retries;
 	struct timespec ts;
 	int started = 0;
+	unsigned long o_seq_no;
 	
 	
+	sleep(10);
 
 	if(IsLatency == 0) {
 		ts.tv_sec = 0;
@@ -140,19 +144,30 @@ void *GetThread(void *arg)
 			started = 1;
 			retries = 0;
 			seq_no = dn->value.l;
-			while(retries < 30) {
-				err = WooFGet(Oname,&st,seq_no);
-				if(err < 0) {
-					printf("get of seq_no %lu failed, retrying\n",seq_no);
+printf("GETING: %lu\n",seq_no);
+			while(retries < RETRIES) {
+				o_seq_no = WooFGetLatestSeqno(Oname);
+				if(o_seq_no == (unsigned long) -1) {
 					retries++;
-					if(IsLatency == 1) {
-						sleep(1);
-					}
 					continue;
+				}
+				if(retries == RETRIES) {
+					break;
+				}
+				while(1) {
+					err = WooFGet(Oname,&st,o_seq_no);
+					if(err < 0) {
+						printf("get of seq_no %lu failed, retrying\n",seq_no);
+						break;
+					}
+					if(st.seq_no == seq_no) {
+						break;
+					}
+					o_seq_no--;
 				}
 				break;
 			}
-			if(retries == 30) {
+			if((retries == RETRIES) || (st.seq_no != seq_no)) {
 				printf("FAIL to get seq_no %lu\n",seq_no);
 				fflush(stdout);
 			} else {

@@ -99,29 +99,33 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 					memset(k_woof_name,0,sizeof(k_woof_name));
 					strncpy(k_woof_name,event.data.scalar.value,
                                                         sizeof(k_woof_name)-1);
+//printf("k_woof_name: %s -- %s\n",event.data.scalar.value,k_woof_name);
 					if((strncmp(k_woof_name,
 						"woof",sizeof(k_woof_name)) == 0) ||
 					   (strncmp(k_woof_name,
                                                 woof_name,sizeof(k_woof_name)) != 0))	{
 						state = 1; // start over
 					} else {
+//printf("woof found: %s\n",k_woof_name);
 						state = 3;
 					}
 				} else if(state == 3) {
 					memset(k_perms,0,sizeof(k_perms));
 					strncpy(k_perms,event.data.scalar.value,
 							sizeof(k_perms)-1);
+//printf("k_perms: %s -- %s\n",event.data.scalar.value,k_perms);
 					if(strncmp(k_perms,"permissions",
 							strlen("permissions")) == 0) {
 						state = 4;
 					}
-					if(strncmp(k_check,"woof",
+					if(strncmp(k_perms,"woof",
 							strlen("woof")) == 0) {
 						state = 1;
 					}
 				} else if(state == 4) {
 					k_perm_value = strtol(event.data.scalar.value,
 								NULL,16);
+//printf("perm found: %x\n",k_perm_value);
 					state = 5;
 				} else if(state == 5) {
 					memset(k_check,0,sizeof(k_check));

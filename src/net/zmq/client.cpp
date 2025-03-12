@@ -332,7 +332,8 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 
     auto& endpoint = *endpoint_opt;
 
-    DEBUG_LOG("WooFMsgGetElSize: woof: %s trying enpoint %s\n", woof_name.c_str(), endpoint.c_str());
+    DEBUG_LOG("WooFMsgGetElSize: woof: %s trying enpoint %s, has_cap: %d\n", woof_name.c_str(), 
+		    endpoint.c_str(), has_cap);
 
     ZMsgPtr msg;
     if(has_cap == 1) {
@@ -417,6 +418,8 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
     } else {
         my_log_seq_no = 0;
     }
+
+    DEBUG_LOG("WooFGetLatestSeqno: called on %s, has_cap: %d\n",std::string(woof_name).c_str(),has_cap);
 
     ZMsgPtr msg;
     if(has_cap == 1) {
