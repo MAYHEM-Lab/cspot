@@ -7,19 +7,19 @@
 #include <string>
 
 namespace cspot::zmq {
-void WooFProcessPut(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessPut(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
-void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
-void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
-void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
-void WooFProcessGet(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessGet(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 std::optional<std::string> endpoint_from_woof(std::string_view woof_name);

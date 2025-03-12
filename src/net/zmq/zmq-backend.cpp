@@ -15,7 +15,7 @@
 #include <woofc-caplets.h>
 
 namespace cspot::zmq {
-void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string>(*req_msg);
 
     if (!res) {
@@ -27,6 +27,18 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    sprintf(cap_name,"%s.CAP",local_name);
+    // if we find a CAP and there should not be one, error
+    if(no_cap == 1) {
+    	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+    }
 
     WOOF* wf;
     if (err < 0) {
@@ -97,7 +109,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
 	if(!wf) {
-		WooFProcessGetElSize(std::move(req_msg),resp_sock);
+		WooFProcessGetElSize(std::move(req_msg),resp_sock,0);
 		return;
 	}
 	seq_no = WooFLatestSeqno(wf);
@@ -115,7 +127,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// check read perms
 	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
 		DEBUG_WARN("WooFProcessGetElSizewithCAP: CAP auth %s\n",cap_name);
-		WooFProcessGetElSize(std::move(req_msg),resp_sock);
+		WooFProcessGetElSize(std::move(req_msg),resp_sock,0);
 		return;
 	} 
 	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied %s\n",cap_name);
@@ -123,13 +135,14 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	return;
 }
 
-void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string, /*std::string, std::string,*/ std::vector<uint8_t>>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessPut Bad message");
         return;
     }
+
 
     auto& [woof_name, hand_name, /*name_id_str, log_seq_no_str,*/ elem] = *res;
     // auto cause_host = std::stoul(name_id_str);
@@ -144,6 +157,17 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock) {
         return;
     }
 
+    char cap_name[1028] = {};
+    sprintf(cap_name,"%s.CAP",local_name);
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+    }
     unsigned long seq_no = WooFPutWithCause(
         local_name, hand_name.empty() ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
 
@@ -207,7 +231,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
 	if(!wf) {
-		WooFProcessPut(std::move(req_msg),resp_sock);
+		WooFProcessPut(std::move(req_msg),resp_sock,0);
 		return;
 	}
 	seq_no = WooFLatestSeqno(wf);
@@ -224,7 +248,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	wname = (char *)zmsg_first(req_msg.get());
 	if(hname == NULL) { // no handler check write permse
 		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE)) {
-			WooFProcessPut(std::move(req_msg),resp_sock);
+			WooFProcessPut(std::move(req_msg),resp_sock,0);
 			DEBUG_WARN("WooFProcessPutwithCAP: no handler auth %s\n",cap_name);
 			return;
 		} else {
@@ -234,7 +258,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	} else { // check execute perms
 		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC)) {
 			DEBUG_WARN("WooFProcessPutwithCAP: handler auth %s\n",cap_name);
-			WooFProcessPut(std::move(req_msg),resp_sock);
+			WooFProcessPut(std::move(req_msg),resp_sock,0);
 			return;
 		} else {
 			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_EXEC: check %lu\n",
@@ -246,7 +270,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	return;
 }
 
-void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string/*, std::string, std::string*/>(*req_msg);
 
     if (!res) {
@@ -263,6 +287,18 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    sprintf(cap_name,"%s.CAP",local_name);
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+    }
     /*
      * attempt to get the element from the local woof_name
      */
@@ -340,7 +376,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
 	if(!wf) {
-		WooFProcessGet(std::move(req_msg),resp_sock);
+		WooFProcessGet(std::move(req_msg),resp_sock,0);
 		return;
 	}
 	seq_no = WooFLatestSeqno(wf);
@@ -357,7 +393,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// check read perms
 	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
 		DEBUG_WARN("WooFProcessGetwithCAP: CAP auth %s\n",cap_name);
-		WooFProcessGet(std::move(req_msg),resp_sock);
+		WooFProcessGet(std::move(req_msg),resp_sock,0);
 		return;
 	} 
 	DEBUG_WARN("WooFProcessGetwithCAP: read CAP denied %s\n",cap_name);
@@ -365,7 +401,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	return;
 }
 
-void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
 
     if (!res) {
@@ -384,6 +420,18 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    sprintf(cap_name,"%s.CAP",local_name);
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+    }
 
     WOOF* wf;
     if (err < 0) {
@@ -455,7 +503,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
 	if(!wf) {
-		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock);
+		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
 		return;
 	}
 	seq_no = WooFLatestSeqno(wf);
@@ -473,7 +521,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// check read perms
 	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth %s\n",cap_name);
-		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock);
+		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
 		return;
 	} 
 	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied %s\n",cap_name);
@@ -481,7 +529,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	return;
 }
 
-void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string>(*req_msg);
 
     if (!res) {
@@ -494,6 +542,18 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    sprintf(cap_name,"%s.CAP",local_name);
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+    }
 
     WOOF* wf;
     if (err < 0) {
@@ -568,7 +628,7 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
 	if(!wf) {
-		WooFProcessGetTail(std::move(req_msg),resp_sock);
+		WooFProcessGetTail(std::move(req_msg),resp_sock,0);
 		return;
 	}
 	seq_no = WooFLatestSeqno(wf);
@@ -586,7 +646,7 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// check read perms
 	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth %s\n",cap_name);
-		WooFProcessGetTail(std::move(req_msg),resp_sock);
+		WooFProcessGetTail(std::move(req_msg),resp_sock,0);
 		return;
 	} 
 	DEBUG_WARN("WooFProcessGetTailwithCAP: read CAP denied %s\n",cap_name);
