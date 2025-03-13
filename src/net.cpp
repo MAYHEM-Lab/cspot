@@ -47,7 +47,12 @@ std::unique_ptr<network_backend> get_backend_with_name(std::string_view backend_
 }
 
 void register_backend(std::string name, std::function<std::unique_ptr<network_backend>()> factory) {
-    DEBUG_LOG("Registering backend %s", name.c_str());
+//    DEBUG_LOG("Registering backend %s\n", name.c_str());
+// not sure why but with DEBUG on, this log call causes the 33rd process spawn to hang (on ubuntu, at least)
+#ifdef DEBUG
+    printf("Registering backend %s\n",name.c_str());
+    fflush(stdout);
+#endif
     backend_factories.emplace(std::move(name), std::move(factory));
 }
 
@@ -58,7 +63,7 @@ network_backend* get_active_backend() {
 //    pthread_mutex_lock(&RLock);
     if (!active_backend) {
         cspot::set_active_backend(cspot::get_backend_with_name(BACKEND));
-        DEBUG_WARN("No active network backend, using %s",BACKEND);
+//        DEBUG_WARN("No active network backend, using %s",BACKEND);
     }
 //    pthread_mutex_unlock(&RLock);
     return active_backend.get();
