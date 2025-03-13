@@ -243,6 +243,7 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     char cap_file[1024];
     int has_cap;
     WCAP cap;
+    WCAP *new_cap;
 
     if (!endpoint_opt) {
         return -1;
@@ -268,15 +269,26 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     ZMsgPtr msg;
     if(has_cap == 1) {
 	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
-		auto cap_ptr = reinterpret_cast<const uint8_t*>(&cap);
 //WooFCapPrint((char *)std::string(woof_name).c_str(),&cap);
-    		msg = CreateMessage(std::to_string(WOOF_MSG_PUT_CAP),
-			     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
-                             std::string(woof_name),
-                             handler_name,
-                            //  std::to_string(Name_id),
-                            //  std::to_string(my_log_seq_no),
-                             std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
+		if(handler_name == NULL) {
+			new_cap = WooFCapAttenuate(&cap,WCAP_WRITE); // drop privs if we can
+		} else {
+			new_cap = WooFCapAttenuate(&cap,WCAP_EXEC); // drop privs if we can
+		}
+		if(new_cap != NULL) {
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+			msg = CreateMessage(std::to_string(WOOF_MSG_PUT_CAP),
+				     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
+				     std::string(woof_name),
+				     handler_name,
+				    //  std::to_string(Name_id),
+				    //  std::to_string(my_log_seq_no),
+				     std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
+			free(new_cap);
+		} else {
+			has_cap = 0;
+		}
+		
 	} else {
 		has_cap = 0;
 	}

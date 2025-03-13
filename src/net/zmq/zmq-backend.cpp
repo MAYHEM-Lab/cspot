@@ -55,6 +55,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
         WooFDrop(wf);
     }
 
+    DEBUG_LOG("WooFProcessGetElSize: sending %lu for %s\n",el_size,local_name);
     auto resp = CreateMessage(std::to_string(el_size));
     if (!res) {
         DEBUG_WARN("WooFProcessGetElSize: Could not allocate message");
@@ -272,6 +273,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string/*, std::string, std::string*/>(*req_msg);
+    unsigned long esize;
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
@@ -313,6 +315,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     if (!wf) {
         DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", woof_name.c_str());
     } else {
+	esize = wf->shared->element_size;
         elem = std::vector<uint8_t>(wf->shared->element_size);
         err = WooFReadWithCause(wf, elem.data(), seq_no, cause_host, cause_seq_no);
         if (err < 0) {
@@ -322,6 +325,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
         WooFDrop(wf);
     }
 
+    DEBUG_LOG("WooFProcessGet: responding with element size %d\n",esize);
     auto resp = CreateMessage(elem);
     if (!res) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
