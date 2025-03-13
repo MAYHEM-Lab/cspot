@@ -22,13 +22,13 @@ int stress_handler(WOOF *wf, unsigned long seq_no, void *ptr)
 	gettimeofday(&st->fielded,NULL);
 	MAKE_EXTENDED_NAME(Oname,st->woof_name,"output");
 	st->seq_no = seq_no;
-printf("HANDLER: putting %lu\n",seq_no);
+//printf("HANDLER: putting %lu\n",seq_no);
 	o_seq_no = WooFPut(Oname,NULL,st);
 	if(WooFInvalid(o_seq_no)) {
 		fprintf(stderr,"couldn't write woof to %s\n",Oname);
 		fflush(stderr);
 	}
-printf("HANDLER: putting %lu to %lu\n",seq_no,o_seq_no);
+//printf("HANDLER: putting %lu to %lu\n",seq_no,o_seq_no);
 
 	return(1);
 }

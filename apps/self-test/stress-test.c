@@ -83,7 +83,7 @@ void *PutThread(void *arg)
 //printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
 		pthread_mutex_unlock(&Plock);
 		seq_no = WooFPut(Iname,"stress_handler",st);
-printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
+//printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
@@ -144,12 +144,12 @@ void *GetThread(void *arg)
 			started = 1;
 			retries = 0;
 			seq_no = dn->value.l;
-printf("GETING: %lu\n",seq_no);
+//printf("GETING: %lu\n",seq_no);
 			while(retries < RETRIES) {
 				o_seq_no = WooFGetLatestSeqno(Oname);
 				if((o_seq_no == (unsigned long) -1) ||
 					       (o_seq_no == 0))	{
-printf("Latest for %s for %lu\n",Oname,o_seq_no);
+//printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					retries++;
 					continue;
 				}
@@ -157,7 +157,7 @@ printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					break;
 				}
 				while(1) {
-printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+//printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 					err = WooFGet(Oname,&st,o_seq_no);
 					if(err < 0) {
 						printf("get of seq_no %lu failed, retrying\n",seq_no);
