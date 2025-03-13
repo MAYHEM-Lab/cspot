@@ -106,7 +106,7 @@ printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 	pthread_exit(NULL);
 }
 
-#define RETRIES 10000
+#define RETRIES 30
 
 void *GetThread(void *arg)
 {
@@ -122,7 +122,7 @@ void *GetThread(void *arg)
 	unsigned long o_seq_no;
 	
 	
-	sleep(10);
+//	sleep(10);
 
 	if(IsLatency == 0) {
 		ts.tv_sec = 0;
@@ -147,7 +147,9 @@ void *GetThread(void *arg)
 printf("GETING: %lu\n",seq_no);
 			while(retries < RETRIES) {
 				o_seq_no = WooFGetLatestSeqno(Oname);
-				if(o_seq_no == (unsigned long) -1) {
+				if((o_seq_no == (unsigned long) -1) ||
+					       (o_seq_no == 0))	{
+printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					retries++;
 					continue;
 				}
@@ -155,6 +157,7 @@ printf("GETING: %lu\n",seq_no);
 					break;
 				}
 				while(1) {
+printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 					err = WooFGet(Oname,&st,o_seq_no);
 					if(err < 0) {
 						printf("get of seq_no %lu failed, retrying\n",seq_no);
@@ -164,10 +167,13 @@ printf("GETING: %lu\n",seq_no);
 						break;
 					}
 					o_seq_no--;
+					if(o_seq_no == 0) {
+						break;
+					}
 				}
 				break;
 			}
-			if((retries == RETRIES) || (st.seq_no != seq_no)) {
+			if((retries == RETRIES) || (o_seq_no == 0) || (st.seq_no != seq_no)) {
 				printf("FAIL to get seq_no %lu\n",seq_no);
 				fflush(stdout);
 			} else {
