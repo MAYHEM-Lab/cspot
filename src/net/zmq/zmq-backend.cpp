@@ -409,7 +409,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
 
     if (!res) {
-        DEBUG_WARN("WooFProcessGet Bad message");
+        DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
         return;
     }
 
@@ -446,21 +446,22 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
 
     unsigned long latest_seq_no = -1;
     if (!wf) {
-        DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", woof_name.c_str());
+        DEBUG_WARN("WooFProcessGetLatestSeqno: couldn't open woof: %s\n", woof_name.c_str());
     } else {
         latest_seq_no = WooFLatestSeqno(wf);
 //            WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
         WooFDrop(wf);
     }
 
+    DEBUG_LOG("WooFProcessGetLatestSeqno: sending %lu for %s\n",latest_seq_no,woof_name.c_str());
     auto resp = CreateMessage(std::to_string(latest_seq_no));
     if (!res) {
-        DEBUG_WARN("WooFProcessGet: Could not allocate message");
+        DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate message");
         return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
-        DEBUG_WARN("WooFProcessGet: Could not send response");
+        DEBUG_WARN("WooFProcessGetLatestSeqno: Could not send response");
         return;
     }
 }

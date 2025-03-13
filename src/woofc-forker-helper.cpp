@@ -125,6 +125,10 @@ int main(int argc,char **argv, char **env)
 		if(err < 0) {
 			printf("woof-forker-helper: spawn of %s failed\n",fargv[0]);
 		}
+#ifdef DEBUG
+		printf("woof-forker-helper: SPAWNED %lu\n",pid);
+		fflush(stdout);
+#endif
 		STOPCLOCK(&end);
 #ifdef TIMING
 		start = strtod(fargv[1],NULL);
@@ -139,7 +143,16 @@ int main(int argc,char **argv, char **env)
 		/*
 		 * send WooFForker completion signal
 		 */
-		write(2,&c,1);
+		err = write(2,&c,1);
+		if(err < 1) {
+			printf("woof-forker-helper: ERROR sending response signal for %lu\n",pid);
+			fflush(stdout);
+		} else {
+#ifdef DEBUG
+		printf("woof-forker-helper: sent response signal for %lu\n",pid);
+		fflush(stdout);
+#endif
+		}
 
 		/*
 		 * if SPLAY > 0, clean up as best we can when we have over

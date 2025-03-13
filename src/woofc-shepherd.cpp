@@ -80,7 +80,7 @@ int main(int argc, char** argv, char** envp) {
 	}
 
 
-	DEBUG_LOG("WooFShepherd: called for handler %s\n", st);
+	DEBUG_LOG("WooFShepherd [%lu]: called for handler %s\n", getpid(),st);
 
 	wf_ns = getenv("WOOFC_NAMESPACE");
 	if (wf_ns == NULL) {
@@ -240,6 +240,7 @@ int main(int argc, char** argv, char** envp) {
 #endif
 
 	WooFSetInit(); // so that a handler that inadevertantly calls WooFInit() does not leak file desc
+	DEBUG_LOG("WooFShepherd[%lu]: START handler for WOOF_SHEPHERD_SEQ_NO=%lu\n", getpid(),seq_no);
 
 	STOPCLOCK(&end);
 	TIMING_PRINT("HANDAT: %lf ms\n",DURATION(start,end)*1000);
@@ -249,6 +250,7 @@ int main(int argc, char** argv, char** envp) {
 	STOPCLOCK(&endhand);
 	TIMING_PRINT("DONE: %lf ms\n",DURATION(start,endhand)*1000);
 
+	DEBUG_LOG("WooFShepherd[%lu]: DONE for WOOF_SHEPHERD_SEQ_NO=%lu\n", getpid(),seq_no);
 	exit(0);
 	return (0);
 }
