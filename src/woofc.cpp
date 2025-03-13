@@ -235,8 +235,10 @@ WOOF* WooFOpen(const char* name) {
     if (WooFValidURI(name)) {
         err = WooFNameFromURI(name, fname, sizeof(fname));
         if (err < 0) {
+#ifdef DEBUG
             fprintf(stderr, "WooFOpen: bad name in URI %s\n", name);
             fflush(stderr);
+#endif
             return (NULL);
         }
         strncat(local_name, fname, sizeof(fname));
@@ -246,15 +248,19 @@ WOOF* WooFOpen(const char* name) {
     DEBUG_LOG("WooFOpen: trying to open %s from fname %s, %s with dir %s\n", local_name, fname, name, WooF_dir);
 
     if (stat(local_name, &sbuf) < 0) {
+#ifdef DEBUG
         fprintf(stderr, "WooFOpen: couldn't open woof: %s\n", local_name);
         fflush(stderr);
+#endif
         return (NULL);
     }
 
     mio = MIOReOpen(local_name);
     if (mio == NULL) {
+#ifdef DEBUG
         fprintf(stderr, "WooFOpen: reopen woof: %s failed\n", local_name);
         fflush(stderr);
+#endif
         return (NULL);
     }
     DEBUG_LOG("WooFOpen: opened %s\n", local_name);
