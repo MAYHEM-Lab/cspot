@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <yaml.h>
 #include "woofc-caplets.h"
+#include <sys/stat.h>
 
 #ifndef TEST
 #include "debug.h"
