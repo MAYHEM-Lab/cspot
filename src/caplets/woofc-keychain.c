@@ -173,6 +173,52 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
     }
 }
 
+int WooFCapFile(char *capfile, int size)
+{
+	char *home_dir;
+	struct stat file_stat; 
+	char file_path[1024];
+	int found = 0;
+	memset(capfile,0,size);
+
+	// for caplets
+	// check local first
+	// must be user read but otherwise not accessible
+	if(access("./capabilities.yaml", R_OK) == 0) {
+		if(stat("./capabilities.yaml",&file_stat) == 0) {
+			if((file_stat.st_mode & S_IRUSR) != 0) {
+				  if((file_stat.st_mode & 
+				      (S_IRGRP | S_IWGRP | S_IXGRP |
+				       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
+					  strncpy(capfile,"./capabilities.yaml",size-1);
+					  found = 1;
+				  }
+			}
+		}
+	}
+
+	home_dir = getenv("HOME");
+	if(home_dir != NULL) {
+		memset(file_path,0,sizeof(file_path));
+		snprintf(file_path,sizeof(file_path),"%s/.cspot/capabilities.yaml",home_dir);
+		if(access(file_path, R_OK) == 0) {
+			if(stat(file_path,&file_stat) == 0) {
+				if((file_stat.st_mode & S_IRUSR) != 0) {
+					  if((file_stat.st_mode & 
+					      (S_IRGRP | S_IWGRP | S_IXGRP |
+					       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
+						  strncpy(capfile,file_path,size-1);
+						  found = 1;
+					  }
+				}
+			}
+		}
+	}
+
+
+	return(found);
+}
+
 #ifdef TEST
 #define ARGS "f:W:"
 char *Usage = "woofc-keychain-search -f config.yaml\n\

@@ -7,51 +7,6 @@
 #include "woofc-caplets.h"
 
 namespace cspot::zmq {
-int CapFile(char *capfile, int size)
-{
-	char *home_dir;
-	struct stat file_stat; 
-	char file_path[1024];
-	int found = 0;
-	memset(capfile,0,size);
-
-	// for caplets
-	// check local first
-	// must be user read but otherwise not accessible
-	if(access("./capabilities.yaml", R_OK) == 0) {
-		if(stat("./capabilities.yaml",&file_stat) == 0) {
-			if((file_stat.st_mode & S_IRUSR) != 0) {
-				  if((file_stat.st_mode & 
-				      (S_IRGRP | S_IWGRP | S_IXGRP |
-				       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
-					  strncpy(capfile,"./capabilities.yaml",size-1);
-					  found = 1;
-				  }
-			}
-		}
-	}
-
-	home_dir = getenv("HOME");
-	if(home_dir != NULL) {
-		memset(file_path,0,sizeof(file_path));
-		snprintf(file_path,sizeof(file_path),"%s/.cspot/capabilities.yaml",home_dir);
-		if(access(file_path, R_OK) == 0) {
-			if(stat(file_path,&file_stat) == 0) {
-				if((file_stat.st_mode & S_IRUSR) != 0) {
-					  if((file_stat.st_mode & 
-					      (S_IRGRP | S_IWGRP | S_IXGRP |
-					       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
-						  strncpy(capfile,file_path,size-1);
-						  found = 1;
-					  }
-				}
-			}
-		}
-	}
-
-
-	return(found);
-}
 
 int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
@@ -65,7 +20,7 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
         return -1;
     }
 
-    has_cap = CapFile(cap_file,sizeof(cap_file));
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
     auto& endpoint = *endpoint_opt;
 
@@ -162,7 +117,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, uns
         return -1;
     }
 
-    has_cap = CapFile(cap_file,sizeof(cap_file));
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
     auto& endpoint = *endpoint_opt;
 
@@ -255,7 +210,7 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
         return (-1);
     }
 
-    has_cap = CapFile(cap_file,sizeof(cap_file));
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
 
     unsigned long my_log_seq_no;
@@ -340,7 +295,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
         return -1;
     }
 
-    has_cap = CapFile(cap_file,sizeof(cap_file));
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
     auto& endpoint = *endpoint_opt;
 
@@ -420,7 +375,7 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
         return -1;
     }
 
-    has_cap = CapFile(cap_file,sizeof(cap_file));
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
     auto& endpoint = *endpoint_opt;
 
