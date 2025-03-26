@@ -265,9 +265,8 @@ CMQCONN *cmq_mqtt_create_conn(int type, int port)
 
 	// see if this connection exists
 	rb = RBFindI(MQTT_Proxy.connections,port);
-	if(rb != NULL) {
-		conn = (CMQCONN *)rb->value.v;
-		return(conn);
+	if((rb != NULL) && (type == CMQCONNListen)) {
+		return(NULL);
 	}
 
 	conn = (CMQCONN *)malloc(sizeof(CMQCONN));
@@ -298,7 +297,7 @@ CMQCONN *cmq_mqtt_create_conn(int type, int port)
 	}
 	//
 	// set out-bound send channel
-	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_pub -h %s -t %s/%s/%8.8d/output -u \'%s\' -P \'%s\'",
+	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_pub -l -h %s -t %s/%s/%8.8d/output -u \'%s\' -P \'%s\'",
 			    MQTT_Proxy.broker_ip,
 			    MQTT_Proxy.host_ip,
 			    MQTT_Proxy.namespace,
