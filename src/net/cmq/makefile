@@ -1,7 +1,10 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS=-g -Wformat-truncation=0
 
-all: cmq-frame-selftest cmq-test-client cmq-test-server
+RBINC=/home/ubuntu/src/cspot/deps/euca-cutils
+RBSRC=/home/ubuntu/src/cspot/deps/euca-cutils/redblack.c
+
+all: cmq-frame-selftest cmq-test-client cmq-test-server cmq-mqtt-test-client cmq-mqtt-test-server
 
 cmq-frame.o: cmq-frame.h cmq-frame.c
 	${CC} ${CFLAGS} -c cmq-frame.c
@@ -15,6 +18,12 @@ cmq-test-client: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c
 cmq-test-server: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c
 	${CC} ${CFLAGS} -DTESTSERVER -o cmq-test-server cmq-pkt.c cmq-frame.o
 
+cmq-mqtt-test-client: cmq-frame.o cmq-frame.h cmq-mqtt-xport.c cmq-mqtt-xport.h
+	${CC} ${CFLAGS} -DTESTCLIENT -I${RBINC} -o cmq-mqtt-test-client cmq-mqtt-xport.c ${RBSRC} cmq-frame.o -lpthread -lyaml
+
+cmq-mqtt-test-server: cmq-frame.o cmq-frame.h cmq-mqtt-xport.h cmq-mqtt-xport.c
+	${CC} ${CFLAGS} -DTESTSERVER -I${RBINC} -o cmq-mqtt-test-server cmq-mqtt-xport.c ${RBSRC} cmq-frame.o -lpthread -lyaml 
+
 clean:
-	rm *.o cmq-frame-selftest cmq-test-client cmq-test-server
+	rm *.o cmq-frame-selftest cmq-test-client cmq-test-server cmq-mqtt-test-server cmq-mqtt-test-client
 
