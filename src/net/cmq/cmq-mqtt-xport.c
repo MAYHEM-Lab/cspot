@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <yaml.h>
 #include <errno.h>
 
@@ -256,10 +258,55 @@ int cmq_mqtt_proxy_init()
 }
 
 
-FILE* cmq_mqtt_create_sub_channel(char *addr, int port)
+FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 {
 	char m_string[1024];
 	FILE *fd;
+	pid_t pid;
+	char topic[IPLEN+8+1];
+	char user[256];
+	char pw[256];
+	int pd[2];
+	int err;
+	
+	// really stupid
+	err = pipe(pd);
+	if(err < 0) {
+		perror("failed to create pipe");
+		return(NULL);
+	}
+
+	snprintf(topic,sizeof(topic),"%s/%8.8d",addr,port);
+	snprintf(user,sizeof(user),"\'%s\'",MQTT_Proxy.user);
+	snprintf(pw,sizeof(pw),"\'%s\'",MQTT_Proxy.pw);
+	
+	pid = fork();
+	if(pid < 0) {
+		return(NULL);
+	} else if(pid == 0) {
+		close(1);
+		close(pd[0]);
+		dup2(pd[1],1);
+		close(pd[1]);
+		execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
+				"-h",MQTT_Proxy.broker_ip,
+				"-t",topic,
+				"-u",MQTT_Proxy.user,
+				"-P",MQTT_Proxy.pw,
+				NULL);
+		perror("failed to exec mosquitto_sub");
+		return(NULL);
+	} else {
+		close(pd[1]);
+		fd = fdopen(pd[0],"r");
+		if(fd == NULL) {
+			kill(pid,SIGTERM);
+			return(NULL);
+		}
+		*child = pid;
+	}
+	
+#if 0
 	// set up in-bound channel
 	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_sub -h %s -t %s/%8.8d -u \'%s\' -P \'%s\'",
 			    MQTT_Proxy.broker_ip,
@@ -272,6 +319,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port)
 		perror("ERROR: could not create sub channel\n");
 		return(NULL);
 	}
+#endif
 	return(fd);
 }
 
@@ -301,6 +349,7 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 	CMQCONN *conn;
 	char m_string[4096];
 	RB *rb;
+	pid_t pid;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -323,7 +372,8 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 
 	// need sub channel to avoid race condition with registering connection in
 	// connection list
-	conn->sub_fd = cmq_mqtt_create_sub_channel(local_addr,port);
+	conn->sub_fd = cmq_mqtt_create_sub_channel(local_addr,port,
+			&conn->sub_pid);
 	if(conn->sub_fd == NULL) {
 		free(conn);
 		return(NULL);
@@ -338,6 +388,7 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 {
 	RB *rb;
 	int err;
+	char kill_buff[1024];
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -349,8 +400,10 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		RBDeleteI(MQTT_Proxy.connections,rb);
 	}
 	if(conn->sub_fd != NULL) {
-		close(fileno(conn->sub_fd));
-		pclose(conn->sub_fd);
+		// this is stupid
+		kill(conn->sub_pid,SIGTERM);
+		waitpid(conn->sub_pid,NULL,0);
+		fclose(conn->sub_fd);
 	}
 	if(conn->pub_fd != NULL) {
 		close(fileno(conn->pub_fd));
@@ -717,7 +770,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 		return(-1);
 	}
 
-	// use hint to prallocate a bufffer
+	// use hint to prallocate a buffer
 	// hint could be zero if only zero frame is received
 	if(max_size > 0) {
 		payload = (unsigned char *)malloc(max_size);

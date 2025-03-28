@@ -24,10 +24,11 @@ typedef struct cmq_mqtt_proxy_stc CMQPROXY;
 
 struct cmq_mqtt_conn_stc
 {
-	int sd; 	// fake socket id
+	int sd; 		// fake socket id
 	int type;		// connect, listen, or accept	
 	FILE *pub_fd;
 	FILE *sub_fd;
+	pid_t sub_pid; // for mosquitto_sub shutdown
 	struct timeval timeout;
 	unsigned char buffer[16*1024]; // max msg size is 16K
 	int cursor; // emulate file r/w pointer
