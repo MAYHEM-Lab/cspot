@@ -80,6 +80,10 @@ int cmq_mqtt_proxy_init()
 	int done = 0;
 	int found = 0;
 	FILE *file;
+	struct timeval tm;
+
+	gettimeofday(&tm,NULL);
+	srand48(tm.tv_sec + tm.tv_usec);
 
 	if(MQTT_Proxy.init == 1) {
 		return(1);
@@ -345,9 +349,11 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		RBDeleteI(MQTT_Proxy.connections,rb);
 	}
 	if(conn->sub_fd != NULL) {
+		close(fileno(conn->sub_fd));
 		pclose(conn->sub_fd);
 	}
 	if(conn->pub_fd != NULL) {
+		close(fileno(conn->pub_fd));
 		pclose(conn->pub_fd);
 	}
 	free(conn);
@@ -409,7 +415,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 
 	// random local client port
 	// FIX: check to make sure it is not in use
-	client_port = (int)(drand48() * 50000) + 1;
+	client_port = (int)(drand48() * 50000.0) + 1;
 
 	// create connections with in-bound channel
 	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port);
@@ -442,6 +448,9 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	}
 
 	// send them
+	// terminate buffer with newline for mosquitto_pub -l
+	conn->buffer[conn->cursor] = '\n';
+	conn->cursor++;
 	err = write(fileno(server_fd),conn->buffer,conn->cursor);
 	if(err < conn->cursor) {
 		cmq_mqtt_destroy_conn(conn);
@@ -547,7 +556,7 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 	// create an accept port for this connection
-	accept_port = (int)(drand48()*50000)+1;
+	accept_port = (int)(drand48()*50000.0)+1;
 	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,MQTT_Proxy.host_ip,accept_port);
 	if(new_conn == NULL) {
 		return(-1);
@@ -567,6 +576,9 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		cmq_mqtt_destroy_conn(new_conn);
 		return(-1);
 	}
+	// terinate with \n for mosquitto_pub -l
+	new_conn->buffer[new_conn->cursor] = '\n';
+	new_conn->cursor++;
 	err = write(fileno(new_conn->pub_fd),new_conn->buffer,new_conn->cursor);
 	if(err < new_conn->cursor) {
 		cmq_mqtt_destroy_conn(new_conn);
@@ -629,6 +641,9 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 		frame = frame->next;
 	}
 	// now write the data to the pub socket
+	// terminate with \n for mosquitto_pub -l
+	conn->buffer[conn->cursor] = '\n';
+	conn->cursor++;
 	err = write(fileno(conn->pub_fd),conn->buffer,conn->cursor);
 
 	if(err < conn->cursor) {
@@ -666,9 +681,19 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 
 	// read the sub socket
 	err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
+
+	// file newlines needed by mosquito_pub -l if there are any
+	while((err == 1) && (conn->buffer[0] == '\n')) {
+		err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
+	}
 	if(err <= 0) {
 		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
 		return(-1);
+	}
+
+	// punch out \n needed for mosquitto_pub -l
+	if(conn->buffer[err] == '\n') {
+		conn->buffer[err] = 0;
 	}
 	cmq_mqtt_conn_buffer_seek(conn,0); // reset the cursor
 
