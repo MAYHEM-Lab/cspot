@@ -251,7 +251,47 @@ int cmq_mqtt_proxy_init()
     }
 }
 
-CMQCONN *cmq_mqtt_create_conn(int type, int port)
+
+FILE* cmq_mqtt_create_sub_channel(char *addr, int port)
+{
+	char m_string[1024];
+	FILE *fd;
+	// set up in-bound channel
+	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_sub -h %s -t %s/%8.8d -u \'%s\' -P \'%s\'",
+			    MQTT_Proxy.broker_ip,
+			    addr,
+			    port,
+			    MQTT_Proxy.user,
+			    MQTT_Proxy.pw);
+	fd = popen(m_string,"r");
+	if(fd == NULL) {
+		perror("ERROR: could not create sub channel\n");
+		return(NULL);
+	}
+	return(fd);
+}
+
+FILE* cmq_mqtt_create_pub_channel(char *addr, int port)
+{
+	char m_string[1024];
+	FILE *fd;
+	// set out-bound send channel
+	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_pub -l -h %s -t %s/%8.8d -u \'%s\' -P \'%s\'",
+			    MQTT_Proxy.broker_ip,
+			    addr,
+			    port,
+			    MQTT_Proxy.user,
+			    MQTT_Proxy.pw);
+	fd = popen(m_string,"w");
+	if(fd == NULL) {
+		perror("ERROR: could not create pub channel");
+		pclose(fd);
+		return(NULL);
+	}
+	return(fd);
+}
+
+CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 {
 	int err;
 	CMQCONN *conn;
@@ -265,7 +305,7 @@ CMQCONN *cmq_mqtt_create_conn(int type, int port)
 
 	// see if this connection exists
 	rb = RBFindI(MQTT_Proxy.connections,port);
-	if((rb != NULL) && (type == CMQCONNListen)) {
+	if(rb != NULL) {
 		return(NULL);
 	}
 
@@ -275,41 +315,16 @@ CMQCONN *cmq_mqtt_create_conn(int type, int port)
 	}
 	memset(conn,0,sizeof(CMQCONN));
 	conn->type = type;
-	conn->port = port;
-	if((type == CMQCONNConnect) || (type == CMQCONNAccept)) {
-		conn->sd = (int)(drand48()*50000) + 1;
-	} else {
-		conn->sd = port;
+	conn->sd = port;
+
+	// need sub channel to avoid race condition with registering connection in
+	// connection list
+	conn->sub_fd = cmq_mqtt_create_sub_channel(local_addr,port);
+	if(conn->sub_fd == NULL) {
+		free(conn);
+		return(NULL);
 	}
 
-	// set up in-bound channel
-	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_sub -h %s -t %s/%s/%8.8d/input -u \'%s\' -P \'%s\'",
-			    MQTT_Proxy.broker_ip,
-			    MQTT_Proxy.host_ip,
-			    MQTT_Proxy.namespace,
-			    conn->sd,
-			    MQTT_Proxy.user,
-			    MQTT_Proxy.pw);
-	conn->sub_fd = popen(m_string,"r");
-	if(conn->sub_fd == NULL) {
-		perror("ERROR: could not create sub channel\n");
-		return(NULL);
-	}
-	//
-	// set out-bound send channel
-	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_pub -l -h %s -t %s/%s/%8.8d/output -u \'%s\' -P \'%s\'",
-			    MQTT_Proxy.broker_ip,
-			    MQTT_Proxy.host_ip,
-			    MQTT_Proxy.namespace,
-			    conn->port,
-			    MQTT_Proxy.user,
-			    MQTT_Proxy.pw);
-	conn->pub_fd = popen(m_string,"w");
-	if(conn->pub_fd == NULL) {
-		perror("ERROR: could not create pub channel");
-		pclose(conn->sub_fd);
-		return(NULL);
-	}
 	(void)RBInsertI(MQTT_Proxy.connections,conn->sd,(Hval)((void *)conn));
 
 	return(conn);
@@ -347,7 +362,7 @@ int cmq_mqtt_conn_buffer_write(CMQCONN *conn, unsigned char *buf, int size)
 	}
 
 	ConvertBinarytoASCII(&(conn->buffer[conn->cursor]),buf,size);
-	conn->cursor += size;
+	conn->cursor += (2*size);
 	return(size);
 }
 
@@ -366,7 +381,7 @@ int cmq_mqtt_conn_buffer_read(CMQCONN *conn, unsigned char *buf, int size)
 	}
 
 	ConvertASCIItoBinary(buf,&(conn->buffer[conn->cursor]),len);
-	conn->cursor += len;
+	conn->cursor += (2*len);
 	return(len);
 }
 
@@ -381,7 +396,9 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 {
 	int err;
 	CMQCONN *conn;
-	char m_string[1024];
+	int client_port;
+	int accept_port;
+	FILE *server_fd;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -390,16 +407,79 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 
 	signal(SIGPIPE,SIG_IGN);
 
-	conn = cmq_mqtt_create_conn(CMQCONNConnect,port);
+	// random local client port
+	// FIX: check to make sure it is not in use
+	client_port = (int)(drand48() * 50000) + 1;
+
+	// create connections with in-bound channel
+	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port);
 	if(conn == NULL) {
 		return(-1);
 	}
 
-	strncpy(conn->addr,addr,sizeof(conn->addr));
-	conn->timeout.tv_sec = 0;
-	conn->timeout.tv_usec = timeout/1000;
+	server_fd = cmq_mqtt_create_pub_channel(addr,port);
+	if(server_fd == NULL) {
+		cmq_mqtt_destroy_conn(conn);
+		return(-1);
+	}
 
-	return(conn->sd);
+	cmq_mqtt_conn_buffer_seek(conn,0); // reset cursor
+
+	// write client IP address to server
+	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)MQTT_Proxy.host_ip,sizeof(MQTT_Proxy.host_ip));
+	if(err < sizeof(MQTT_Proxy.host_ip)) {
+		cmq_mqtt_destroy_conn(conn);
+		pclose(server_fd);
+		return(-1);
+	}
+
+	// write the  client port to the server
+	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&client_port,sizeof(client_port));
+	if(err < sizeof(client_port)) {
+		cmq_mqtt_destroy_conn(conn);
+		pclose(server_fd);
+		return(-1);
+	}
+
+	// send them
+	err = write(fileno(server_fd),conn->buffer,conn->cursor);
+	if(err < conn->cursor) {
+		cmq_mqtt_destroy_conn(conn);
+		pclose(server_fd);
+		return(-1);
+	}
+
+
+	// close server connection
+	pclose(server_fd);
+
+
+	// block reading the server-side accept port
+	// port will be sent as 2 asci hex chars
+	// FIX: need a timeout here
+	err = read(fileno(conn->sub_fd),conn->buffer,sizeof(accept_port)*2);
+	if(err < (sizeof(accept_port)*2)) {
+		cmq_mqtt_destroy_conn(conn);
+		return(-1);
+	}
+	// reset the cursor
+	cmq_mqtt_conn_buffer_seek(conn,0);
+
+	// get the accept port
+	err = cmq_mqtt_conn_buffer_read(conn,(unsigned char *)&accept_port,sizeof(accept_port));
+	if(err < sizeof(accept_port)) {
+		cmq_mqtt_destroy_conn(conn);
+		return(-1);
+	}
+
+	// create outbound channel to accept port
+	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
+	if(conn->pub_fd == NULL) {
+		cmq_mqtt_destroy_conn(conn);
+		return(-1);
+	}
+
+	return(client_port);
 }
 
 // creates a sub connection on specific input port
@@ -407,14 +487,13 @@ int cmq_mqtt_listen(unsigned long port)
 {
 	int err;
 	CMQCONN *conn;
-	char m_string[1024];
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
 		return(-1);
 	}
 
-	conn = cmq_mqtt_create_conn(CMQCONNListen,port);
+	conn = cmq_mqtt_create_conn(CMQCONNListen,MQTT_Proxy.host_ip,port);
 	if(conn == NULL) {
 		return(-1);
 	}
@@ -430,6 +509,10 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	CMQCONN *new_conn;
 	char m_string[1024];
 	RB *rb;
+	char client_buffer[50];
+	char client_ip[IPLEN];
+	int client_port;
+	int accept_port;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -443,22 +526,53 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	}
 	conn = (CMQCONN *)rb->value.v;
 	
-	// create new connection for next accept and so we can use its buffer
-	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,sd);
-	if(new_conn == NULL) {
-		return(-1);
-	}
 	
 	// one thread at a time should read
 	pthread_mutex_lock(&MQTT_Proxy.lock);
 	// block reading input -- note that read() system call should be a transaction
-	err = read(fileno(conn->sub_fd),new_conn->buffer,sizeof(new_conn->buffer));
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	// data will be sent as 2 ascii hex characters for each binary byte
+	memset(client_buffer,0,sizeof(client_buffer));
+	err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_ip)*2);
 	if(err <= 0) {
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(-1);
+	}
+	ConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
+	err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_port)*2);
+	if(err <= 0) {
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(-1);
+	}
+	ConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
+	pthread_mutex_unlock(&MQTT_Proxy.lock);
+
+	// create an accept port for this connection
+	accept_port = (int)(drand48()*50000)+1;
+	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,MQTT_Proxy.host_ip,accept_port);
+	if(new_conn == NULL) {
+		return(-1);
+	}
+
+	// create channel back to client
+	new_conn->pub_fd = cmq_mqtt_create_pub_channel(client_ip,client_port);
+	if(new_conn->pub_fd == NULL) {
 		cmq_mqtt_destroy_conn(new_conn);
 		return(-1);
 	}
 
+	// send client accept port
+	cmq_mqtt_conn_buffer_seek(new_conn,0);
+	err = cmq_mqtt_conn_buffer_write(new_conn,(unsigned char *)&accept_port,sizeof(accept_port));
+	if(err < sizeof(accept_port)) {
+		cmq_mqtt_destroy_conn(new_conn);
+		return(-1);
+	}
+	err = write(fileno(new_conn->pub_fd),new_conn->buffer,new_conn->cursor);
+	if(err < new_conn->cursor) {
+		cmq_mqtt_destroy_conn(new_conn);
+		return(-1);
+	}
+	
 	return(new_conn->sd);
 }
 
