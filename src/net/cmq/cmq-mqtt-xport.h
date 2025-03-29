@@ -7,6 +7,7 @@
 #include <redblack.h>
 
 #define IPLEN 17
+#define CONNBUFFERSIZE (256*1024)
 
 struct cmq_mqtt_proxy_stc
 {
@@ -30,8 +31,9 @@ struct cmq_mqtt_conn_stc
 	FILE *sub_fd;
 	pid_t sub_pid; // for mosquitto_sub shutdown
 	struct timeval timeout;
-	unsigned char buffer[16*1024]; // max msg size is 16K
+	unsigned char buffer[CONNBUFFERSIZE]; // max msg size is 16K
 	int cursor; // emulate file r/w pointer
+	int read_len; // size of last read
 };
 
 typedef struct cmq_mqtt_conn_stc CMQCONN;

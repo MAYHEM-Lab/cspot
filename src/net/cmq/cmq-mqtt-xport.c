@@ -1,9 +1,11 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
+#include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -275,10 +277,21 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 		perror("failed to create pipe");
 		return(NULL);
 	}
+	err = fcntl(pd[0], F_SETPIPE_SZ, 1048576);
+	if(err < 0) {
+		printf("ERROR: could not set pipe read size\n");
+		return(NULL);
+	}
+	err = fcntl(pd[1], F_SETPIPE_SZ, 1048576);
+	if(err < 0) {
+		printf("ERROR: could not set pipe write size\n");
+		return(NULL);
+	}
 
 	snprintf(topic,sizeof(topic),"%s/%8.8d",addr,port);
 	snprintf(user,sizeof(user),"\'%s\'",MQTT_Proxy.user);
 	snprintf(pw,sizeof(pw),"\'%s\'",MQTT_Proxy.pw);
+
 	
 	pid = fork();
 	if(pid < 0) {
@@ -289,6 +302,8 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 		dup2(pd[1],1);
 		close(pd[1]);
 		execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
+				"-q",
+				"1",
 				"-h",MQTT_Proxy.broker_ip,
 				"-t",topic,
 				"-u",MQTT_Proxy.user,
@@ -328,7 +343,8 @@ FILE* cmq_mqtt_create_pub_channel(char *addr, int port)
 	char m_string[1024];
 	FILE *fd;
 	// set out-bound send channel
-	snprintf(m_string,sizeof(m_string),"/usr/bin/mosquitto_pub -l -h %s -t %s/%8.8d -u \'%s\' -P \'%s\'",
+	snprintf(m_string,sizeof(m_string),
+	"/usr/bin/mosquitto_pub -l -q 1 -h %s -t %s/%8.8d -u \'%s\' -P \'%s\'",
 			    MQTT_Proxy.broker_ip,
 			    addr,
 			    port,
@@ -413,10 +429,29 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 	return;
 }
 
+void cmq_mqtt_shutdown()
+{
+	int err;
+	RB *rb;
+	CMQCONN *conn;
+
+	err = cmq_mqtt_proxy_init();
+	if(err < 0) {
+		return;
+	}
+	while(RB_FIRST(MQTT_Proxy.connections) != NULL) {
+		rb = RB_FIRST(MQTT_Proxy.connections);
+		conn = (CMQCONN *)rb->value.v;
+		cmq_mqtt_destroy_conn(conn);
+	}
+	return;
+}
+
+
 // mimics write() system call on a socket
 int cmq_mqtt_conn_buffer_write(CMQCONN *conn, unsigned char *buf, int size)
 {
-	if((conn->cursor + size) > sizeof(conn->buffer)) {
+	if((conn->cursor + (2*size)) > sizeof(conn->buffer)) {
 		return(-1);
 	}
 
@@ -429,8 +464,10 @@ int cmq_mqtt_conn_buffer_write(CMQCONN *conn, unsigned char *buf, int size)
 int cmq_mqtt_conn_buffer_read(CMQCONN *conn, unsigned char *buf, int size)
 {
 	int len;
-	if((conn->cursor + size) > sizeof(conn->buffer)) {
-		len = sizeof(conn->buffer) - conn->cursor;
+	if((conn->cursor + (2*size)) > sizeof(conn->buffer)) {
+		len = ((sizeof(conn->buffer) - conn->cursor)/2);
+	} else if((conn->cursor + (2*size)) > conn->read_len) {
+		len = (conn->read_len - conn->cursor)/2;
 	} else {
 		len = size;
 	}
@@ -524,6 +561,11 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		cmq_mqtt_destroy_conn(conn);
 		return(-1);
 	}
+	if(conn->buffer[err] == '\n') {
+		conn->buffer[err] = 0;
+		err--;
+	}
+	conn->read_len = err;
 	// reset the cursor
 	cmq_mqtt_conn_buffer_seek(conn,0);
 
@@ -697,6 +739,7 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	// terminate with \n for mosquitto_pub -l
 	conn->buffer[conn->cursor] = '\n';
 	conn->cursor++;
+printf("sending %d bytes\n",conn->cursor);
 	err = write(fileno(conn->pub_fd),conn->buffer,conn->cursor);
 
 	if(err < conn->cursor) {
@@ -718,6 +761,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	unsigned long max_size;
 	RB *rb;
 	CMQCONN *conn;
+	char *s;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -732,10 +776,29 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 
 	conn = (CMQCONN *)rb->value.v;
 
+	memset(conn->buffer,0,sizeof(conn->buffer));
+	s = fgets((char *)conn->buffer,sizeof(conn->buffer),conn->sub_fd);
+	if(s == NULL) {
+		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+		return(-1);
+	}
+	while(conn->buffer[0] == '\n') {
+		memset(conn->buffer,0,sizeof(conn->buffer));
+		s = fgets((char *)conn->buffer,sizeof(conn->buffer),conn->sub_fd);
+		if(s == NULL) {
+			printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+			return(-1);
+		}
+	}
+	err = conn->read_len = strlen((char *)conn->buffer);
+
+#if 0
 	// read the sub socket
 	err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
-
-	// file newlines needed by mosquito_pub -l if there are any
+	if(err <= 0) {
+		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+		return(-1);
+	}
 	while((err == 1) && (conn->buffer[0] == '\n')) {
 		err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
 	}
@@ -744,6 +807,26 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 		return(-1);
 	}
 
+	if(conn->buffer[err] == '\n') {
+		conn->buffer[err] = 0;
+		err--;
+	}
+	conn->read_len = err;
+#endif
+
+#if 0
+	// file newlines needed by mosquito_pub -l if there are any
+	while((err == 1) && (conn->buffer[0] == '\n')) {
+		printf("read: newline\n");
+		err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
+	}
+	if(err <= 0) {
+		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+		return(-1);
+	}
+#endif
+
+printf("read: %d bytes\n",err);
 	// punch out \n needed for mosquitto_pub -l
 	if(conn->buffer[err] == '\n') {
 		conn->buffer[err] = 0;
@@ -753,6 +836,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	// read the header
 	err = cmq_mqtt_conn_buffer_read(conn,(unsigned char *)&header,sizeof(header));
 	if(err < sizeof(header)) {
+		printf("ERROR: cmq_mqtt_recv_msg received short header size %d\n",err);
 		return(-1);
 	}
 
@@ -761,12 +845,14 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	max_size = ntohl(header.max_size);
 
 	if(header.version != CMQ_PKT_VERSION) {
+		printf("ERROR: cmq_mqtt_recv_msg received bad version %lu\n",header.version);
 		return(-1);
 	}
 
 	// create an empty frame list
 	err = cmq_frame_list_create(&l_fl);
 	if(err < 0) {
+		printf("ERROR: cmq_mqtt_recv_msg could not create empty fl\n");
 		return(-1);
 	}
 
@@ -776,6 +862,8 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 		payload = (unsigned char *)malloc(max_size);
 		if(payload == NULL) {
 			cmq_frame_list_destroy(l_fl);
+			printf("ERROR: cmq_mqtt_recv_msg could not get %lu bytes for payload\n",
+					max_size);
 			return(-1);
 		}
 	} else {
@@ -784,9 +872,12 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 
 
 	// read the frames
+printf("cmq_mqtt_recv_msg: received %d frames\n",(int)header.frame_count);
 	for(i=0; i < (int)header.frame_count; i++) {
 		err = cmq_mqtt_conn_buffer_read(conn,(unsigned char *)&size,sizeof(size));
 		if(err < sizeof(size)) {
+			printf("ERROR: cmq_mqtt_recv_msg could not get size: %lu %d\n",
+					sizeof(size),err);
 			cmq_frame_list_destroy(l_fl);
 			return(-1);
 		}
@@ -799,6 +890,8 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 			max_size = ntohl(size);
 			payload = (unsigned char *)malloc(max_size);
 			if(payload == NULL) {
+				printf("ERROR: cmq_mqtt_recv_msg could not resize: %lu\n",
+					max_size);
 				cmq_frame_list_destroy(l_fl);
 				return(-1);
 			}
@@ -807,6 +900,10 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 		if(ntohl(size) > 0) {
 			err = cmq_mqtt_conn_buffer_read(conn,payload,ntohl(size));
 			if((unsigned int)err < ntohl(size)) {
+				printf("ERROR: cmq_mqtt_recv_msg could not read payload: %d cursor: %d len: %d\n",
+					ntohl(size),
+					conn->cursor,
+					conn->read_len);
 				free(payload);
 				cmq_frame_list_destroy(l_fl);
 				return(-1);
@@ -822,6 +919,8 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 			if(payload != NULL) {
 				free(payload);
 			}
+			printf("ERROR: cmq_mqtt_recv_msg could not create payload frame: %d\n",
+					ntohl(size)?ntohl(size):0);
 			cmq_frame_list_destroy(l_fl);
 			return(-1);
 		}
@@ -831,6 +930,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 			if(payload != NULL) {
 				free(payload);
 			}
+			printf("ERROR: cmq_mqtt_recv_msg could not append frame\n");
 			cmq_frame_list_destroy(l_fl);
 			cmq_frame_destroy(f);
 			return(-1);
@@ -939,7 +1039,7 @@ int main(int argc, char **argv)
 	for(i=0; i < count; i++) {
 		memset(payload,0,sizeof(payload));
 		sprintf(payload,"frame-%d",i);
-		printf("adding %s to frame list\n",(char *)payload);
+//		printf("adding %s to frame list\n",(char *)payload);
 		err = cmq_frame_create(&f,(unsigned char *)payload,strlen(payload));
 		if(err < 0) {
 			fprintf(stderr,"ERROR: failed to create frame %d\n",i);
@@ -981,7 +1081,7 @@ int main(int argc, char **argv)
 		}
 		memset(payload,0,sizeof(payload));
 		memcpy(payload,cmq_frame_payload(f),cmq_frame_size(f));
-		printf("echo: %s\n",(char *)payload);
+//		printf("echo: %s\n",(char *)payload);
 		cmq_frame_destroy(f);
 	}
 
@@ -1043,6 +1143,7 @@ int main(int argc, char **argv)
 	printf("client recv zero frame echo\n");
 
 	cmq_mqtt_close(endpoint);
+	cmq_mqtt_shutdown();
 	return(0);
 }
 
@@ -1116,7 +1217,7 @@ int main(int argc, char **argv)
 	for(i=0; i < cmq_frame_list_count(fl); i++) {
 		memset(payload,0,sizeof(payload));
 		memcpy(payload,cmq_frame_payload(f),cmq_frame_size(f));
-		printf("recv: %s\n",(char *)payload);
+//		printf("recv: %s\n",(char *)payload);
 		f = cmq_frame_next(f);
 		if(f == NULL) {
 			break;
@@ -1196,6 +1297,7 @@ int main(int argc, char **argv)
 	printf("server sent zero frame echo\n");
 
 	cmq_mqtt_close(endpoint);
+	cmq_mqtt_shutdown();
 	return(0);
 }
 
