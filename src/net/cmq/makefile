@@ -9,14 +9,17 @@ all: cmq-frame-selftest cmq-test-client cmq-test-server cmq-mqtt-test-client cmq
 cmq-frame.o: cmq-frame.h cmq-frame.c
 	${CC} ${CFLAGS} -c cmq-frame.c
 
+cmq-mqtt-xport.o: cmq-mqtt-xport.c cmq-mqtt-xport.h
+	${CC} ${CFLAGS} -c cmq-mqtt-xport.c
+
 cmq-frame-selftest: cmq-frame.c cmq-frame.h
 	${CC} ${CFLAGS} -DSELFTEST -o cmq-frame-selftest cmq-frame.c 
 
-cmq-test-client: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c
-	${CC} ${CFLAGS} -DTESTCLIENT -o cmq-test-client cmq-pkt.c cmq-frame.o
+cmq-test-client: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c cmq-mqtt-xport.o cmq-mqtt-xport.h
+	${CC} ${CFLAGS} -DTESTCLIENT -o cmq-test-client cmq-pkt.c cmq-frame.o cmq-mqtt-xport.o ${RBSRC} -lpthread -lyaml
 
-cmq-test-server: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c
-	${CC} ${CFLAGS} -DTESTSERVER -o cmq-test-server cmq-pkt.c cmq-frame.o
+cmq-test-server: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c cmq-mqtt-xport.o cmq-mqtt-xport.h
+	${CC} ${CFLAGS} -DTESTSERVER -o cmq-test-server cmq-pkt.c cmq-frame.o cmq-mqtt-xport.o ${RBSRC} -lpthread -lyaml
 
 cmq-mqtt-test-client: cmq-frame.o cmq-frame.h cmq-mqtt-xport.c cmq-mqtt-xport.h
 	${CC} ${CFLAGS} -DTESTCLIENT -I${RBINC} -o cmq-mqtt-test-client cmq-mqtt-xport.c ${RBSRC} cmq-frame.o -lpthread -lyaml

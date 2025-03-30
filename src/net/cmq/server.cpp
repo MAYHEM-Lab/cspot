@@ -45,7 +45,7 @@ void *WooFMsgThread(void *arg) {
 			if(err < 0) {
 				cmq_frame_list_destroy(fl);
 				DEBUG_WARN("WooFMsgThread: couldn't get tag");
-				close(c_sd);
+				cmq_pkt_close(c_sd);
 				return(NULL);
 			}
 
@@ -99,7 +99,7 @@ void *WooFMsgThread(void *arg) {
 			}
 			err = cmq_pkt_recv_msg(c_sd,&fl);
 		}
-		close(c_sd);
+		cmq_pkt_close(c_sd);
 	}
     	return(NULL);
 }
@@ -167,7 +167,7 @@ printf("cmq::backend stop called\n");
     }
 
     //m_proxy.reset();
-    close(listen_sd);
+    cmq_pkt_close(listen_sd);
     return true;
 }
 } // namespace cspot::cmq

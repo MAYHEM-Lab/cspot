@@ -36,10 +36,10 @@ int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
 int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
+#define CMQMQTTXPORT (0)
 #ifdef USE_CMQ
 #define BACKEND "cmq"
 // change to 1 for mqtt version of cmq
-#define CMQMQTTXPORT (0)
 #else
 #define BACKEND "zmq"
 #endif
