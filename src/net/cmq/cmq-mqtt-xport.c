@@ -739,7 +739,7 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	// terminate with \n for mosquitto_pub -l
 	conn->buffer[conn->cursor] = '\n';
 	conn->cursor++;
-printf("sending %d bytes\n",conn->cursor);
+//printf("sending %d bytes\n",conn->cursor);
 	err = write(fileno(conn->pub_fd),conn->buffer,conn->cursor);
 
 	if(err < conn->cursor) {
@@ -826,7 +826,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	}
 #endif
 
-printf("read: %d bytes\n",err);
+//printf("read: %d bytes\n",err);
 	// punch out \n needed for mosquitto_pub -l
 	if(conn->buffer[err] == '\n') {
 		conn->buffer[err] = 0;
@@ -872,7 +872,7 @@ printf("read: %d bytes\n",err);
 
 
 	// read the frames
-printf("cmq_mqtt_recv_msg: received %d frames\n",(int)header.frame_count);
+//printf("cmq_mqtt_recv_msg: received %d frames\n",(int)header.frame_count);
 	for(i=0; i < (int)header.frame_count; i++) {
 		err = cmq_mqtt_conn_buffer_read(conn,(unsigned char *)&size,sizeof(size));
 		if(err < sizeof(size)) {
