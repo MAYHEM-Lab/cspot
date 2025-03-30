@@ -21,6 +21,7 @@ struct cmq_mqtt_proxy_stc
 	char user[1024];
 	char pw[1024];
 	pthread_mutex_t lock; // for thread safe accept
+	pthread_mutex_t conn_lock; // for thread safe accept
 	RB *connections;
 };
 

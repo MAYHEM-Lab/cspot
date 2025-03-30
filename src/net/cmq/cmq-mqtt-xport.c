@@ -249,6 +249,7 @@ int cmq_mqtt_proxy_init()
     if(found == 1) {
 	    MQTT_Proxy.connections = RBInitI();
 	    pthread_mutex_init(&MQTT_Proxy.lock,NULL); // for thread safe accept
+	    pthread_mutex_init(&MQTT_Proxy.conn_lock,NULL); // for thread safe accept
 	    if(MQTT_Proxy.connections == NULL) {
 		    return(-1);
 	    }
@@ -373,9 +374,13 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 	}
 
 	// see if this connection exists
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("create about to lock\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,port);
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("create unlocked\n");
+fflush(stdout);
 	if(rb != NULL) {
 		return(NULL);
 	}
@@ -397,9 +402,13 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 		return(NULL);
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("create about to lock for insert\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	(void)RBInsertI(MQTT_Proxy.connections,conn->sd,(Hval)((void *)conn));
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("create unlocked for insert\n");
+fflush(stdout);
 
 	return(conn);
 }
@@ -415,12 +424,16 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		return;
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("destroy: about to lock\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,conn->sd);
 	if(rb != NULL) {
 		RBDeleteI(MQTT_Proxy.connections,rb);
 	}
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("destroy: unlocked\n");
+fflush(stdout);
 	if(conn->sub_fd != NULL) {
 		// this is stupid
 		kill(conn->sub_pid,SIGTERM);
@@ -638,9 +651,13 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		return(-1);
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("accept: about to lock\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,(int)sd);
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("accept: unlocked\n");
+fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: could not find listen socket %d\n",sd);
 		return(-1);
@@ -649,6 +666,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	
 	
 	// one thread at a time should read
+printf("accept: about to lock for params\n");
+fflush(stdout);
 	pthread_mutex_lock(&MQTT_Proxy.lock);
 	// block reading input -- note that read() system call should be a transaction
 	// data will be sent as 2 ascii hex characters for each binary byte
@@ -679,6 +698,8 @@ printf("accept cp string %s\n",client_buffer);
 fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
+printf("accept unlocked  for %s %d\n",client_ip,client_port);
+fflush(stdout);
 
 	// create an accept port for this connection
 	accept_port = (int)(drand48()*50000.0)+1;
@@ -686,6 +707,8 @@ fflush(stdout);
 	if(new_conn == NULL) {
 		return(-1);
 	}
+printf("created conn  for %d\n",accept_port);
+fflush(stdout);
 
 	// create channel back to client
 	new_conn->pub_fd = cmq_mqtt_create_pub_channel(client_ip,client_port);
@@ -732,9 +755,13 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 		return(-1);
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("send: about to lock\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("send: unlocked\n");
+fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: cmq_mqtt_send_msg could not find sd %d\n",sd);
 		return(-1);
@@ -804,9 +831,13 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 		return(-1);
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("recv: about to lock\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("recv: locked\n");
+fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: cmq_mqtt_recv_msg could not find sd %d\n",sd);
 		return(-1);
@@ -960,9 +991,13 @@ void cmq_mqtt_close(int sd)
 		return;
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.lock);
+printf("close: about to lock\n");
+fflush(stdout);
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
-	pthread_mutex_unlock(&MQTT_Proxy.lock);
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+printf("close: locked\n");
+fflush(stdout);
 	if(rb != NULL) {
 		conn = (CMQCONN *)rb->value.v;
 		cmq_mqtt_destroy_conn(conn);
