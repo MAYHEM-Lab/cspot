@@ -548,6 +548,8 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		return(-1);
 	}
 
+//printf("connect: client_port %d\n",client_port);
+//fflush(stdout);
 
 	// close server connection
 	pclose(server_fd);
@@ -556,10 +558,15 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// block reading the server-side accept port
 	// port will be sent as 2 asci hex chars
 	// FIX: need a timeout here
+	memset(conn->buffer,0,sizeof(conn->buffer));
 	err = read(fileno(conn->sub_fd),conn->buffer,sizeof(accept_port)*2);
 	if(err < (sizeof(accept_port)*2)) {
 		cmq_mqtt_destroy_conn(conn);
 		return(-1);
+	}
+	while((err == 1) && (conn->buffer[0] == '\n')) {
+		memset(conn->buffer,0,sizeof(conn->buffer));
+		err = read(fileno(conn->sub_fd),conn->buffer,sizeof(accept_port)*2);
 	}
 	if(conn->buffer[err] == '\n') {
 		conn->buffer[err] = 0;
@@ -575,6 +582,8 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		cmq_mqtt_destroy_conn(conn);
 		return(-1);
 	}
+//printf("connect: accept_port %d\n",accept_port);
+//fflush(stdout);
 
 	// create outbound channel to accept port
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
@@ -641,12 +650,25 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
+	while((err == 1) && (client_buffer[0] == '\n')) {
+		memset(client_buffer,0,sizeof(client_buffer));
+		err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_ip)*2);
+	}
+//printf("accept ip string %s\n",client_buffer);
+//fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
+	memset(client_buffer,0,sizeof(client_buffer));
 	err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_port)*2);
 	if(err <= 0) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
+	while((err == 1) && (client_buffer[0] == '\n')) {
+		memset(client_buffer,0,sizeof(client_buffer));
+		err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_port)*2);
+	}
+//printf("accept cp string %s\n",client_buffer);
+//fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
@@ -663,6 +685,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		cmq_mqtt_destroy_conn(new_conn);
 		return(-1);
 	}
+//printf("accept: client port: %d\n",client_port);
+//fflush(stdout);
 
 	// send client accept port
 	cmq_mqtt_conn_buffer_seek(new_conn,0);
@@ -679,6 +703,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		cmq_mqtt_destroy_conn(new_conn);
 		return(-1);
 	}
+//printf("accept: accept port: %d\n",accept_port);
+//fflush(stdout);
 	
 	return(new_conn->sd);
 }
@@ -791,40 +817,6 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 		}
 	}
 	err = conn->read_len = strlen((char *)conn->buffer);
-
-#if 0
-	// read the sub socket
-	err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
-	if(err <= 0) {
-		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
-		return(-1);
-	}
-	while((err == 1) && (conn->buffer[0] == '\n')) {
-		err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
-	}
-	if(err <= 0) {
-		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
-		return(-1);
-	}
-
-	if(conn->buffer[err] == '\n') {
-		conn->buffer[err] = 0;
-		err--;
-	}
-	conn->read_len = err;
-#endif
-
-#if 0
-	// file newlines needed by mosquito_pub -l if there are any
-	while((err == 1) && (conn->buffer[0] == '\n')) {
-		printf("read: newline\n");
-		err = read(fileno(conn->sub_fd),conn->buffer,sizeof(conn->buffer));
-	}
-	if(err <= 0) {
-		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
-		return(-1);
-	}
-#endif
 
 //printf("read: %d bytes\n",err);
 	// punch out \n needed for mosquitto_pub -l
