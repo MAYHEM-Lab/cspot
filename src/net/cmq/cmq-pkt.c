@@ -5,10 +5,11 @@
 #include <signal.h>
 #include <errno.h>
 
+#include "woofc-access.h"
 #include "cmq-pkt.h"
 #include "cmq-mqtt-xport.h"
 
-int CMQ_use_mqtt;
+int CMQ_use_mqtt = CMQMQTTXPORT;
 	
 int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 {

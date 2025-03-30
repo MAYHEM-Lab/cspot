@@ -18,7 +18,7 @@
 CMQPROXY MQTT_Proxy; 
 
 
-int ConvertASCIItoBinary(unsigned char *dest, char *src, int len)
+int MQTTConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 {
 	int count;
 	char *curr;
@@ -51,7 +51,7 @@ int ConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 	return(1);
 }
 
-int ConvertBinarytoASCII(char *dest, void *src, int len)
+int MQTTConvertBinarytoASCII(char *dest, void *src, int len)
 {
         unsigned char *csrc = (unsigned char *)src;
         int count;
@@ -455,7 +455,7 @@ int cmq_mqtt_conn_buffer_write(CMQCONN *conn, unsigned char *buf, int size)
 		return(-1);
 	}
 
-	ConvertBinarytoASCII(&(conn->buffer[conn->cursor]),buf,size);
+	MQTTConvertBinarytoASCII(&(conn->buffer[conn->cursor]),buf,size);
 	conn->cursor += (2*size);
 	return(size);
 }
@@ -476,7 +476,7 @@ int cmq_mqtt_conn_buffer_read(CMQCONN *conn, unsigned char *buf, int size)
 		return(0);
 	}
 
-	ConvertASCIItoBinary(buf,&(conn->buffer[conn->cursor]),len);
+	MQTTConvertASCIItoBinary(buf,&(conn->buffer[conn->cursor]),len);
 	conn->cursor += (2*len);
 	return(len);
 }
@@ -641,13 +641,13 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
-	ConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
+	MQTTConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
 	err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_port)*2);
 	if(err <= 0) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
-	ConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
+	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 	// create an accept port for this connection
