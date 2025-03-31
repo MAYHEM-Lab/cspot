@@ -302,6 +302,15 @@ void cmq_pkt_close(int sd)
 	close(sd);
 	return;
 }
+
+// this is here to  allow device gateway to compile
+void cmq_pkt_shutdown()
+{
+	if(CMQ_use_mqtt == 1) {
+		cmq_mqtt_shutdown();
+	}
+	return;
+}
 		
 
 #ifdef TESTCLIENT

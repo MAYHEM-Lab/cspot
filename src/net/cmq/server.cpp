@@ -10,6 +10,8 @@
 #include "cmq-pkt.h"
 #include <pthread.h>
 
+extern void cmq_mqtt_shutdown();
+
 namespace cspot::cmq {
 namespace {
 
@@ -99,6 +101,8 @@ void *WooFMsgThread(void *arg) {
 			}
 			err = cmq_pkt_recv_msg(c_sd,&fl);
 		}
+printf("msg: calling close on %d\n",c_sd);
+fflush(stdout);
 		cmq_pkt_close(c_sd);
 	}
     	return(NULL);
@@ -167,7 +171,7 @@ printf("cmq::backend stop called\n");
     }
 
     //m_proxy.reset();
-    cmq_pkt_close(listen_sd);
+    cmq_pkt_shutdown();
     return true;
 }
 } // namespace cspot::cmq

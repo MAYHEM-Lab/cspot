@@ -45,13 +45,13 @@ typedef struct cmq_mqtt_conn_stc CMQCONN;
 #define CMQCONNListen (2)
 #define CMQCONNAccept (3)
 
-void cmq_mqtt_shutdown();
 int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout);
 int cmq_mqtt_listen(unsigned long port);
 int cmq_mqtt_accept(int sd, unsigned long timeout);
 int cmq_mqtt_send_msg(int sd, unsigned char *fl);
 int cmq_mqtt_recv_msg(int sd, unsigned char **fl);
 void cmq_mqtt_close(int sd);
+void cmq_mqtt_shutdown();
 #ifdef __cplusplus
 } // extern C
 #endif

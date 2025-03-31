@@ -27,6 +27,7 @@ int cmq_pkt_accept(int sd, unsigned long timeout);
 int cmq_pkt_send_msg(int endpoint, unsigned char *fl);
 int cmq_pkt_recv_msg(int endpoint, unsigned char **fl);
 void cmq_pkt_close(int endpoint);
+void cmq_pkt_shutdown();
 
 #ifdef __cplusplus
 }
