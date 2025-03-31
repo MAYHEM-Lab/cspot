@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wformat-truncation=0
+CFLAGS=-g -Wformat-truncation=0 -I ../../include
 
 RBINC=/home/ubuntu/src/cspot/deps/euca-cutils
 RBSRC=/home/ubuntu/src/cspot/deps/euca-cutils/redblack.c
