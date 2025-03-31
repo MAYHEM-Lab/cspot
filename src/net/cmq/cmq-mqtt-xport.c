@@ -454,6 +454,7 @@ void cmq_mqtt_shutdown()
 	while(RB_FIRST(MQTT_Proxy.connections) != NULL) {
 		rb = RB_FIRST(MQTT_Proxy.connections);
 		conn = (CMQCONN *)rb->value.v;
+printf("shutdown: destroying sub: %d pub: %d\n",conn->sd,conn->client_sd);
 		cmq_mqtt_destroy_conn(conn);
 	}
 	return;
@@ -712,6 +713,7 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		return(-1);
 	}
 	
+	new_conn->client_sd = client_port;
 	return(new_conn->sd);
 }
 
@@ -820,6 +822,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	}
 	// look for close signal
 	if((err == 1) && (conn->buffer[0] == 255)) {
+printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
 		cmq_mqtt_destroy_conn(conn);
 		return(-1);
 	}

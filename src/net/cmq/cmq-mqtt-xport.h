@@ -30,6 +30,7 @@ typedef struct cmq_mqtt_proxy_stc CMQPROXY;
 struct cmq_mqtt_conn_stc
 {
 	int sd; 		// fake socket id
+	int client_sd;
 	int type;		// connect, listen, or accept	
 	FILE *pub_fd;
 	FILE *sub_fd;
