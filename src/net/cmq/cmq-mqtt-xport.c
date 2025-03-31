@@ -508,6 +508,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	int client_port;
 	int accept_port;
 	FILE *server_fd;
+	char *s;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -572,6 +573,21 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// port will be sent as 2 asci hex chars
 	// FIX: need a timeout here
 	memset(conn->buffer,0,sizeof(conn->buffer));
+	s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
+	if(s == NULL) {
+		cmq_mqtt_destroy_conn(conn);
+		return(-1);
+	}
+	while(conn->buffer[0] == '\n') {
+		memset(conn->buffer,0,sizeof(conn->buffer));
+		s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
+	}
+	if(strlen(conn->buffer) < (2*sizeof(accept_port))) {
+		cmq_mqtt_destroy_conn(conn);
+		return(-1);
+	}
+	conn->read_len = strlen(conn->buffer);
+#if 0
 	err = read(fileno(conn->sub_fd),conn->buffer,sizeof(accept_port)*2);
 	if(err < (sizeof(accept_port)*2)) {
 		cmq_mqtt_destroy_conn(conn);
@@ -586,6 +602,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		err--;
 	}
 	conn->read_len = err;
+#endif
 	// reset the cursor
 	cmq_mqtt_conn_buffer_seek(conn,0);
 
@@ -595,8 +612,8 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		cmq_mqtt_destroy_conn(conn);
 		return(-1);
 	}
-//printf("connect: accept_port %d\n",accept_port);
-//fflush(stdout);
+printf("connect: accept_port %d\n",accept_port);
+fflush(stdout);
 
 	// create outbound channel to accept port
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
