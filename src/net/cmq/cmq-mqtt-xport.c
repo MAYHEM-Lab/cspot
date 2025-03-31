@@ -542,6 +542,9 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		pclose(server_fd);
 		return(-1);
 	}
+	// terminate buffer with newline for mosquitto_pub -l
+	conn->buffer[conn->cursor] = '\n';
+	conn->cursor++;
 
 	// write the  client port to the server
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&client_port,sizeof(client_port));
@@ -550,11 +553,11 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		pclose(server_fd);
 		return(-1);
 	}
-
-	// send them
 	// terminate buffer with newline for mosquitto_pub -l
 	conn->buffer[conn->cursor] = '\n';
 	conn->cursor++;
+
+	// send them
 	err = write(fileno(server_fd),conn->buffer,conn->cursor);
 	if(err < conn->cursor) {
 		cmq_mqtt_destroy_conn(conn);
@@ -656,6 +659,7 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	char client_ip[IPLEN];
 	int client_port;
 	int accept_port;
+	char *s;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -677,6 +681,41 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	// block reading input -- note that read() system call should be a transaction
 	// data will be sent as 2 ascii hex characters for each binary byte
 	memset(client_buffer,0,sizeof(client_buffer));
+	s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
+	if(s == NULL) {
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(-1);
+	}
+	while((s != NULL) && (client_buffer[0] == '\n')) {
+		memset(client_buffer,0,sizeof(client_buffer));
+		s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
+	}
+	if(s == NULL) {
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(-1);
+	}
+	MQTTConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
+
+	memset(client_buffer,0,sizeof(client_buffer));
+	s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
+	if(s == NULL) {
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(-1);
+	}
+	while((s != NULL) && (client_buffer[0] == '\n')) {
+		memset(client_buffer,0,sizeof(client_buffer));
+		s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
+	}
+	if(s == NULL) {
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(-1);
+	}
+	MQTTConvertASCIItoBinary((unsigned char *)client_port,client_buffer,sizeof(client_port));
+	pthread_mutex_unlock(&MQTT_Proxy.lock);
+
+
+
+#if 0
 	err = read(fileno(conn->sub_fd),client_buffer,sizeof(client_ip)*2);
 	if(err <= 0) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
@@ -699,6 +738,7 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	}
 	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
+#endif
 
 	// create an accept port for this connection
 	accept_port = (int)(drand48()*50000.0)+1;
