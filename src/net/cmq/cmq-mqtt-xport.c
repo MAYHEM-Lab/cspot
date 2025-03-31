@@ -367,6 +367,7 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 	char m_string[4096];
 	RB *rb;
 	pid_t pid;
+	Hval hv;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -399,7 +400,8 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
-	(void)RBInsertI(MQTT_Proxy.connections,conn->sd,(Hval)((void *)conn));
+	hv.v = (void *)conn;
+	(void)RBInsertI(MQTT_Proxy.connections,conn->sd,hv);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 
 	return(conn);
@@ -420,6 +422,8 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,conn->sd);
 	if(rb != NULL) {
+printf("destroy: deleting %p %p\n",rb,rb->value.v);
+fflush(stdout);
 		RBDeleteI(MQTT_Proxy.connections,rb);
 	}
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
@@ -427,7 +431,7 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		// this is stupid
 		kill(conn->sub_pid,SIGTERM);
 		waitpid(conn->sub_pid,NULL,0);
-		fclose(conn->sub_fd);
+//		fclose(conn->sub_fd);
 	}
 	if(conn->pub_fd != NULL) {
 		// send close char as single char to get other side to
@@ -437,6 +441,8 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		(void)write(fileno(conn->pub_fd),close_it,sizeof(close_it));
 		pclose(conn->pub_fd);
 	}
+printf("freeing %p\n",conn);
+fflush(stdout);
 	free(conn);
 	return;
 }
@@ -451,11 +457,19 @@ void cmq_mqtt_shutdown()
 	if(err < 0) {
 		return;
 	}
-	while(RB_FIRST(MQTT_Proxy.connections) != NULL) {
-		rb = RB_FIRST(MQTT_Proxy.connections);
+	RB_FORWARD(MQTT_Proxy.connections,rb) {
 		conn = (CMQCONN *)rb->value.v;
-printf("shutdown: destroying sub: %d pub: %d\n",conn->sd,conn->client_sd);
+printf("shutdown: %d %d\n",conn->sd,conn->client_sd);
+fflush(stdout);
+	}
+	rb = RB_FIRST(MQTT_Proxy.connections);
+	while(rb != NULL) {
+		conn = (CMQCONN *)rb->value.v;
+		RBDeleteI(MQTT_Proxy.connections,rb);
+printf("shutdown: destroying sub: %d pub: %d %p\n",conn->sd,conn->client_sd,conn);
+fflush(stdout);
 		cmq_mqtt_destroy_conn(conn);
+		rb = RB_FIRST(MQTT_Proxy.connections);
 	}
 	return;
 }
