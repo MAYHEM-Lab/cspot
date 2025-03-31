@@ -675,6 +675,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	}
 	conn = (CMQCONN *)rb->value.v;
 	
+printf("accept waiting for client\n");
+fflush(stdout);
 	
 	// one thread at a time should read
 	pthread_mutex_lock(&MQTT_Proxy.lock);
@@ -682,6 +684,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	// data will be sent as 2 ascii hex characters for each binary byte
 	memset(client_buffer,0,sizeof(client_buffer));
 	s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
+printf("accept: fgets %s\n",s);
+fflush(stdout);
 	if(s == NULL) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
@@ -694,7 +698,12 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
+	memset(client_ip,0,sizeof(client_ip));
+printf("accept converting %s\n",client_buffer);
+fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
+printf("accept recived %s\n",client_ip);
+fflush(stdout);
 
 	memset(client_buffer,0,sizeof(client_buffer));
 	s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
@@ -702,15 +711,23 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
+printf("accept second recived %s\n",client_buffer);
+fflush(stdout);
 	while((s != NULL) && (client_buffer[0] == '\n')) {
 		memset(client_buffer,0,sizeof(client_buffer));
 		s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
+printf("accept second recived again %s\n",client_buffer);
+fflush(stdout);
 	}
 	if(s == NULL) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
-	MQTTConvertASCIItoBinary((unsigned char *)client_port,client_buffer,sizeof(client_port));
+printf("accept second converting %s\n",client_buffer);
+fflush(stdout);
+	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
+printf("accept recived port %d\n",client_port);
+fflush(stdout);
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 
