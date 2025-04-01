@@ -419,14 +419,12 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		return;
 	}
 
-	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,conn->sd);
 	if(rb != NULL) {
 printf("destroy: deleting %p %p\n",rb,rb->value.v);
 fflush(stdout);
 		RBDeleteI(MQTT_Proxy.connections,rb);
 	}
-	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 	if(conn->sub_fd != NULL) {
 		// this is stupid
 		kill(conn->sub_pid,SIGTERM);
@@ -465,10 +463,9 @@ fflush(stdout);
 	rb = RB_FIRST(MQTT_Proxy.connections);
 	while(rb != NULL) {
 		conn = (CMQCONN *)rb->value.v;
-		RBDeleteI(MQTT_Proxy.connections,rb);
 printf("shutdown: destroying sub: %d pub: %d %p\n",conn->sd,conn->client_sd,conn);
 fflush(stdout);
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		rb = RB_FIRST(MQTT_Proxy.connections);
 	}
 	return;
@@ -543,7 +540,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 
 	server_fd = cmq_mqtt_create_pub_channel(addr,port);
 	if(server_fd == NULL) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 
@@ -552,7 +549,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// write client IP address to server
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)MQTT_Proxy.host_ip,sizeof(MQTT_Proxy.host_ip));
 	if(err < sizeof(MQTT_Proxy.host_ip)) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
 		return(-1);
 	}
@@ -563,7 +560,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// write the  client port to the server
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&client_port,sizeof(client_port));
 	if(err < sizeof(client_port)) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
 		return(-1);
 	}
@@ -574,7 +571,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// send them
 	err = write(fileno(server_fd),conn->buffer,conn->cursor);
 	if(err < conn->cursor) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
 		return(-1);
 	}
@@ -592,7 +589,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	memset(conn->buffer,0,sizeof(conn->buffer));
 	s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 	while(conn->buffer[0] == '\n') {
@@ -600,7 +597,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	}
 	if(strlen(conn->buffer) < (2*sizeof(accept_port))) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 	conn->read_len = strlen(conn->buffer);
@@ -626,7 +623,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// get the accept port
 	err = cmq_mqtt_conn_buffer_read(conn,(unsigned char *)&accept_port,sizeof(accept_port));
 	if(err < sizeof(accept_port)) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 printf("connect: accept_port %d\n",accept_port);
@@ -635,7 +632,7 @@ fflush(stdout);
 	// create outbound channel to accept port
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
 	if(conn->pub_fd == NULL) {
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 
@@ -781,7 +778,7 @@ fflush(stdout);
 	// create channel back to client
 	new_conn->pub_fd = cmq_mqtt_create_pub_channel(client_ip,client_port);
 	if(new_conn->pub_fd == NULL) {
-		cmq_mqtt_destroy_conn(new_conn);
+		cmq_mqtt_close(new_conn->sd);
 		return(-1);
 	}
 
@@ -789,7 +786,7 @@ fflush(stdout);
 	cmq_mqtt_conn_buffer_seek(new_conn,0);
 	err = cmq_mqtt_conn_buffer_write(new_conn,(unsigned char *)&accept_port,sizeof(accept_port));
 	if(err < sizeof(accept_port)) {
-		cmq_mqtt_destroy_conn(new_conn);
+		cmq_mqtt_close(new_conn->sd);
 		return(-1);
 	}
 	// terinate with \n for mosquitto_pub -l
@@ -797,7 +794,7 @@ fflush(stdout);
 	new_conn->cursor++;
 	err = write(fileno(new_conn->pub_fd),new_conn->buffer,new_conn->cursor);
 	if(err < new_conn->cursor) {
-		cmq_mqtt_destroy_conn(new_conn);
+		cmq_mqtt_close(new_conn->sd);
 		return(-1);
 	}
 	
@@ -911,7 +908,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	// look for close signal
 	if((err == 1) && (conn->buffer[0] == 255)) {
 printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
-		cmq_mqtt_destroy_conn(conn);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 	while(conn->buffer[0] == '\n') {
@@ -923,7 +920,7 @@ printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
 		}
 		// look for close signal
 		if((err == 1) && (conn->buffer[0] == 255)) {
-			cmq_mqtt_destroy_conn(conn);
+			cmq_mqtt_close(conn->sd);
 			return(-1);
 		}
 	}
@@ -1061,11 +1058,11 @@ void cmq_mqtt_close(int sd)
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
-	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 	if(rb != NULL) {
 		conn = (CMQCONN *)rb->value.v;
 		cmq_mqtt_destroy_conn(conn);
 	}
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 	return;
 }
 		
