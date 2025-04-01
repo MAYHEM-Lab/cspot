@@ -442,8 +442,8 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 
 	rb = RBFindI(MQTT_Proxy.connections,conn->sd);
 	if(rb != NULL) {
-printf("destroy: deleting %p %p\n",rb,rb->value.v);
-fflush(stdout);
+//printf("destroy: deleting %p %p\n",rb,rb->value.v);
+//fflush(stdout);
 		RBDeleteI(MQTT_Proxy.connections,rb);
 	}
 	if(conn->sub_fd != NULL) {
@@ -460,8 +460,8 @@ fflush(stdout);
 		(void)write(fileno(conn->pub_fd),close_it,sizeof(close_it));
 		pclose(conn->pub_fd);
 	}
-printf("freeing %p\n",conn);
-fflush(stdout);
+//printf("freeing %p\n",conn);
+//fflush(stdout);
 	free(conn);
 	return;
 }
@@ -478,14 +478,14 @@ void cmq_mqtt_shutdown()
 	}
 	RB_FORWARD(MQTT_Proxy.connections,rb) {
 		conn = (CMQCONN *)rb->value.v;
-printf("shutdown: %d %d\n",conn->sd,conn->client_sd);
-fflush(stdout);
+//printf("shutdown: %d %d\n",conn->sd,conn->client_sd);
+//fflush(stdout);
 	}
 	rb = RB_FIRST(MQTT_Proxy.connections);
 	while(rb != NULL) {
 		conn = (CMQCONN *)rb->value.v;
-printf("shutdown: destroying sub: %d pub: %d %p\n",conn->sd,conn->client_sd,conn);
-fflush(stdout);
+//printf("shutdown: destroying sub: %d pub: %d %p\n",conn->sd,conn->client_sd,conn);
+//fflush(stdout);
 		cmq_mqtt_close(conn->sd);
 		rb = RB_FIRST(MQTT_Proxy.connections);
 	}
@@ -647,8 +647,8 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
-printf("connect: accept_port %d\n",accept_port);
-fflush(stdout);
+//printf("connect: accept_port %d\n",accept_port);
+//fflush(stdout);
 
 	// create outbound channel to accept port
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
@@ -707,8 +707,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	}
 	conn = (CMQCONN *)rb->value.v;
 	
-printf("accept waiting for client\n");
-fflush(stdout);
+//printf("accept waiting for client\n");
+//fflush(stdout);
 	
 	// one thread at a time should read
 	pthread_mutex_lock(&MQTT_Proxy.lock);
@@ -716,8 +716,8 @@ fflush(stdout);
 	// data will be sent as 2 ascii hex characters for each binary byte
 	memset(client_buffer,0,sizeof(client_buffer));
 	s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
-printf("accept: fgets %s\n",s);
-fflush(stdout);
+//printf("accept: fgets %s\n",s);
+//fflush(stdout);
 	if(s == NULL) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
@@ -731,11 +731,11 @@ fflush(stdout);
 		return(-1);
 	}
 	memset(client_ip,0,sizeof(client_ip));
-printf("accept converting %s\n",client_buffer);
-fflush(stdout);
+//printf("accept converting %s\n",client_buffer);
+//fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)client_ip,client_buffer,sizeof(client_ip));
-printf("accept recived %s\n",client_ip);
-fflush(stdout);
+//printf("accept recived %s\n",client_ip);
+//fflush(stdout);
 
 	memset(client_buffer,0,sizeof(client_buffer));
 	s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
@@ -743,23 +743,23 @@ fflush(stdout);
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
-printf("accept second recived %s\n",client_buffer);
-fflush(stdout);
+//printf("accept second recived %s\n",client_buffer);
+//fflush(stdout);
 	while((s != NULL) && (client_buffer[0] == '\n')) {
 		memset(client_buffer,0,sizeof(client_buffer));
 		s = fgets(client_buffer,sizeof(client_buffer),conn->sub_fd);
-printf("accept second recived again %s\n",client_buffer);
-fflush(stdout);
+//printf("accept second recived again %s\n",client_buffer);
+//fflush(stdout);
 	}
 	if(s == NULL) {
 		pthread_mutex_unlock(&MQTT_Proxy.lock);
 		return(-1);
 	}
-printf("accept second converting %s\n",client_buffer);
-fflush(stdout);
+//printf("accept second converting %s\n",client_buffer);
+//fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
-printf("accept recived port %d\n",client_port);
-fflush(stdout);
+//printf("accept recived port %d\n",client_port);
+//fflush(stdout);
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 
@@ -923,13 +923,13 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	memset(conn->buffer,0,sizeof(conn->buffer));
 	s = fgets((char *)conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
-		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+//		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 	// look for close signal
 	if((err == 1) && (conn->buffer[0] == 255)) {
-printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
+//printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
@@ -937,7 +937,7 @@ printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
 		memset(conn->buffer,0,sizeof(conn->buffer));
 		s = fgets((char *)conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 		if(s == NULL) {
-			printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+//			printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
 			cmq_mqtt_close(conn->sd);
 			return(-1);
 		}

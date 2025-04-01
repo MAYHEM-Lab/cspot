@@ -101,8 +101,6 @@ void *WooFMsgThread(void *arg) {
 			}
 			err = cmq_pkt_recv_msg(c_sd,&fl);
 		}
-printf("msg: calling close on %d\n",c_sd);
-fflush(stdout);
 		cmq_pkt_close(c_sd);
 	}
     	return(NULL);
