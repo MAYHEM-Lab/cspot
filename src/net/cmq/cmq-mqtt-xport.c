@@ -278,6 +278,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 		perror("failed to create pipe");
 		return(NULL);
 	}
+#if 0
 	err = fcntl(pd[0], F_SETPIPE_SZ, 1048576);
 	if(err < 0) {
 		printf("ERROR: could not set pipe read size\n");
@@ -288,6 +289,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 		printf("ERROR: could not set pipe write size\n");
 		return(NULL);
 	}
+#endif
 
 	snprintf(topic,sizeof(topic),"%s/%8.8d",addr,port);
 	snprintf(user,sizeof(user),"\'%s\'",MQTT_Proxy.user);
