@@ -90,6 +90,9 @@ int cmq_mqtt_proxy_init()
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec + tm.tv_usec);
 
+	signal(SIGTERM,cmq_mqtt_shutdown);
+	signal(SIGINT,cmq_mqtt_shutdown);
+
 	if(MQTT_Proxy.init == 1) {
 		return(1);
 	}
@@ -263,7 +266,7 @@ int cmq_mqtt_proxy_init()
 }
 
 
-FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
+FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeout)
 {
 	char m_string[1024];
 	FILE *fd;
@@ -272,6 +275,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 	char user[256];
 	char pw[256];
 	int pd[2];
+	char timeout_str[16];
 	int err;
 	
 	// really stupid
@@ -306,7 +310,19 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 		close(pd[0]);
 		dup2(pd[1],1);
 		close(pd[1]);
-		execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
+		if(timeout > 0) {
+			snprintf(timeout_str,sizeof(timeout_str),"%d",timeout/1000);
+			execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
+				"-q",
+				"1",
+				"-W",timeout_str,
+				"-h",MQTT_Proxy.broker_ip,
+				"-t",topic,
+				"-u",MQTT_Proxy.user,
+				"-P",MQTT_Proxy.pw,
+				NULL);
+		} else {
+			execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
 				"-q",
 				"1",
 				"-h",MQTT_Proxy.broker_ip,
@@ -314,6 +330,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child)
 				"-u",MQTT_Proxy.user,
 				"-P",MQTT_Proxy.pw,
 				NULL);
+		}
 		perror("failed to exec mosquitto_sub");
 		return(NULL);
 	} else {
@@ -364,7 +381,7 @@ FILE* cmq_mqtt_create_pub_channel(char *addr, int port)
 	return(fd);
 }
 
-CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
+CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port, int timeout)
 {
 	int err;
 	CMQCONN *conn;
@@ -397,7 +414,7 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port)
 	// need sub channel to avoid race condition with registering connection in
 	// connection list
 	conn->sub_fd = cmq_mqtt_create_sub_channel(local_addr,port,
-			&conn->sub_pid);
+			&conn->sub_pid,timeout);
 	if(conn->sub_fd == NULL) {
 		free(conn);
 		return(NULL);
@@ -537,7 +554,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	client_port = (int)(drand48() * 50000.0) + 1;
 
 	// create connections with in-bound channel
-	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port);
+	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port,timeout);
 	if(conn == NULL) {
 		return(-1);
 	}
@@ -654,7 +671,7 @@ int cmq_mqtt_listen(unsigned long port)
 		return(-1);
 	}
 
-	conn = cmq_mqtt_create_conn(CMQCONNListen,MQTT_Proxy.host_ip,port);
+	conn = cmq_mqtt_create_conn(CMQCONNListen,MQTT_Proxy.host_ip,port,0);
 	if(conn == NULL) {
 		return(-1);
 	}
@@ -774,7 +791,7 @@ fflush(stdout);
 
 	// create an accept port for this connection
 	accept_port = (int)(drand48()*50000.0)+1;
-	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,MQTT_Proxy.host_ip,accept_port);
+	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,MQTT_Proxy.host_ip,accept_port,timeout);
 	if(new_conn == NULL) {
 		return(-1);
 	}
@@ -907,6 +924,7 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	s = fgets((char *)conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
 		printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
 	// look for close signal
@@ -920,6 +938,7 @@ printf("recv_msg closing sub: %d pub: %d\n",conn->sd,conn->client_sd);
 		s = fgets((char *)conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 		if(s == NULL) {
 			printf("ERROR: cmq_mqtt_recv_msg could not read sub on sd %d\n",sd);
+			cmq_mqtt_close(conn->sd);
 			return(-1);
 		}
 		// look for close signal
