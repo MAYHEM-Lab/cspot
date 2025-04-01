@@ -86,6 +86,7 @@ int cmq_mqtt_proxy_init()
 	FILE *file;
 	struct timeval tm;
 
+
 	gettimeofday(&tm,NULL);
 	srand48(tm.tv_sec + tm.tv_usec);
 
@@ -254,6 +255,7 @@ int cmq_mqtt_proxy_init()
 		    return(-1);
 	    }
 	    MQTT_Proxy.init = 1;
+	    atexit(cmq_mqtt_shutdown);
 	    return(1);
     } else {
 	    return(-1);
