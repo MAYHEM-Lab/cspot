@@ -7,6 +7,7 @@
 
 #include "cmq-frame.h"
 
+#define DEBUG
 #define CMQ_PKT_VERSION (1)
 
 struct cmq_pkt_header_stc
@@ -28,6 +29,12 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl);
 int cmq_pkt_recv_msg(int endpoint, unsigned char **fl);
 void cmq_pkt_close(int endpoint);
 void cmq_pkt_shutdown();
+
+#ifdef DEBUG
+#define CMQDEBUG(s) {fprintf(stderr,"%s",s); fflush(stderr); }
+#else
+#define CMQDEBUG(s)
+#endif
 
 #ifdef __cplusplus
 }

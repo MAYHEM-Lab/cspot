@@ -556,11 +556,13 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// create connections with in-bound channel
 	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port,timeout);
 	if(conn == NULL) {
+		CMQDEBUG("cmq_mqtt_connect: could not create local connection\n");
 		return(-1);
 	}
 
 	server_fd = cmq_mqtt_create_pub_channel(addr,port);
 	if(server_fd == NULL) {
+		CMQDEBUG("cmq_mqtt_connect: could not pub channel\n");
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
@@ -570,6 +572,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// write client IP address to server
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)MQTT_Proxy.host_ip,sizeof(MQTT_Proxy.host_ip));
 	if(err < sizeof(MQTT_Proxy.host_ip)) {
+		CMQDEBUG("cmq_mqtt_connect: could write host_ip\n");
 		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
 		return(-1);
@@ -581,6 +584,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// write the  client port to the server
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&client_port,sizeof(client_port));
 	if(err < sizeof(client_port)) {
+		CMQDEBUG("cmq_mqtt_connect: could write client port\n");
 		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
 		return(-1);
@@ -593,12 +597,13 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	err = write(fileno(server_fd),conn->buffer,conn->cursor);
 	if(err < conn->cursor) {
 		cmq_mqtt_close(conn->sd);
+		CMQDEBUG("cmq_mqtt_connect: could write server socket\n");
 		pclose(server_fd);
 		return(-1);
 	}
 
-//printf("connect: client_port %d\n",client_port);
-//fflush(stdout);
+printf("connect: client_port %d\n",client_port);
+fflush(stdout);
 
 	// close server connection
 	pclose(server_fd);
@@ -610,6 +615,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	memset(conn->buffer,0,sizeof(conn->buffer));
 	s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
+		CMQDEBUG("cmq_mqtt_connect: read NULL for accept port\n");
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
@@ -618,6 +624,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	}
 	if(strlen(conn->buffer) < (2*sizeof(accept_port))) {
+		CMQDEBUG("cmq_mqtt_connect: short read for accept port\n");
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
@@ -644,15 +651,17 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	// get the accept port
 	err = cmq_mqtt_conn_buffer_read(conn,(unsigned char *)&accept_port,sizeof(accept_port));
 	if(err < sizeof(accept_port)) {
+		CMQDEBUG("cmq_mqtt_connect: short buffer read for accept port\n");
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
-//printf("connect: accept_port %d\n",accept_port);
-//fflush(stdout);
+printf("connect: accept_port %d\n",accept_port);
+fflush(stdout);
 
 	// create outbound channel to accept port
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
 	if(conn->pub_fd == NULL) {
+		CMQDEBUG("cmq_mqtt_connect: could not create pub channel for accept port\n");
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
