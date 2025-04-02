@@ -541,6 +541,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	int accept_port;
 	FILE *server_fd;
 	char *s;
+	RB *rb;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -550,8 +551,14 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	signal(SIGPIPE,SIG_IGN);
 
 	// random local client port
-	// FIX: check to make sure it is not in use
+	pthread_mutex_lock(&MQTT_Proxy.lock);
 	client_port = (int)(drand48() * 50000.0) + 1;
+	rb = RBFindI(MQTT_Proxy.connections,client_port);
+	while(rb != NULL) {
+		client_port = (int)(drand48() * 50000.0) + 1;
+		rb = RBFindI(MQTT_Proxy.connections,client_port);
+	}
+	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 	// create connections with in-bound channel
 	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port,timeout);
@@ -809,7 +816,14 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 #endif
 
 	// create an accept port for this connection
+	pthread_mutex_lock(&MQTT_Proxy.lock);
 	accept_port = (int)(drand48()*50000.0)+1;
+	rb = RBFindI(MQTT_Proxy.connections,accept_port);
+	while(rb != NULL) {
+		accept_port = (int)(drand48()*50000.0)+1;
+		rb = RBFindI(MQTT_Proxy.connections,accept_port);
+	}
+	pthread_mutex_unlock(&MQTT_Proxy.lock);
 	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,MQTT_Proxy.host_ip,accept_port,timeout);
 	if(new_conn == NULL) {
 		return(-1);
