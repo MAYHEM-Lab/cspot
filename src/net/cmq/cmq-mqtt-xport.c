@@ -311,7 +311,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeou
 		dup2(pd[1],1);
 		close(pd[1]);
 		if(timeout > 0) {
-			snprintf(timeout_str,sizeof(timeout_str),"%d",timeout/1000);
+			snprintf(timeout_str,sizeof(timeout_str),"%d",2*(timeout/1000));
 			execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
 				"-q",
 				"1",
