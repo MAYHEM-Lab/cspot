@@ -625,6 +625,9 @@ fflush(stdout);
 	s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
 		CMQDEBUG("cmq_mqtt_connect: read NULL for accept port\n");
+printf("connect NULL client port %d sd: %d\n",client_port,conn->sd);
+fflush(stdout);
+sleep(200);
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
