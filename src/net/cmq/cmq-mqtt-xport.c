@@ -337,7 +337,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeou
 		close(pd[1]);
 		fd = fdopen(pd[0],"r");
 		if(fd == NULL) {
-			kill(pid,SIGTERM);
+			kill(pid,SIGKILL);
 			return(NULL);
 		}
 		*child = pid;
@@ -397,8 +397,12 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port, int timeout)
 
 	// see if this connection exists
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("create_conn: inside lock\n");
+//fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,port);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("create_conn: outside lock\n");
+//fflush(stdout);
 	if(rb != NULL) {
 		return(NULL);
 	}
@@ -421,9 +425,13 @@ CMQCONN *cmq_mqtt_create_conn(int type, char *local_addr, int port, int timeout)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("create_conn: inside lock 2\n");
+//fflush(stdout);
 	hv.v = (void *)conn;
 	(void)RBInsertI(MQTT_Proxy.connections,conn->sd,hv);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("create_conn: outside lock 2\n");
+//fflush(stdout);
 
 	return(conn);
 }
@@ -449,7 +457,7 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 	if(conn->sub_fd != NULL) {
 		// this is stupid
 		kill(conn->sub_pid,SIGTERM);
-		waitpid(conn->sub_pid,NULL,0);
+		kill(conn->sub_pid,SIGKILL);
 		fclose(conn->sub_fd);
 	}
 	if(conn->pub_fd != NULL) {
@@ -463,6 +471,7 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 //printf("freeing %p\n",conn);
 //fflush(stdout);
 	free(conn);
+	while(waitpid(-1,NULL,WNOHANG)); // to prevent hanging wait inside a lock
 	return;
 }
 
@@ -552,15 +561,19 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 
 	// random local client port
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("connect: inside lock\n");
+//fflush(stdout);
 	client_port = (int)(drand48() * 50000.0) + 1;
 	rb = RBFindI(MQTT_Proxy.connections,client_port);
 	while(rb != NULL) {
-printf("connect: collision on %d\n",client_port);
-fflush(stdout);
+//printf("connect: collision on %d\n",client_port);
+//fflush(stdout);
 		client_port = (int)(drand48() * 50000.0) + 1;
 		rb = RBFindI(MQTT_Proxy.connections,client_port);
 	}
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("connect: outside lock\n");
+//fflush(stdout);
 
 	// create connections with in-bound channel
 	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port,timeout);
@@ -611,8 +624,8 @@ fflush(stdout);
 		return(-1);
 	}
 
-printf("connect: client_port %d\n",client_port);
-fflush(stdout);
+//printf("connect: client_port %d\n",client_port);
+//fflush(stdout);
 
 	// close server connection
 	pclose(server_fd);
@@ -625,9 +638,8 @@ fflush(stdout);
 	s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
 		CMQDEBUG("cmq_mqtt_connect: read NULL for accept port\n");
-printf("connect NULL client port %d sd: %d\n",client_port,conn->sd);
-fflush(stdout);
-sleep(200);
+//printf("connect NULL client port %d sd: %d\n",client_port,conn->sd);
+//fflush(stdout);
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
@@ -667,8 +679,8 @@ sleep(200);
 		cmq_mqtt_close(conn->sd);
 		return(-1);
 	}
-printf("connect: accept_port %d\n",accept_port);
-fflush(stdout);
+//printf("connect: accept_port %d\n",accept_port);
+//fflush(stdout);
 
 	// create outbound channel to accept port
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
@@ -730,8 +742,12 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("accept: inside lock\n");
+//fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,(int)sd);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("accept: outside lock\n");
+//fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: could not find listen socket %d\n",sd);
 		return(-1);
@@ -789,25 +805,29 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 //printf("accept second converting %s\n",client_buffer);
 //fflush(stdout);
 	MQTTConvertASCIItoBinary((unsigned char *)&client_port,client_buffer,sizeof(client_port));
-printf("accept recived port %d\n",client_port);
-fflush(stdout);
+//printf("accept recived port %d\n",client_port);
+//fflush(stdout);
 	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 
 
 	// create an accept port for this connection
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("accept: inside lock 2\n");
+//fflush(stdout);
 	accept_port = (int)(drand48()*50000.0)+1;
 	rb = RBFindI(MQTT_Proxy.connections,accept_port);
 	while(rb != NULL) {
-printf("accept: collision on %d\n",accept_port);
-fflush(stdout);
+//printf("accept: collision on %d\n",accept_port);
+//fflush(stdout);
 		accept_port = (int)(drand48()*50000.0)+1;
 		rb = RBFindI(MQTT_Proxy.connections,accept_port);
 	}
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
-printf("accept chose port %d\n",accept_port);
-fflush(stdout);
+//printf("accept: outside lock 2\n");
+//fflush(stdout);
+//printf("accept chose port %d\n",accept_port);
+//fflush(stdout);
 	new_conn = cmq_mqtt_create_conn(CMQCONNAccept,MQTT_Proxy.host_ip,accept_port,timeout);
 	if(new_conn == NULL) {
 		CMQDEBUG("cmq_mqtt_accept: could not create new connection\n");
@@ -833,8 +853,8 @@ fflush(stdout);
 	// terinate with \n for mosquitto_pub -l
 	new_conn->buffer[new_conn->cursor] = '\n';
 	new_conn->cursor++;
-printf("accept: sending %d %s\n",accept_port,new_conn->buffer);
-fflush(stdout);
+//printf("accept: sending %d %s\n",accept_port,new_conn->buffer);
+//fflush(stdout);
 	err = write(fileno(new_conn->pub_fd),new_conn->buffer,new_conn->cursor);
 	if(err < new_conn->cursor) {
 		CMQDEBUG("cmq_mqtt_accept: could not send accept port\n");
@@ -843,8 +863,8 @@ fflush(stdout);
 	}
 	
 	new_conn->client_sd = client_port;
-printf("accept: client: %d accept: %d\n",client_port,accept_port);
-fflush(stdout);
+//printf("accept: client: %d accept: %d\n",client_port,accept_port);
+//fflush(stdout);
 	return(new_conn->sd);
 }
 
@@ -864,8 +884,12 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("send: inside lock\n");
+//fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("send: outside lock\n");
+//fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: cmq_mqtt_send_msg could not find sd %d\n",sd);
 		return(-1);
@@ -936,8 +960,12 @@ int cmq_mqtt_recv_msg(int sd, unsigned char **fl)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("recv: inside lock\n");
+//fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("recv: outside lock\n");
+//fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: cmq_mqtt_recv_msg could not find sd %d\n",sd);
 		return(-1);
@@ -1105,12 +1133,22 @@ void cmq_mqtt_close(int sd)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+//printf("close: inside lock\n");
+//fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
 	if(rb != NULL) {
 		conn = (CMQCONN *)rb->value.v;
 		cmq_mqtt_destroy_conn(conn);
 	}
+	RB_FORWARD(MQTT_Proxy.connections,rb) {
+		conn = rb->value.v;
+//printf("(%d %d) ",conn->sd,conn->client_sd);
+	}
+//printf("\n");
+//fflush(stdout);
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
+//printf("close: outside lock\n");
+//fflush(stdout);
 	return;
 }
 		
