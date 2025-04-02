@@ -87,8 +87,6 @@ int cmq_mqtt_proxy_init()
 	struct timeval tm;
 
 
-	gettimeofday(&tm,NULL);
-	srand48(tm.tv_sec + tm.tv_usec);
 
 	signal(SIGTERM,cmq_mqtt_shutdown);
 	signal(SIGINT,cmq_mqtt_shutdown);
@@ -96,6 +94,8 @@ int cmq_mqtt_proxy_init()
 	if(MQTT_Proxy.init == 1) {
 		return(1);
 	}
+	gettimeofday(&tm,NULL);
+	srand48(tm.tv_sec + tm.tv_usec);
 
 	memset(credfile,0,sizeof(credfile));
 
@@ -555,6 +555,8 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	client_port = (int)(drand48() * 50000.0) + 1;
 	rb = RBFindI(MQTT_Proxy.connections,client_port);
 	while(rb != NULL) {
+printf("connect: collision on %d\n",client_port);
+fflush(stdout);
 		client_port = (int)(drand48() * 50000.0) + 1;
 		rb = RBFindI(MQTT_Proxy.connections,client_port);
 	}
@@ -820,6 +822,8 @@ int cmq_mqtt_accept(int sd, unsigned long timeout)
 	accept_port = (int)(drand48()*50000.0)+1;
 	rb = RBFindI(MQTT_Proxy.connections,accept_port);
 	while(rb != NULL) {
+printf("accept: collision on %d\n",accept_port);
+fflush(stdout);
 		accept_port = (int)(drand48()*50000.0)+1;
 		rb = RBFindI(MQTT_Proxy.connections,accept_port);
 	}
