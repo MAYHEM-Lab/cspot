@@ -450,7 +450,7 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 		// this is stupid
 		kill(conn->sub_pid,SIGTERM);
 		waitpid(conn->sub_pid,NULL,0);
-//		fclose(conn->sub_fd);
+		fclose(conn->sub_fd);
 	}
 	if(conn->pub_fd != NULL) {
 		// send close char as single char to get other side to
