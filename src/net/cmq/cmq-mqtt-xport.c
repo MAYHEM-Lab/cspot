@@ -665,11 +665,21 @@ int cmq_mqtt_listen(unsigned long port)
 {
 	int err;
 	CMQCONN *conn;
+	RB *rb;
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
 		return(-1);
 	}
+
+	pthread_mutex_lock(&MQTT_Proxy.lock);
+	rb = RBFindI(MQTT_Proxy.connections,(int)port);
+	if(rb != NULL) {
+		conn = (CMQCONN *)rb->value.v;
+		pthread_mutex_unlock(&MQTT_Proxy.lock);
+		return(conn->sd);
+	}
+	pthread_mutex_unlock(&MQTT_Proxy.lock);
 
 	conn = cmq_mqtt_create_conn(CMQCONNListen,MQTT_Proxy.host_ip,port,0);
 	if(conn == NULL) {
