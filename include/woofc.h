@@ -36,6 +36,8 @@ unsigned long WooFGetElSize(WOOF* wf, const char* wf_name);
 const char* WoofGetFileName(WOOF* wf);
 #define WooFGetFileName WoofGetFileName
 
+extern int WooF_is_server; // for signal installation
+
 
 #if defined (__cplusplus)
 }

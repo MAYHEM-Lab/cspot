@@ -17,6 +17,7 @@
 
 CMQPROXY MQTT_Proxy; 
 
+int WooF_is_server;
 
 int MQTTConvertASCIItoBinary(unsigned char *dest, char *src, int len)
 {
@@ -88,8 +89,12 @@ int cmq_mqtt_proxy_init()
 
 
 
-	signal(SIGTERM,cmq_mqtt_shutdown);
-	signal(SIGINT,cmq_mqtt_shutdown);
+	if(WooF_is_server == 0) {
+		signal(SIGTERM,cmq_mqtt_shutdown);
+		signal(SIGINT,cmq_mqtt_shutdown);
+	}
+
+	signal(SIGPIPE,SIG_IGN);
 
 	if(MQTT_Proxy.init == 1) {
 		return(1);
@@ -556,7 +561,6 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		return(-1);
 	}
 
-	signal(SIGPIPE,SIG_IGN);
 
 	// random local client port
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);

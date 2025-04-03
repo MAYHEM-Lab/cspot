@@ -298,11 +298,19 @@ const char* Usage = "woofc-namespace-platform -b backend -d application woof dir
 -t-M max container count\n\
 -t-N namespace\n";
 
+#ifdef USE_CMQ
+extern "C" {
+extern void cmq_pkt_shutdown();
+}
+#endif
 void sig_int_handler(int) {
     fprintf(stdout, "SIGINT caught\n");
     fflush(stdout);
 
     CleanUpDocker();
+#ifdef USE_CMQ
+    cmq_pkt_shutdown();
+#endif
     exit(0);
 }
 
@@ -332,6 +340,8 @@ int main(int argc, char** argv) {
     auto min_containers = 1;
     auto max_containers = 1;
     std::string backend_name = "docker";
+
+    WooF_is_server = 1; // for signal handling
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
