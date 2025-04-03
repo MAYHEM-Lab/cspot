@@ -471,7 +471,6 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 //printf("freeing %p\n",conn);
 //fflush(stdout);
 	free(conn);
-	while(waitpid(-1,NULL,WNOHANG) > 0); // to prevent hanging wait inside a lock
 	return;
 }
 
@@ -1149,6 +1148,7 @@ void cmq_mqtt_close(int sd)
 	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 //printf("close: outside lock\n");
 //fflush(stdout);
+	while(waitpid(-1,NULL,WNOHANG) > 0); // to prevent hanging wait inside a lock
 	return;
 }
 		
