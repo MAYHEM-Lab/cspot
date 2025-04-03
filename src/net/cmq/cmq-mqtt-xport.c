@@ -164,84 +164,78 @@ int cmq_mqtt_proxy_init()
 			case YAML_SCALAR_EVENT:
 //printf("Key/Value: %s\n", event.data.scalar.value);
 				// NULL implies just print
-				if(state == 0) {
-					if(strncmp(event.data.scalar.value,
-						"proxy",strlen("proxy")) == 0) {
-						state = 1; //next state
-					}
-				} else if(state == 1) {
-					if(strncmp(event.data.scalar.value,
+				if(strncmp(event.data.scalar.value,
+					"proxy",strlen("proxy")) == 0) {
+					memset(&MQTT_Proxy,0,sizeof(MQTT_Proxy));
+					state = 0;
+					found=0;
+					break;
+				}
+				if(strncmp(event.data.scalar.value,
 						"namespace",strlen("namespace")) == 0) {
-						state = 2;
-					}
-					if(strncmp(event.data.scalar.value,
-                                                "proxy",strlen("proxy")) == 0) {
-                                        	state = 1;
-                                        }
-
-				} else if(state == 2) {
+					state = 1; // next event is namespace string
+					break;
+				} 
+				if(state == 1) {
 					strncpy(MQTT_Proxy.namespace,event.data.scalar.value,
                                                         sizeof(MQTT_Proxy.namespace)-1);
 //printf("namespace found: %s\n",MQTT_Proxy.namespace);
-						state = 3;
-				} else if(state == 3) {
-					if(strncmp(event.data.scalar.value, "host-ip",
+					state = 0;
+					found++;
+					break;
+				}
+				if(strncmp(event.data.scalar.value, "host-ip", 
 							strlen("host-ip")) == 0) {
-						state = 4;
-					}
-					if(strncmp(event.data.scalar.value,"proxy",
-							strlen("proxy")) == 0) {
-						state = 1;
-					}
-				} else if(state == 4) {
+					state = 2;
+					break;
+				}
+				if(state == 2) {
 					strncpy(MQTT_Proxy.host_ip,event.data.scalar.value,
 							sizeof(MQTT_Proxy.host_ip)-1);
 //printf("host_ip found: %s\n",MQTT_Proxy.host_ip);
-					state = 5;
-				} else if(state == 5) {
-					if(strncmp(event.data.scalar.value,
+					state = 0;
+					found++;
+					break;
+				}
+				if(strncmp(event.data.scalar.value,
 							"broker-ip", strlen("broker-ip")) == 0) {
-						state = 6;
-					}
-					if(strncmp(event.data.scalar.value,"proxy",
-							strlen("proxy")) == 0) {
-						state = 1;
-					}
-				} else if(state == 6) {
+					state = 3;
+					break;
+				}
+				if(state == 3) {
 					strncpy(MQTT_Proxy.broker_ip,event.data.scalar.value,
 							sizeof(MQTT_Proxy.broker_ip)-1);
 //printf("broker_ip: %s\n",MQTT_Proxy.broker_ip);
-					state = 7;
-				} else if(state == 7) {
-					if(strncmp(event.data.scalar.value,
-							"user", strlen("user")) == 0) {
-						state = 8;
-					}
-					if(strncmp(event.data.scalar.value,"proxy",
-							strlen("proxy")) == 0) {
-						state = 1;
-					}
-				} else if(state == 8) {
+					state = 0;
+					found++;
+					break;
+				} 
+				if(strncmp(event.data.scalar.value,
+						"user", strlen("user")) == 0) {
+					state = 4;
+					break;
+				}
+				if(state == 4) {
 					strncpy(MQTT_Proxy.user,event.data.scalar.value,
 							sizeof(MQTT_Proxy.user)-1);
 //printf("user: %s\n",MQTT_Proxy.user);
-					state = 9;
-				} else if(state == 9) {
-					if(strncmp(event.data.scalar.value,
+					state = 0;
+					found++;
+					break;
+				} 
+				if(strncmp(event.data.scalar.value,
 							"pw", strlen("pw")) == 0) {
-						state = 10;
-					}
-					if(strncmp(event.data.scalar.value,"proxy",
-							strlen("proxy")) == 0) {
-						state = 1;
-					}
-				} else if(state == 10) {
+					state = 5;
+					break;
+				}
+				if(state == 5) {
 					strncpy(MQTT_Proxy.pw,event.data.scalar.value,
 							sizeof(MQTT_Proxy.pw)-1);
 //printf("pw: %s\n",MQTT_Proxy.pw);
-					found = 1;
 					done = 1;
 					state = 0;
+					found++;
+					break;
 				}
 				break;
 			case YAML_STREAM_END_EVENT:
@@ -255,7 +249,7 @@ int cmq_mqtt_proxy_init()
 
     yaml_parser_delete(&parser);
     fclose(file);
-    if(found == 1) {
+    if(found == 5) {
 	    MQTT_Proxy.connections = RBInitI();
 	    pthread_mutex_init(&MQTT_Proxy.lock,NULL); // for thread safe accept
 	    pthread_mutex_init(&MQTT_Proxy.conn_lock,NULL); // for thread safe accept
