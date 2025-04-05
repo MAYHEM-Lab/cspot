@@ -6,7 +6,7 @@
 	url = https://github.com/pybind/pybind11/
 [submodule "deps/czmq"]
 	path = deps/czmq
-	url = https://github.com/FatihBAKIR/czmq
+	url = https://github.com/MAYHEM-lab/czmq
 [submodule "deps/libzmq"]
 	path = deps/libzmq
-	url = https://github.com/FatihBAKIR/libzmq
+	url = https://github.com/MAYHEM-lab/libzmq
