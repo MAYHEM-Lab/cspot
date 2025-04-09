@@ -27,6 +27,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    DEBUG_LOG("WooFProcessGetElSize: called on %s",local_name);
 
     char cap_name[1028] = {};
     sprintf(cap_name,"%s.CAP",local_name);
@@ -151,6 +152,13 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto cause_host = 0;
     auto cause_seq_no = 0;
 
+    const char *hname;
+    if(strcmp(hand_name.c_str(),"NULL") == 0) {
+	    hname = NULL;
+    } else {
+	    hname = hand_name.c_str();
+    }
+
     char local_name[1024] = {};
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
     if (err < 0) {
@@ -170,7 +178,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 	}
     }
     unsigned long seq_no = WooFPutWithCause(
-        local_name, hand_name.empty() ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
+        local_name, (hname == NULL) ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
 
     auto resp = CreateMessage(std::to_string(seq_no));
     if (!res) {
@@ -247,7 +255,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
 	// reset zmsg cursor
 	wname = (char *)zmsg_first(req_msg.get());
-	if(hname == NULL) { // no handler check write permse
+	if(strcmp(hname,"NULL") == 0) { // no handler check write permse
 		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE)) {
 			WooFProcessPut(std::move(req_msg),resp_sock,0);
 			DEBUG_WARN("WooFProcessPutwithCAP: no handler auth %s\n",cap_name);
@@ -258,11 +266,12 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 		}
 	} else { // check execute perms
 		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC)) {
-			DEBUG_WARN("WooFProcessPutwithCAP: handler auth %s\n",cap_name);
+			DEBUG_WARN("WooFProcessPutwithCAP: handler %s auth %s\n",hname,cap_name);
 			WooFProcessPut(std::move(req_msg),resp_sock,0);
 			return;
 		} else {
-			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_EXEC: check %lu\n",
+			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_EXEC: handler: %s check %lu\n",
+					hname,
 					cap->check);
 		}
 	}
@@ -432,6 +441,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     	WOOF* wfc;
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
+            DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
 	    WooFDrop(wfc);
 	    return;
 	}

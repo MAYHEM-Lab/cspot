@@ -7,8 +7,11 @@
 #include "common.hpp"
 #include "debug.h"
 
+#define DEBUG
+
 #include <fmt/format.h>
 #include <woofc-access.h>
+
 
 namespace cspot::zmq {
 namespace {
@@ -139,7 +142,16 @@ void WooFMsgThread() {
          * wait for next request
          */
         msg = Receive(*receiver);
+	if(!msg) {
+		// if something went wrong, next recive will fail
+//		zsock_destroy(receiver);
+    		receiver = ZServerPtr(zsock_new_rep(">inproc://workers"));
+        	msg = Receive(*receiver);
+	}
     }
+printf("zmq: received is dead\n");
+fflush(stdout);
+    return; // will cause thread to exit
 }
 } // namespace
 
@@ -148,6 +160,8 @@ bool backend::listen(std::string_view ns) {
 
     std::string woof_namespace(ns);
 
+printf("listen: %s\n",woof_namespace.c_str());
+fflush(stdout);
     DEBUG_FATAL_IF(woof_namespace.empty(), "WooFMsgServer: couldn't find namespace");
 
     DEBUG_LOG("WooFMsgServer: started for namespace %s\n", woof_namespace.c_str());
@@ -192,6 +206,7 @@ bool backend::listen(std::string_view ns) {
     /*
      * create a single thread for now.  The DEALER pattern can handle multiple threads,
      * however so this can be increased if need be
+    for (auto& t : m_threads) {
      */
     for (auto& t : m_threads) {
         t = std::thread(WooFMsgThread);

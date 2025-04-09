@@ -16,15 +16,19 @@ namespace cspot::cmq {
 namespace {
 
 void *WooFMsgThread(void *arg) {
-	int sd = *((int *)arg);
+	int sd;
 	int c_sd;
 	int err;
 	unsigned char *fl;
 	unsigned char *f;
+
+	sd = *((int *)arg);
+	free(arg);
+
 	
 
 	while(1) { // loop until something fails
-		DEBUG_LOG("WooFMsgThread: about to call accept");
+		DEBUG_LOG("WooFMsgThread: cmq about to call accept");
 
 		c_sd = cmq_pkt_accept(sd,WOOF_MSG_REQ_TIMEOUT); // timeout is set for c_sd
 		if(c_sd < 0) {
@@ -127,6 +131,9 @@ bool backend::listen(std::string_view ns) {
 			(int)port);
 	return(false);
     }
+
+printf("cmq: listen: %s, port: %d sd: %d\n",woof_namespace.c_str(),port,listen_sd);
+fflush(stdout);
     
     /*
      * create a single thread for now.  multiple threads can call accept
@@ -138,7 +145,11 @@ bool backend::listen(std::string_view ns) {
     */
     int t;
     for(t=0; t < WOOF_MSG_THREADS; t++) {
-	    int *sp = &listen_sd;
+	    int *sp = (int *)malloc(sizeof(int));
+	    if(sp == NULL) {
+		   return false;
+	    } 
+	    *sp = listen_sd;
 	    int perr;
 	    perr = pthread_create(&tids[t],NULL,WooFMsgThread,(void *)sp);
 	    if(perr != 0) {

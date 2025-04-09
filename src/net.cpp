@@ -24,6 +24,7 @@ struct registerer {
 	cmq::backend_register();
 #else
         zmq::backend_register();
+	cmq::backend_register();
 #endif
 
         atexit([]{
@@ -97,10 +98,14 @@ unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned lon
 }
 
 int WooFMsgServer(const char* woof_namespace) {
-    if (cspot::get_active_backend()->listen(woof_namespace)) {
-        return cspot::get_active_backend()->stop() ? 0 : -1;
-    } else {
+    cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
+    if (!cspot::get_active_backend()->listen(woof_namespace)) {
         return -1;
     }
+    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+    if (!cspot::get_active_backend()->listen(woof_namespace)) {
+        return -1;
+    }
+    return cspot::get_active_backend()->stop() ? 0 : -1;
 }
 }
