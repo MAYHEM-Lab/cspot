@@ -221,6 +221,7 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     }
 
     auto elem_ptr = static_cast<const uint8_t*>(elem);
+    const char *hname;
     ZMsgPtr msg;
     if(has_cap == 1) {
 	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
@@ -231,11 +232,23 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 			new_cap = WooFCapAttenuate(&cap,WCAP_EXEC); // drop privs if we can
 		}
 		if(new_cap != NULL) {
+			if(handler_name == NULL) {
+        			DEBUG_LOG("WooFMsgPutwithCap with NULL for %s, cap check %lu", 
+						(char *)std::string(woof_name).c_str(), new_cap->check);
+			} else {
+        			DEBUG_LOG("WooFMsgPutwithCap with %s for %s, cap check %lu", 
+						handler_name, (char *)std::string(woof_name).c_str(), new_cap->check);
+			}
 			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+			if(handler_name == NULL) {
+				hname = "NULL";
+			} else {
+				hname = (const char *)handler_name;
+			}
 			msg = CreateMessage(std::to_string(WOOF_MSG_PUT_CAP),
 				     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
 				     std::string(woof_name),
-				     handler_name,
+				     hname,
 				    //  std::to_string(Name_id),
 				    //  std::to_string(my_log_seq_no),
 				     std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
@@ -252,9 +265,14 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 
     // backwards compatibility: if we can't find a cap, try without one
     if((has_cap == 0) && (!msg)) { 
+	if(handler_name == NULL) {
+		hname = "NULL";
+	} else {
+		hname = (const char *)handler_name;
+	}
     	msg = CreateMessage(std::to_string(WOOF_MSG_PUT),
                              std::string(woof_name),
-                             handler_name,
+                             hname,
                             //  std::to_string(Name_id),
                             //  std::to_string(my_log_seq_no),
                              std::vector<uint8_t>(elem_ptr, elem_ptr + elem_size));
