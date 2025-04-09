@@ -1,6 +1,6 @@
 #!/bin/bash
 
-apt-get update && apt-get -y install ninja-build g++-9 cmake g++
+apt-get update && apt-get -y install ninja-build g++-9 cmake g++ mosquitto-clients
 git submodule update --init --recursive
 mkdir -p build
 cd build/
