@@ -26,6 +26,7 @@ int WooFValidURI(const char* str) {
      */
     if((strstr(str, "woof://") != NULL) ||
        (strstr(str, "cmq://") != NULL) ||
+       (strstr(str, "zmq://") != NULL) ||
        (strstr(str, "mqtt://") != NULL)) {
         return (1);
     } else {
