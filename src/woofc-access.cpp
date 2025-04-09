@@ -24,8 +24,9 @@ int WooFValidURI(const char* str) {
     /*
      * must begin with woof://
      */
-    auto prefix = strstr(str, "woof://");
-    if (prefix == str) {
+    if((strstr(str, "woof://") != NULL) ||
+       (strstr(str, "cmq://") != NULL) ||
+       (strstr(str, "mqtt://") != NULL)) {
         return (1);
     } else {
         return (0);
