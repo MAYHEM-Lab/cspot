@@ -23,8 +23,10 @@ namespace cmq {
 std::unordered_map<std::string, std::function<std::unique_ptr<network_backend>()>> backend_factories;
 std::unique_ptr<network_backend> active_backend;
 namespace {
+pthread_mutex_t ELock;
 struct registerer {
     registerer() {
+	pthread_mutex_init(&ELock,NULL);
 	if(CMQ_use_mqtt == 1) {
         	zmq::backend_register();
 		cmq::backend_register();
@@ -99,8 +101,11 @@ const char *backend_from_woof(const char *woof_name)
 		return(NULL);
 	}
 }
-void adjust_active_backend(const char *woof_name) {
-	const char *be = backend_from_woof(woof_name);
+cspot::network_backend *adjust_active_backend(const char *woof_name) {
+	const char *be;
+	cspot::network_backend *nbe = NULL;
+	pthread_mutex_lock(&cspot::ELock);
+	be = backend_from_woof(woof_name);
 	if(be != NULL) {
 		if(strcmp(be,"zmq") == 0) {
 			cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
@@ -111,35 +116,60 @@ void adjust_active_backend(const char *woof_name) {
 			CMQ_use_mqtt = 1;
 			cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
 		}
+		nbe = cspot::get_active_backend();
 	}
-	return;
+	pthread_mutex_unlock(&cspot::ELock);
+	return(nbe);
 }
 unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size) {
-	adjust_active_backend(woof_name);
-	return cspot::get_active_backend()->remote_put(woof_name, hand_name, element, el_size);
+	cspot::network_backend *be;
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_put(woof_name, hand_name, element, el_size));
+	} else {
+		return(-1);
+	}
+//	return cspot::get_active_backend()->remote_put(woof_name, hand_name, element, el_size);
 }
 
 int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no) {
-	adjust_active_backend(woof_name);
-	return cspot::get_active_backend()->remote_get(woof_name, element, el_size, seq_no);
+	cspot::network_backend *be;
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_get(woof_name, element, el_size, seq_no));
+	} else {
+		return(-1);
+	}
+//	return cspot::get_active_backend()->remote_get(woof_name, element, el_size, seq_no);
 }
 
 unsigned long WooFMsgGetElSize(const char* woof_name) {
-	adjust_active_backend(woof_name);
-	return cspot::get_active_backend()->remote_get_elem_size(woof_name);
+	cspot::network_backend *be;
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_get_elem_size(woof_name));
+	} else {
+		return(-1);
+	}
+//	return cspot::get_active_backend()->remote_get_elem_size(woof_name);
 }
 
 unsigned long
 WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsigned long cause_woof_latest_seq_no) {
-	adjust_active_backend(woof_name);
-    	return cspot::get_active_backend()->remote_get_latest_seq_no(woof_name, cause_woof_name, cause_woof_latest_seq_no);
+	cspot::network_backend *be;
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_get_latest_seq_no(woof_name, cause_woof_name, cause_woof_latest_seq_no));
+	} else {
+		return(-1);
+	}
+//    	return cspot::get_active_backend()->remote_get_latest_seq_no(woof_name, cause_woof_name, cause_woof_latest_seq_no);
 }
 
 unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned long el_size, int el_count) {
     return -1;
 }
 
-pthread_mutex_t ELock;
 
 //
 // this is complicated
@@ -152,13 +182,12 @@ pthread_mutex_t ELock;
 int WooFMsgServer(const char* woof_namespace) {
 	cspot::network_backend *be;
 	int oldcmq;
-	pthread_mutex_init(&ELock,NULL);
 
 	if(CMQ_use_mqtt == 1) {
-		pthread_mutex_lock(&ELock);
+		pthread_mutex_lock(&cspot::ELock);
 		cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
 		be = cspot::get_active_backend();
-		pthread_mutex_unlock(&ELock);
+		pthread_mutex_unlock(&cspot::ELock);
 
 		if (be != NULL) {
 			be->listen(woof_namespace);
@@ -168,10 +197,10 @@ int WooFMsgServer(const char* woof_namespace) {
 	}
 
 #ifndef USE_CMQ // use zmq
-	pthread_mutex_lock(&ELock);
+	pthread_mutex_lock(&cspot::ELock);
 	cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
 	be = cspot::get_active_backend();
-	pthread_mutex_unlock(&ELock);
+	pthread_mutex_unlock(&cspot::ELock);
 
 	if (be != NULL) {
 		be->listen(woof_namespace);
@@ -180,10 +209,10 @@ int WooFMsgServer(const char* woof_namespace) {
 	}
 #else
 	// cmq and cmq+mqtt can co-exist if is zmq is not enabled
-	pthread_mutex_lock(&ELock);
+	pthread_mutex_lock(&cspot::ELock);
 	cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
 	be = cspot::get_active_backend();
-	pthread_mutex_unlock(&ELock);
+	pthread_mutex_unlock(&cspot::ELock);
 
 	oldcmq = CMQ_use_mqtt;
 	CMQ_use_mqtt = 0;
