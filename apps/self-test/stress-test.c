@@ -10,12 +10,13 @@
 #include "stress-test.h"
 #include "dlist.h"
 
-#define ARGS "c:W:s:g:p:P:LlV"
+#define ARGS "c:W:s:g:p:P:LlVM"
 char *Usage = "stress-test -W woof_name for stress test\n\
 \t-L <use local woofs>\n\
 \t-l <do latency test, otherwise throughput test>\n\
 \t-s number of puts\n\
 \t-g get threads\n\
+\t-M <use mixed woof and mqtt modes>\n\
 \t-p put threads\n\
 \t-P payload size\n\
 \t-V <verbose>\n";
@@ -40,6 +41,32 @@ double Total;
 double Count;
 int IsLatency;
 int Verbose;
+int Mixed_mode;
+
+// assumes that xport does not include ://
+void ChangeXport(char *wname, char *xport)
+{
+	char *new;
+	char *p;
+
+	new = (char *)malloc(strlen(wname)+8);
+	if(new == NULL) {
+		return;
+	}
+	memset(new,0,strlen(wname)+8);
+	strcpy(new,xport);
+	strcat(new,"://");
+	p = strstr(wname,"://");
+	if(p == NULL) {
+		return;
+	}
+	p += 3;
+	strcat(new,p);
+	memset(wname,0,strlen(wname));
+	strcpy(wname,new);
+printf("wname: %s\n",wname);
+	return;
+}
 
 
 void *PutThread(void *arg)
@@ -59,8 +86,12 @@ void *PutThread(void *arg)
 	 * much faster when each thread does this
 	 */
 	pthread_mutex_lock(&Plock);
+	if((Mixed_mode == 1) && (drand48() > 0.5)) {
+		ChangeXport(Iname,"mqtt");
+	}
 	seq_no = WooFGetLatestSeqno(Iname);
 	pthread_mutex_unlock(&Plock);
+
 
 	payload = (char *)malloc(Payload_size);
 	if(payload == NULL) {
@@ -82,6 +113,9 @@ void *PutThread(void *arg)
 		gettimeofday(&st->posted,NULL);
 //printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
 		pthread_mutex_unlock(&Plock);
+		if((Mixed_mode == 1) && (drand48() > 0.5)) {
+			ChangeXport(Iname,"mqtt");
+		}
 		seq_no = WooFPut(Iname,"stress_handler",st);
 //printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 		if(WooFInvalid(seq_no)) {
@@ -146,6 +180,9 @@ void *GetThread(void *arg)
 			seq_no = dn->value.l;
 //printf("GETING: %lu\n",seq_no);
 			while(retries < RETRIES) {
+				if((Mixed_mode == 1) && (drand48() > 0.5)) {
+					ChangeXport(Oname,"mqtt");
+				}
 				o_seq_no = WooFGetLatestSeqno(Oname);
 				if((o_seq_no == (unsigned long) -1) ||
 					       (o_seq_no == 0))	{
@@ -158,6 +195,11 @@ void *GetThread(void *arg)
 				}
 				while(1) {
 //printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+					if((Mixed_mode == 1) && (drand48() > 0.5)) {
+						ChangeXport(Oname,"mqtt");
+					} else if(Mixed_mode == 1) {
+						ChangeXport(Oname,"woof");
+					}
 					err = WooFGet(Oname,&st,o_seq_no);
 					if(err < 0) {
 						printf("get of seq_no %lu failed, retrying\n",seq_no);
@@ -226,6 +268,9 @@ int main(int argc, char **argv)
 				break;
 			case 'g':
 				gt = atoi(optarg);
+				break;
+			case 'M':
+				Mixed_mode = 1;
 				break;
 			case 'p':
 				pt = atoi(optarg);
