@@ -139,15 +139,62 @@ unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned lon
     return -1;
 }
 
+pthread_mutex_t ELock;
+
+//
+// this is complicated
+//
+// zmq and cmq can only both be configured wher cmq is operating in MQTT mode
+// (otherwise they have a port conflict for the listen port)
+//
+// Also, there is a race condition between the set backend and the get which is why there is a lock
+// FIX: this should work with "get_backend_with_name" but the rest of the platform crashes
 int WooFMsgServer(const char* woof_namespace) {
-    cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
-    if (!cspot::get_active_backend()->listen(woof_namespace)) {
-        return -1;
-    }
-    cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
-    if (!cspot::get_active_backend()->listen(woof_namespace)) {
-        return -1;
-    }
-    return cspot::get_active_backend()->stop() ? 0 : -1;
+	cspot::network_backend *be;
+	int oldcmq;
+	pthread_mutex_init(&ELock,NULL);
+
+	if(CMQ_use_mqtt == 1) {
+		pthread_mutex_lock(&ELock);
+		cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
+		be = cspot::get_active_backend();
+		pthread_mutex_unlock(&ELock);
+
+		if (be != NULL) {
+			be->listen(woof_namespace);
+		} else {
+			return -1;
+		}
+	}
+
+#ifndef USE_CMQ // use zmq
+	pthread_mutex_lock(&ELock);
+	cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
+	be = cspot::get_active_backend();
+	pthread_mutex_unlock(&ELock);
+
+	if (be != NULL) {
+		be->listen(woof_namespace);
+	} else {
+        	return -1;
+	}
+#else
+	// cmq and cmq+mqtt can co-exist if is zmq is not enabled
+	pthread_mutex_lock(&ELock);
+	cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
+	be = cspot::get_active_backend();
+	pthread_mutex_unlock(&ELock);
+
+	oldcmq = CMQ_use_mqtt;
+	CMQ_use_mqtt = 0;
+	if (be != NULL) {
+		be->listen(woof_namespace);
+	} else {
+		CMQ_use_mqtt = oldcmq;
+		return -1;
+	}
+	CMQ_use_mqtt = oldcmq;
+#endif
+	return cspot::get_active_backend()->stop() ? 0 : -1;
 }
 }
