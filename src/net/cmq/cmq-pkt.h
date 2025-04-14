@@ -22,6 +22,7 @@ typedef struct cmq_pkt_header_stc CMQPKTHEADER;
 extern "C" {
 #endif
 
+int cmq_pkt_init();
 int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout);
 int cmq_pkt_listen(unsigned long port);
 int cmq_pkt_accept(int sd, unsigned long timeout);

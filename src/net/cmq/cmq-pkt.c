@@ -10,6 +10,15 @@
 #include "cmq-mqtt-xport.h"
 
 int CMQ_use_mqtt = CMQMQTTXPORT;
+
+int cmq_pkt_init()
+{
+	if(CMQ_use_mqtt == 0) {
+		return(1);
+	} else {
+		return(cmq_mqtt_proxy_init());
+	}
+}
 	
 int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 {

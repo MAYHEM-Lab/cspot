@@ -11,6 +11,7 @@
 
 extern "C" {
 	extern unsigned int CMQ_use_mqtt;
+	extern int cmq_pkt_init();
 }
 
 namespace cspot {
@@ -29,7 +30,9 @@ struct registerer {
 	pthread_mutex_init(&ELock,NULL);
 	if(CMQ_use_mqtt == 1) {
         	zmq::backend_register();
-		cmq::backend_register();
+		if(cmq_pkt_init()) {
+			cmq::backend_register();
+		}
 	} else {
 #ifdef USE_CMQ
 		cmq::backend_register();

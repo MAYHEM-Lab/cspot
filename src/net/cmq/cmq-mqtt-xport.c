@@ -139,11 +139,18 @@ int cmq_mqtt_proxy_init()
 
 	// error out if we can't find creds file
 	if(found == 0) {
+		fprintf(stderr,"cmq_mqtt_proxy_init: could not find mqtt-proxy.yaml in cwd or %s/.cspot/mqtt-proxy.yaml\n",home_dir);
+		fprintf(stderr,"make sure file exists and perms are read only to this user\n");
+		fprintf(stderr,"mqtt transport will not be enabled without proxy configuration\n");
+		fflush(stderr);
 		return(-1);
 	}
 
 	file = fopen(credfile,"r");
 	if(file == NULL) {
+		fprintf(stderr,"cmq_mqtt_proxy_init: could not open %s for reading\n",credfile);
+		fprintf(stderr,"mqtt transport will not be enabled without proxy configuration\n");
+		fflush(stderr);
 		return(-1);
 	}
 
@@ -260,6 +267,12 @@ int cmq_mqtt_proxy_init()
 	    atexit(cmq_mqtt_shutdown);
 	    return(1);
     } else {
+	    fprintf(stderr,
+		"cmq_mqtt_proxy_init: %s contains incomplete mqtt proxy specification\n",credfile);
+	    fprintf(stderr,
+		"please ensure that %s contains proxy, namespace, broker_ip, user, and pw fields\n",credfile);
+	    fprintf(stderr,"mqtt transport will not be enabled without proxy configuration\n");
+	    fflush(stderr);
 	    return(-1);
     }
 }

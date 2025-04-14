@@ -53,6 +53,7 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl);
 int cmq_mqtt_recv_msg(int sd, unsigned char **fl);
 void cmq_mqtt_close(int sd);
 void cmq_mqtt_shutdown();
+int cmq_mqtt_proxy_init();
 #ifdef __cplusplus
 } // extern C
 #endif
