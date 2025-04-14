@@ -65,10 +65,16 @@ void *WooFMsgThread(void *arg) {
 			// process routines destroy fl
 			switch (tag) {
 				case WOOF_MSG_PUT:
-				    WooFProcessPut(fl,c_sd);
+				    WooFProcessPut(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_PUT_CAP:
+				    WooFProcessPutwithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET:
-				    WooFProcessGet(fl,c_sd);
+				    WooFProcessGet(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_CAP:
+				    WooFProcessGetwithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_EL_SIZE:
 				    WooFProcessGetElSize(fl,c_sd,1);
@@ -80,7 +86,10 @@ void *WooFMsgThread(void *arg) {
 				    WooFProcessGetTail(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_LATEST_SEQNO:
-				    WooFProcessGetLatestSeqno(fl,c_sd);
+				    WooFProcessGetLatestSeqno(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_LATEST_SEQNO_CAP:
+				    WooFProcessGetLatestSeqnowithCAP(fl,c_sd);
 				    break;
 	// these need to be  converte from zmq
 #ifdef DONEFLAG
