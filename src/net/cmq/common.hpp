@@ -6,7 +6,8 @@
 namespace cspot::cmq {
 void WooFProcessPut(unsigned char *fl, int sd);
 
-void WooFProcessGetElSize(unsigned char *fl, int sd);
+void WooFProcessGetElSize(unsigned char *fl, int sd, int no_cap);
+void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd);
 
 void WooFProcessGetLatestSeqno(unsigned char *fl, int sd);
 

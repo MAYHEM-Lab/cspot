@@ -71,7 +71,10 @@ void *WooFMsgThread(void *arg) {
 				    WooFProcessGet(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_EL_SIZE:
-				    WooFProcessGetElSize(fl,c_sd);
+				    WooFProcessGetElSize(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_EL_SIZE_CAP:
+				    WooFProcessGetElSizewithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_TAIL:
 				    WooFProcessGetTail(fl,c_sd);

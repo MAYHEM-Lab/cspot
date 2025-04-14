@@ -14,7 +14,7 @@ option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Emitting static binaries")
-    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic")
+    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lpthread")
     set(CMAKE_C_FLAGS "-ffunction-sections -fdata-sections")
     set(CMAKE_CXX_FLAGS "-std=gnu++17 -ffunction-sections -fdata-sections -Wl,-Bstatic")
 
@@ -76,7 +76,7 @@ target_include_directories(woof-mqtt PUBLIC
 
 find_package(Threads REQUIRED)
 
-target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets)
+target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)

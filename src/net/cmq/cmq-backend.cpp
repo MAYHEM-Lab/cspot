@@ -10,6 +10,7 @@
 #include <woofc-access.h>
 #include <woofc-priv.h>
 #include <woofc.h>
+#include <woofc-caplets.h>
 #include <string.h>
 
 extern "C" {
@@ -17,7 +18,7 @@ extern "C" {
 }
 
 namespace cspot::cmq {
-void WooFProcessGetElSize(unsigned char *fl, int sd) {
+void WooFProcessGetElSize(unsigned char *fl, int sd, int no_cap) {
 	int err;
 	unsigned char *woof_name;
 	unsigned char *r_fl;
@@ -43,6 +44,18 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+	sprintf(cap_name,"%s.CAP",local_name);
+	// if we find a CAP and there should not be one, error
+	if(no_cap == 1) {
+        	WOOF* wfc;
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+            		return;
+        	}
+	}
 
 	WOOF* wf;
 	if (err < 0) {
@@ -96,6 +109,87 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 
 	// destreoy the message
 	cmq_frame_list_destroy(r_fl);
+	return;
+}
+
+
+void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	WCAP *cap;
+	WOOF* wf;
+	WCAP principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetElSizewithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetElSizewithCAP could not get cap frame");
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof cap frame payload\n");
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame payload\n");
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP local name failed\n");
+		return;
+	}
+	char cap_name[1028] = {};
+	sprintf(cap_name,"%s.CAP",local_name);
+
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf) {
+		WooFProcessGetElSize(fl,sd,0);
+		return;
+	}
+	seq_no = WooFLatestSeqno(wf);
+	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+	WooFDrop(wf);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed\n");
+		return;
+	}
+	
+	DEBUG_LOG("WooFProcessGetElSizewithCAP: read CAP woof\n");
+	// check read perms
+	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: CAP auth %s\n",cap_name);
+		WooFProcessGetElSize(fl,sd,0);
+		return;
+	} 
+	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied %s\n",cap_name);
+	// denied
 	return;
 }
 
