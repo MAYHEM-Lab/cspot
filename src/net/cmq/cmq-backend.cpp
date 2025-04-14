@@ -386,6 +386,13 @@ void WooFProcessPutwithCAP(unsigned char *fl, int sd)
 		return;
 	}
 
+	seq_no = WooFLatestSeqno(wf);
+	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+	WooFDrop(wf);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessPutwithCAP cap get failed\n");
+		return;
+	}
 	if(strcmp(hname,"NULL") == 0) {
 		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE)) {
                         WooFProcessPut(fl,sd,0);
