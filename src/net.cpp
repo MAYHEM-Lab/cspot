@@ -28,18 +28,20 @@ pthread_mutex_t ELock;
 struct registerer {
     registerer() {
 	pthread_mutex_init(&ELock,NULL);
+#ifdef USE_CMQ
 	if(CMQ_use_mqtt == 1) {
-        	zmq::backend_register();
 		if(cmq_pkt_init()) {
 			cmq::backend_register();
-		}
+		} 
 	} else {
-#ifdef USE_CMQ
 		cmq::backend_register();
-#else
-        	zmq::backend_register();
-#endif
 	}
+#else
+       	zmq::backend_register();
+	if((CMQ_use_mqtt == 1) && cmq_pkt_init()) {
+		cmq::backend_register();
+	}
+#endif
 
         atexit([]{
             active_backend.reset();
@@ -184,8 +186,8 @@ unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned lon
 // FIX: this should work with "get_backend_with_name" but the rest of the platform crashes
 int WooFMsgServer(const char* woof_namespace) {
 	cspot::network_backend *be;
-	int oldcmq;
 
+#ifdef USE_CMQ
 	if(CMQ_use_mqtt == 1) {
 		pthread_mutex_lock(&cspot::ELock);
 		cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
@@ -194,12 +196,35 @@ int WooFMsgServer(const char* woof_namespace) {
 
 		if (be != NULL) {
 			be->listen(woof_namespace);
+//			CMQ_use_mqtt = 0;
+//			be->listen(woof_namespace);
+//			CMQ_use_mqtt = 1;
 		} else {
 			return -1;
 		}
+	} else {
+		pthread_mutex_lock(&cspot::ELock);
+		cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
+		be = cspot::get_active_backend();
+		pthread_mutex_unlock(&cspot::ELock);
+		if(be != NULL) {
+			be->listen(woof_namespace);
+		}
 	}
 
-#ifndef USE_CMQ // use zmq
+#else // use zmq
+	if(CMQ_use_mqtt == 1) {
+		pthread_mutex_lock(&cspot::ELock);
+		cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
+		be = cspot::get_active_backend();
+		pthread_mutex_unlock(&cspot::ELock);
+		if(be != NULL) {
+			be->listen(woof_namespace);
+		} else {
+        		return -1;
+		}
+	}
+
 	pthread_mutex_lock(&cspot::ELock);
 	cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
 	be = cspot::get_active_backend();
@@ -210,22 +235,7 @@ int WooFMsgServer(const char* woof_namespace) {
 	} else {
         	return -1;
 	}
-#else
 	// cmq and cmq+mqtt can co-exist if is zmq is not enabled
-	pthread_mutex_lock(&cspot::ELock);
-	cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
-	be = cspot::get_active_backend();
-	pthread_mutex_unlock(&cspot::ELock);
-
-	oldcmq = CMQ_use_mqtt;
-	CMQ_use_mqtt = 0;
-	if (be != NULL) {
-		be->listen(woof_namespace);
-	} else {
-		CMQ_use_mqtt = oldcmq;
-		return -1;
-	}
-	CMQ_use_mqtt = oldcmq;
 #endif
 	return cspot::get_active_backend()->stop() ? 0 : -1;
 }
