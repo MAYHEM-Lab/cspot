@@ -29,6 +29,7 @@ unsigned long WooFPutWithCause(const char* wf_name,
 
 int WooFURINameSpace(char* woof_uri_str, char* woof_namespace, int len);
 int WooFLocalName(const char* woof_name, char* local_name, int len);
+int WooFNamespaceURI(char *woof_name, char *uri, int len);
 
 #ifdef REPAIR
 unsigned long int LogGetRemoteSize(char* endpoint);
@@ -36,7 +37,8 @@ int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
 int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
-#define CMQMQTTXPORT (0)
+//#define USE_CMQ
+#define CMQMQTTXPORT (1)
 #ifdef USE_CMQ
 #define BACKEND "cmq"
 // change to 1 for mqtt version of cmq

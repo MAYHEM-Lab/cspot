@@ -273,6 +273,39 @@ int WooFLocalName(const char* woof_name, char* local_name, int len) {
     return (WooFNameFromURI(woof_name, local_name, len));
 }
 
+// trim off woof name for ns look up (caplets)
+int WooFNamespaceURI(char *woof_name, char *uri, int len)
+{	
+	char *p;
+	char *next;
+	int i;
+
+	memset(uri,0,len);
+	next = woof_name;
+	p = NULL;
+	i = 0;
+	while(next[i] != 0) {
+		if(next[i] == '/') {
+			p = &next[i];
+		}
+		i++;
+		if(i >= len) {
+			break;
+		}
+	}
+	if(p == NULL) {
+		return(-1);
+	}
+	// was the last char a /?
+	if((p+1) == next) {
+		return(-1);
+	}
+	strncpy(uri,woof_name,(int)(p - woof_name));
+	return(1);
+}
+	
+
+
 #ifdef REPAIR
 void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {
     zmsg_t* r_msg;
