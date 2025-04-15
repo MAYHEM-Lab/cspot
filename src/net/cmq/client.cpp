@@ -492,7 +492,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 
 	has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
-	DEBUG_LOG("WooFMsgPut: woof: %s trying enpoint\n", woof_name.c_str());
+	DEBUG_LOG("WooFMsgPut: cmq woof: %s trying enpoint\n", woof_name.c_str());
 
 	// create request msg
 	err = cmq_frame_list_create(&fl);
@@ -510,7 +510,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 				new_cap = WooFCapAttenuate(&cap,WCAP_EXEC);
 			}
 			if(new_cap != NULL) {
-				// tage first
+				// tag first
 				t_str = std::to_string(WOOF_MSG_PUT_CAP).c_str();
 				err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
 				if(err < 0) {
@@ -712,7 +712,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 
 	has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
-	DEBUG_LOG("WooFMsgGetElSize: woof: %s trying enpoint\n", woof_name.c_str());
+	DEBUG_LOG("WooFMsgGetElSize: cmq woof: %s trying enpoint\n", woof_name.c_str());
 
 	// create request msg
 	err = cmq_frame_list_create(&fl);
@@ -726,7 +726,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 		if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
 			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 			if(new_cap != NULL) {
-				// tage first
+				// tag first
 				t_str = std::to_string(WOOF_MSG_GET_EL_SIZE_CAP).c_str();
 				err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
 				if(err < 0) {

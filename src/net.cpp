@@ -66,10 +66,12 @@ std::unique_ptr<network_backend> get_backend_with_name(std::string_view backend_
 void register_backend(std::string name, std::function<std::unique_ptr<network_backend>()> factory) {
 //    DEBUG_LOG("Registering backend %s\n", name.c_str());
 // not sure why but with DEBUG on, this log call causes the 33rd process spawn to hang (on ubuntu, at least)
-#ifdef DEBUG
-    printf("Registering backend %s\n",name.c_str());
+    if(CMQ_use_mqtt == 1) {
+    	printf("Registering backend %s and mqtt backend\n",name.c_str());
+    } else {
+    	printf("Registering backend %s\n",name.c_str());
+    }
     fflush(stdout);
-#endif
     backend_factories.emplace(std::move(name), std::move(factory));
 }
 
