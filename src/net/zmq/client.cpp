@@ -224,7 +224,16 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     const char *hname;
     ZMsgPtr msg;
     if(has_cap == 1) {
-	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+	char ns[1024];
+	(void)WooFNameSpaceFromURI((char *)std::string(woof_name).c_str(),ns,sizeof(ns));
+	char ns_cap[1024];
+	snprintf(ns_cap,sizeof(ns_cap),"%s/CSPOT.CAP",ns);
+
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+		       (SearchKeychain(cap_file,ns_cap,&cap) >= 0))	{
+printf("ns_cap: %s\n",ns_cap);
+fflush(stdout);
+
 //WooFCapPrint((char *)std::string(woof_name).c_str(),&cap);
 		if(handler_name == NULL) {
 			new_cap = WooFCapAttenuate(&cap,WCAP_WRITE); // drop privs if we can
