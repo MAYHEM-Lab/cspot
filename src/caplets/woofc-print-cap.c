@@ -12,8 +12,8 @@
 #include "woofc-priv.h"
 #include "woofc-caplets.h"
 
-#define ARGS "W:p:h:C:P:"
-char *Usage = "woofc-print-cap -W local-woof-name\n\
+#define ARGS "W:Np:h:C:P:"
+char *Usage = "woofc-print-cap [-W local-woof-name || -N <for namespace>]\n\
 \t-C check from an existing cap (will use principal if zero)\n\
 \t-P permissions from an existing cap\n\
 \t-p permission\n\
@@ -35,15 +35,20 @@ int main(int argc, char**argv)
 	WCAP *new_cap;
 	uint64_t check = 0;
 	uint32_t start_perm = 0;
+	int is_namespace;
 
 	WooFInit();
 
 	memset(host_ip,0,sizeof(host_ip));
 	memset(local_woof_name,0,sizeof(local_woof_name));
+	is_namespace = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
 				strncpy(local_woof_name,optarg,sizeof(local_woof_name));
+				break;
+			case 'N':
+				is_namespace = 1;
 				break;
 			case 'C':
 				check = (uint64_t)strtol(optarg,NULL,10);
@@ -64,8 +69,8 @@ int main(int argc, char**argv)
 		}
 	}
 
-	if(local_woof_name[0] == 0) {
-		fprintf(stderr,"must specify local woof name\n");
+	if((is_namespace == 0) && (local_woof_name[0] == 0)) {
+		fprintf(stderr,"must specify local woof name or namepsace path\n");
 		fprintf(stderr,"%s",Usage);
 		exit(1);
 	}
@@ -78,7 +83,11 @@ int main(int argc, char**argv)
 	}
 
 	if(check == 0) { // start with principal cap
-		sprintf(woof_name,"%s.CAP",local_woof_name);
+		if(is_namespace == 1) {
+			sprintf(woof_name,"%s/CSPOT.CAP",local_woof_name);
+		} else {
+			sprintf(woof_name,"%s.CAP",local_woof_name);
+		}
 
 		wf = WooFOpen(woof_name);
 		if(wf == NULL) {
@@ -141,13 +150,25 @@ int main(int argc, char**argv)
 	}
 
 	if(host_ip[0] != 0) {
-		sprintf(pname,"woof://%s%s/%s",host_ip,cwd,local_woof_name);
+		if(is_namespace == 1) {
+			sprintf(pname,"woof://%s%s",host_ip,cwd);
+		} else {
+			sprintf(pname,"woof://%s%s/%s",host_ip,cwd,local_woof_name);
+		}
 	} else {
-		sprintf(pname,"%s/%s",cwd,local_woof_name);
+		if(is_namespace == 1) {
+			sprintf(pname,"%s",cwd);
+		} else {
+			sprintf(pname,"%s/%s",cwd,local_woof_name);
+		}
 	}
 	free(cwd);
 
-	WooFCapPrint(pname,new_cap);
+	if(is_namespace == 1) {
+		WooFNamespaceCapPrint(pname,new_cap);
+	} else {
+		WooFCapPrint(pname,new_cap);
+	}
 	free(new_cap);
 
 

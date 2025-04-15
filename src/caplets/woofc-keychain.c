@@ -18,6 +18,14 @@ void WooFCapPrint(char *woof_name, WCAP *cap)
         printf("\tcheck: %lu\n",cap->check);
         return;
 }
+void WooFNamespaceCapPrint(char *woof_name, WCAP *cap)
+{
+        printf("namespace:\n");
+        printf("  name: %s\n",woof_name);
+        printf("  permissions: %8.8x\n",cap->permissions);
+        printf("  check: %lu\n",cap->check);
+        return;
+}
 #endif
 
 int SearchKeychain(const char *filename, char *woof_name, WCAP *cap) 
@@ -82,8 +90,10 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 					break;
 				}
 				if(state == 0) {
-					if(strncmp(event.data.scalar.value,
-						"woof",strlen("woof")) == 0) {
+					if((strncmp(event.data.scalar.value,
+						"woof",strlen("woof")) == 0) ||
+					   (strncmp(event.data.scalar.value,
+                                                "namespace",strlen("namespace")) == 0))	{
 						state = 1; //next state
 					}
 				} else if(state == 1) {
@@ -91,8 +101,10 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 						"name",strlen("name")) == 0) {
 					state = 2;
 					}
-					if(strncmp(event.data.scalar.value,
-                                                "woof",strlen("woof")) == 0) {
+					if((strncmp(event.data.scalar.value,
+                                                "woof",strlen("woof")) == 0) ||
+				           (strncmp(event.data.scalar.value,
+                                                "namespace",strlen("namespace")) == 0))	{
                                         state = 1;
                                         }
 
@@ -119,8 +131,10 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 							strlen("permissions")) == 0) {
 						state = 4;
 					}
-					if(strncmp(k_perms,"woof",
-							strlen("woof")) == 0) {
+					if((strncmp(k_perms,"woof",
+							strlen("woof")) == 0) ||
+				           (strncmp(k_perms,"namespace",
+                                                        strlen("namespace")) == 0))	{
 						state = 1;
 					}
 				} else if(state == 4) {
@@ -136,8 +150,10 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 							strlen("check")) == 0) {
 						state = 6;
 					}
-					if(strncmp(k_check,"woof",
-							strlen("woof")) == 0) {
+					if((strncmp(k_check,"woof",
+							strlen("woof")) == 0) ||
+				           (strncmp(k_check,"namespace",
+                                                        strlen("namespace")) == 0))	{
 						state = 1;
 					}
 				} else if(state == 6) {
@@ -221,8 +237,9 @@ int WooFCapFile(char *capfile, int size)
 }
 
 #ifdef TEST
-#define ARGS "f:W:"
+#define ARGS "f:W:N:"
 char *Usage = "woofc-keychain-search -f config.yaml\n\
+\t-N namespace\n\
 \t-W woof-name\n";
 char Fname[4096];
 char Wname[4096];
@@ -232,6 +249,7 @@ int main(int argc, char **argv)
 	uint64_t check;
 	int err;
 	WCAP cap;
+	int is_namespace = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -240,6 +258,10 @@ int main(int argc, char **argv)
 				break;
 			case 'W':
 				strncpy(Wname,optarg,sizeof(Fname));
+				break;
+			case 'N':
+				strncpy(Wname,optarg,sizeof(Fname));
+				is_namespace = 1;
 				break;
 			default:
 				fprintf(stderr,"unrecognized command %c\n",
@@ -261,7 +283,11 @@ int main(int argc, char **argv)
 			fprintf(stderr,"could not find check for %s in %s\n",
 					Wname,Fname);
 		} else {
-			WooFCapPrint(Wname,&cap);
+			if(is_namespace == 1) {
+				WooFNamespaceCapPrint(Wname,&cap);
+			} else {
+				WooFCapPrint(Wname,&cap);
+			}
 		}
 	}
 	return 0;

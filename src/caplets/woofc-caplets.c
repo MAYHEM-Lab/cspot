@@ -172,3 +172,12 @@ void WooFCapPrint(char *woof_name, WCAP *cap)
 	printf("  check: %llu\n",cap->check);
 	return;
 }
+
+void WooFNamespaceCapPrint(char *woof_name, WCAP *cap)
+{
+	printf("namespace:\n");
+	printf("  name: %s\n",woof_name);
+	printf("  permissions: %8.8x\n",cap->permissions);
+	printf("  check: %llu\n",cap->check);
+	return;
+}
