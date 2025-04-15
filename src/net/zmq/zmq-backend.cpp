@@ -198,7 +198,9 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	char *wname;
 	char *hname;
 	WOOF* wf;
+	WOOF* wf_ns;
 	WCAP principal;
+	WCAP ns_principal;
 	unsigned long seq_no;
 	int err;
 
@@ -235,17 +237,27 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 		return;
 	}
 	char cap_name[1028] = {};
+	sprintf(cap_name,"CSPOT.CAP",strlen("CSPOT.CAP"));
+	wf_ns = WooFOpen(cap_name);
 	sprintf(cap_name,"%s.CAP",local_name);
-
 	wf = WooFOpen(cap_name);
+
 	// backwards compatibility: no CAP => authorized
-	if(!wf) {
+	if(!wf_ns && !wf) {
 		WooFProcessPut(std::move(req_msg),resp_sock,0);
 		return;
 	}
-	seq_no = WooFLatestSeqno(wf);
-	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
-	WooFDrop(wf);
+
+	if(wf){
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+	}
+	if(wf_ns) {
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+	}
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessPutwithCAP cap get failed\n");
 		return;
@@ -256,7 +268,8 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	// reset zmsg cursor
 	wname = (char *)zmsg_first(req_msg.get());
 	if(strcmp(hname,"NULL") == 0) { // no handler check write permse
-		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE)) {
+		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE) ||
+				WooFCapAuthorized(ns_principal.check,cap,WCAP_WRITE)) {
 			WooFProcessPut(std::move(req_msg),resp_sock,0);
 			DEBUG_WARN("WooFProcessPutwithCAP: no handler auth %s\n",cap_name);
 			return;
@@ -265,7 +278,8 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 					cap->check);
 		}
 	} else { // check execute perms
-		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC)) {
+		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC) ||
+				WooFCapAuthorized(ns_principal.check,cap,WCAP_EXEC)) {
 			DEBUG_WARN("WooFProcessPutwithCAP: handler %s auth %s\n",hname,cap_name);
 			WooFProcessPut(std::move(req_msg),resp_sock,0);
 			return;

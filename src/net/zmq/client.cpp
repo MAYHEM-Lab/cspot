@@ -229,9 +229,6 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
 	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) ||
 			(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
-
-printf("cap_file: %s\n",cap_file);
-WooFCapPrint(ns_cap,&cap);
 		if(handler_name == NULL) {
 			new_cap = WooFCapAttenuate(&cap,WCAP_WRITE); // drop privs if we can
 		} else {
