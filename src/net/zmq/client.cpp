@@ -38,8 +38,9 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     if(has_cap == 1) {
 	char ns_cap[1024];
 	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
-	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) ||
-		(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
+	// look for specific CAP before ns CAP
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			(SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
@@ -230,8 +231,9 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 
 	char ns_cap[1024];
 	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
-	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) ||
-			(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
+	// search for specific cap first
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			(SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 		if(handler_name == NULL) {
 			new_cap = WooFCapAttenuate(&cap,WCAP_WRITE); // drop privs if we can
 		} else {
@@ -330,8 +332,9 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
     if(has_cap == 1) {
 	char ns_cap[1024];
 	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
-	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) || 
-			(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
+	// search for specifc CAP first
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			(SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
@@ -419,8 +422,9 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
     if(has_cap == 1) {
 	char ns_cap[1024];
 	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
-	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) || 
-			(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
+	// search for specific CAP first
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			(SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
