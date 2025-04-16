@@ -36,7 +36,10 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     }
     ZMsgPtr msg;
     if(has_cap == 1) {
-	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+	char ns_cap[1024];
+	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) ||
+		(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
@@ -325,7 +328,10 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 
     ZMsgPtr msg;
     if(has_cap == 1) {
-	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+	char ns_cap[1024];
+	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) || 
+			(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
@@ -411,7 +417,10 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
 
     ZMsgPtr msg;
     if(has_cap == 1) {
-	if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+	char ns_cap[1024];
+	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+	if((SearchKeychain(cap_file,ns_cap,&cap) >= 0) || 
+			(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0)) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
