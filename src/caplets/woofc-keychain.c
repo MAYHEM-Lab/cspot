@@ -42,6 +42,7 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 	int state; // 0 => looking, 1 => woof: 2 => check: 
 	int found;
 	int i;
+	int is_comment;
 
 
 	if(file == NULL) {
@@ -90,11 +91,16 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 				if(woof_name == NULL) {
 					break;
 				}
+				is_comment = 0;
 				for(i=0; i < strlen(event.data.scalar.value); i++) {
 					// is this a comment?
 					if(event.data.scalar.value[i] == '#') {
+						is_comment = 1;
 						break;
 					}
+				}
+				if(is_comment == 1) {
+					break;
 				}
 				if(state == 0) {
 					if((strncmp(event.data.scalar.value,
