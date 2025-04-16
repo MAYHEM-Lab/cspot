@@ -630,7 +630,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// check read perms
 	if(WooFCapAuthorized(principal.check,cap,WCAP_READ) ||
 			WooFCapAuthorized(ns_principal.check,cap,WCAP_READ)) {
-		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth %s\n",cap_name);
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
 		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
 		return;
 	} 
