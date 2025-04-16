@@ -41,6 +41,7 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 	uint64_t k_check_value;
 	int state; // 0 => looking, 1 => woof: 2 => check: 
 	int found;
+	int i;
 
 
 	if(file == NULL) {
@@ -88,6 +89,12 @@ int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
 				// NULL implies just print
 				if(woof_name == NULL) {
 					break;
+				}
+				for(i=0; i < strlen(event.data.scalar.value); i++) {
+					// is this a comment?
+					if(event.data.scalar.value[i] == '#') {
+						break;
+					}
 				}
 				if(state == 0) {
 					if((strncmp(event.data.scalar.value,
