@@ -120,7 +120,9 @@ void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd)
 	char *wname;
 	WCAP *cap;
 	WOOF* wf;
+	WOOF* wf_ns;
 	WCAP principal;
+	WCAP ns_principal;
 	unsigned long seq_no;
 	int err;
 
@@ -165,30 +167,53 @@ void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd)
 		return;
 	}
 	char cap_name[1028] = {};
-	sprintf(cap_name,"%s.CAP",local_name);
 
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
 	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
-	if(!wf) {
+	if(!wf && !wf_ns) {
 		WooFProcessGetElSize(fl,sd,0);
 		return;
 	}
-	seq_no = WooFLatestSeqno(wf);
-	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
-	WooFDrop(wf);
-	if(err < 0) {
-		DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed\n");
-		return;
+
+	if(wf){
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed\n");
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetElSizewithCAP: read CAP woof from %s\n",cap_name);
 	}
-	
-	DEBUG_LOG("WooFProcessGetElSizewithCAP: read CAP woof\n");
+
+	if(wf_ns){
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get for ns failed\n");
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetElSizewithCAP: read CAP woof ns\n");
+	}
 	// check read perms
-	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
-		DEBUG_WARN("WooFProcessGetElSizewithCAP: CAP auth %s\n",cap_name);
+	if(WooFCapAuthorized(principal.check,cap,WCAP_READ) ||
+	   WooFCapAuthorized(ns_principal.check,cap,WCAP_READ)) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: CAP auth\n",cap_name);
 		WooFProcessGetElSize(fl,sd,0);
 		return;
 	} 
-	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied %s\n",cap_name);
+	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied\n");
 	// denied
 	return;
 }
