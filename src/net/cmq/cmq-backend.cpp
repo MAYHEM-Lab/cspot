@@ -436,7 +436,7 @@ void WooFProcessPutwithCAP(unsigned char *fl, int sd)
 	if(wf_ns) {
 		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
-		err = WooFReadWithCause(wf,&ns_principal,seq_no,0,0);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
 		if(err < 0) {
 			if(wf) {
@@ -692,7 +692,7 @@ void WooFProcessGetwithCAP(unsigned char *fl, int sd)
 	if(wf_ns) {
 		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
-		err = WooFReadWithCause(wf,&ns_principal,seq_no,0,0);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
 		if(err < 0) {
 			if(wf) {
@@ -929,7 +929,7 @@ void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd)
 	if(wf_ns) {
 		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
-		err = WooFReadWithCause(wf,&ns_principal,seq_no,0,0);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
 		if(err < 0) {
 			if(wf) {
