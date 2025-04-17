@@ -120,6 +120,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		return;
 	}
 	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf);
 		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
 		WooFDrop(wf);
@@ -133,6 +134,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		DEBUG_LOG("WooFProcessGetElSizewithCAP cap get suceeded for cap %s\n",cap_name);
 	}
 	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
 		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
@@ -273,6 +275,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	}
 
 	if(wf){
+		memset(&principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf);
 		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
 		WooFDrop(wf);
@@ -286,6 +289,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for woof cap %s\n",cap_name);
 	}
 	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
 		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
@@ -446,6 +450,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		return;
 	}
 	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf);
 		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
 		WooFDrop(wf);
@@ -459,6 +464,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		DEBUG_LOG("WooFProcessGetwithCAP: cap get suceeded CAP %s\n",cap_name);
 	}
 	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
 		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
@@ -598,6 +604,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		return;
 	}
 	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf);
 		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
 		WooFDrop(wf);
@@ -611,6 +618,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP from %s\n",cap_name);
 	}
 	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
 		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
 		WooFDrop(wf_ns);
