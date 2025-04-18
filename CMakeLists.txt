@@ -76,7 +76,7 @@ target_include_directories(woof-mqtt PUBLIC
 
 find_package(Threads REQUIRED)
 
-target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net woof_cmq_net)
+target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets)
 target_compile_features(woof PUBLIC cxx_std_17)
 
 target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)
@@ -137,7 +137,7 @@ add_subdirectory(apps)
 
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 install(
-    TARGETS woof mio euca_utils uriparser2 fmt woof_zmq_net woof_cmq_net
+    TARGETS woof mio euca_utils uriparser2 fmt woof_zmq_net woof_cmq_net woof_caplets
     EXPORT woof
     DESTINATION lib
 )

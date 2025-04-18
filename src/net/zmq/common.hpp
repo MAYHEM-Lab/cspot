@@ -8,6 +8,7 @@
 
 namespace cspot::zmq {
 void WooFProcessPut(ZMsgPtr req_msg, zsock_t* receiver);
+void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* receiver);
 
