@@ -125,6 +125,13 @@ void WooFMsgThread() {
          * wait for next request
          */
         msg = Receive(*receiver);
+        if(!msg) {
+                // if something went wrong, next recive will fail
+//              zsock_destroy(receiver);
+                receiver = ZServerPtr(zsock_new_rep(">inproc://workers"));
+                msg = Receive(*receiver);
+        }
+
     }
 }
 } // namespace
