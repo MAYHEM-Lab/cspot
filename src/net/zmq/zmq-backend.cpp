@@ -30,10 +30,16 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     DEBUG_LOG("WooFProcessGetElSize: called on %s",local_name);
 
     char cap_name[1028] = {};
-    sprintf(cap_name,"%s.CAP",local_name);
     // if we find a CAP and there should not be one, error
     if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
     	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
@@ -193,10 +199,16 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     char cap_name[1028] = {};
-    sprintf(cap_name,"%s.CAP",local_name);
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
     	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
@@ -353,10 +365,16 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
 
     char cap_name[1028] = {};
-    sprintf(cap_name,"%s.CAP",local_name);
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
     	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
@@ -513,13 +531,20 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
 
     char cap_name[1028] = {};
-    sprintf(cap_name,"%s.CAP",local_name);
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
     	WOOF* wfc;
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
             DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
+	    WooFDrop(wfc);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+            DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
 	    WooFDrop(wfc);
 	    return;
 	}
@@ -662,10 +687,16 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
 
     char cap_name[1028] = {};
-    sprintf(cap_name,"%s.CAP",local_name);
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
     	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+	    WooFDrop(wfc);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);

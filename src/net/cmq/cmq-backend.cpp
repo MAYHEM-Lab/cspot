@@ -46,10 +46,16 @@ void WooFProcessGetElSize(unsigned char *fl, int sd, int no_cap) {
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
 
 	char cap_name[1028] = {};
-	sprintf(cap_name,"%s.CAP",local_name);
 	// if we find a CAP and there should not be one, error
 	if(no_cap == 1) {
+		sprintf(cap_name,"%s.CAP",local_name);
         	WOOF* wfc;
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+            		return;
+        	}
+		strcpy(cap_name,"CSPOT.CAP");
         	wfc = WooFOpen(cap_name);
         	if(wfc) {
             		WooFDrop(wfc);
@@ -283,10 +289,16 @@ void WooFProcessPut(unsigned char *fl, int sd, int no_cap) {
 	cmq_frame_destroy(woof_name);
 
 	char cap_name[1028] = {};
-	sprintf(cap_name,"%s.CAP",local_name);
     // if there is a cap there should not be one, error
 	if(no_cap == 1) {
+		sprintf(cap_name,"%s.CAP",local_name);
 		WOOF* wfc;
+		wfc = WooFOpen(cap_name);
+		if(wfc) {
+			WooFDrop(wfc);
+			return;
+		}
+		strcpy(cap_name,"CSPOT.CAP");
 		wfc = WooFOpen(cap_name);
 		if(wfc) {
 			WooFDrop(wfc);
@@ -521,10 +533,16 @@ void WooFProcessGet(unsigned char *fl, int sd, int no_cap)
     	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
 
 	char cap_name[1028] = {};
-        sprintf(cap_name,"%s.CAP",local_name);
         // if we find a CAP and there should not be one, error
         if(no_cap == 1) {
+        	sprintf(cap_name,"%s.CAP",local_name);
                 WOOF* wfc;
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+                        return;
+                }
+		strcpy(cap_name,"CSPOT.CAP");
                 wfc = WooFOpen(cap_name);
                 if(wfc) {
                         WooFDrop(wfc);
@@ -780,10 +798,16 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd, int no_cap) {
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
 	        char cap_name[1028] = {};
 
-        sprintf(cap_name,"%s.CAP",local_name);
         // if we find a CAP and there should not be one, error
         if(no_cap == 1) {
+        	sprintf(cap_name,"%s.CAP",local_name);
                 WOOF* wfc;
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+                        return;
+                }
+		strcpy(cap_name,"CSPOT.CAP");
                 wfc = WooFOpen(cap_name);
                 if(wfc) {
                         WooFDrop(wfc);
