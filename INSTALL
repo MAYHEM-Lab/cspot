@@ -11,7 +11,7 @@ cmake -G Ninja ..
 ninja
 sudo ninja install
 cd ..
-chown -R ubuntu:ubuntu .
+sudo chown -R ubuntu:ubuntu .
 
 #copy the files in build/bin to ~/bin -- and put ~/bin in your PATH
 #create 1+ namespace folders on your file system and change their owner and group to your user ID and group
