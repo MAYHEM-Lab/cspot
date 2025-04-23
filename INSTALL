@@ -1,0 +1,25 @@
+These are the steps to install cspot on an ubuntu system without docker:
+
+sudo apt-get update
+sudo apt-get -y install ninja-build g++-9 cmake g++
+sudo apt-get -y install libssl-dev libyaml-dev
+git submodule update --init --recursive
+sed -i '/^option(BUILD_TESTS "Whether or not to build the tests" ON)$/s/ON/OFF/' deps/libzmq/CMakeLists.txt
+mkdir build
+cd build/
+cmake -G Ninja ..
+ninja
+sudo ninja install
+cd ..
+chown -R ubuntu:ubuntu .
+
+#copy the files in build/bin to ~/bin -- and put ~/bin in your PATH
+#create 1+ namespace folders on your file system and change their owner and group to your user ID and group
+#copy build/bin/woofc* to each namespace folder on this system
+
+#after making modifications to existing files, rebuild in the build dir:
+ninja
+sudo ninja install
+cp bin/* ~/bin
+cp bin/woofc* /YOUR_NAMESPACE_FOLDER
+
