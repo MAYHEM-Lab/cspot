@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#ifdef __APPLE__
+#include </opt/homebrew/opt/openssl/include/openssl/hmac.h>
+#else
 #include <openssl/hmac.h>
+#endif
 #include <time.h>
 #include <sys/time.h>
 

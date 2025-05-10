@@ -1,5 +1,27 @@
+if(APPLE)
+cmake_minimum_required(VERSION 3.13...4.0)
+else()
 cmake_minimum_required(VERSION 3.13)
+endif()
 project(cspot VERSION 2.0.0)
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+    message(STATUS "Configuring for Apple Silicon (ARM64)")
+
+    set(CMAKE_OSX_ARCHITECTURES arm64)
+
+    # Manually specify Homebrew ARM64 paths
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+    set(OPENSSL_INCLUDE_DIR "${OPENSSL_ROOT_DIR}/include")
+    set(OPENSSL_LIBRARIES "${OPENSSL_ROOT_DIR}/lib")
+
+    include_directories(/opt/homebrew/include)
+    link_directories(/opt/homebrew/lib)
+
+#    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
+endif()
+
+find_package(OpenSSL REQUIRED)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -12,10 +34,11 @@ set(BUILD_SHARED_LIBS OFF)
 option(ENABLE_PYCSPOT "Enable cspot python bindings" OFF)
 option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Emitting static binaries")
     set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lpthread")
-    set(CMAKE_C_FLAGS "-ffunction-sections -fdata-sections")
+    set(CMAKE_C_FLAGS "-I ../src/include -ffunction-sections -fdata-sections")
     set(CMAKE_CXX_FLAGS "-std=gnu++17 -ffunction-sections -fdata-sections -Wl,-Bstatic")
 
 #    if (CMAKE_BUILD_TYPE MATCHES "Release")
@@ -56,14 +79,29 @@ add_library(woof-mqtt
 )
 
 
+if(APPLE1)
+target_include_directories(woof PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+#        ${OPENSSL_INCLUDE_DIR}
+        )
+else()
 target_include_directories(woof PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
         )
+endif()
 
+if(APPLE1)
+target_include_directories(woof PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+#        ${OPENSSL_INCLUDE_DIR}
+)
+else()
 target_include_directories(woof PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+endif()
 
 target_include_directories(woof-mqtt PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
@@ -76,7 +114,11 @@ target_include_directories(woof-mqtt PUBLIC
 
 find_package(Threads REQUIRED)
 
+if(APPLE1)
+target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_cmq_net woof_caplets Threads::Threads)
+else()
 target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads)
+endif()
 target_compile_features(woof PUBLIC cxx_std_17)
 
 target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)
@@ -112,9 +154,11 @@ target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
 
 #add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.cpp)
+if(!APPLE)
 add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.c)
 target_link_libraries(woofc-mqtt-gateway woof woof-mqtt)
 target_include_directories(woofc-mqtt-gateway PRIVATE src/include)
+endif()
 
 function (add_handler name)
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp
@@ -136,6 +180,18 @@ endfunction()
 add_subdirectory(apps)
 
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+if(APPLE)
+install(
+    TARGETS woof mio euca_utils uriparser2 fmt woof_cmq_net woof_zmq_net woof_caplets
+    EXPORT woof
+    DESTINATION lib
+)
+install(
+    TARGETS woofc-shepherd woofc-container woofc-namespace-platform
+    EXPORT woof
+    DESTINATION bin
+)
+else()
 install(
     TARGETS woof mio euca_utils uriparser2 fmt woof_zmq_net woof_cmq_net woof_caplets
     EXPORT woof
@@ -146,6 +202,7 @@ install(
     EXPORT woof
     DESTINATION bin
 )
+endif()
 #install(TARGETS czmq-static EXPORT woof DESTINATION lib)
 
 install(EXPORT woof DESTINATION lib/cmake/woof)
