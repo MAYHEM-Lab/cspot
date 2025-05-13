@@ -154,7 +154,7 @@ target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
 
 #add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.cpp)
-if(!APPLE)
+if(NOT APPLE)
 add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.c)
 target_link_libraries(woofc-mqtt-gateway woof woof-mqtt)
 target_include_directories(woofc-mqtt-gateway PRIVATE src/include)
