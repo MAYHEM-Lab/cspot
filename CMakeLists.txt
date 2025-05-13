@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.13)
 endif()
 project(cspot VERSION 2.0.0)
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+if(APPLE)
     message(STATUS "Configuring for Apple Silicon (ARM64)")
 
     set(CMAKE_OSX_ARCHITECTURES arm64)
@@ -17,11 +17,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64" OR CMAKE_OSX_ARCHITECTURES MATCHES "ar
 
     include_directories(/opt/homebrew/include)
     link_directories(/opt/homebrew/lib)
+    find_package(OpenSSL REQUIRED)
 
 #    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
 endif()
 
-find_package(OpenSSL REQUIRED)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
