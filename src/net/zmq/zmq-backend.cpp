@@ -381,9 +381,8 @@ printf("attn p %s: %lu\n",hname,new_cap_p->check);
 		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for ns cap\n");
 	}
 
-	int psize = elem.size() + strlen(wname) + 2 + strlen(hname) + 2;
+	int psize = elem.size() + strlen(wname) + strlen(hname);
 	char *payload = (char *)malloc(psize);
-	memset(payload,psize,0);
 	if(payload == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP could not get space for sig payload\n");
 		if(new_cap_p != NULL) {
@@ -394,8 +393,12 @@ printf("attn p %s: %lu\n",hname,new_cap_p->check);
 		}
 		return;
 	}
-	snprintf(payload,psize,"%s %s ",wname,hname);
-	char *pptr = payload + strlen(payload);
+	char *pptr = payload;
+	memset(payload,0,psize);
+	memcpy(pptr,wname,strlen(wname));
+	pptr += strlen(wname);
+	memcpy(pptr,hname,strlen(hname));
+	pptr += strlen(hname);
 	memcpy(pptr,elem.data(),elem.size());
 	uint64_t sig_p = 0;
 	if(new_cap_p != NULL) {
