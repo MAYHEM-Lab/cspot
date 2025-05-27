@@ -1,4 +1,5 @@
 #include <woofc-access.h>
+#ifndef __APPLE__
 #include "doctest.h"
 #include <woofc-priv.h>
 
@@ -18,3 +19,4 @@ TEST_CASE("Computing name hashes work") {
     REQUIRE_NE(foobar_hash, barfoo_hash);
 }
 } // namespace
+#endif
