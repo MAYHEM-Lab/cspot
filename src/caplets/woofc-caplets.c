@@ -31,6 +31,23 @@ uint64_t WooFCapCheck(WCAP *cap, uint64_t key)
 	return(hm);
 }
 
+uint64_t WooFCapSign(unsigned char *udata, int len, uint64_t key)
+{
+	unsigned char full_hmac[EVP_MAX_MD_SIZE];  // Store full HMAC
+	unsigned int hmac_len;
+	unsigned char *ukey = (unsigned char *)&key;
+	uint64_t hm;
+
+	// Compute full HMAC using SHA-256
+	HMAC(EVP_sha256(), ukey, sizeof(key), udata, len, full_hmac, &hmac_len);
+
+	// Truncate to 64 bits (first 8 bytes)
+	memcpy(&hm, full_hmac, sizeof(hm));
+printf("signing %s with len %d key %lu and %lu\n",
+		(char *)udata,len,key,hm);
+
+	return(hm);
+}
 // create cap woof from woof name
 // must be done locally
 int WooFCapInit(char *local_woof_name)
@@ -123,6 +140,7 @@ WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm)
 	return(new_cap);
 
 }
+
 
 int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 {

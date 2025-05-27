@@ -44,6 +44,11 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
+			char payload[2048];
+			// sign concatenation of woof name and seqno
+			snprintf(payload,sizeof(payload),"%s %s",std::string(woof_name).c_str(),std::to_string(seq_no).c_str());
+			uint64_t sig = WooFCapSign((unsigned char *)payload, strlen(payload), new_cap->check);
+			new_cap->check = sig;
 			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
 			msg = CreateMessage(std::to_string(WOOF_MSG_GET_CAP),
 			     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
@@ -247,12 +252,30 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
         			DEBUG_LOG("WooFMsgPutwithCap with %s for %s, cap check %lu", 
 						handler_name, (char *)std::string(woof_name).c_str(), new_cap->check);
 			}
-			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+
 			if(handler_name == NULL) {
 				hname = "NULL";
 			} else {
 				hname = (const char *)handler_name;
 			}
+			int psize = elem_size + strlen(std::string(woof_name).c_str()) + 2 +
+                                                strlen(hname) + 2;
+			char *payload = (char *)malloc(psize);
+			if(payload == NULL) {
+				if(new_cap != NULL) {
+					free(new_cap);
+				}
+        			DEBUG_WARN("Could not create payload for signing for WooFMsgPut for %s", woof_name);
+        			return -1;
+			}
+			memset(payload,psize,0);
+			snprintf(payload,psize,"%s %s ",std::string(woof_name).c_str(),hname);
+			char *np = payload + strlen(payload);
+			memcpy(np,elem,elem_size);
+			uint64_t sig = WooFCapSign((unsigned char *)payload,psize,new_cap->check);
+			new_cap->check = sig;
+			free(payload);
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
 			msg = CreateMessage(std::to_string(WOOF_MSG_PUT_CAP),
 				     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
 				     std::string(woof_name),
@@ -338,6 +361,11 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
+			// sign the data with the attenuated cap
+			uint64_t sig = WooFCapSign((unsigned char *)std::string(woof_name).c_str(),
+					strlen(std::string(woof_name).c_str()), new_cap->check);
+			// replace the check with the frame signature
+			new_cap->check = sig;
 			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
     			msg = CreateMessage(std::to_string(WOOF_MSG_GET_EL_SIZE_CAP), 
 					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
@@ -428,6 +456,11 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
 		// attenuate down to read only
 		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 		if(new_cap != NULL) {
+			// sign the data with the attenuated cap
+			uint64_t sig = WooFCapSign((unsigned char *)std::string(woof_name).c_str(),
+					strlen(std::string(woof_name).c_str()), new_cap->check);
+			// replace the check with the frame signature
+			new_cap->check = sig;
 			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
     			msg = CreateMessage(std::to_string(WOOF_MSG_GET_LATEST_SEQNO_CAP), 
 					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),

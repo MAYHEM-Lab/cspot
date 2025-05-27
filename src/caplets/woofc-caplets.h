@@ -37,6 +37,7 @@ extern "C" {
 #endif
 
 uint64_t WooFCapCheck(WCAP *cap, uint64_t key);
+uint64_t WooFCapSign(unsigned char *udata, int len, uint64_t key);
 int WooFCapInit(char *local_woof_name);
 WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm);
 int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm);
