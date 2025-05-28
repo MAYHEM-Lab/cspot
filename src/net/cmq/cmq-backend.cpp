@@ -936,6 +936,7 @@ void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd)
 		WooFProcessGetLatestSeqno(fl,sd,0);
 		return;
 	}
+	WCAP *new_cap_p = NULL;
 	if(wf) {
 		memset(&principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf);
@@ -948,8 +949,17 @@ void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd)
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed from %s\n", cap_name);
 			return;
 		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP attn cap failed from %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			return;
+		}
 		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP woof from %s\n",cap_name);
 	}
+	WCAP *new_cap_ns = NULL;
 	if(wf_ns) {
 		memset(&ns_principal,0,sizeof(WCAP));
 		seq_no = WooFLatestSeqno(wf_ns);
@@ -962,8 +972,35 @@ void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd)
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for ns\n");
 			return;
 		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP atten cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			return;
+		}
 		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP woof from ns\n");
 	}
+
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign(wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign(wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
+		WooFProcessGetLatestSeqno(fl,sd,0);
+	}
+#if 0
 	// check read perms
 	if(WooFCapAuthorized(principal.check,cap,WCAP_READ) ||
 			WooFCapAuthorized(ns_principal.check,cap,WCAP_READ)) {
@@ -971,6 +1008,7 @@ void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd)
 		WooFProcessGetLatestSeqno(fl,sd,0);
 		return;
 	} 
+#endif
 	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied\n");
 	// denied
 	return;

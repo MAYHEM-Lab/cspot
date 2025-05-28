@@ -919,7 +919,10 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 
 	const char *t_str;
 	if(has_cap == 1) {
-		if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		char ns_cap[1024];
+        	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+		if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			       (SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 			if(new_cap != NULL) {
 				// tage first
@@ -937,6 +940,10 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 					cmq_frame_destroy(f);
 					return(-1);
 				}
+				// sign the payload (which is the woof name)
+				uint64_t sig = WooFCapSign((unsigned char *)std::string(woof_name).c_str(),
+                                        strlen(std::string(woof_name).c_str()), new_cap->check);
+				new_cap->check = sig;
 				// then cap
 				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
 				if(err < 0) {
