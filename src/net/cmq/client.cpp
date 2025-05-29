@@ -53,7 +53,10 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 
 	const char *t_str;
 	if(has_cap == 1) {
-		if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		char ns_cap[1024];
+                (void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+		if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			       (SearchKeychain(cap_file,ns_cap,&cap) >= 0))	{
 			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 			if(new_cap != NULL) {
 				// tage first
@@ -71,8 +74,13 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 					cmq_frame_destroy(f);
 					return(-1);
 				}
+				char payload[2048];
+				snprintf(payload,sizeof(payload),"%s %s",std::string(woof_name).c_str(),std::to_string(seq_no).c_str());
+				uint64_t sig = WooFCapSign((unsigned char *)payload, strlen(payload), new_cap->check);
+				new_cap->check = sig;
 				// then cap
 				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
+				free(new_cap);
 				if(err < 0) {
 					DEBUG_WARN("Could not create cap frame for Get with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
@@ -478,6 +486,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 	int has_cap;
 	WCAP cap;
 	WCAP *new_cap;
+	const char *hname;
 
 	if(!ip) {
 	    return(-1);
@@ -503,13 +512,50 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 
 	const char *t_str;
 	if(has_cap == 1) {
-		if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		char ns_cap[1024];
+        	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+		if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			       (SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 			if(handler_name == NULL) {
 				new_cap = WooFCapAttenuate(&cap,WCAP_WRITE);
 			} else {
 				new_cap = WooFCapAttenuate(&cap,WCAP_EXEC);
 			}
 			if(new_cap != NULL) {
+				if(handler_name == NULL) {
+                                	DEBUG_LOG("WooFMsgPutwithCap with NULL for %s, cap check %lu",
+                                                (char *)std::string(woof_name).c_str(), new_cap->check);
+                        	} else {
+                                	DEBUG_LOG("WooFMsgPutwithCap with %s for %s, cap check %lu",
+                                                handler_name, (char *)std::string(woof_name).c_str(), new_cap->check);
+                        	}
+				if(handler_name == NULL) {
+                                	hname = "NULL";
+                        	} else {
+                                	hname = (const char *)handler_name;
+                        	}
+				int psize = elem_size + strlen(std::string(woof_name).c_str()) +
+                                                strlen(hname);
+				char *payload = (char *)malloc(psize);
+                        	if(payload == NULL) {
+                                	if(new_cap != NULL) {
+                                        	free(new_cap);
+                                	}
+                                	DEBUG_WARN("Could not create payload for signing for WooFMsgPut for %s", woof_name);
+                                	return -1;
+                        	}
+                        	char *pptr = payload;
+                        	memset(payload,0,psize);
+//                      snprintf(payload,psize,"%s %s ",std::string(woof_name).c_str(),hname);
+                        	memcpy(pptr,std::string(woof_name).c_str(),strlen(std::string(woof_name).c_str()));
+                        	pptr += strlen(std::string(woof_name).c_str());
+                        	memcpy(pptr,hname,strlen(hname));
+                        	pptr += strlen(hname);
+                        	memcpy(pptr,elem,elem_size);
+                        	uint64_t sig = WooFCapSign((unsigned char *)payload,psize,new_cap->check);
+                        	new_cap->check = sig;
+                        	free(payload);
+
 				// tag first
 				t_str = std::to_string(WOOF_MSG_PUT_CAP).c_str();
 				err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
@@ -723,7 +769,10 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 
 	const char *t_str;
 	if(has_cap == 1) {
-		if(SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) {
+		char ns_cap[1024];
+                (void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+		if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			       (SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
 			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 			if(new_cap != NULL) {
 				// tag first
@@ -741,8 +790,13 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 					cmq_frame_destroy(f);
 					return(-1);
 				}
+				// sign the payload (woof_name for get el size)
+				uint64_t sig = WooFCapSign((unsigned char *)(std::string(woof_name).c_str()),
+					 	strlen(std::string(woof_name).c_str()), new_cap->check);
+				new_cap->check = sig;
 				// then cap
 				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
+				free(new_cap);
 				if(err < 0) {
 					DEBUG_WARN("Could not create cap frame for GetElSize with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
@@ -946,6 +1000,7 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 				new_cap->check = sig;
 				// then cap
 				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
+				free(new_cap);
 				if(err < 0) {
 					DEBUG_WARN("Could not create cap frame for GetLatestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);

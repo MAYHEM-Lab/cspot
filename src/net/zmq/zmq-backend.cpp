@@ -348,6 +348,9 @@ printf("attn p NULL: %lu\n",new_cap_p->check);
 printf("attn p %s: %lu\n",hname,new_cap_p->check);
 		}
 		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
 			DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for woof cap\n");
 			return;
 		}
@@ -589,6 +592,9 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		}
 		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
 		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
 			DEBUG_WARN("WooFProcessGetwithCAP attn cap failed\n");
 			return;
 		}
@@ -610,6 +616,9 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
 		if(new_cap_ns == NULL) {
 			DEBUG_WARN("WooFProcessGetwithCAP attn cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
 			}
