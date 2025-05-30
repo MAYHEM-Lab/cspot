@@ -48,7 +48,7 @@ uint64_t WooFCapSign(unsigned char *udata, int len, uint64_t key)
 	// Truncate to 64 bits (first 8 bytes)
 	memcpy(&hm, full_hmac, sizeof(hm));
 //printf("signing %s with len %d key %lu and %lu\n",
-		(char *)udata,len,key,hm);
+//		(char *)udata,len,key,hm);
 
 	return(hm);
 }
