@@ -59,12 +59,13 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 			       (SearchKeychain(cap_file,ns_cap,&cap) >= 0))	{
 			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 			if(new_cap != NULL) {
-				// tage first
+				// tag first
 				t_str = std::to_string(WOOF_MSG_GET_CAP).c_str();
 				err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
 				if(err < 0) {
 					DEBUG_WARN("Could not create tag frame for Get with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
+					free(new_cap);
 					return(-1);
 				}
 				err = cmq_frame_append(fl,f);
@@ -72,6 +73,7 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 					DEBUG_WARN("Could not append tag frame for Get with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					cmq_frame_destroy(f);
+					free(new_cap);
 					return(-1);
 				}
 				char payload[2048];
@@ -536,17 +538,14 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
                         	}
 				int psize = elem_size + strlen(std::string(woof_name).c_str()) +
                                                 strlen(hname);
-				char *payload = (char *)malloc(psize);
+				unsigned char *payload = (unsigned char *)malloc(psize);
                         	if(payload == NULL) {
-                                	if(new_cap != NULL) {
-                                        	free(new_cap);
-                                	}
+                                        free(new_cap);
                                 	DEBUG_WARN("Could not create payload for signing for WooFMsgPut for %s", woof_name);
                                 	return -1;
                         	}
-                        	char *pptr = payload;
+                        	unsigned char *pptr = payload;
                         	memset(payload,0,psize);
-//                      snprintf(payload,psize,"%s %s ",std::string(woof_name).c_str(),hname);
                         	memcpy(pptr,std::string(woof_name).c_str(),strlen(std::string(woof_name).c_str()));
                         	pptr += strlen(std::string(woof_name).c_str());
                         	memcpy(pptr,hname,strlen(hname));
@@ -562,6 +561,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 				if(err < 0) {
 					DEBUG_WARN("Could not create tag frame for Put with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
+					free(new_cap);
 					return(-1);
 				}
 				err = cmq_frame_append(fl,f);
@@ -569,10 +569,12 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 					DEBUG_WARN("Could not append tag frame for Put with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					cmq_frame_destroy(f);
+					free(new_cap);
 					return(-1);
 				}
 				// then cap
 				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
+				free(new_cap);
 				if(err < 0) {
 					DEBUG_WARN("Could not create cap frame for Put with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
@@ -781,6 +783,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 				if(err < 0) {
 					DEBUG_WARN("Could not create tag frame for GetElSize with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
+					free(new_cap);
 					return(-1);
 				}
 				err = cmq_frame_append(fl,f);
@@ -788,6 +791,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 					DEBUG_WARN("Could not append tag frame for GetElSize with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					cmq_frame_destroy(f);
+					free(new_cap);
 					return(-1);
 				}
 				// sign the payload (woof_name for get el size)
@@ -985,6 +989,7 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 				if(err < 0) {
 					DEBUG_WARN("Could not create tag frame for GetLatestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
+					free(new_cap);
 					return(-1);
 				}
 				err = cmq_frame_append(fl,f);
@@ -992,6 +997,7 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 					DEBUG_WARN("Could not append tag frame for GetLatestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					cmq_frame_destroy(f);
+					free(new_cap);
 					return(-1);
 				}
 				// sign the payload (which is the woof name)
