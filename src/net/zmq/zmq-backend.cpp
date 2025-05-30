@@ -142,6 +142,9 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
 		if(new_cap_p == NULL) {
 			DEBUG_WARN("WooFProcessGetElSizewithCAP attn cap failed for woof cap\n");
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetElSizewithCAP cap get suceeded for cap %s\n",cap_name);
@@ -156,6 +159,9 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf) {
 				WooFDrop(wf);
 			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
 			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed for ns cap\n");
 			return;
 		}
@@ -164,6 +170,9 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			DEBUG_WARN("WooFProcessGetElSizewithCAP attn cap failed for ns cap\n");
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
 			}
 			return;
 		}
@@ -189,18 +198,6 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		WooFProcessGetElSize(std::move(req_msg),resp_sock,0);
 		return;
 	}
-#if 0
-	//
-	// reset cursor
-	wname = (char *)zmsg_first(req_msg.get());
-	// check read perms
-	if(WooFCapAuthorized(principal.check,cap,WCAP_READ) ||
-			WooFCapAuthorized(ns_principal.check,cap,WCAP_READ)) {
-		DEBUG_WARN("WooFProcessGetElSizewithCAP: CAP auth\n");
-		WooFProcessGetElSize(std::move(req_msg),resp_sock,0);
-		return;
-	} 
-#endif
 	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied\n");
 	// denied
 	return;
@@ -342,10 +339,8 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 		}
 		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
 			new_cap_p = WooFCapAttenuate(&principal,WCAP_WRITE);
-printf("attn p NULL: %lu\n",new_cap_p->check);
 		} else {
 			new_cap_p = WooFCapAttenuate(&principal,WCAP_EXEC);
-printf("attn p %s: %lu\n",hname,new_cap_p->check);
 		}
 		if(new_cap_p == NULL) {
 			if(wf_ns) {
@@ -366,6 +361,9 @@ printf("attn p %s: %lu\n",hname,new_cap_p->check);
 			if(wf) {
 				WooFDrop(wf);
 			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
 			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for ns cap\n");
 			return;
 		}
@@ -379,13 +377,16 @@ printf("attn p %s: %lu\n",hname,new_cap_p->check);
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
 			}
+			if(wf) {
+				WooFDrop(wf);
+			}
 			return;
 		}
 		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for ns cap\n");
 	}
 
 	int psize = elem.size() + strlen(wname) + strlen(hname);
-	char *payload = (char *)malloc(psize);
+	unsigned char *payload = (unsigned char *)malloc(psize);
 	if(payload == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP could not get space for sig payload\n");
 		if(new_cap_p != NULL) {
@@ -396,7 +397,7 @@ printf("attn p %s: %lu\n",hname,new_cap_p->check);
 		}
 		return;
 	}
-	char *pptr = payload;
+	unsigned char *pptr = payload;
 	memset(payload,0,psize);
 	memcpy(pptr,wname,strlen(wname));
 	pptr += strlen(wname);
@@ -420,34 +421,6 @@ printf("attn p %s: %lu\n",hname,new_cap_p->check);
 		return;
 	}
 
-
-#if 0
-	// reset zmsg cursor
-	wname = (char *)zmsg_first(req_msg.get());
-	if(strcmp(hname,"NULL") == 0) { // no handler check write permse
-		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE) ||
-				WooFCapAuthorized(ns_principal.check,cap,WCAP_WRITE)) {
-			WooFProcessPut(std::move(req_msg),resp_sock,0);
-			DEBUG_WARN("WooFProcessPutwithCAP: no handler auth %s\n",cap_name);
-			return;
-		} else {
-			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_WRITE: check %lu\n",
-					cap->check);
-		}
-	} else { // check execute perms
-		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC) ||
-				WooFCapAuthorized(ns_principal.check,cap,WCAP_EXEC)) {
-			DEBUG_LOG("WooFProcessPutwithCAP: handler %s auth\n",hname);
-			WooFProcessPut(std::move(req_msg),resp_sock,0);
-			return;
-		} else {
-			DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed for WCAP_EXEC: handler: %s check %lu\n",
-					hname,
-					cap->check);
-		}
-	}
-
-#endif
 	// denied
 	DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed handler: %s check %lu, denied\n",
 				hname,
@@ -610,6 +583,9 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf) {
 				WooFDrop(wf);
 			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
 			DEBUG_WARN("WooFProcessGetwithCAP cap get failed for ns\n");
 			return;
 		}
@@ -654,17 +630,6 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		return;
 	}
 
-#if 0
-	// reset cursor
-	wname = (char *)zmsg_first(req_msg.get());
-	// check read perms
-	if(WooFCapAuthorized(principal.check,cap,WCAP_READ) ||
-			WooFCapAuthorized(ns_principal.check,cap,WCAP_READ)) {
-		DEBUG_LOG("WooFProcessGetwithCAP: CAP auth\n");
-		WooFProcessGet(std::move(req_msg),resp_sock,0);
-		return;
-	} 
-#endif
 	DEBUG_WARN("WooFProcessGetwithCAP: read CAP denied\n");
 	// denied
 	return;
@@ -805,6 +770,9 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP from %s\n",cap_name);
 		new_cap_p = WooFCapAttenuate(&principal, WCAP_READ);
 		if(new_cap_p == NULL) {
+			if(wf_ns != NULL) {
+				WooFDrop(wf_ns);
+			}
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP atten cap failed for principal\n");
 			return;
 		}
@@ -819,6 +787,9 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf) {
 				WooFDrop(wf);
 			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for ns\n");
 			return;
 		}
@@ -829,20 +800,12 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
 			}
+			if(wf) {
+				WooFDrop(wf);
+			}
 			return;
 		}
 	}
-
-#if 0
-	zm = zmsg_first(req_msg.get());
-	zm = zmsg_next(req_msg.get());
-	zm = zmsg_next(req_msg.get());
-	wname = (char *)zframe_data(zm);
-	
-	//
-	// reset cursor
-	(void)zmsg_first(req_msg.get());
-#endif
 
 	// check the signature using attenuated CAP
 	uint64_t sig_p = 0;
@@ -856,7 +819,6 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		free(new_cap_ns);
 	}
 
-//printf("p check: %lu, sig_p: %lu\n", new_cap_p->check,sig_p);
 
 	if((sig_p == cap->check) || (sig_ns == cap->check)) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
@@ -864,15 +826,6 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		return;
 	}
 	
-#if 0
-	// check read perms
-	if(WooFCapAuthorized(principal.check,cap,WCAP_READ) ||
-			WooFCapAuthorized(ns_principal.check,cap,WCAP_READ)) {
-		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
-		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
-		return;
-	} 
-#endif
 	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied %s\n",cap_name);
 	// denied
 	return;

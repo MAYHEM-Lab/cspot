@@ -260,7 +260,7 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
 			}
 			int psize = elem_size + strlen(std::string(woof_name).c_str()) +
                                                 strlen(hname);
-			char *payload = (char *)malloc(psize);
+			unsigned char *payload = (unsigned char *)malloc(psize);
 			if(payload == NULL) {
 				if(new_cap != NULL) {
 					free(new_cap);
@@ -268,9 +268,8 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
         			DEBUG_WARN("Could not create payload for signing for WooFMsgPut for %s", woof_name);
         			return -1;
 			}
-			char *pptr = payload;
+			unsigned char *pptr = payload;
 			memset(payload,0,psize);
-//			snprintf(payload,psize,"%s %s ",std::string(woof_name).c_str(),hname);
 			memcpy(pptr,std::string(woof_name).c_str(),strlen(std::string(woof_name).c_str()));
 			pptr += strlen(std::string(woof_name).c_str());
 			memcpy(pptr,hname,strlen(hname));
