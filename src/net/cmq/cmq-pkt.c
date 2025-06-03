@@ -102,14 +102,14 @@ fflush(stdout);
 
 	err = inet_pton(AF_INET,addr,&ep_in.sin_addr);
 	if(err <= 0) {
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
 	err = connect(sd,(struct sockaddr *)&ep_in,sizeof(ep_in));
 	if(err < 0) {
 		perror("ERROR: connect failed");
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 #ifdef USE_CMQ_SD_CACHE
@@ -156,13 +156,13 @@ int cmq_pkt_listen(unsigned long port)
 
 	err = bind(sd,(struct sockaddr *)&local_address, sizeof(local_address));
 	if(err < 0) {
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
 	err = listen(sd,3);
 	if(err < 0) {
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
@@ -360,6 +360,19 @@ void cmq_pkt_close(int sd)
 printf("idled %d\n",sd);
  		return;
 	}
+#endif
+	if(CMQ_use_mqtt == 1) {
+		cmq_mqtt_close(sd);
+		return;
+	}
+	close(sd);
+	return;
+}
+
+void cmq_pkt_err_close(int sd)
+{
+#ifdef USE_CMQ_SD_CACHE
+	cmq_sd_cache_destroy(sd);
 #endif
 	if(CMQ_use_mqtt == 1) {
 		cmq_mqtt_close(sd);

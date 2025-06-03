@@ -184,7 +184,7 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 		printf("WooFMsgGet: server request send failed to %s:%d\n",
 			c_ip_str, stoi(port_str));
 		cmq_frame_list_destroy(fl);
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return -1;
 	}
 
@@ -198,7 +198,7 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 		printf("WooFMsgGet: server request recv failed from %s:%d\n",
 			c_ip_str,stoi(port_str));
 		perror("WooFMsgGet");
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return -1;
 	}
 
@@ -363,7 +363,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 		printf("WooFMsgGetTail: server request send failed to %s:%d\n",
 			c_ip_str, stoi(port_str));
 		cmq_frame_list_destroy(fl);
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return -1;
 	}
 
@@ -379,13 +379,13 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 		printf("WooFMsgGetTail: server request recv failed from %s:%d\n",
 			c_ip_str,stoi(port_str));
 		perror("WooFMsgGetTail");
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return -1;
 	}
 
 	// close connection to server
 	// FIX: should cache open connection to server
-	cmq_pkt_close(sd);
+	cmq_pkt_err_close(sd);
 
 	// probably paranoid
 	if(cmq_frame_list_empty(r_fl)) {
@@ -696,7 +696,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 	if(err < 0) {
 		DEBUG_WARN("Could not send msg for WooFMsgPut");
 		cmq_frame_list_destroy(fl);
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
@@ -704,7 +704,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 	err = cmq_pkt_recv_msg(sd,&r_fl);
 	if(err < 0) {
 		DEBUG_WARN("Could not recv msg for WooFMsgPut response");
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 	
@@ -879,7 +879,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 	if(err < 0) {
 		DEBUG_WARN("Could not send msg for GetElSize");
 		cmq_frame_list_destroy(fl);
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 	// destroy (deep delete) msg
@@ -1082,7 +1082,7 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 	if(err < 0) {
 		DEBUG_WARN("Could not send msg for LatestSeqno");
 		cmq_frame_list_destroy(fl);
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 	// done with request msg
@@ -1093,7 +1093,7 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 	if(err < 0) {
 		DEBUG_WARN("Could not recv msg for LatestSeqno response");
         	perror("WooFMsgGetElSize");
-		cmq_pkt_close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
