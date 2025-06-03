@@ -9,7 +9,28 @@
 #include "cmq-pkt.h"
 #include "cmq-mqtt-xport.h"
 
+#ifdef USE_CMQ_SD_CACHE
+#include <sys/socket.h>
+#include "cmq-cache.h"
+#endif
+
 int CMQ_use_mqtt = CMQMQTTXPORT;
+
+// from chatGPT June 3, 2025
+int is_connected(int sockfd) {
+    char buffer;
+    ssize_t result = recv(sockfd, &buffer, 1, MSG_PEEK | MSG_DONTWAIT);
+    if (result == 0) {
+        return 0; // Disconnected (peer has performed orderly shutdown)
+    } else if (result < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 1; // No data but still connected
+        } else {
+            return 0; // Error, probably disconnected
+        }
+    }
+    return 1; // Data is available, still connected
+}
 
 int cmq_pkt_init()
 {
@@ -29,8 +50,30 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 #ifdef __APPLE__
 	int opt = 1;
 #endif
+
+#ifdef USE_CMQ_SD_CACHE
+	sd = cmq_sd_cache_find(addr,port);
+	if(sd != -1) {
+		// if this is a socket (not an mqqt connection)) and the other
+		// side has gone away, dispose of the connection
+		if((CMQ_use_mqtt == 0) &&
+		   !is_connected(sd)) {
+			cmq_sd_cache_destroy(sd);
+		} else {	
+printf("found %d cached for %s %d\n",sd,addr,(int)port);
+fflush(stdout);
+			return(sd);
+		}
+	}
+#endif
 	if(CMQ_use_mqtt == 1) {
-		return(cmq_mqtt_connect(addr,port,timeout));
+		sd = cmq_mqtt_connect(addr,port,timeout);
+#ifdef USE_CMQ_SD_CACHE
+		if(sd != -1) {
+			cmq_sd_cache_insert(addr,port,sd);
+		}
+#endif
+		return(sd);
 	}
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
@@ -44,11 +87,15 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 #else
 	signal(SIGPIPE,SIG_IGN);
 #endif
+
+	// set timeout only if not caching
+#ifndef USE_CMQ_SD_CACHE
 	tv.tv_sec = timeout / 1000;
 	tv.tv_usec = 0;
 	if(setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv))) {
 		return(-1);
 	}
+#endif
 
 	ep_in.sin_family = AF_INET;
 	ep_in.sin_port = htons(port);	
@@ -65,7 +112,11 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 		cmq_pkt_close(sd);
 		return(-1);
 	}
-
+#ifdef USE_CMQ_SD_CACHE
+	cmq_sd_cache_insert(addr,port,sd);
+printf("inserted %d for %s %d in cache\n",sd,addr,(int)port);
+fflush(stdout);
+#endif
 	return(sd);
 }
 
@@ -304,6 +355,12 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 
 void cmq_pkt_close(int sd)
 {
+#ifdef USE_CMQ_SD_CACHE
+	if(cmq_sd_cache_idle(sd) == 1) {
+printf("idled %d\n",sd);
+ 		return;
+	}
+#endif
 	if(CMQ_use_mqtt == 1) {
 		cmq_mqtt_close(sd);
 		return;
