@@ -79,7 +79,8 @@ void WooFMsgThread() {
         auto tag = safe_stoul_to_int(*str);
 	if(tag == -1) {
 		DEBUG_LOG("WooFMsgThread: processing msg with bad tag\n");
-		return;
+        	msg = Receive(*receiver);
+		continue;
 	}
         DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
 
