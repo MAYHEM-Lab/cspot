@@ -1146,6 +1146,7 @@ void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd)
 	if((cap->check == sig_p) || (cap->check == sig_ns)) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
 		WooFProcessGetLatestSeqno(fl,sd,0);
+		return;
 	}
 	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied\n");
 	// denied
