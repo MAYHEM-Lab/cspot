@@ -111,13 +111,13 @@ void *PutThread(void *arg)
 	while(PutRemaining > 0) {
 		PutRemaining--;
 		gettimeofday(&st->posted,NULL);
+		pthread_mutex_unlock(&Plock);
 //printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
 //fflush(stdout);
 		if((Mixed_mode == 1) && (drand48() > 0.5)) {
 			ChangeXport(Iname,"mqtt");
 		}
 		seq_no = WooFPut(Iname,"stress_handler",st);
-		pthread_mutex_unlock(&Plock);
 //printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
@@ -184,9 +184,7 @@ void *GetThread(void *arg)
 				if((Mixed_mode == 1) && (drand48() > 0.5)) {
 					ChangeXport(Oname,"mqtt");
 				}
-				pthread_mutex_lock(&Glock);
 				o_seq_no = WooFGetLatestSeqno(Oname);
-				pthread_mutex_unlock(&Glock);
 				if((o_seq_no == (unsigned long) -1) ||
 					       (o_seq_no == 0))	{
 //printf("Latest for %s for %lu\n",Oname,o_seq_no);
@@ -203,9 +201,7 @@ void *GetThread(void *arg)
 					} else if(Mixed_mode == 1) {
 						ChangeXport(Oname,"woof");
 					}
-					pthread_mutex_lock(&Glock);
 					err = WooFGet(Oname,&st,o_seq_no);
-					pthread_mutex_unlock(&Glock);
 					if(err < 0) {
 						printf("get of seq_no %lu failed, retrying\n",seq_no);
 						retries++;

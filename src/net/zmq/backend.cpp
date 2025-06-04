@@ -1,70 +1,25 @@
 #include <mutex>
+#include <iostream>
 #include "backend.hpp"
 
 #include <debug.h>
 #include <woofc-access.h>
 
-std::mutex EPMutex;
-
 namespace cspot::zmq {
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
 
-//    const std::lock_guard<std::mutex> lock(EPMutex);
-    auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
+    thread_local std::unordered_map<std::string, per_endpoint_data> map_for_thread;
     auto it = map_for_thread.find(endpoint);
     if (it == map_for_thread.end()) {
         // Socket does not exist
-//printf("creating socket for %s\n",endpoint.c_str());
-//fflush(stdout);
         auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
         if (!ep_data) {
             return nullptr;
         }
         auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
         it = i;
-    } else {
-#if 0 // doesn't work with cspot 2.0 but does with 1.0
-	map_for_thread.erase(endpoint); // should call destructor on server and poller
-	auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
-        if (!ep_data) {
-            return nullptr;
-        }
-        auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
-        it = i;
-#endif
-//printf("found socket for %s\n",endpoint.c_str());
-//fflush(stdout);
-    	return &it->second;
     }
-
     return &it->second;
-}
-
-per_endpoint_data* backend::reset_local_socket_for(const std::string& endpoint) {
-
-    auto& map_for_thread = m_per_thread_socks[std::this_thread::get_id()];
-    auto it = map_for_thread.find(endpoint);
-    if (it == map_for_thread.end()) {
-        // Socket does not exist
-        auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
-        if (!ep_data) {
-            return nullptr;
-        }
-        auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
-        it = i;
-        return &it->second;
-    } else {
- // doesn't work with cspot 2.0 but does with 1.0
-	map_for_thread.erase(endpoint); // should call destructor on server and poller
-	auto ep_data = cspot::zmq::per_endpoint_data::create(endpoint);
-        if (!ep_data) {
-            return nullptr;
-        }
-        auto [i, ins] = map_for_thread.emplace(endpoint, std::move(*ep_data));
-        it = i;
-    	return &it->second;
-    }
-
 }
 
 ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
@@ -75,29 +30,13 @@ ZMsgPtr backend::ServerRequest(const char* endpoint, ZMsgPtr msg) {
         return nullptr;
     }
 
-    zmsg_t *dmsg = msg.get();
-    zmsg_t *dup_msg = zmsg_dup(dmsg);
     auto sent = Send(std::move(msg), *ep_data->server);
 
     if (!sent) {
         DEBUG_WARN("ServerRequest: msg send to %s failed\n", endpoint);
         printf("ServerRequest: msg send to %s failed\n", endpoint);
 	fflush(stdout);
-	ep_data = reset_local_socket_for(endpoint);
-	if(!ep_data) {
-		printf("ServerRequest: failed to reset endpoint for %s\n",endpoint);
-       	        return nullptr;
-	} else {
-		printf("ServerRequest: attempting send with reset endpoint for %s\n",endpoint);
-    		//sent = Send(std::move(msg), *ep_data->server);
-    		int rc = zmsg_send(&dup_msg, ep_data->server.get());
-		if(rc != 0) {
-			printf("ServerRequest: send with reset failed to endpoint for %s\n",endpoint);
-			return nullptr;
-		}
-	}
-    } else {
-	    zmsg_destroy(&dup_msg);
+	return nullptr;
     }
 
     auto server_resp = static_cast<zsock_t*>(zpoller_wait(ep_data->resp_poll.get(), WOOF_MSG_REQ_TIMEOUT));
