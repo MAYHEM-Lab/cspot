@@ -15,14 +15,20 @@ extern "C" {
 }
 
 namespace cspot {
+
 namespace zmq {
 void backend_register();
 } // namespace zmq
+
 namespace cmq {
 	void backend_register();
 } // namespace cmq
-std::unordered_map<std::string, std::function<std::unique_ptr<network_backend>()>> backend_factories;
-std::unique_ptr<network_backend> active_backend;
+
+// maps are not thread safe -> each thread needs a backend
+thread_local int registered = 0;
+thread_local std::unordered_map<std::string, std::function<std::unique_ptr<network_backend>()>> backend_factories;
+thread_local std::unique_ptr<network_backend> active_backend;
+
 namespace {
 pthread_mutex_t ELock;
 struct registerer {
@@ -63,6 +69,8 @@ std::unique_ptr<network_backend> get_backend_with_name(std::string_view backend_
     return it->second();
 }
 
+
+
 void register_backend(std::string name, std::function<std::unique_ptr<network_backend>()> factory) {
 //    DEBUG_LOG("Registering backend %s\n", name.c_str());
 // not sure why but with DEBUG on, this log call causes the 33rd process spawn to hang (on ubuntu, at least)
@@ -75,61 +83,75 @@ void register_backend(std::string name, std::function<std::unique_ptr<network_ba
     backend_factories.emplace(std::move(name), std::move(factory));
 }
 
-std::mutex RegMutex;
-//pthread_mutex_t RLock;
+void check_backends()
+{
+	if(registered == 0) { // thread local
+		zmq::backend_register();
+		cmq::backend_register();
+		registered = 1;
+	}
+	return;
+}
+
 network_backend* get_active_backend() {
-//    const std::lock_guard<std::mutex> lock(RegMutex);
-//    pthread_mutex_lock(&RLock);
     if (!active_backend) {
         cspot::set_active_backend(cspot::get_backend_with_name(BACKEND));
 //        DEBUG_WARN("No active network backend, using %s",BACKEND);
     }
-//    pthread_mutex_unlock(&RLock);
     return active_backend.get();
 }
 
 void set_active_backend(std::unique_ptr<network_backend> backend) {
     active_backend = std::move(backend);
 }
+
 } // namespace cspot
 
 extern "C" {
 extern unsigned int CMQ_use_mqtt;
-const char *backend_from_woof(const char *woof_name)
+
+int backend_from_woof(const char *woof_name)
 {
-	if((strstr(woof_name,"woof://") != NULL) ||
-           (strstr(woof_name,"zmq://") != NULL)){
-		return("zmq");
-	} else if(strstr(woof_name,"cmq://") != NULL) {
-		return("cmq");
-	} else if(strstr(woof_name,"mqtt://") != NULL) {
-		return("mqtt");
+	if((strncmp(woof_name,"woof://",strlen("woof://")) == 0) ||
+           (strncmp(woof_name,"zmq://",strlen("zmq://")) == 0)){
+		return(1);
+	} else if(strncmp(woof_name,"cmq://",strlen("cmq://")) == 0) {
+		return(2);
+	} else if(strncmp(woof_name,"mqtt://",strlen("mqtt://")) == 0) {
+		return(3);
 	} else {
-		return(NULL);
+		return(-1);
 	}
 }
-cspot::network_backend *adjust_active_backend(const char *woof_name) {
-	const char *be;
+
+cspot::network_backend *adjust_active_backend(const char *woof_name) 
+{
+	int be;
 	cspot::network_backend *nbe = NULL;
-	pthread_mutex_lock(&cspot::ELock);
 	be = backend_from_woof(woof_name);
-	if(be != NULL) {
-		if(strcmp(be,"zmq") == 0) {
+	if(be != -1) {
+		if(be == 1) {
 			cspot::set_active_backend(cspot::get_backend_with_name("zmq"));
-		} else if(strcmp(be,"cmq") == 0) {
+		} else if(be == 2) {
 			CMQ_use_mqtt = 0;
 			cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
-		} else if(strcmp(be,"mqtt") == 0) {
+		} else if(be == 3) {
 			CMQ_use_mqtt = 1;
 			cspot::set_active_backend(cspot::get_backend_with_name("cmq"));
 		}
 		nbe = cspot::get_active_backend();
+	} else {
 	}
-	pthread_mutex_unlock(&cspot::ELock);
-	return(nbe);
+	if(be == -1) {
+		return nullptr;
+	} else {
+		return(nbe);
+	}
 }
+
 unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size) {
 	cspot::network_backend *be;
+	cspot::check_backends();
 	be = adjust_active_backend(woof_name);
 	if(be != NULL) {
 		return(be->remote_put(woof_name, hand_name, element, el_size));
@@ -141,6 +163,7 @@ unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const voi
 
 int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no) {
 	cspot::network_backend *be;
+	cspot::check_backends();
 	be = adjust_active_backend(woof_name);
 	if(be != NULL) {
 		return(be->remote_get(woof_name, element, el_size, seq_no));
@@ -151,7 +174,9 @@ int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsi
 }
 
 unsigned long WooFMsgGetElSize(const char* woof_name) {
-	cspot::network_backend *be;
+	thread_local cspot::network_backend *be;
+	unsigned long el_size;
+	cspot::check_backends();
 	be = adjust_active_backend(woof_name);
 	if(be != NULL) {
 		return(be->remote_get_elem_size(woof_name));
@@ -164,6 +189,7 @@ unsigned long WooFMsgGetElSize(const char* woof_name) {
 unsigned long
 WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsigned long cause_woof_latest_seq_no) {
 	cspot::network_backend *be;
+	cspot::check_backends();
 	be = adjust_active_backend(woof_name);
 	if(be != NULL) {
 		return(be->remote_get_latest_seq_no(woof_name, cause_woof_name, cause_woof_latest_seq_no));

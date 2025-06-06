@@ -179,6 +179,7 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 
 	// send request msg
 	err = cmq_pkt_send_msg(sd,fl);
+
 	if(err < 0) {
 		DEBUG_WARN("Could not send to server for WoofMsgGet");
 		printf("WooFMsgGet: server request send failed to %s:%d\n",
@@ -188,11 +189,36 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 		return -1;
 	}
 
+#ifndef USE_CMQ_SD_CACHE
 	// destroy request msg
 	cmq_frame_list_destroy(fl);
+#endif
 
 	// recv response msg
 	err = cmq_pkt_recv_msg(sd,&r_fl);
+#ifdef USE_CMQ_SD_CACHE
+	// could be that the other side timed out
+	if(err < 0) {
+		cmq_pkt_err_close(sd);
+		sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+		if(sd < 0) {
+			cmq_frame_list_destroy(fl);
+			return(-1);
+		}
+		//retry once
+		err = cmq_pkt_send_msg(sd,fl);
+		if(err < 0) {
+			DEBUG_WARN("Could not send to server for WoofMsgGet");
+			printf("WooFMsgGet: server request send failed to %s:%d\n",
+				c_ip_str, stoi(port_str));
+			cmq_frame_list_destroy(fl);
+			cmq_pkt_err_close(sd);
+			return -1;
+		}
+		cmq_frame_list_destroy(fl);
+		err = cmq_pkt_recv_msg(sd,&r_fl);
+	}
+#endif
 	if(err < 0) {
 		DEBUG_WARN("Could not receive reply for WoofMsgGet");
 		printf("WooFMsgGet: server request recv failed from %s:%d\n",

@@ -592,10 +592,13 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		return(-1);
 	}
 
+	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
+
 	server_fd = cmq_mqtt_create_pub_channel(addr,port);
 	if(server_fd == NULL) {
 		CMQDEBUG("cmq_mqtt_connect: could not pub channel\n");
 		cmq_mqtt_close(conn->sd);
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 
@@ -607,6 +610,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		CMQDEBUG("cmq_mqtt_connect: could write host_ip\n");
 		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 	// terminate buffer with newline for mosquitto_pub -l
@@ -619,18 +623,21 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		CMQDEBUG("cmq_mqtt_connect: could write client port\n");
 		cmq_mqtt_close(conn->sd);
 		pclose(server_fd);
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 	// terminate buffer with newline for mosquitto_pub -l
 	conn->buffer[conn->cursor] = '\n';
 	conn->cursor++;
 
+	// must hold the channel until the accept
 	// send them
 	err = write(fileno(server_fd),conn->buffer,conn->cursor);
 	if(err < conn->cursor) {
 		cmq_mqtt_close(conn->sd);
 		CMQDEBUG("cmq_mqtt_connect: could write server socket\n");
 		pclose(server_fd);
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 
@@ -651,12 +658,15 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 //printf("connect NULL client port %d sd: %d\n",client_port,conn->sd);
 //fflush(stdout);
 		cmq_mqtt_close(conn->sd);
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 	while(conn->buffer[0] == '\n') {
 		memset(conn->buffer,0,sizeof(conn->buffer));
 		s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	}
+	// drop the lock for accept
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 	if(strlen(conn->buffer) < (2*sizeof(accept_port))) {
 		CMQDEBUG("cmq_mqtt_connect: short read for accept port\n");
 		cmq_mqtt_close(conn->sd);
