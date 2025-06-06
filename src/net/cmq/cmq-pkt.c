@@ -60,8 +60,8 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 		   !is_connected(sd)) {
 			cmq_sd_cache_destroy(sd);
 		} else {	
-printf("found %d cached for %s %d\n",sd,addr,(int)port);
-fflush(stdout);
+//printf("found %d cached for %s %d\n",sd,addr,(int)port);
+//fflush(stdout);
 			return(sd);
 		}
 	}
@@ -114,8 +114,8 @@ fflush(stdout);
 	}
 #ifdef USE_CMQ_SD_CACHE
 	cmq_sd_cache_insert(addr,port,sd);
-printf("inserted %d for %s %d in cache\n",sd,addr,(int)port);
-fflush(stdout);
+//printf("inserted %d for %s %d in cache\n",sd,addr,(int)port);
+//fflush(stdout);
 #endif
 	return(sd);
 }
@@ -357,7 +357,7 @@ void cmq_pkt_close(int sd)
 {
 #ifdef USE_CMQ_SD_CACHE
 	if(cmq_sd_cache_idle(sd) == 1) {
-printf("idled %d\n",sd);
+//printf("idled %d\n",sd);
  		return;
 	}
 #endif
