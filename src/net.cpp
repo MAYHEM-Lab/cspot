@@ -42,11 +42,13 @@ struct registerer {
 	} else {
 		cmq::backend_register();
 	}
+	registered = 1;
 #else
        	zmq::backend_register();
 	if((CMQ_use_mqtt == 1) && cmq_pkt_init()) {
 		cmq::backend_register();
 	}
+	registered = 1;
 #endif
 
         atexit([]{
