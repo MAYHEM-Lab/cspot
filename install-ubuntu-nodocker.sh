@@ -1,6 +1,7 @@
 #!/bin/bash
 
 apt-get update && apt-get -y install ninja-build g++-9 cmake g++ mosquitto-clients
+apt-get -y install libssl-dev libyaml-dev
 git submodule update --init --recursive
 mkdir -p build
 cd build/
