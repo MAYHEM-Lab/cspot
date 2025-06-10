@@ -118,21 +118,23 @@ void *PutThread(void *arg)
 			ChangeXport(Iname,"mqtt");
 		}
 		seq_no = WooFPut(Iname,"stress_handler",st);
-//printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
+printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
+fflush(stdout);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
 			pthread_exit(NULL);
 		}
+		st->seq_no = seq_no;
+		// must put seq_no on list in critical section
+		pthread_mutex_lock(&Glock);
+		DlistAppend(Pending,(Hval)seq_no);
+		pthread_mutex_unlock(&Glock);
 		if(IsLatency == 1) {
 			sleep(1);
 		}
 
-		pthread_mutex_lock(&Glock);
-		DlistAppend(Pending,(Hval)seq_no);
-		pthread_mutex_unlock(&Glock);
 
-		pthread_mutex_lock(&Plock);
 	}
 
 	pthread_mutex_unlock(&Plock);
@@ -179,15 +181,15 @@ void *GetThread(void *arg)
 			started = 1;
 			retries = 0;
 			seq_no = dn->value.l;
-//printf("GETING: %lu\n",seq_no);
 			while(retries < RETRIES) {
+printf("GETING: %lu attempt: %d\n",seq_no, retries);
 				if((Mixed_mode == 1) && (drand48() > 0.5)) {
 					ChangeXport(Oname,"mqtt");
 				}
 				o_seq_no = WooFGetLatestSeqno(Oname);
 				if((o_seq_no == (unsigned long) -1) ||
 					       (o_seq_no == 0))	{
-//printf("Latest for %s for %lu\n",Oname,o_seq_no);
+printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					retries++;
 					continue;
 				}
@@ -195,7 +197,7 @@ void *GetThread(void *arg)
 					break;
 				}
 				while(1) {
-//printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 					if((Mixed_mode == 1) && (drand48() > 0.5)) {
 						ChangeXport(Oname,"mqtt");
 					} else if(Mixed_mode == 1) {
@@ -211,12 +213,18 @@ void *GetThread(void *arg)
 						continue;
 					}
 					if(st.seq_no == seq_no) {
+printf("FOUND %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 						break;
 					}
 					o_seq_no--;
 					if(o_seq_no == 0) {
+printf("ZERO %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 						break;
 					}
+				}
+				if(o_seq_no == 0) {
+					retries++;
+					continue;
 				}
 				break;
 			}
