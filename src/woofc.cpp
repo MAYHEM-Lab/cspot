@@ -652,6 +652,7 @@ unsigned long WooFAppendWithCause(
      * and elemant meta data after it
      */
     el_id->seq_no = wfs->seq_no;
+    DEBUG_LOG("WooFAppendWithCause: element seq_no: %lu\n",wfs->seq_no);
 
     /*
      * update circular buffer

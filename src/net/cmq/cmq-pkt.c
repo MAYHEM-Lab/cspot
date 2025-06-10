@@ -34,10 +34,12 @@ int is_connected(int sockfd) {
 
 int cmq_pkt_init()
 {
+	int ret;
 	if(CMQ_use_mqtt == 0) {
 		return(1);
 	} else {
-		return(cmq_mqtt_proxy_init());
+		ret = cmq_mqtt_proxy_init();
+		return(1);
 	}
 }
 	

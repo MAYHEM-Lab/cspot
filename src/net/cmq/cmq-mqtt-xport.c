@@ -89,10 +89,6 @@ int cmq_mqtt_proxy_init()
 
 
 
-	if(WooF_is_server == 0) {
-		signal(SIGTERM,cmq_mqtt_shutdown);
-		signal(SIGINT,cmq_mqtt_shutdown);
-	}
 
 	signal(SIGPIPE,SIG_IGN);
 
@@ -144,6 +140,11 @@ int cmq_mqtt_proxy_init()
 		fprintf(stderr,"mqtt transport will not be enabled without proxy configuration\n");
 		fflush(stderr);
 		return(-1);
+	}
+
+	if(WooF_is_server == 0) {
+		signal(SIGTERM,cmq_mqtt_shutdown);
+		signal(SIGINT,cmq_mqtt_shutdown);
 	}
 
 	file = fopen(credfile,"r");
