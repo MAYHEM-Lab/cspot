@@ -17,6 +17,7 @@
 
 CMQPROXY MQTT_Proxy; 
 
+
 int WooF_is_server;
 
 int MQTTConvertASCIItoBinary(unsigned char *dest, char *src, int len)
@@ -58,13 +59,17 @@ int MQTTConvertBinarytoASCII(char *dest, void *src, int len)
         int count;
         unsigned char *curr;
         char *wbuf;
+	char hexstr[3];
 
         count = 0;
         curr = csrc;
         wbuf = dest;
 
         while(count < len) {
-                sprintf(wbuf,"%2.2x",(unsigned int)curr[count]);
+		snprintf(hexstr,sizeof(hexstr),"%02x",curr[count]);
+		wbuf[0] = hexstr[0];
+		wbuf[1] = hexstr[1];
+//                sprintf(wbuf,"%2.2x",(unsigned char)curr[count]);
                 wbuf += 2;
                 count++;
         }
@@ -288,7 +293,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeou
 	char user[256];
 	char pw[256];
 	int pd[2];
-	char timeout_str[16];
+	char timeout_str[30];
 	int err;
 	
 	// really stupid
@@ -899,6 +904,14 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	RB *rb;
 	CMQCONN *conn;
 
+	if((frame_list == NULL) ||
+	   (frame_list->count <= 0))
+	{
+printf("ERROR: frame_list: %p max: %d, count: %d\n",frame_list,frame_list->max_size,frame_list->count);
+fflush(stdout);
+		return(-1);
+	}
+
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
 		return(-1);
@@ -908,11 +921,11 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 //printf("send: inside lock\n");
 //fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
-	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 //printf("send: outside lock\n");
 //fflush(stdout);
 	if(rb == NULL) {
 		printf("ERROR: cmq_mqtt_send_msg could not find sd %d\n",sd);
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 
@@ -924,24 +937,35 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	header.max_size = htonl(frame_list->max_size);
 
 	// send the header using write
+printf("SEND: writing header %d\n",sizeof(header));
+fflush(stdout);
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&header,sizeof(header));
 	if(err < sizeof(header)) {
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 
 	// send the frames (if they are there)
+printf("frame_list: %p max: %d, count: %d\n",frame_list,frame_list->max_size,frame_list->count);
+fflush(stdout);
 	frame = frame_list->head;
 	while(frame != NULL) {
 		// write the frame size
 		size = htonl(frame->size);
+printf("SEND: writing frame size size %d\n",sizeof(size));
+fflush(stdout);
 		err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&size,sizeof(size));
 		if(err < sizeof(size)) {
+			pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 			return(-1);
 		}
 		// write the frame data if the size > 0
 		if(frame->size > 0) {
 			err = cmq_mqtt_conn_buffer_write(conn,frame->payload,frame->size);
+printf("SEND: writing frame size %d\n",frame->size);
+fflush(stdout);
 			if(err < frame->size) {
+				pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 				return(-1);
 			}
 		}
@@ -955,9 +979,11 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	err = write(fileno(conn->pub_fd),conn->buffer,conn->cursor);
 
 	if(err < conn->cursor) {
+		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
 
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 	return(0);
 }
 
