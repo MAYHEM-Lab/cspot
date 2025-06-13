@@ -168,7 +168,11 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 	std::string port_str = port.value();
 
 	// connect to server using IP + port number
+printf("BEFORE connect fl: %p\n",fl);
+fflush(stdout);
 	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+printf("AFTER connect fl: %p\n",fl);
+fflush(stdout);
 	if(sd < 0) {
 		DEBUG_WARN("Could not connect to server for WoofMsgGet");
 		printf("WooFMsgGet: server connect failed to %s:%d\n",
@@ -202,7 +206,7 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 		cmq_pkt_err_close(sd);
 		sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
 		if(sd < 0) {
-			cmq_frame_list_destroy(fl);
+			cmq_frame_list_destroy(r_fl);
 			return(-1);
 		}
 		//retry once
@@ -211,7 +215,7 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 			DEBUG_WARN("Could not send to server for WoofMsgGet");
 			printf("WooFMsgGet: server request send failed to %s:%d\n",
 				c_ip_str, stoi(port_str));
-			cmq_frame_list_destroy(fl);
+			cmq_frame_list_destroy(r_fl);
 			cmq_pkt_err_close(sd);
 			return -1;
 		}
@@ -909,10 +913,34 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 		return(-1);
 	}
 	// destroy (deep delete) msg
+#ifndef USE_CMQ_SD_CACHE
 	cmq_frame_list_destroy(fl);
+#endif
 
 	// recv response -- timeout used from connect
 	err = cmq_pkt_recv_msg(sd,&r_fl);
+#ifdef USE_CMQ_SD_CACHE
+        if(err < 0) {
+                cmq_pkt_err_close(sd);
+                sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+                if(sd < 0) {
+                        cmq_frame_list_destroy(r_fl);
+                        return(-1);
+                }
+                //retry once
+                err = cmq_pkt_send_msg(sd,fl);
+                if(err < 0) {
+                        DEBUG_WARN("Could not send to server for WooFMsgGetElSize");
+                        printf("WooFMsgGet: server request send failed to %s:%d\n",
+                                c_ip_str, stoi(port_str));
+                        cmq_frame_list_destroy(fl);
+                        cmq_pkt_err_close(sd);
+                        return -1;
+                }
+                cmq_frame_list_destroy(fl);
+                err = cmq_pkt_recv_msg(sd,&r_fl);
+        }
+#endif
 	if(err < 0) {
 		DEBUG_WARN("Could not recv msg for GetElSize response");
         	perror("WooFMsgGetElSize");
@@ -993,13 +1021,6 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 	has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
 	DEBUG_LOG("WooFMsgGetLatestSeqnowithCAP: woof: %s trying enpoint\n", woof_name.c_str());
-
-	// create request msg
-	err = cmq_frame_list_create(&fl);
-	if(err < 0) {
-        	DEBUG_WARN("Could not create message for GetElSize for %s", woof_name.c_str());
-		return(-1);
-	}
 
 	const char *t_str;
 	if(has_cap == 1) {
@@ -1112,17 +1133,41 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
 		return(-1);
 	}
 	// done with request msg
+#ifndef USE_CMQ_SD_CACHE
 	cmq_frame_list_destroy(fl);
+#endif
 
 	// recv response
 	err = cmq_pkt_recv_msg(sd,&r_fl);
+#ifdef USE_CMQ_SD_CACHE
+        if(err < 0) {
+                cmq_pkt_err_close(sd);
+                sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+                if(sd < 0) {
+                        cmq_frame_list_destroy(fl);
+                        return(-1);
+                }
+                //retry once
+                err = cmq_pkt_send_msg(sd,fl);
+                if(err < 0) {
+                        DEBUG_WARN("Could not send to server for WoofMsgGet");
+                        printf("WooFMsgGet: server request send failed to %s:%d\n",
+                                c_ip_str, stoi(port_str));
+                        cmq_frame_list_destroy(fl);
+                        cmq_pkt_err_close(sd);
+                        return -1;
+                }
+                cmq_frame_list_destroy(fl);
+                err = cmq_pkt_recv_msg(sd,&r_fl);
+        }
+#endif
+
 	if(err < 0) {
 		DEBUG_WARN("Could not recv msg for LatestSeqno response");
         	perror("WooFMsgGetElSize");
 		cmq_pkt_err_close(sd);
 		return(-1);
 	}
-
 	// close connection to server
 	// FIX: should cache open connection to server based on IP + port
 	cmq_pkt_close(sd);
