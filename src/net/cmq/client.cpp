@@ -14,8 +14,13 @@ extern "C" {
 #include "cmq-pkt.h"
 }
 
+#include <mutex>
+
+std::mutex CMQ_lock;
+
 namespace cspot::cmq {
 int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t elem_size, uint32_t seq_no) {
+	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
@@ -168,11 +173,11 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 	std::string port_str = port.value();
 
 	// connect to server using IP + port number
-printf("BEFORE connect fl: %p\n",fl);
-fflush(stdout);
+//printf("BEFORE connect fl: %p\n",fl);
+//fflush(stdout);
 	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
-printf("AFTER connect fl: %p\n",fl);
-fflush(stdout);
+//printf("AFTER connect fl: %p\n",fl);
+//fflush(stdout);
 	if(sd < 0) {
 		DEBUG_WARN("Could not connect to server for WoofMsgGet");
 		printf("WooFMsgGet: server connect failed to %s:%d\n",
@@ -281,6 +286,7 @@ fflush(stdout);
 }
 
 int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, unsigned long el_size, int el_count) {
+	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
@@ -505,6 +511,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 
 int32_t
 backend::remote_put(std::string_view woof_name_v, const char* handler_name, const void* elem, uint32_t elem_size) {
+	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
@@ -767,6 +774,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 }
 
 int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
+	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);
@@ -982,6 +990,7 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
 int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
                                           const char* cause_woof_name,
                                           uint32_t cause_woof_latest_seq_no) {
+	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);
 	auto ip = ip_from_woof(woof_name);
 	auto port = port_from_woof(woof_name);

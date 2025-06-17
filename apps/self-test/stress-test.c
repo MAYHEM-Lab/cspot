@@ -64,7 +64,7 @@ void ChangeXport(char *wname, char *xport)
 	strcat(new,p);
 	memset(wname,0,strlen(wname));
 	strcpy(wname,new);
-printf("wname: %s\n",wname);
+//printf("wname: %s\n",wname);
 	return;
 }
 
@@ -213,12 +213,12 @@ printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 						continue;
 					}
 					if(st.seq_no == seq_no) {
-printf("FOUND %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+//printf("FOUND %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 						break;
 					}
 					o_seq_no--;
 					if(o_seq_no == 0) {
-printf("ZERO %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+//printf("ZERO %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 						break;
 					}
 				}

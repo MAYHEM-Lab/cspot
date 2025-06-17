@@ -134,6 +134,8 @@ int cmq_sd_cache_insert(char *ip_str, unsigned short port, int sd)
 	strncpy(csd->ip_str,ip_str,sizeof(csd->ip_str));
 	csd->port = port;
 	csd->sd = sd;
+//printf("cache insert %d\n",sd);
+//fflush(stdout);
 	RBInsertI(CMQ_sd_cache_active,sd,(Hval)((void *)csd));
 	pthread_mutex_unlock(&CMQ_sd_cache_lock);
 	return(1);
@@ -159,6 +161,8 @@ int cmq_sd_cache_idle(int sd)
 	csd = (CMQSD *)rb->value.v;
 	hash = cmq_sd_cache_hash(csd->ip_str,csd->port);
 	RBInsertD(CMQ_sd_cache_idle,hash,(Hval)((void *)csd));
+//printf("cache idled %d\n",sd);
+//fflush(stdout);
 	pthread_mutex_unlock(&CMQ_sd_cache_lock);
 	return(1);
 }

@@ -315,7 +315,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeou
 	}
 #endif
 
-	snprintf(topic,sizeof(topic),"%s/%8.8d",addr,port);
+	snprintf(topic,sizeof(topic),"%s/%08d",addr,port);
 	snprintf(user,sizeof(user),"\'%s\'",MQTT_Proxy.user);
 	snprintf(pw,sizeof(pw),"\'%s\'",MQTT_Proxy.pw);
 
@@ -324,12 +324,14 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeou
 	if(pid < 0) {
 		return(NULL);
 	} else if(pid == 0) {
+//printf("sub: %s\n",topic);
+//fflush(stdout);
 		close(1);
 		close(pd[0]);
 		dup2(pd[1],1);
 		close(pd[1]);
 		if(timeout > 0) {
-			snprintf(timeout_str,sizeof(timeout_str),"%d",2*(timeout/1000));
+			snprintf(timeout_str,sizeof(timeout_str),"%d",5*(timeout/1000));
 			execlp("/usr/bin/mosquitto_sub","/usr/bin/mosquitto_sub",
 				"-q",
 				"1",
@@ -591,6 +593,8 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 //printf("connect: outside lock\n");
 //fflush(stdout);
 
+//printf("mqtt connect: create conn with sub port %d\n",client_port);
+//fflush(stdout);
 	// create connections with in-bound channel
 	conn = cmq_mqtt_create_conn(CMQCONNConnect,MQTT_Proxy.host_ip,client_port,timeout);
 	if(conn == NULL) {
@@ -647,8 +651,9 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 		return(-1);
 	}
 
-//printf("connect: client_port %d\n",client_port);
+//printf("mqtt connect: client_port %d\n",client_port);
 //fflush(stdout);
+        conn->client_port = client_port;
 
 	// close server connection
 	pclose(server_fd);
@@ -661,7 +666,13 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 	s = fgets(conn->buffer,sizeof(conn->buffer),conn->sub_fd);
 	if(s == NULL) {
 		CMQDEBUG("cmq_mqtt_connect: read NULL for accept port\n");
-//printf("connect NULL client port %d sd: %d\n",client_port,conn->sd);
+//printf("mqtt connect NULL client port %d sd: %d\n",client_port,conn->sd);
+//fflush(stdout);
+//if(feof(conn->sub_fd)) {
+//printf("NULL EOF on %d\n",client_port);
+//} else {
+//printf("NULL NOT EOF on %d\n",client_port);
+//}
 //fflush(stdout);
 		cmq_mqtt_close(conn->sd);
 		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
@@ -709,6 +720,7 @@ int cmq_mqtt_connect(char *addr, unsigned short port, unsigned long timeout)
 //fflush(stdout);
 
 	// create outbound channel to accept port
+	conn->server_port = accept_port;
 	conn->pub_fd = cmq_mqtt_create_pub_channel(addr,accept_port);
 	if(conn->pub_fd == NULL) {
 		CMQDEBUG("cmq_mqtt_connect: could not create pub channel for accept port\n");
@@ -907,8 +919,8 @@ int cmq_mqtt_send_msg(int sd, unsigned char *fl)
 	if((frame_list == NULL) ||
 	   (frame_list->count <= 0))
 	{
-printf("ERROR: frame_list: %p max: %d, count: %d\n",frame_list,frame_list->max_size,frame_list->count);
-fflush(stdout);
+//printf("ERROR: frame_list: %p max: %d, count: %d\n",frame_list,frame_list->max_size,frame_list->count);
+//fflush(stdout);
 		return(-1);
 	}
 
@@ -928,6 +940,7 @@ fflush(stdout);
 		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 		return(-1);
 	}
+	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 
 	conn = (CMQCONN *)rb->value.v;
 	cmq_mqtt_conn_buffer_seek(conn,0); // reset the cursor
@@ -937,8 +950,8 @@ fflush(stdout);
 	header.max_size = htonl(frame_list->max_size);
 
 	// send the header using write
-printf("SEND: writing header %d\n",sizeof(header));
-fflush(stdout);
+//printf("SEND: %d writing header %d\n",sd,sizeof(header));
+//fflush(stdout);
 	err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&header,sizeof(header));
 	if(err < sizeof(header)) {
 		pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
@@ -946,14 +959,14 @@ fflush(stdout);
 	}
 
 	// send the frames (if they are there)
-printf("frame_list: %p max: %d, count: %d\n",frame_list,frame_list->max_size,frame_list->count);
-fflush(stdout);
+//printf("frame_list: %p max: %d, count: %d\n",frame_list,frame_list->max_size,frame_list->count);
+//fflush(stdout);
 	frame = frame_list->head;
 	while(frame != NULL) {
 		// write the frame size
 		size = htonl(frame->size);
-printf("SEND: writing frame size size %d\n",sizeof(size));
-fflush(stdout);
+//printf("SEND: %d writing frame size size %d\n",sd,sizeof(size));
+//fflush(stdout);
 		err = cmq_mqtt_conn_buffer_write(conn,(unsigned char *)&size,sizeof(size));
 		if(err < sizeof(size)) {
 			pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
@@ -962,8 +975,8 @@ fflush(stdout);
 		// write the frame data if the size > 0
 		if(frame->size > 0) {
 			err = cmq_mqtt_conn_buffer_write(conn,frame->payload,frame->size);
-printf("SEND: writing frame size %d\n",frame->size);
-fflush(stdout);
+//printf("SEND: %d writing frame size %d\n",sd,frame->size);
+//fflush(stdout);
 			if(err < frame->size) {
 				pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 				return(-1);
@@ -983,7 +996,6 @@ fflush(stdout);
 		return(-1);
 	}
 
-	pthread_mutex_unlock(&MQTT_Proxy.conn_lock);
 	return(0);
 }
 

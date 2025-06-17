@@ -7,7 +7,7 @@
 #include <redblack.h>
 
 #define IPLEN 17
-#define CONNBUFFERSIZE (256*1024)
+#define CONNBUFFERSIZE (4*1024)
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,6 +31,8 @@ struct cmq_mqtt_conn_stc
 {
 	int sd; 		// fake socket id
 	int client_sd;
+	short client_port;
+	short server_port;
 	int type;		// connect, listen, or accept	
 	FILE *pub_fd;
 	FILE *sub_fd;

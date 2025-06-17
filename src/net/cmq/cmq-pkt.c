@@ -69,7 +69,11 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 	}
 #endif
 	if(CMQ_use_mqtt == 1) {
+//printf("connecting %s %d\n",addr,(int)port);
+//fflush(stdout);
 		sd = cmq_mqtt_connect(addr,port,timeout);
+//printf("connected %s %d, created %d\n",addr,(int)port,sd);
+//fflush(stdout);
 #ifdef USE_CMQ_SD_CACHE
 		if(sd != -1) {
 			cmq_sd_cache_insert(addr,port,sd);
