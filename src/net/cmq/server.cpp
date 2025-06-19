@@ -41,7 +41,8 @@ void *WooFMsgThread(void *arg) {
 		if(err < 0) {
 			DEBUG_WARN("WooFMsgThread: recv failed");
 			perror("WooFMsgThread: recv failed");
-			return(NULL);
+			continue;
+//			return(NULL);
 		}
 
 		while (err >= 0) {
