@@ -7,7 +7,7 @@
 #include <redblack.h>
 
 #define IPLEN 17
-#define CONNBUFFERSIZE (4*1024)
+#define CONNBUFFERSIZE (256*1024)
 #ifdef __cplusplus
 extern "C" {
 #endif
