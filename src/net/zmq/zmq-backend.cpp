@@ -37,12 +37,14 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
+            DEBUG_WARN("WooFProcessGetElSize:  no cap in message for %s, denined\n",local_name);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
+            DEBUG_WARN("WooFProcessGetElSize:  no cap in message with ns cap for %s, denined\n",local_name);
 	    return;
 	}
     }
@@ -240,12 +242,14 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
+            DEBUG_WARN("WooFProcessput:  no cap in message for %s, denined\n",local_name);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
+            DEBUG_WARN("WooFProcessput:  no cap in message but ns cap for %s, denined\n",local_name);
 	    return;
 	}
     }
@@ -455,12 +459,14 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
+            DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
     	wfc = WooFOpen(cap_name);
     	if(wfc) {
 	    WooFDrop(wfc);
+            DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
 	    return;
 	}
     }
