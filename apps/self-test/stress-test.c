@@ -79,6 +79,7 @@ void *PutThread(void *arg)
 	int size;
 
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
+#if 0
 	/*
 	 * register backend is not thread safe?
 	 * do this to prime the pump
@@ -91,6 +92,7 @@ void *PutThread(void *arg)
 	}
 	seq_no = WooFGetLatestSeqno(Iname);
 	pthread_mutex_unlock(&Plock);
+#endif
 
 
 	payload = (char *)malloc(Payload_size);
@@ -118,8 +120,8 @@ void *PutThread(void *arg)
 			ChangeXport(Iname,"mqtt");
 		}
 		seq_no = WooFPut(Iname,"stress_handler",st);
-printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
-fflush(stdout);
+//printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
+//fflush(stdout);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
@@ -182,14 +184,14 @@ void *GetThread(void *arg)
 			retries = 0;
 			seq_no = dn->value.l;
 			while(retries < RETRIES) {
-printf("GETING: %lu attempt: %d\n",seq_no, retries);
+//printf("GETING: %lu attempt: %d\n",seq_no, retries);
 				if((Mixed_mode == 1) && (drand48() > 0.5)) {
 					ChangeXport(Oname,"mqtt");
 				}
 				o_seq_no = WooFGetLatestSeqno(Oname);
 				if((o_seq_no == (unsigned long) -1) ||
 					       (o_seq_no == 0))	{
-printf("Latest for %s for %lu\n",Oname,o_seq_no);
+//printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					retries++;
 					continue;
 				}
@@ -197,7 +199,7 @@ printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					break;
 				}
 				while(1) {
-printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+//printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 					if((Mixed_mode == 1) && (drand48() > 0.5)) {
 						ChangeXport(Oname,"mqtt");
 					} else if(Mixed_mode == 1) {
@@ -394,7 +396,7 @@ int main(int argc, char **argv)
 //printf("Joined with put threads\n");
 
 	if(IsLatency == 0) {
-		sleep(1);
+		sleep(3);
 		for(i=0; i < gt; i++) {
 			err = pthread_create(&gtids[i],NULL,GetThread,NULL);
 			if(err < 0) {
