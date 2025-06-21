@@ -281,7 +281,9 @@ static int WooFHostInit(std::unique_ptr<cspot_backend> executor, int min_contain
      * be caught which then triggers a clean up of the docker container
      */
     sleep(86400 * 365 * 10);
-    thread.join();
+//printf("HostInit: sleep interrupted\n");
+//fflush(stdout);
+//    thread.join();
 
     exit(0);
 }
@@ -420,6 +422,8 @@ int main(int argc, char** argv) {
     DEBUG_LOG("Using backend %s", backend_name.c_str());
 
     WooFHostInit(maker_it->second(), min_containers, max_containers);
+//printf("HostInit completed\n");
+//fflush(stdout);
 
     pthread_exit(nullptr);
 }

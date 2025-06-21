@@ -476,10 +476,14 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 	}
 	if(conn->sub_fd != NULL) {
 		// this is stupid
+//printf("killing %d\n",conn->sub_pid);
+//fflush(stdout);
 		kill(conn->sub_pid,SIGTERM);
 		kill(conn->sub_pid,SIGKILL);
 		fclose(conn->sub_fd);
 	}
+//printf("conn pub_fd: %p\n",conn->pub_fd);
+//fflush(stdout);
 	if(conn->pub_fd != NULL) {
 		// send close char as single char to get other side to
 		// shut down and then shut down the send  side
@@ -491,14 +495,22 @@ void cmq_mqtt_destroy_conn(CMQCONN *conn)
 //printf("freeing %p\n",conn);
 //fflush(stdout);
 	free(conn);
+//printf("conn destroy returning\n");
+//fflush(stdout);
 	return;
 }
 
+
+int CMQ_mqtt_shutdown = 0;
 void cmq_mqtt_shutdown()
 {
 	int err;
 	RB *rb;
 	CMQCONN *conn;
+
+	if(CMQ_mqtt_shutdown == 1) {
+		return;
+	}
 
 	err = cmq_mqtt_proxy_init();
 	if(err < 0) {
@@ -517,6 +529,9 @@ void cmq_mqtt_shutdown()
 		cmq_mqtt_close(conn->sd);
 		rb = RB_FIRST(MQTT_Proxy.connections);
 	}
+	CMQ_mqtt_shutdown = 1;
+//printf("shutdown: returning\n");
+//fflush(stdout);
 	return;
 }
 
@@ -1192,16 +1207,21 @@ void cmq_mqtt_close(int sd)
 	}
 
 	pthread_mutex_lock(&MQTT_Proxy.conn_lock);
-//printf("close: inside lock\n");
+//printf("close: inside lock: %d\n",sd);
 //fflush(stdout);
 	rb = RBFindI(MQTT_Proxy.connections,sd);
+//printf("close rb: %p\n",rb);
+//fflush(stdout);
 	if(rb != NULL) {
 		conn = (CMQCONN *)rb->value.v;
+//printf("calling destroy conn\n");
+//fflush(stdout);
 		cmq_mqtt_destroy_conn(conn);
 	}
 	RB_FORWARD(MQTT_Proxy.connections,rb) {
 		conn = rb->value.v;
 //printf("(%d %d) ",conn->sd,conn->client_sd);
+//fflush(stdout);
 	}
 //printf("\n");
 //fflush(stdout);
@@ -1209,6 +1229,8 @@ void cmq_mqtt_close(int sd)
 //printf("close: outside lock\n");
 //fflush(stdout);
 	while(waitpid(-1,NULL,WNOHANG) > 0); // to prevent hanging wait inside a lock
+//printf("close: returning\n");
+//fflush(stdout);
 	return;
 }
 		

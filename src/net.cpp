@@ -51,9 +51,9 @@ struct registerer {
 	registered = 1;
 #endif
 
-        atexit([]{
-            active_backend.reset();
-        });
+//        atexit([]{
+//            active_backend.reset();
+//        });
     }
 };
 
