@@ -320,7 +320,7 @@ FILE* cmq_mqtt_create_sub_channel(char *addr, int port, pid_t *child, int timeou
 	snprintf(pw,sizeof(pw),"\'%s\'",MQTT_Proxy.pw);
 
 	
-	pid = fork();
+	pid = vfork();
 	if(pid < 0) {
 		return(NULL);
 	} else if(pid == 0) {
