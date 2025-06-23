@@ -39,6 +39,7 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 
 //#define USE_CMQ
 #define CMQMQTTXPORT (1)
+#define USE_CMQ_SD_CACHE
 #ifdef USE_CMQ
 #define BACKEND "cmq"
 // change to 1 for mqtt version of cmq
