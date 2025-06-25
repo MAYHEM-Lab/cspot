@@ -341,7 +341,7 @@ int main(int argc, char** argv) {
 
     auto min_containers = 1;
     auto max_containers = 1;
-    std::string backend_name = "docker";
+    std::string backend_name = "spawn";
 
     WooF_is_server = 1; // for signal handling
 
