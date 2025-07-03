@@ -5,15 +5,29 @@ Reference: R. Wolski, C. Krintz, F. Bakir, G. George, and W-T. Lin, CSPOT: Porta
 
 == Installation
 
-Currently, CSPOT builds from source using a bash installation script on CentOS
-7, CentOS 8 Stream, CentOS 9 Stream, and Ubuntu 20.04.  It requires docker ce, which it will 
-install, but to do so it will remove the docker package that ships with the distro.  There are install scripts
-(written in bash).  It would be best to read them before running them to make
-sure that the installation will not "corrupt" the local installation.  CSPOT
-was originally designed to work in a virtualized environments (e.g. clouds) so
-it is not "gentle" with respect to software installation.
+Currently, CSPOT builds from source using a bash installation script on Ubuntu
+20.04 or later.  CentOS stream, Rocky, and Alma have been supported in the
+past, and can be made to work, but the source repository is tested using
+Ubuntu.
 
-The following shows the installation procedure for Ubuntu 20.04:
+CSPOT was originally written to install on cloud instances.  Thus, the
+installation scripts (written in bash) run as root and are not "gentle" with
+respect to updating and installing any needed dependencies.  If you are
+installing CSPOT on a server, please read the installation scripts to make
+sure there are no conflicts with respect to the dependencies.
+
+CSPOT can also run in two modes: containerized (using docker) and Linux process 
+isolated.  The default mode uses Linux processes.  If you want to use docker
+for further isolation, then use the install-ubuntu-docker.sh script.
+Otherwise, use install-ubuntu-nodocker.sh.  The docker install script will
+install docker ce which requires removing the docker that ships with older
+version of ubuntu.  If you are already using docker, then use the no-docker
+version to install and the script will not disturb your existing installation.
+
+Note that CSPOT uses static compilation of C and C++ which has been removed from Ubuntu
+24.04.  Thus, The following shows the installation procedure for Ubuntu 20.04.
+However, once compiled and linked, the binaries can be copied to new versions
+of Ubuntu.
 
 [source sh]
 ----
@@ -24,7 +38,7 @@ sudo ./install-ubuntu-20.04.sh
 
 The build process puts the CSPOT tools and apps (e.g. senspot) in ./build/bin and installs CSPOT in /usr/local. 
 
-# Quick Client/Server Tutorial
+=== Quick Client/Server Tutorial
 
 The following tutorial assumes that the path to the CSPOT source directory is
 [source sh]
@@ -72,7 +86,7 @@ To test, using senspot, the cspot installtion on these two hosts, log into
 [source sh]
 ----
 cd cspot/build/bin
-./woofc-namespace-platform -b spawn >& namespace.log &
+./woofc-namespace-platform >& namespace.log &
 ----
 This command sequence will start the namespace server in
 /home/ubuntu/cspor/build/bin where the binaries have been deposited by the
@@ -126,7 +140,7 @@ Log into 192.168.10.3 as the ubuntu user and type
 [source sh]
 ----
 cd cspot/build/bin
-./woofc-namespace-platform -b spawn >& namespace.log &
+./woofc-namespace-platform >& namespace.log &
 ./senspot-init -W testwoof
 ----
 which will start a namespace server at /home/ubuntu/cspot/build/bin and then
@@ -165,8 +179,51 @@ If senspot-put fails, it is usually for one of four reasons
 * the IP address or the path to the namespace specified in senspot-put do not match the IP address and/or path where woofc-namespace-platform is running
 * ports 50000 to 60000 are not open for TCP ingress on the server host or egress on the client host or both
 
+=== CSPOT Message Authentication using CAPLets.
+
+Reference: Bakir, Fatih, Chandra Krintz, and Rich Wolski. "Caplets: Resource aware, capability-based access control for IoT." 2021 IEEE/ACM Symposium on Edge Computing (SEC). IEEE, 2021. https://sites.cs.ucsb.edu/~ckrintz/papers/caplets21.pdf
+
+CSPOT can use a version of CAPLets capabilities for message authentication.
+Doing so requires the creation of a principal capability (stored in a woof
+with a .CAP extent) in the CSPOT
+namespace either for each woof that is to be protected or for the namespace as
+a whole.  When the CSPOT namespace platform detects a capability woof, it will
+check the message accessing that woof to make sure it has been signed using a
+capability of sufficient privilege.  If the capability is not present (e.g. an
+older version of CSPOT is attempting access) or if the signature does not
+match, the access is denied.  If capability woofs are not present in the
+namespace for a woof or for the namespace itself, no authentication is
+performed (for backward compatibility).
+
+Note that the messages are signed but not encrypted.  That is, each message is
+authenticated but the channel is not private.  If the capability used to sign
+each message is treated as a shared secret, then an eavesdropping attacker can
+replay an observed message but cannot alter it.  Further, because CSPOT woofs
+are logs, replayed messages can be deduplicated (although this deduplication
+support currently must be application level).   
+
+Privileges are ordered.  The currently supported privileges (from least to
+greatest privilige are)
+* READ (0x00000001)
+* WRITE (0x00000002)
+* EXECUTE (0x00000004)
+* CREATE (0x00000008)
+* DESTROY (0x00000010)
+* POLICY_ATTACH (0x00000020)
+
+Any capability can be attenuated to a lower level of privilege by the
+capabilitie's holder and CSPOT uses the least privileged capability to sign a
+CSPOT message.  Currently, all messages require at least READ privilige, the
+PUT operation requires WRITE privileges and PUT with a concomitant handler
+invocation requires EXECUTE permissions.  Remote CREATE, DESTROY, and policy
+implementation are not yet supported.  Also, in the current release, message
+authentication is only checked when a CSPOT operation is remote (i.e. uses the
+network communication path and not the local fast path).
+
+==== CAPLets example
+
   
-# CSPOT Overview
+== CSPOT Overview
 
 CSPOT is acronym (slightly reordered) for _Serverless Platform of Things
 in C_. It is an empirical coding experiment that amalgamates
