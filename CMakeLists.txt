@@ -20,8 +20,32 @@ if(APPLE)
     find_package(OpenSSL REQUIRED)
 
 #    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
+#else()
+#    include_directories("/opt/openssl-musl/include")
+#    link_directories("/opt/openssl-musl/lib" "/opt/libyaml-musl/lib")
 endif()
 
+file(READ "/etc/os-release" OS_RELEASE_CONTENT)
+
+string(REGEX MATCH "VERSION_ID=\"([0-9]+\\.[0-9]+)\"" _ ${OS_RELEASE_CONTENT})
+set(OS_VERSION_ID ${CMAKE_MATCH_1})
+
+string(REGEX MATCH "NAME=\"([^\"]+)\"" _ ${OS_RELEASE_CONTENT})
+set(OS_NAME ${CMAKE_MATCH_1})
+
+message(STATUS "Detected OS: ${OS_NAME} ID: ${OS_VERSION_ID}")
+
+#if(OS_NAME STREQUAL "Ubuntu 24.04.2 LTS" AND OS_VERSION_ID STREQUAL "24.04")
+if(OS_VERSION_ID STREQUAL "24.04")
+    message(STATUS "Applying Ubuntu 24.04-specific settings")
+
+    include_directories("/opt/openssl-musl/include" "/opt/libyaml-musl/include" )
+    link_directories("/opt/openssl-musl/lib64" "/opt/libyaml-musl/lib")
+    # or target_link_libraries(... /opt/.../libssl.a ...)
+endif()
+
+#include_directories("/opt/openssl-musl/include" "/opt/libyaml-musl/include" )
+#link_directories("/opt/openssl-musl/lib64" "/opt/libyaml-musl/lib")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -86,7 +110,7 @@ target_include_directories(woof PRIVATE
         )
 else()
 target_include_directories(woof PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include> "/opt/musl-cross/x86_64-linux-musl/include"
         )
 endif()
 
@@ -99,16 +123,18 @@ target_include_directories(woof PUBLIC
 else()
 target_include_directories(woof PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:include> "/opt/musl-cross/x86_64-linux-musl/include"
 )
 endif()
 
 target_include_directories(woof-mqtt PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+	"/opt/musl-cross/x86_64-linux-musl/include"
         )
 
 target_include_directories(woof-mqtt PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	"/opt/musl-cross/x86_64-linux-musl/include"
         $<INSTALL_INTERFACE:include>
 )
 
@@ -139,25 +165,25 @@ endif ()
 
 add_executable(woofc-namespace-platform src/woofc-namespace-platform.cpp)
 target_link_libraries(woofc-namespace-platform woof)
-target_include_directories(woofc-namespace-platform PRIVATE src/include)
+target_include_directories(woofc-namespace-platform PRIVATE src/include "/opt/musl-cross/x86_64-linux-musl/include")
 
 add_executable(woofc-container src/woofc-container.cpp)
 target_link_libraries(woofc-container PRIVATE woof)
-target_include_directories(woofc-container PRIVATE src/include)
+target_include_directories(woofc-container PRIVATE src/include "/opt/musl-cross/x86_64-linux-musl/include")
 
 add_executable(woofc-forker-helper src/woofc-forker-helper.cpp)
 target_link_libraries(woofc-forker-helper PRIVATE woof)
-target_include_directories(woofc-forker-helper PRIVATE src/include)
+target_include_directories(woofc-forker-helper PRIVATE src/include "/opt/musl-cross/x86_64-linux-musl/include")
 
 add_library(woofc-shepherd src/woofc-shepherd.cpp)
 target_link_libraries(woofc-shepherd PUBLIC woof)
-target_include_directories(woofc-shepherd PRIVATE src/include)
+target_include_directories(woofc-shepherd PRIVATE src/include "/opt/musl-cross/x86_64-linux-musl/include")
 
 #add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.cpp)
 if(NOT APPLE)
 add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.c)
 target_link_libraries(woofc-mqtt-gateway woof woof-mqtt)
-target_include_directories(woofc-mqtt-gateway PRIVATE src/include)
+target_include_directories(woofc-mqtt-gateway PRIVATE src/include "/opt/musl-cross/x86_64-linux-musl/include")
 endif()
 
 function (add_handler name)
