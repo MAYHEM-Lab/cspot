@@ -1,6 +1,7 @@
 #ifndef DLIST_H
 #define DLIST_H
 
+#include <stdint.h>
 #include "hval.h"
 
 struct dlist_node_stc

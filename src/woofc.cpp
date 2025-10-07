@@ -17,7 +17,7 @@ extern "C" {
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
-#include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <woofc-priv.h>
 

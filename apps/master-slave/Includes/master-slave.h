@@ -1,6 +1,8 @@
 #ifndef MASTER_SLAVE_H
 #define MASTER_SLAVE_H
 
+#include <sys/time.h>
+
 struct pulse_stc
 {
 	char wname[4096];
