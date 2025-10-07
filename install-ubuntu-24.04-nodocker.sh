@@ -31,6 +31,8 @@ make install
 cd ..
 wget https://pyyaml.org/download/libyaml/yaml-0.2.5.tar.gz
 tar -xzf yaml-0.2.5.tar.gz
+cd yaml-0.2.5
+./configure --prefix=/opt/libyaml-musl --host=x86_64-linux-musl CC=x86_64-linux-musl-gcc --enable-static --disable-shared
 make
 make install
 cd ../cspot
