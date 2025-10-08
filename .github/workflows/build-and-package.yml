@@ -29,5 +29,5 @@ jobs:
         make
     - name: run self tests
       run: |
-        cd build
+        cd build/bin
         ./woofc-namespace-platform -b spawn >& namespace.log &
