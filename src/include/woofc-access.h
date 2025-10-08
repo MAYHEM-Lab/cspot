@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+// test compile
+
 int WooFValidURI(const char* str);
 int WooFNameSpaceFromURI(const char* woof_uri_str, char* woof_namespace, int len);
 int WooFNameFromURI(const char* woof_uri_str, char* woof_name, int len);
