@@ -28,5 +28,6 @@ jobs:
         cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
         make
     - name: run self tests
+      run: |
         cd build
         ./woofc-namespace-platform -b spawn >& namespace.log &
