@@ -30,6 +30,6 @@ jobs:
     - name: run self tests
       run: |
         cd build/bin
-        cp ../../SELF-TEST.sh .
+        cp ../../cicd-tests/local-self-test.sh .
         ./woofc-namespace-platform -b spawn >& namespace.log &
-        ./SELF-TEST.sh
+        ./local-self-test.sh
