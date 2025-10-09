@@ -22,6 +22,7 @@ else
 fi
 cat namespace.log
 rm -f zzzstress
+kill -9 `ps auxww | grep woofc | grep actions-runner | grep "_work" | grep -v grep | awk '{print $2}'`
 kill -HUP %1
 exit 0
 
