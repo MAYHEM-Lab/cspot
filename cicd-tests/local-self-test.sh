@@ -1,10 +1,10 @@
 #!/bin/bash -f
 cp ../../apps/self-test/latency.sh .
 cp ../../apps/self-test/throughput.sh .
-echo "$(pwd)"
+#echo "$(pwd)"
 $(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
 WPID=`ps auxww | grep "$(pwd)/woofc-namespace-platform" | grep -v grep | awk '{print $2}'`
-echo $WPID
+#echo $WPID
 LTEST=`./latency.sh 5 | grep "avg latency" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 5 ) ; then
 	echo "SELF TEST 1 PASSED"
@@ -24,7 +24,7 @@ else
 	exit 1
 fi
 rm -f zzzstress
-echo "sending HUP to $WPID"
+#echo "sending HUP to $WPID"
 kill -HUP $WPID
 exit 0
 
