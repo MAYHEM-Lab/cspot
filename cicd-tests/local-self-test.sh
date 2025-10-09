@@ -20,6 +20,7 @@ else
 	kill -HUP %1
 	exit 1
 fi
+cat namespace.log
 rm -f zzzstress
 kill -HUP %1
 exit 0
