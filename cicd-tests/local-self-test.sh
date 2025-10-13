@@ -4,7 +4,7 @@ cp ../../apps/self-test/throughput.sh .
 #echo "$(pwd)"
 $(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
 WPID=`ps auxww | grep "$(pwd)/woofc-namespace-platform" | grep -v grep | awk '{print $2}'`
-#CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`
+CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`
 #WLIST=`ps auxww | grep "$(pwd)/woofc-forker-helper" | grep -v grep | awk '{print $2}'`
 #echo $WPID
 LTEST=`./latency.sh 5 | grep "avg latency" | wc -l | awk '{print $1}'`
@@ -29,7 +29,7 @@ rm -f zzzstress
 #echo "sending HUP to $WPID"
 kill -HUP $WPID
 #kill -HUP $WLIST
-#kill -HUP $CPID
+kill -9 $CPID
 exit 0
 
 
