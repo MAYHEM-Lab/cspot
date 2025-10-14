@@ -36,7 +36,7 @@ jobs:
         cp ../../cicd-tests/local-network-test.sh .
         ./woofc-namespace-platform -b spawn >& namespace.log &
         ./local-network-test.sh
-        cp ../../start-remote-platform.sh .
-        cp ../../kill-remote-platform.sh .
-        cp ../../remote-network-test.sh .
+        cp ../../cicd-tests/start-remote-platform.sh .
+        cp ../../cicd-tests/kill-remote-platform.sh .
+        cp ../../cicd-tests/remote-network-test.sh .
         ./remote-network-test.sh
