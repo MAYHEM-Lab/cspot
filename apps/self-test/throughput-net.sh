@@ -20,5 +20,5 @@ fi
 
 # do these in batches of 4 to stay under throttle limit
 
-./stress-test -V -W woof://$ADDR/zzzstress -s $COUNT -g 1 -p 1
+./stress-test -V -W woof://$ADDR/$PWD/zzzstress -s $COUNT -g 1 -p 1
 

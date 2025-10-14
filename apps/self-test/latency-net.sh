@@ -25,7 +25,7 @@ BATCHCOUNT=$(($COUNT / $BSIZE))
 CNT=0
 
 while ( test $CNT -lt $BATCHCOUNT ) ; do
-        ./stress-test -l -W woof://$ADDR/zzzstress -s $BSIZE -g 1 -p 1
+        ./stress-test -l -W woof://$ADDR/$PWD/zzzstress -s $BSIZE -g 1 -p 1
         CNT=$(($CNT+1))
 done
 
