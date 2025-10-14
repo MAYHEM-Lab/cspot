@@ -6,7 +6,6 @@ cp ../../apps/self-test/throughput-net.sh .
 $(pwd)/start-remote-platform.sh
 ssh $ADDR "cd /home/ubuntu/cspot/build/bin && ./stress-init -W zzzstress -s 100"
 $(pwd)/kill-remote-platform.sh
-exit 0
 LTEST=`./latency-net.sh $ADDR 5 | grep "avg latency" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 5 ) ; then
 	echo "SELF TEST REMOTE 1 PASSED"
