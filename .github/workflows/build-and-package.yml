@@ -33,4 +33,6 @@ jobs:
         cp ../../cicd-tests/local-self-test.sh .
         ./woofc-namespace-platform -b spawn >& namespace.log &
         ./local-self-test.sh
+        cp ../../cicd-tests/local-network-test.sh .
+        ./woofc-namespace-platform -b spawn >& namespace.log &
         ./local-network-test.sh
