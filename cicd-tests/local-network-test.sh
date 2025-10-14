@@ -7,18 +7,18 @@ WPID=`ps auxww | grep "$(pwd)/woofc-namespace-platform" | grep -v grep | awk '{p
 #echo $WPID
 LTEST=`./latency-net.sh 127.0.0.1 5 | grep "avg latency" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 5 ) ; then
-	echo "SELF TEST 1 PASSED"
+	echo "SELF LOCAL NET TEST 1 PASSED"
 else
-	echo "SELF TEST 1 FAILED"
+	echo "SELF LOCAL NET TEST 1 FAILED"
 	rm -f zzzstress
 	kill -HUP $WPID
 	exit 1
 fi
 LTEST=`./throughput-net.sh 127.0.0.1 100 | grep "seq_no" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 100 ) ; then
-	echo "SELF TEST 2 PASSED"
+	echo "SELF LOCAL NET TEST 2 PASSED"
 else
-	echo "SELF TEST 2 FAILED"
+	echo "SELF LOCAL NET TEST 2 FAILED"
 	rm -f zzzstress
 	kill -HUP $WPID
 	exit 1

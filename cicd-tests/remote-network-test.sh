@@ -7,25 +7,25 @@ $(pwd)/start-remote-platform.sh
 ssh $ADDR "cd /home/ubuntu/cspot/build/bin && ./stress-init -W zzzstress -s 100"
 $(pwd)/kill-remote-platform.sh
 exit 0
-LTEST=`./latency-net.sh 127.0.0.1 5 | grep "avg latency" | wc -l | awk '{print $1}'`
+LTEST=`./latency-net.sh $ADDR 5 | grep "avg latency" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 5 ) ; then
-	echo "SELF TEST 1 PASSED"
+	echo "SELF TEST REMOTE 1 PASSED"
 else
-	echo "SELF TEST 1 FAILED"
+	echo "SELF TEST REMOTE 1 FAILED"
 	rm -f zzzstress
 	kill -HUP $WPID
 	exit 1
 fi
-LTEST=`./throughput-net.sh 127.0.0.1 100 | grep "seq_no" | wc -l | awk '{print $1}'`
+LTEST=`./throughput-net.sh $ADDR 100 | grep "seq_no" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 100 ) ; then
-	echo "SELF TEST 2 PASSED"
+	echo "SELF TEST REMOTE 2 PASSED"
 else
-	echo "SELF TEST 2 FAILED"
+	echo "SELF TEST REMOTE 2 FAILED"
 	rm -f zzzstress
 	kill -HUP $WPID
 	exit 1
 fi
-rm -f zzzstress
+ssh $ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzstress*
 #echo "sending HUP to $WPID"
 kill -HUP $WPID
 exit 0
