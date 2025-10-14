@@ -5,7 +5,7 @@
 
 apt-get update
 apt install -y build-essential git gcc make wget cmake
-apt install gawk bison flex texinfo
+apt install -y gawk bison flex texinfo
 cd ..
 git clone https://github.com/richfelker/musl-cross-make.git
 cd musl-cross-make/
