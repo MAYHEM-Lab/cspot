@@ -5,7 +5,7 @@ cp ../../apps/self-test/throughput-net.sh .
 #echo "$(pwd)"
 $(pwd)/start-remote-platform.sh
 ssh $ADDR "cd /home/ubuntu/cspot/build/bin && ./stress-init -W zzzstress -s 100"
-$(pwd)/kill-remote-platform.sh LTEST=`./latency-net.sh $ADDR 5 /home/ubuntu/cspot/build/bin | grep "avg latency" | wc -l | awk '{print $1}'`
+LTEST=`./latency-net.sh $ADDR 5 /home/ubuntu/cspot/build/bin | grep "avg latency" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 5 ) ; then
 	echo "SELF TEST REMOTE 1 PASSED"
 else
@@ -23,9 +23,12 @@ else
 	kill -HUP $WPID
 	exit 1
 fi
-ssh $ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzstress*
+$(pwd)/kill-remote-platform.sh 
+ssh $ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzstress*"
 #echo "sending HUP to $WPID"
+#
 kill -HUP $WPID
+
 exit 0
 
 
