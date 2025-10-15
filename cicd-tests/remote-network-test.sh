@@ -11,7 +11,6 @@ if ( test $LTEST -eq 5 ) ; then
 else
 	echo "SELF TEST REMOTE 1 FAILED"
 	rm -f zzzstress
-	kill -HUP $WPID
 	exit 1
 fi
 LTEST=`./throughput-net.sh $ADDR 100 /home/ubuntu/cspot/build/bin | grep "seq_no" | wc -l | awk '{print $1}'`
@@ -20,15 +19,13 @@ if ( test $LTEST -eq 100 ) ; then
 else
 	echo "SELF TEST REMOTE 2 FAILED"
 	rm -f zzzstress
-	kill -HUP $WPID
 	exit 1
 fi
 $(pwd)/kill-remote-platform.sh 
 ssh $ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzstress*"
 #echo "sending HUP to $WPID"
 #
-kill -HUP $WPID
-
+rm -f zzzstress
 exit 0
 
 

@@ -40,3 +40,5 @@ jobs:
         cp ../../cicd-tests/kill-remote-platform.sh .
         cp ../../cicd-tests/remote-network-test.sh .
         ./remote-network-test.sh
+        cp ../../cicd-tests/remote-senspot-test.sh .
+        ./remote-network-test.sh
