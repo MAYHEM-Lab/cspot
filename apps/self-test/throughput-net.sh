@@ -1,10 +1,14 @@
 #!/bin/bash
 
 # run this in the same directory where woofc-namespace-platform is running
-HERE=`pwd`
-
 ADDR=$1
 COUNT=$2
+
+if ( test -z "$3" ) ; then
+        HERE=`pwd`
+else
+        HERE=/home/ubuntu/cspot/build/bin
+fi
 
 if ( test -z "$ADDR" ) ; then
 	echo "throughput-net.sh addr count"
