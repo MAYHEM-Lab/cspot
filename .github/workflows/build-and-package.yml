@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-and-test:
-    runs-on: self-hosted
+    runs-on: [self-hosted cicd2024]
     # The CMake configure and build commands are platform agnostic and should work equally
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
@@ -26,6 +26,38 @@ jobs:
         mkdir -p build
         cd build
         cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
+        make
+    - name: run self tests
+      run: |
+        cd build/bin
+        cp ../../cicd-tests/local-self-test.sh .
+        ./woofc-namespace-platform -b spawn >& namespace.log &
+        ./local-self-test.sh
+        cp ../../cicd-tests/local-network-test.sh .
+        ./woofc-namespace-platform -b spawn >& namespace.log &
+        ./local-network-test.sh
+        cp ../../cicd-tests/start-remote-platform.sh .
+        cp ../../cicd-tests/kill-remote-platform.sh .
+        cp ../../cicd-tests/remote-network-test.sh .
+        ./remote-network-test.sh
+        cp ../../cicd-tests/remote-senspot-test.sh .
+        ./remote-senspot-test.sh
+  build-and-test-rpi:
+    runs-on: [self-hosted dev08]
+    # The CMake configure and build commands are platform agnostic and should work equally
+    # well on Windows or Mac.  You can convert this to a matrix build if you need
+    # cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: configure with cmake
+      run: |
+        mkdir -p build
+        cd build
+        cmake ..
         make
     - name: run self tests
       run: |
