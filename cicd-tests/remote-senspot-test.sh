@@ -1,7 +1,7 @@
 #!/bin/bash -f
 ADDR=169.231.231.109
 $(pwd)/start-remote-platform.sh
-ssh $ADDR "cd /home/ubuntu/cspot/build/bin && ./senspot-init -W zzzsenspot -s 100"
+ssh ubuntu@$ADDR "cd /home/ubuntu/cspot/build/bin && ./senspot-init -W zzzsenspot -s 100"
 LTEST=`echo "3.1415" | ./senspot-put -W woof://$ADDR/home/ubuntu/cspot/build/bin/zzzsenspot -T d`
 if ( test -z "$LTEST" ) ; then
 	echo "SELF TEST SENSPOT PUT PASSED"
