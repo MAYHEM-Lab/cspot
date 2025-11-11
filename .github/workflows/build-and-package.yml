@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-and-test:
-    runs-on: [self-hosted X64]
+    runs-on: [self-hosted, X64]
     # The CMake configure and build commands are platform agnostic and should work equally
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
@@ -43,7 +43,7 @@ jobs:
         cp ../../cicd-tests/remote-senspot-test.sh .
         ./remote-senspot-test.sh
   build-and-test-rpi:
-    runs-on: [self-hosted ARM64]
+    runs-on: [self-hosted, ARM64]
     # The CMake configure and build commands are platform agnostic and should work equally
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
