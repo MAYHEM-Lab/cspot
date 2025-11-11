@@ -1,4 +1,5 @@
 #!/bin/bash -f
+## need to fix IP address
 ADDR=169.231.231.109
 $(pwd)/start-remote-platform.sh
 ssh ubuntu@$ADDR "cd /home/ubuntu/cspot/build/bin && ./senspot-init -W zzzsenspot -s 100"
