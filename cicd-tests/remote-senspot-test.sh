@@ -10,7 +10,7 @@ else
 	exit 1
 fi
 MTEST=`./senspot-get -W woof://$ADDR/home/ubuntu/cspot/build/bin/zzzsenspot | awk '{print $1}'`
-if ( test "$LTEST" == "3.1415" ) ; then
+if ( test "$MTEST" == "3.141500" ) ; then
 	echo "SELF TEST SENSPOT GET PASSED"
 else
 	echo "SELF TEST SENSPOT GET FAILED $MTEST"
