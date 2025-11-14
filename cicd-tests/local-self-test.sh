@@ -3,8 +3,8 @@ cp ../../apps/self-test/latency.sh .
 cp ../../apps/self-test/throughput.sh .
 echo "local-self-test $(pwd)"
 $(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
-WPID=`ps auxww | grep "$(pwd)/woofc-namespace-platform" | grep -v grep | awk '{print $2}'`
-CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`
+WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
+#CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`
 #WLIST=`ps auxww | grep "$(pwd)/woofc-forker-helper" | grep -v grep | awk '{print $2}'`
 #echo $WPID
 LTEST=`./latency.sh 5 | grep "avg latency" | wc -l | awk '{print $1}'`
@@ -27,9 +27,9 @@ else
 fi
 rm -f zzzstress
 #echo "sending HUP to $WPID"
-kill -HUP $WPID
+kill -9 $WPID
 #kill -HUP $WLIST
-kill -9 $CPID
+#kill -9 $CPID
 exit 0
 
 
