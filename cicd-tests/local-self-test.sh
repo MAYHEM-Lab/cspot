@@ -1,7 +1,7 @@
 #!/bin/bash -f
 cp ../../apps/self-test/latency.sh .
 cp ../../apps/self-test/throughput.sh .
-#echo "$(pwd)"
+echo "local-self-test $(pwd)"
 $(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
 WPID=`ps auxww | grep "$(pwd)/woofc-namespace-platform" | grep -v grep | awk '{print $2}'`
 CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`

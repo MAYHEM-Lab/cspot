@@ -19,7 +19,7 @@ else
 	exit 1
 fi
 $(pwd)/kill-remote-platform.sh 
-ssh $ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzsenspot*"
+ssh ubuntu@$ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzsenspot*"
 #echo "sending HUP to $WPID"
 #
 

@@ -22,7 +22,7 @@ else
 	exit 1
 fi
 $(pwd)/kill-remote-platform.sh 
-ssh $ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzstress*"
+ssh ubuntu@$ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzstress*"
 #echo "sending HUP to $WPID"
 #
 rm -f zzzstress
