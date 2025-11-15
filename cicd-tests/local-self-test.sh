@@ -2,7 +2,9 @@
 cp ../../apps/self-test/latency.sh .
 cp ../../apps/self-test/throughput.sh .
 echo "local-self-test $(pwd)"
-$(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
+cd $(pwd)
+./woofc-namespace-platform -b spawn >& namespace.log &
+cat ./namespace.log
 WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
 #CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`
 #WLIST=`ps auxww | grep "$(pwd)/woofc-forker-helper" | grep -v grep | awk '{print $2}'`
