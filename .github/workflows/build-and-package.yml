@@ -58,7 +58,7 @@ jobs:
         mkdir -p build
         cd build
         cmake ..
-        make
+        make -j4
     - name: run self tests
       run: |
         cd build/bin
