@@ -3,6 +3,8 @@ cp ../../apps/self-test/latency.sh .
 cp ../../apps/self-test/throughput.sh .
 echo "local-self-test $(pwd)"
 cd $(pwd)
+WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
+kill -9 $WPID
 ./woofc-namespace-platform -b spawn >& namespace.log &
 cat ./namespace.log
 WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
@@ -15,7 +17,7 @@ if ( test $LTEST -eq 5 ) ; then
 else
 	echo "SELF TEST 1 FAILED"
 	rm -f zzzstress
-	kill -HUP $WPID
+	kill -9 $WPID
 	exit 1
 fi
 LTEST=`./throughput.sh 100 | grep "seq_no" | wc -l | awk '{print $1}'`
@@ -24,7 +26,7 @@ if ( test $LTEST -eq 100 ) ; then
 else
 	echo "SELF TEST 2 FAILED"
 	rm -f zzzstress
-	kill -HUP $WPID
+	kill -9 $WPID
 	exit 1
 fi
 rm -f zzzstress
