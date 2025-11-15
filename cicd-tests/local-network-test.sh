@@ -2,6 +2,8 @@
 cp ../../apps/self-test/latency-net.sh .
 cp ../../apps/self-test/throughput-net.sh .
 #echo "$(pwd)"
+WPID=`ps auxww | grep actions | grep woofc | grep -v grep | awk '{print $2}'`
+kill -9 $WPID
 $(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
 WPID=`ps auxww | grep actions | grep woofc | grep -v grep | awk '{print $2}'`
 #echo $WPID
