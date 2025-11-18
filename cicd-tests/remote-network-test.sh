@@ -1,5 +1,5 @@
 #!/bin/bash -f
-source ../cicd-config.sh
+source ../../../../../cicd-config.sh
 ADDR=$X86HELPER
 cp ../../apps/self-test/latency-net.sh .
 cp ../../apps/self-test/throughput-net.sh .

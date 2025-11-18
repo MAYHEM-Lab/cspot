@@ -1,5 +1,6 @@
 #!/bin/bash -f
-source ../cicd-config.sh
+#
+source ../../../../../cicd-config.sh
 ADDR=$X86HELPER
 $(pwd)/start-remote-platform.sh
 ssh ubuntu@$ADDR "cd /home/ubuntu/cspot/build/bin && ./senspot-init -W zzzsenspot -s 100"
