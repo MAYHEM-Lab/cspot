@@ -2,8 +2,10 @@
 cp ../../apps/self-test/latency-net.sh .
 cp ../../apps/self-test/throughput-net.sh .
 #echo "$(pwd)"
+WPID=`ps auxww | grep actions | grep woofc | grep -v grep | awk '{print $2}'`
+kill -9 $WPID
 $(pwd)/woofc-namespace-platform -b spawn >& namespace.log &
-WPID=`ps auxww | grep "$(pwd)/woofc-namespace-platform" | grep -v grep | awk '{print $2}'`
+WPID=`ps auxww | grep actions | grep woofc | grep -v grep | awk '{print $2}'`
 #echo $WPID
 LTEST=`./latency-net.sh 127.0.0.1 5 | grep "avg latency" | wc -l | awk '{print $1}'`
 if ( test $LTEST -eq 5 ) ; then
@@ -25,7 +27,7 @@ else
 fi
 rm -f zzzstress
 #echo "sending HUP to $WPID"
-kill -HUP $WPID
+kill -9 $WPID
 exit 0
 
 
