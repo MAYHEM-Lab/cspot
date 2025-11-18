@@ -1,5 +1,6 @@
 #!/bin/bash -f
-ADDR=169.231.231.109
+source ../cicd-config.sh
+ADDR=$X86HELPER
 cp ../../apps/self-test/latency-net.sh .
 cp ../../apps/self-test/throughput-net.sh .
 #echo "$(pwd)"

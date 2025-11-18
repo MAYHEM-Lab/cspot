@@ -1,5 +1,6 @@
 #!/bin/bash -f
-ADDR=169.231.231.109
+source ../cicd-config.sh
+ADDR=$X86HELPER
 $(pwd)/start-remote-platform.sh
 ssh ubuntu@$ADDR "cd /home/ubuntu/cspot/build/bin && ./senspot-init -W zzzsenspot -s 100"
 LTEST=`echo "3.1415" | ./senspot-put -W woof://$ADDR/home/ubuntu/cspot/build/bin/zzzsenspot -T d`
