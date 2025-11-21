@@ -74,3 +74,16 @@ jobs:
         ./remote-network-test.sh
         cp ../../cicd-tests/remote-senspot-test.sh .
         ./remote-senspot-test.sh
+    - name: install build deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential devscripts debhelper fakeroot dh-make lintian
+    - name: Build ARM64 package
+      run: |
+        dch --local "~ci" --maintmaint "Automated CI build" || true
+        debuild -b -us -uc
+    - name: Upload ARM64 artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cspot-packages-arm64
+        path: "../*.deb"
