@@ -74,7 +74,7 @@ jobs:
         ./remote-network-test.sh
         cp ../../cicd-tests/remote-senspot-test.sh .
         ./remote-senspot-test.sh
-     - name: Install Debian Build and Repo Dependencies
+    - name: Install Debian Build and Repo Dependencies
         run: |
           echo "Updating package lists and installing build tools..."
           # devscripts provides 'debuild', build-essential provides core tools (gcc, make),
@@ -82,14 +82,14 @@ jobs:
           sudo apt update
           sudo apt install -y devscripts build-essential dpkg-dev gzip
           
-      - name: Build Debian Package
+    - name: Build Debian Package
         # -us: Don't sign the source package
         # -uc: Don't sign the .changes file
         run: |
           echo "Starting package build with debuild..."
           debuild -us -uc
           
-      - name: Generate APT Index and Prepare Directory
+    - name: Generate APT Index and Prepare Directory
         run: |
           echo "Preparing APT repository structure..."
           # Create the temporary directory to hold the repo files
@@ -104,7 +104,7 @@ jobs:
           cd repo
           dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
           
-      - name: Publish APT Repository to arm64-apt-repo branch
+    - name: Publish APT Repository to arm64-apt-repo branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           # Use the automatic GITHUB_TOKEN for authentication
