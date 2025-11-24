@@ -76,29 +76,29 @@ jobs:
         ./remote-senspot-test.sh
     - name: Install Debian Build and Repo Dependencies
       run: |
-          echo "Updating package lists and installing build tools..."
+        echo "Updating package lists and installing build tools..."
       # devscripts provides 'debuild', build-essential provides core tools (gcc, make),
       # dpkg-dev provides 'dpkg-scanpackages', and gzip is for compression.
-          sudo apt update
-          sudo apt install -y devscripts build-essential dpkg-dev gzip
+        sudo apt update
+        sudo apt install -y devscripts build-essential dpkg-dev gzip
     - name: Build Debian Package
       # -us: Don't sign the source package
       # -uc: Don't sign the .changes file
       run: |
-          echo "Starting package build with debuild..."
-          debuild -us -uc
+        echo "Starting package build with debuild..."
+        debuild -us -uc
     - name: Generate APT Index and Prepare Directory
       run: |
-          echo "Preparing APT repository structure..."
+        echo "Preparing APT repository structure..."
       # Create the temporary directory to hold the repo files
-          mkdir -p repo
+        mkdir -p repo
       # Copy newly built .deb files into the repo directory. 
-          # The packages are usually built in the parent directory (../)
-          find .. -name "*.deb" -exec cp {} repo/ \;
+      # The packages are usually built in the parent directory (../)
+        find .. -name "*.deb" -exec cp {} repo/ \;
       # Generate the Packages file and compress it to Packages.gz
-          echo "Generating Packages.gz index file..."
-          cd repo
-          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+        echo "Generating Packages.gz index file..."
+        cd repo
+        dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
     - name: Publish APT Repository to arm64-apt-repo branch
         uses: peaceiris/actions-gh-pages@v4
         with:
