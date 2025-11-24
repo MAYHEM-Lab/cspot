@@ -75,6 +75,7 @@ jobs:
         cp ../../cicd-tests/remote-senspot-test.sh .
         ./remote-senspot-test.sh
     - name: install build deps
+# packaging
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential devscripts debhelper fakeroot dh-make lintian
