@@ -75,7 +75,6 @@ jobs:
         cp ../../cicd-tests/remote-senspot-test.sh .
         ./remote-senspot-test.sh
       - name: Install Debian Build and Repo Dependencies
-# packaging
         run: |
           echo "Updating package lists and installing build tools..."
           # devscripts provides 'debuild', build-essential provides core tools (gcc, make),
