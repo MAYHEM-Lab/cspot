@@ -75,7 +75,7 @@ jobs:
         cp ../../cicd-tests/remote-senspot-test.sh .
         ./remote-senspot-test.sh
     - name: Install Debian Build and Repo Dependencies
-        run: |
+      run: |
           echo "Updating package lists and installing build tools..."
           # devscripts provides 'debuild', build-essential provides core tools (gcc, make),
           # dpkg-dev provides 'dpkg-scanpackages', and gzip is for compression.
@@ -84,11 +84,11 @@ jobs:
     - name: Build Debian Package
         # -us: Don't sign the source package
         # -uc: Don't sign the .changes file
-        run: |
+      run: |
           echo "Starting package build with debuild..."
           debuild -us -uc
     - name: Generate APT Index and Prepare Directory
-        run: |
+      run: |
           echo "Preparing APT repository structure..."
           # Create the temporary directory to hold the repo files
           mkdir -p repo
