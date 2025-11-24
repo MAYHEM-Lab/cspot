@@ -100,14 +100,14 @@ jobs:
         cd repo
         dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
     - name: Publish APT Repository to arm64-apt-repo branch
-        uses: peaceiris/actions-gh-pages@v4
-        with:
+      uses: peaceiris/actions-gh-pages@v4
+      with:
         # Use the automatic GITHUB_TOKEN for authentication
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         # The local directory containing the packages and index files
-          publish_dir: ./repo 
+        publish_dir: ./repo 
         # The branch dedicated to hosting the repository
-          publish_branch: arm64-apt-repo 
+        publish_branch: arm64-apt-repo 
         # Overwrite the branch with only the contents of 'publish_dir'
-          force_orphan: true 
-          commit_message: "Auto-publish new package ${{ github.sha }}"
+        force_orphan: true 
+        commit_message: "Auto-publish new package ${{ github.sha }}"
