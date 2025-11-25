@@ -1,4 +1,4 @@
-Oname: Build and Test
+name: Build and Test
 
 on:
   push:
@@ -14,49 +14,49 @@ jobs:
     runs-on: [self-hosted, X64]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Configure & Build
-      run: |
-        mkdir -p build
-        cd build
-        cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
-        make -j$(nproc)
+      - name: Configure & Build
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
+          make -j$(nproc)
 
-    - name: Run self tests
-      run: |
-        cd build/bin
-        cp ../../cicd-tests/local-self-test.sh .
-        ./woofc-namespace-platform -b spawn >& namespace.log &
-        ./local-self-test.sh
-        cp ../../cicd-tests/local-network-test.sh .
-        ./woofc-namespace-platform -b spawn >& namespace.log &
-        ./local-network-test.sh
-        cp ../../cicd-tests/start-remote-platform.sh .
-        cp ../../cicd-tests/kill-remote-platform.sh .
-        cp ../../cicd-tests/remote-network-test.sh .
-        ./remote-network-test.sh
-        cp ../../cicd-tests/remote-senspot-test.sh .
-        ./remote-senspot-test.sh
+      - name: Run self tests
+        run: |
+          cd build/bin
+          cp ../../cicd-tests/local-self-test.sh .
+          ./woofc-namespace-platform -b spawn >& namespace.log &
+          ./local-self-test.sh
+          cp ../../cicd-tests/local-network-test.sh .
+          ./woofc-namespace-platform -b spawn >& namespace.log &
+          ./local-network-test.sh
+          cp ../../cicd-tests/start-remote-platform.sh .
+          cp ../../cicd-tests/kill-remote-platform.sh .
+          cp ../../cicd-tests/remote-network-test.sh .
+          ./remote-network-test.sh
+          cp ../../cicd-tests/remote-senspot-test.sh .
+          ./remote-senspot-test.sh
 
-    - name: Package existing binaries into .deb
-      run: |
-        PKG_DIR=pkg
-        mkdir -p $PKG_DIR/DEBIAN
-        mkdir -p $PKG_DIR/usr/local/cspot/bin
-        mkdir -p $PKG_DIR/usr/local/cspot/lib
-        mkdir -p $PKG_DIR/usr/local/cspot/include
+      - name: Package existing binaries into .deb
+        run: |
+          PKG_DIR=pkg
+          mkdir -p $PKG_DIR/DEBIAN
+          mkdir -p $PKG_DIR/usr/local/cspot/bin
+          mkdir -p $PKG_DIR/usr/local/cspot/lib
+          mkdir -p $PKG_DIR/usr/local/cspot/include
 
-        # Copy binaries, libraries, and headers
-        cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
-        cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
-        cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
+          # Copy binaries, libraries, headers
+          cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
+          cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
+          cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
 
-        # Create control file dynamically
-        cat > $PKG_DIR/DEBIAN/control <<EOF
+          # Create control file dynamically
+          cat > $PKG_DIR/DEBIAN/control <<EOF
 Package: cspot
 Version: 1.0-${{ github.sha }}
 Architecture: amd64
@@ -64,70 +64,69 @@ Maintainer: Rich <rich@cs.ucsb.edu>
 Description: CSPOT platform runtime (x86_64)
 EOF
 
-        dpkg-deb --build $PKG_DIR cspot-amd64.deb
+          dpkg-deb --build $PKG_DIR cspot-amd64.deb
 
-    - name: Prepare APT repository
-      run: |
-        mkdir -p repo
-        cp cspot-amd64.deb repo/
-        cd repo
-        dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+      - name: Prepare APT repository
+        run: |
+          mkdir -p repo
+          cp cspot-amd64.deb repo/
+          cd repo
+          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
 
-    - name: Publish APT repo (x86)
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./repo
-        publish_branch: x86-apt-repo
-        force_orphan: true
-        commit_message: "Publish x86 package ${{ github.sha }}"
-
+      - name: Publish APT repo (x86)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: x86-apt-repo
+          force_orphan: true
+          commit_message: "Publish x86 package ${{ github.sha }}"
 
   build-and-test-arm64:
     runs-on: [self-hosted, ARM64]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Configure & Build
-      run: |
-        mkdir -p build
-        cd build
-        cmake ..
-        make -j$(nproc)
+      - name: Configure & Build
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
 
-    - name: Run self tests
-      run: |
-        cd build/bin
-        cp ../../cicd-tests/local-self-test.sh .
-        ./woofc-namespace-platform -b spawn >& namespace.log &
-        ./local-self-test.sh
-        cp ../../cicd-tests/local-network-test.sh .
-        ./woofc-namespace-platform -b spawn >& namespace.log &
-        ./local-network-test.sh
-        cp ../../cicd-tests/start-remote-platform.sh .
-        cp ../../cicd-tests/kill-remote-platform.sh .
-        cp ../../cicd-tests/remote-network-test.sh .
-        ./remote-network-test.sh
-        cp ../../cicd-tests/remote-senspot-test.sh .
-        ./remote-senspot-test.sh
+      - name: Run self tests
+        run: |
+          cd build/bin
+          cp ../../cicd-tests/local-self-test.sh .
+          ./woofc-namespace-platform -b spawn >& namespace.log &
+          ./local-self-test.sh
+          cp ../../cicd-tests/local-network-test.sh .
+          ./woofc-namespace-platform -b spawn >& namespace.log &
+          ./local-network-test.sh
+          cp ../../cicd-tests/start-remote-platform.sh .
+          cp ../../cicd-tests/kill-remote-platform.sh .
+          cp ../../cicd-tests/remote-network-test.sh .
+          ./remote-network-test.sh
+          cp ../../cicd-tests/remote-senspot-test.sh .
+          ./remote-senspot-test.sh
 
-    - name: Package existing binaries into .deb
-      run: |
-        PKG_DIR=pkg
-        mkdir -p $PKG_DIR/DEBIAN
-        mkdir -p $PKG_DIR/usr/local/cspot/bin
-        mkdir -p $PKG_DIR/usr/local/cspot/lib
-        mkdir -p $PKG_DIR/usr/local/cspot/include
+      - name: Package existing binaries into .deb
+        run: |
+          PKG_DIR=pkg
+          mkdir -p $PKG_DIR/DEBIAN
+          mkdir -p $PKG_DIR/usr/local/cspot/bin
+          mkdir -p $PKG_DIR/usr/local/cspot/lib
+          mkdir -p $PKG_DIR/usr/local/cspot/include
 
-        cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
-        cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
-        cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
+          cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
+          cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
+          cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
 
-        cat > $PKG_DIR/DEBIAN/control <<EOF
+          cat > $PKG_DIR/DEBIAN/control <<EOF
 Package: cspot
 Version: 1.0-${{ github.sha }}
 Architecture: arm64
@@ -135,21 +134,22 @@ Maintainer: Rich <rich@cs.ucsb.edu>
 Description: CSPOT platform runtime (arm64)
 EOF
 
-        dpkg-deb --build $PKG_DIR cspot-arm64.deb
+          dpkg-deb --build $PKG_DIR cspot-arm64.deb
 
-    - name: Prepare APT repository
-      run: |
-        mkdir -p repo
-        cp cspot-arm64.deb repo/
-        cd repo
-        dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+      - name: Prepare APT repository
+        run: |
+          mkdir -p repo
+          cp cspot-arm64.deb repo/
+          cd repo
+          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
 
-    - name: Publish APT repo (arm64)
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./repo
-        publish_branch: arm64-apt-repo
-        force_orphan: true
-        commit_message: "Publish ARM64 package ${{ github.sha }}"
+      - name: Publish APT repo (arm64)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: arm64-apt-repo
+          force_orphan: true
+          commit_message: "Publish ARM64 package ${{ github.sha }}"
+
 
