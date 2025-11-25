@@ -1,22 +1,24 @@
-name: Build, Test, and Release
+name: Build, Test, and Package
 
 on:
   push:
     branches:
       - caplets
 
-env:
-  BUILD_TYPE: Debug
-
 jobs:
-  build-and-release:
-    runs-on: [self-hosted]
+  build-and-package:
+    name: Build & Package (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        arch: [x86_64, arm64]
+        include:
+          - arch: amd64
+            runner: [self-hosted, X64]
+          - arch: arm64
+            runner: [self-hosted, ARM64]
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -25,12 +27,12 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DENABLE_PYCSPOT=OFF ..
           else
-            cmake ..
+            cmake -DCMAKE_BUILD_TYPE=Release ..
           fi
-          make -j$(nproc)
+          make -j4
 
       - name: Run self tests
         run: |
@@ -38,64 +40,69 @@ jobs:
           cp ../../cicd-tests/local-self-test.sh .
           ./woofc-namespace-platform -b spawn >& namespace.log &
           ./local-self-test.sh
+
           cp ../../cicd-tests/local-network-test.sh .
           ./woofc-namespace-platform -b spawn >& namespace.log &
           ./local-network-test.sh
+
           cp ../../cicd-tests/start-remote-platform.sh .
           cp ../../cicd-tests/kill-remote-platform.sh .
           cp ../../cicd-tests/remote-network-test.sh .
           ./remote-network-test.sh
+
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
-      - name: Package prebuilt binaries into .deb
+      - name: Build .deb package
         id: package
         run: |
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            ARCH=amd64
-          else
-            ARCH=arm64
-          fi
+          ARCH="${{ matrix.arch }}"
           PKG_NAME="cspot-${ARCH}.deb"
-          echo "Packaging for ARCH=${ARCH} -> ${PKG_NAME}"
 
-          PKG_DIR=pkg
-          rm -rf $PKG_DIR
-          mkdir -p $PKG_DIR/DEBIAN
-          mkdir -p $PKG_DIR/usr/local/cspot/bin
-          mkdir -p $PKG_DIR/usr/local/cspot/lib
-          mkdir -p $PKG_DIR/usr/local/cspot/include
+          PKG_DIR="pkg"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR/DEBIAN"
+          mkdir -p "$PKG_DIR/usr/local/cspot/bin"
+          mkdir -p "$PKG_DIR/usr/local/cspot/lib"
+          mkdir -p "$PKG_DIR/usr/local/cspot/include"
 
-          cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
-          cp build/lib/* $PKG_DIR/usr/local/cspot/lib/ 2>/dev/null || true
-          cp src/include/*.h $PKG_DIR/usr/local/cspot/include/ 2>/dev/null || true
+          cp build/bin/* "$PKG_DIR/usr/local/cspot/bin/"
+          cp build/lib/* "$PKG_DIR/usr/local/cspot/lib/" 2>/dev/null || true
+          cp src/include/*.h "$PKG_DIR/usr/local/cspot/include/" 2>/dev/null || true
 
-cat <<EOF >$PKG_DIR/DEBIAN/control
-Package: cspot
-Version: 1.0-${GITHUB_SHA}
-Architecture: ${ARCH}
-Maintainer: Rich <rich@cs.ucsb.edu>
-Description: CSPOT platform runtime (${ARCH})
-EOF
+          # Write control file safely using echo
+          echo "Package: cspot" > "$PKG_DIR/DEBIAN/control"
+          echo "Version: 1.0-${GITHUB_RUN_NUMBER}" >> "$PKG_DIR/DEBIAN/control"
+          echo "Architecture: ${ARCH}" >> "$PKG_DIR/DEBIAN/control"
+          echo "Maintainer: Rich <rich@cs.ucsb.edu>" >> "$PKG_DIR/DEBIAN/control"
+          echo "Description: CSPOT platform runtime (${ARCH})" >> "$PKG_DIR/DEBIAN/control"
 
-          dpkg-deb --build $PKG_DIR $PKG_NAME
-          echo "pkg_name=${PKG_NAME}" >> $GITHUB_OUTPUT
+          dpkg-deb --build "$PKG_DIR" "$PKG_NAME"
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
+          echo "pkg=${PKG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Upload package as build artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: cspot-${{ matrix.arch }}
+          path: ${{ steps.package.outputs.pkg }}
 
-      - name: Upload .deb to Release
-        uses: softprops/action-gh-release@v1
+  publish-release:
+    name: Publish Release Assets
+    needs: build-and-package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          tag_name: ${{ github.sha }}
-          name: ${{ steps.package.outputs.pkg_name }}
-          asset_path: ${{ steps.package.outputs.pkg_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+
 
 
