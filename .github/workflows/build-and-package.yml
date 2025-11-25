@@ -54,7 +54,7 @@ jobs:
         with:
           name: cspot-build-${{ matrix.arch }}
           path: build/bin
-          
+
   package-and-release:
     needs: build-and-release
     runs-on: [self-hosted]
@@ -74,6 +74,7 @@ jobs:
           path: build/bin
 
       - name: Package prebuilt binaries into .deb
+        id: package
         run: |
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
             ARCH=amd64
@@ -81,7 +82,7 @@ jobs:
             ARCH=arm64
           fi
           PKG_NAME="cspot-${ARCH}.deb"
-          echo "Packaging for ARCH=${ARCH} -> ${PKG_NAME}"
+          echo "DEBUG: Packaging for ARCH=${ARCH} -> ${PKG_NAME}"
 
           PKG_DIR=pkg
           rm -rf $PKG_DIR
@@ -90,12 +91,10 @@ jobs:
           mkdir -p $PKG_DIR/usr/local/cspot/lib
           mkdir -p $PKG_DIR/usr/local/cspot/include
 
-          # Copy the existing binaries from the artifact
           cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
           cp build/lib/* $PKG_DIR/usr/local/cspot/lib/ || true
           cp src/include/*.h $PKG_DIR/usr/local/cspot/include/ || true
 
-          # Minimal control file
           cat <<EOF > $PKG_DIR/DEBIAN/control
 Package: cspot
 Version: 1.0-${GITHUB_SHA}
@@ -105,6 +104,10 @@ Description: CSPOT platform runtime (${ARCH})
 EOF
 
           dpkg-deb --build $PKG_DIR $PKG_NAME
+          echo "DEBUG: Package created at $PKG_NAME"
+
+          # Set output for next step
+          echo "pkg_name=${PKG_NAME}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         id: create_release
@@ -118,8 +121,8 @@ EOF
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.PKG_NAME }}
-          asset_name: ${{ env.PKG_NAME }}
+          asset_path: ${{ steps.package.outputs.pkg_name }}
+          asset_name: ${{ steps.package.outputs.pkg_name }}
           asset_content_type: application/vnd.debian.binary-package
 
 
