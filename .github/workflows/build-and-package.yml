@@ -24,7 +24,7 @@ jobs:
 
       - name: Set architecture-specific variables
         run: |
-          if [ "${{ matrix.arch }}" == "x86_64" ]; then
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
             echo "ARCH=amd64" >> $GITHUB_ENV
           else
             echo "ARCH=arm64" >> $GITHUB_ENV
