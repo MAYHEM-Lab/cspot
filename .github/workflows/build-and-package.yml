@@ -10,7 +10,7 @@ env:
 
 jobs:
 
-  build-and-test-x86:
+  build-and-test:
     runs-on: [self-hosted, X64]
 
     steps:
@@ -42,7 +42,7 @@ jobs:
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
-      - name: Package existing binaries into .deb
+      - name: Package prebuilt binaries into .deb (x86_64)
         run: |
           PKG_DIR=pkg
           mkdir -p $PKG_DIR/DEBIAN
@@ -50,12 +50,10 @@ jobs:
           mkdir -p $PKG_DIR/usr/local/cspot/lib
           mkdir -p $PKG_DIR/usr/local/cspot/include
 
-          # Copy binaries, libraries, headers
           cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
           cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
           cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
 
-          # Create control file dynamically
           cat > $PKG_DIR/DEBIAN/control <<EOF
 Package: cspot
 Version: 1.0-${{ github.sha }}
@@ -66,14 +64,14 @@ EOF
 
           dpkg-deb --build $PKG_DIR cspot-amd64.deb
 
-      - name: Prepare APT repository
+      - name: Prepare APT repository (x86_64)
         run: |
           mkdir -p repo
           cp cspot-amd64.deb repo/
           cd repo
           dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
 
-      - name: Publish APT repo (x86)
+      - name: Publish APT repo (x86_64)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -114,7 +112,7 @@ EOF
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
-      - name: Package existing binaries into .deb
+      - name: Package prebuilt binaries into .deb (ARM64)
         run: |
           PKG_DIR=pkg
           mkdir -p $PKG_DIR/DEBIAN
@@ -136,14 +134,14 @@ EOF
 
           dpkg-deb --build $PKG_DIR cspot-arm64.deb
 
-      - name: Prepare APT repository
+      - name: Prepare APT repository (ARM64)
         run: |
           mkdir -p repo
           cp cspot-arm64.deb repo/
           cd repo
           dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
 
-      - name: Publish APT repo (arm64)
+      - name: Publish APT repo (ARM64)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
