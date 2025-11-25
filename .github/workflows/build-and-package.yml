@@ -57,7 +57,7 @@ jobs:
             ARCH=arm64
           fi
           PKG_NAME="cspot-${ARCH}.deb"
-          echo "DEBUG: Packaging for ARCH=${ARCH} -> ${PKG_NAME}"
+          echo "Packaging for ARCH=${ARCH} -> ${PKG_NAME}"
 
           PKG_DIR=pkg
           rm -rf $PKG_DIR
