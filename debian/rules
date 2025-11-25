@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+
+# Use debhelper to manage the building process
+export DH_VERBOSE = 1
+
+# Specify the compatibility level
+# If using debhelper-compat (= 13) in control, use:
+DEB_BUILD_OPTIONS = nocheck
+include /usr/share/cdbs/1/class/debhelper.mk
+
