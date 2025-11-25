@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build, Test, and Release
 
 on:
   push:
@@ -9,9 +9,12 @@ env:
   BUILD_TYPE: Debug
 
 jobs:
+  build-and-release:
+    runs-on: [self-hosted]
 
-  build-and-test-x86:
-    runs-on: [self-hosted, X64]
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
 
     steps:
       - name: Checkout repository
@@ -19,11 +22,24 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set architecture-specific variables
+        run: |
+          if [ "${{ matrix.arch }}" == "x86_64" ]; then
+            echo "ARCH=amd64" >> $GITHUB_ENV
+          else
+            echo "ARCH=arm64" >> $GITHUB_ENV
+          fi
+          echo "PKG_NAME=cspot-${ARCH}.deb" >> $GITHUB_ENV
+
       - name: Configure and build
         run: |
           mkdir -p build
           cd build
-          cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
+          if [ "${ARCH}" = "amd64" ]; then
+            cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
+          else
+            cmake ..
+          fi
           make -j$(nproc)
 
       - name: Run self tests
@@ -42,7 +58,7 @@ jobs:
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
-      - name: Package prebuilt binaries into .deb (x86_64)
+      - name: Package prebuilt binaries into .deb
         run: |
           PKG_DIR=pkg
           mkdir -p $PKG_DIR/DEBIAN
@@ -54,95 +70,29 @@ jobs:
           cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
           cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
 
-          # Use echo to write the control file line by line
+          # Generate minimal control file
           echo "Package: cspot" > $PKG_DIR/DEBIAN/control
           echo "Version: 1.0-${GITHUB_SHA}" >> $PKG_DIR/DEBIAN/control
-          echo "Architecture: amd64" >> $PKG_DIR/DEBIAN/control
+          echo "Architecture: ${ARCH}" >> $PKG_DIR/DEBIAN/control
           echo "Maintainer: Rich <rich@cs.ucsb.edu>" >> $PKG_DIR/DEBIAN/control
-          echo "Description: CSPOT platform runtime (x86_64)" >> $PKG_DIR/DEBIAN/control
+          echo "Description: CSPOT platform runtime (${ARCH})" >> $PKG_DIR/DEBIAN/control
 
-          dpkg-deb --build $PKG_DIR cspot-amd64.deb
+          dpkg-deb --build $PKG_DIR $PKG_NAME
 
-      - name: Prepare APT repository (x86_64)
-        run: |
-          mkdir -p repo
-          cp cspot-amd64.deb repo/
-          cd repo
-          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
-
-      - name: Publish APT repository (x86_64)
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
-          publish_branch: x86-apt-repo
-          force_orphan: true
-          commit_message: "Publish x86 package ${{ github.sha }}"
+          tag_name: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-and-test-arm64:
-    runs-on: [self-hosted, ARM64]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Upload .deb to Release
+        uses: actions/upload-release-asset@v1
         with:
-          submodules: recursive
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.PKG_NAME }}
+          asset_name: ${{ env.PKG_NAME }}
+          asset_content_type: application/vnd.debian.binary-package
 
-      - name: Configure and build
-        run: |
-          mkdir -p build
-          cd build
-          cmake ..
-          make -j$(nproc)
 
-      - name: Run self tests
-        run: |
-          cd build/bin
-          cp ../../cicd-tests/local-self-test.sh .
-          ./woofc-namespace-platform -b spawn >& namespace.log &
-          ./local-self-test.sh
-          cp ../../cicd-tests/local-network-test.sh .
-          ./woofc-namespace-platform -b spawn >& namespace.log &
-          ./local-network-test.sh
-          cp ../../cicd-tests/start-remote-platform.sh .
-          cp ../../cicd-tests/kill-remote-platform.sh .
-          cp ../../cicd-tests/remote-network-test.sh .
-          ./remote-network-test.sh
-          cp ../../cicd-tests/remote-senspot-test.sh .
-          ./remote-senspot-test.sh
-
-      - name: Package prebuilt binaries into .deb (ARM64)
-        run: |
-          PKG_DIR=pkg
-          mkdir -p $PKG_DIR/DEBIAN
-          mkdir -p $PKG_DIR/usr/local/cspot/bin
-          mkdir -p $PKG_DIR/usr/local/cspot/lib
-          mkdir -p $PKG_DIR/usr/local/cspot/include
-
-          cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
-          cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
-          cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
-
-          echo "Package: cspot" > $PKG_DIR/DEBIAN/control
-          echo "Version: 1.0-${GITHUB_SHA}" >> $PKG_DIR/DEBIAN/control
-          echo "Architecture: arm64" >> $PKG_DIR/DEBIAN/control
-          echo "Maintainer: Rich <rich@cs.ucsb.edu>" >> $PKG_DIR/DEBIAN/control
-          echo "Description: CSPOT platform runtime (ARM64)" >> $PKG_DIR/DEBIAN/control
-
-          dpkg-deb --build $PKG_DIR cspot-arm64.deb
-
-      - name: Prepare APT repository (ARM64)
-        run: |
-          mkdir -p repo
-          cp cspot-arm64.deb repo/
-          cd repo
-          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
-
-      - name: Publish APT repository (ARM64)
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
-          publish_branch: arm64-apt-repo
-          force_orphan: true
-          commit_message: "Publish ARM64 package ${{ github.sha }}"
