@@ -1,5 +1,5 @@
-cspot-pkg (1.0.0-1) unstable; urgency=low
+cspot (1.0.0-1) unstable; urgency=low
 
   * Initial release for GitHub Actions build.
 
--- Your Name <rich@cs.ucsb.edu>  Tue, 25 Nov 2025 08:00:00 -0800
+-- Your Name <rich@cs.ucsb.edu> Tue, 25 Nov 2025 08:00:00 -0800
