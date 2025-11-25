@@ -48,29 +48,6 @@ jobs:
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
-      - name: Save build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: cspot-build-${{ matrix.arch }}
-          path: build/bin
-
-  package-and-release:
-    needs: build-and-release
-    runs-on: [self-hosted]
-    strategy:
-      matrix:
-        arch: [x86_64, arm64]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: cspot-build-${{ matrix.arch }}
-          path: build/bin
-
       - name: Package prebuilt binaries into .deb
         id: package
         run: |
@@ -113,11 +90,12 @@ EOF
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload .deb to Release
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          tag_name: ${{ github.sha }}
+          name: ${{ steps.package.outputs.pkg_name }}
           asset_path: ${{ steps.package.outputs.pkg_name }}
-          asset_name: ${{ steps.package.outputs.pkg_name }}
-          asset_content_type: application/vnd.debian.binary-package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
