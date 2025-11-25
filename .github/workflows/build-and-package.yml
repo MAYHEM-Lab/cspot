@@ -11,7 +11,6 @@ env:
 jobs:
   build-and-release:
     runs-on: [self-hosted]
-
     strategy:
       matrix:
         arch: [x86_64, arm64]
@@ -58,7 +57,6 @@ jobs:
   package-and-release:
     needs: build-and-release
     runs-on: [self-hosted]
-
     strategy:
       matrix:
         arch: [x86_64, arm64]
@@ -104,9 +102,6 @@ Description: CSPOT platform runtime (${ARCH})
 EOF
 
           dpkg-deb --build $PKG_DIR $PKG_NAME
-          echo "DEBUG: Package created at $PKG_NAME"
-
-          # Set output for next step
           echo "pkg_name=${PKG_NAME}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
