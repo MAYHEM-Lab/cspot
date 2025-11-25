@@ -22,20 +22,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set architecture-specific variables
-        run: |
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            echo "ARCH=amd64" >> $GITHUB_ENV
-          else
-            echo "ARCH=arm64" >> $GITHUB_ENV
-          fi
-          echo "PKG_NAME=cspot-${ARCH}.deb" >> $GITHUB_ENV
-
       - name: Configure and build
         run: |
           mkdir -p build
           cd build
-          if [ "${ARCH}" = "amd64" ]; then
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
             cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF ..
           else
             cmake ..
@@ -58,24 +49,60 @@ jobs:
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
+      - name: Save build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: cspot-build-${{ matrix.arch }}
+          path: build/bin
+          
+  package-and-release:
+    needs: build-and-release
+    runs-on: [self-hosted]
+
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cspot-build-${{ matrix.arch }}
+          path: build/bin
+
       - name: Package prebuilt binaries into .deb
         run: |
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            ARCH=amd64
+          else
+            ARCH=arm64
+          fi
+          PKG_NAME="cspot-${ARCH}.deb"
+          echo "Packaging for ARCH=${ARCH} -> ${PKG_NAME}"
+
           PKG_DIR=pkg
+          rm -rf $PKG_DIR
           mkdir -p $PKG_DIR/DEBIAN
           mkdir -p $PKG_DIR/usr/local/cspot/bin
           mkdir -p $PKG_DIR/usr/local/cspot/lib
           mkdir -p $PKG_DIR/usr/local/cspot/include
 
+          # Copy the existing binaries from the artifact
           cp build/bin/* $PKG_DIR/usr/local/cspot/bin/
-          cp build/lib/* $PKG_DIR/usr/local/cspot/lib/
-          cp src/include/*.h $PKG_DIR/usr/local/cspot/include/
+          cp build/lib/* $PKG_DIR/usr/local/cspot/lib/ || true
+          cp src/include/*.h $PKG_DIR/usr/local/cspot/include/ || true
 
-          # Generate minimal control file
-          echo "Package: cspot" > $PKG_DIR/DEBIAN/control
-          echo "Version: 1.0-${GITHUB_SHA}" >> $PKG_DIR/DEBIAN/control
-          echo "Architecture: ${ARCH}" >> $PKG_DIR/DEBIAN/control
-          echo "Maintainer: Rich <rich@cs.ucsb.edu>" >> $PKG_DIR/DEBIAN/control
-          echo "Description: CSPOT platform runtime (${ARCH})" >> $PKG_DIR/DEBIAN/control
+          # Minimal control file
+          cat <<EOF > $PKG_DIR/DEBIAN/control
+Package: cspot
+Version: 1.0-${GITHUB_SHA}
+Architecture: ${ARCH}
+Maintainer: Rich <rich@cs.ucsb.edu>
+Description: CSPOT platform runtime (${ARCH})
+EOF
 
           dpkg-deb --build $PKG_DIR $PKG_NAME
 
