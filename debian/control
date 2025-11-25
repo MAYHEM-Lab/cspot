@@ -3,6 +3,8 @@ Section: misc
 Priority: optional
 Maintainer: rich@cs.ucsb.edu
 Build-depends: debhelper-compat (= 13), cmake, libssl-dev, libyaml-dev
+
 Package: cspot-pkg
 Architecture: arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: CSPOT platform of things
