@@ -1,5 +1,0 @@
-cspot (1.0.0-1) unstable; urgency=low
-
-  * Initial release for GitHub Actions build.
-
-  -- Rich Wolski <rich@cs.ucsb.edu>  Tue, 25 Nov 2025 08:00:00 -0800

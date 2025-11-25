@@ -1,4 +1,0 @@
-# Source Path/File        Destination Directory
-build/bin/*  usr/bin/
-build/lib/* usr/lib/
-src/include/*.h usr/include/cspot/
