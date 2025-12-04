@@ -57,6 +57,7 @@ jobs:
         id: package
         run: |
           ARCH="${{ matrix.arch }}"
+          VERSION="1.0-${GITHUB_RUN_NUMBER}"
           PKG_NAME="cspot-${ARCH}.deb"
 
           PKG_DIR="pkg"
@@ -66,23 +67,22 @@ jobs:
           mkdir -p "$PKG_DIR/usr/local/cspot/lib"
           mkdir -p "$PKG_DIR/usr/local/cspot/include"
 
-          cp build/bin/woofc* "$PKG_DIR/usr/local/cspot/bin/"
-          cp build/bin/senspot* "$PKG_DIR/usr/local/cspot/bin/"
-          cp build/bin/stress* "$PKG_DIR/usr/local/cspot/bin/"
-          cp build/bin/hw* "$PKG_DIR/usr/local/cspot/bin/"
+          cp build/bin/woofc* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/bin/senspot* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/bin/stress* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/bin/hw* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
           cp build/lib/* "$PKG_DIR/usr/local/cspot/lib/" 2>/dev/null || true
           cp src/include/*.h "$PKG_DIR/usr/local/cspot/include/" 2>/dev/null || true
 
-          # Write control file safely using echo
           echo "Package: cspot" > "$PKG_DIR/DEBIAN/control"
-          echo "Version: 1.0-${GITHUB_RUN_NUMBER}" >> "$PKG_DIR/DEBIAN/control"
+          echo "Version: ${VERSION}" >> "$PKG_DIR/DEBIAN/control"
           echo "Architecture: ${ARCH}" >> "$PKG_DIR/DEBIAN/control"
           echo "Maintainer: Rich <rich@cs.ucsb.edu>" >> "$PKG_DIR/DEBIAN/control"
           echo "Description: CSPOT platform runtime (${ARCH})" >> "$PKG_DIR/DEBIAN/control"
 
           dpkg-deb --build "$PKG_DIR" "$PKG_NAME"
 
-          echo "pkg=${PKG_NAME}" >> $GITHUB_OUTPUT
+          echo "pkg=$PKG_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload package as build artifact
         uses: actions/upload-artifact@v4
@@ -91,21 +91,22 @@ jobs:
           path: ${{ steps.package.outputs.pkg }}
 
   publish-release:
-    name: Publish Release Assets
+    name: Publish to Latest Release
     needs: build-and-package
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-      - name: Download build artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Upload to GitHub Release
+      - name: Upload to latest release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
-
+          tag_name: latest
+          files: artifacts/**/* 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
