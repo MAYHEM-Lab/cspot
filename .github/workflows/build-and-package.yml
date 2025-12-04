@@ -70,7 +70,6 @@ jobs:
           cp build/bin/senspot* "$PKG_DIR/usr/local/cspot/bin/"
           cp build/bin/stress* "$PKG_DIR/usr/local/cspot/bin/"
           cp build/bin/hw* "$PKG_DIR/usr/local/cspot/bin/"
-          cp build/bin/ping* "$PKG_DIR/usr/local/cspot/bin/"
           cp build/lib/* "$PKG_DIR/usr/local/cspot/lib/" 2>/dev/null || true
           cp src/include/*.h "$PKG_DIR/usr/local/cspot/include/" 2>/dev/null || true
 
