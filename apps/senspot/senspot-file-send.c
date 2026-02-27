@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "woofc.h"
 #include "senspot.h"
@@ -14,7 +15,7 @@
 char *Usage = "senspot-file-send -W woof_name for put\n\
 \t-L use same namespace for source and target\n\
 \t-f filename to transfer\n\
-\t-V verbose";
+\t-V verbose\n";
 
 char Wname[4096];
 char NameSpace[4096];
@@ -37,11 +38,13 @@ int main(int argc, char **argv)
 	struct stat sbuf;
 	char wname[4096];
 	char fname[4096];
-	unsigned long seq_no;
 	int fd;
 	int bytes_read;
 	int blocks_to_write;
-	unsigned int dedup_seqno;
+	int blocks;
+	unsigned long seqno;
+	int last;
+	off_t pos;
 	
 
 	memset(wname,0,sizeof(wname));
@@ -58,6 +61,9 @@ int main(int argc, char **argv)
 				break;
 			case 'L':
 				uselocal = 1;
+				break;
+			case 'V':
+				Verbose = 1;
 				break;
 			default:
 				fprintf(stderr,
@@ -95,9 +101,9 @@ int main(int argc, char **argv)
 	// for PROTO_1 put start record in at tail, end record
 	// at the head
 	sf.proto = PROTO_1;
-	sf.flags = SENS_END;
-	sf.version = LatestFileVersion(wname);
-	if(sf.version == (unsigned int -1)) {
+	sf.flags = SENS_EOF;
+	sf.version = LastFileVersion(wname);
+	if(sf.version == (unsigned int) -1) {
 		sf.version = 1;
 	} else {
 		sf.version++;
@@ -125,6 +131,7 @@ int main(int argc, char **argv)
 		printf("\tsize: %d\n",sbuf.st_size);
 		printf("\tblocks: %d\n",blocks);
 		printf("\tlast: %d\n",last);
+	}
 
 
 	if(uselocal == 1) {
@@ -172,7 +179,7 @@ int main(int argc, char **argv)
 		sf.payload_size = bytes_read;
 		if(Verbose == 1) {
 			printf("\tputting block %d, size %d, dedup_seqno %d flags: %d ",
-				blocks_to_write, bytes_read, sp.dedup_seqno,
+				blocks_to_write, bytes_read, sf.dedup_seqno,
 					sf.flags);
 		}
 		seqno = WooFPut(wname,NULL,&sf); // put it
@@ -198,13 +205,13 @@ int main(int argc, char **argv)
 		blocks_to_write--;
 		// sanity checks
 		if((sf.dedup_seqno == 1) &&
-		   (sf.blocks_to_write == 0)) { // next write will be start
+		   (blocks_to_write == 0)) { // next write will be start
 			sf.flags = SENS_START;
 		} else if((sf.dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
 			  "dedup_seqno: %d, blocks_left: %d in %s\n",
-					sp.dedup_seqno,blocks_to_write,wname);
+					sf.dedup_seqno,blocks_to_write,wname);
 			close(fd);
 			exit(1);
 		} else if((sf.dedup_seqno > 1) &&
@@ -220,52 +227,3 @@ int main(int argc, char **argv)
 	close(fd);
 	exit(0);
 }
-
-	if(bytes_read <= 0) {
-		close(fd);
-		fprintf(stderr,"no data read for  %s\n",fname);
-		exit(0);
-	}
-
-	while(bytes_read > 0) {
-		SenspotAssign(&spt,'s',(char *)input_buf);
-		WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
-		gettimeofday(&tm,NULL);
-		spt.tv_sec = htonl(tm.tv_sec);
-		spt.tv_usec = htonl(tm.tv_usec);
-
-		dedup_seqno = 1;
-		spt.dedup_seqno = dedup_seqno;
-		spt.send_size = bytes_read;
-		seq_no = WooFPut(wname,NULL,(void *)&spt);
-
-		if(WooFInvalid(seq_no)) {
-			fprintf(stderr,"senspot-put failed for %s\n",
-				wname);
-			fflush(stderr);
-			exit(1);
-		}
-		dedup_seqno++;
-		memset(input_buf,0,sizeof(input_buf));
-		bytes_read = read(fd,input_buf,payload);
-	}
-	close(fd);
-
-	spt.dedup_seqno = 0xFFFFFFFF;
-	spt.send_size = 0;
-	seq_no = WooFPut(wname,NULL,(void *)&spt);
-	if(WooFInvalid(seq_no)) {
-		fprintf(stderr,"senspot-put EOF failed for %s\n",
-			wname);
-			fflush(stderr);
-			exit(1);
-	}
-
-
-	exit(0);
-}
-
-	
-
-	
-	
