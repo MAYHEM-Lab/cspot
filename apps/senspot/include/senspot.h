@@ -4,6 +4,13 @@
 #include "hval.h"
 #include <string.h>
 #include <time.h>
+#ifdef JUMBO
+#define PAYLOAD (8*1024)
+#else
+#define PAYLOAD (1*2024)
+#endif
+
+#define FPAYLOAD (8*1024)
 
 struct senspot_stc
 {
@@ -12,16 +19,32 @@ struct senspot_stc
 	char ip_addr[25];
 	unsigned int tv_sec;
 	unsigned int tv_usec;
-	unsigned int pad_1;
-	unsigned int pad_2;
-#ifdef JUMBO
-	unsigned char payload[8*1024]; // for strings
-#else
-	unsigned char payload[1024]; // for strings
-#endif
+	unsigned int dedup_seqno;
+	unsigned int send_size; // for file xfer
+	unsigned char payload[PAYLOAD]; // for strings
 };
 
 typedef struct senspot_stc SENSPOT;
+
+struct senspot_file_stc
+{
+	unsigned int proto;
+	unsigned int flags;
+	unsigned int version;
+	unsigned int dedup_seqno;
+	unsigned int woof_start; // seqno in woof containing start record
+	unsigned int woof_end; // seqno in woof containing end record
+	unsigned int payload_size;
+	unsigned char payload[FPAYLOAD];
+};
+
+typedef struct senspot_file_stc SENSFILE;
+
+#define PROTO_1 (1)
+
+#define SENS_START (1)
+#define SENS_EOF (2)
+unsigned int LastFileVersion(char *wname);
 
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no);
 void SenspotAssign(SENSPOT *spt, char type, char *v);
