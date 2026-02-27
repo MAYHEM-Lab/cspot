@@ -32,7 +32,6 @@ struct senspot_file_stc
 	unsigned int flags;
 	unsigned int version;
 	unsigned int dedup_seqno;
-	unsigned int woof_start; // seqno in woof containing start record
 	unsigned int woof_end; // seqno in woof containing end record
 	unsigned int payload_size;
 	unsigned char payload[FPAYLOAD];
