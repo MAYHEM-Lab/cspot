@@ -145,6 +145,11 @@ int main(int argc, char **argv)
 	sf.dedup_seqno = blocks+1; // seqno counts from 1
 
 	while(blocks_to_write >= 0) {
+		// if this just fits the last block, don't read EOF
+		if(last == 0) {
+			blocks_to_write--;
+			continue;
+		}
 		pos = lseek(fd,(blocks_to_write * FPAYLOAD),SEEK_SET);
 		if(pos == -1) {
 			fprintf(stderr,
