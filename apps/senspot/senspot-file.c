@@ -16,7 +16,7 @@ unsigned int LastFileVersion(char *wname)
 	int err;
 	SENSFILE sf;
 	unsigned long seqno;
-	seqno = WooFLatestSeqno(wname);
+	seqno = WooFGetLatestSeqno(wname);
 	if(WooFInvalid(seqno)) {
 		return((unsigned int)-1);
 	}

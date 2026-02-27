@@ -128,6 +128,7 @@ int main(int argc, char **argv)
 	if(Verbose == 1) {
 		printf("file: %s\n",fname);
 		printf("woof: %s\n",wname);
+		printf("\tversion: %d\n",sf.version);
 		printf("\tsize: %d\n",sbuf.st_size);
 		printf("\tblocks: %d\n",blocks);
 		printf("\tlast: %d\n",last);
