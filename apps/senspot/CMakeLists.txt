@@ -21,6 +21,9 @@ target_link_libraries(senspot-file-init PUBLIC woof senspot)
 add_executable(senspot-file-send senspot-file-send.c)
 target_link_libraries(senspot-file-send PUBLIC woof senspot)
 
+add_executable(senspot-file-recv senspot-file-recv.c)
+target_link_libraries(senspot-file-recv PUBLIC woof senspot)
+
 add_executable(device-ping-init device-ping-init.c)
 target_link_libraries(device-ping-init PUBLIC woof)
 
