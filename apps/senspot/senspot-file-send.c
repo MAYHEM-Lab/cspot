@@ -45,6 +45,10 @@ int main(int argc, char **argv)
 	unsigned long seqno;
 	int last;
 	off_t pos;
+	struct timeval tv;
+	struct tm tm_buf;
+	char buffer[64];
+
 	
 
 	memset(wname,0,sizeof(wname));
@@ -116,6 +120,14 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	gettimeofday(&tv,NULL);
+	sf.creation_time = tv.tv_sec;
+	if(Verbose == 1) {
+		localtime_r(&sf.creation_time, &tm_buf);
+    		strftime(buffer, sizeof(buffer),
+             		"%Y-%m-%d %H:%M:%S",
+             		&tm_buf);
+	}
 	blocks = sbuf.st_size / FPAYLOAD; // number of blocks
 	last = sbuf.st_size % FPAYLOAD; // partial block at the end
 
@@ -129,6 +141,7 @@ int main(int argc, char **argv)
 		printf("file: %s\n",fname);
 		printf("woof: %s\n",wname);
 		printf("\tversion: %d\n",sf.version);
+		printf("\tcreation_time: %s (%lu)\n",buffer,sf.creation_time);
 		printf("\tsize: %d\n",sbuf.st_size);
 		printf("\tblocks: %d\n",blocks);
 		printf("\tlast: %d\n",last);
@@ -188,6 +201,9 @@ int main(int argc, char **argv)
 				blocks_to_write, bytes_read, sf.dedup_seqno,
 					sf.flags);
 		}
+		gettimeofday(&tv,NULL);
+		sf.tv_sec = tv.tv_sec;
+		sf.tv_usec = tv.tv_usec;
 		seqno = WooFPut(wname,NULL,&sf); // put it
 		if(WooFInvalid(seqno)) {
 			fprintf(stderr,"could not put block %d of %s\n",

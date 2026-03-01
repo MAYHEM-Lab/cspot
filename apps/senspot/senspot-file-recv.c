@@ -39,6 +39,9 @@ int main(int argc, char **argv)
 	unsigned long end_seqno;
 	unsigned int next_dedup;
 	unsigned int bytes;
+        struct tm tm_buf;
+	time_t epoch;
+        char buffer[64];
 
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
@@ -144,9 +147,15 @@ int main(int argc, char **argv)
 	start_seqno = seqno;
 	end_seqno = sf.woof_end; // is woof seqno for end record
 	if(Verbose == 1) {
+		epoch = (time_t)sf.creation_time;
+		localtime_r((const time_t *)&epoch, &tm_buf);
+		strftime(buffer, sizeof(buffer),
+             		"%Y-%m-%d %H:%M:%S",
+             		&tm_buf);
 		printf("woof: %s\n",Wname);
 		printf("file: %s\n",Fname);
-		printf("version: %d\n",version);
+		printf("\tversion: %d\n",version);
+		printf("\tcreation_time: %s (%lu)\n",buffer,sf.creation_time);
 		printf("\tstart: %lu\n",start_seqno);
 		printf("\tend: %lu\n",end_seqno);
 	}
