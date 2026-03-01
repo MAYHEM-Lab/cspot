@@ -31,8 +31,11 @@ struct senspot_file_stc
 	unsigned int proto;
 	unsigned int flags;
 	unsigned int version;
+	unsigned int creation_time;
 	unsigned int dedup_seqno;
 	unsigned int woof_end; // seqno in woof containing end record
+	unsigned int tv_sec;
+	unsigned int tv_usec;
 	unsigned int payload_size;
 	unsigned char payload[FPAYLOAD];
 };
