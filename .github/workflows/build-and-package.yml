@@ -32,7 +32,7 @@ jobs:
           else
             cmake -DCMAKE_BUILD_TYPE=Release ..
           fi
-          make -j4
+          make
 
       - name: Run self tests
         run: |
