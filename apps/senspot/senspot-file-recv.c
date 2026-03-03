@@ -4,8 +4,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/time.h>
-#include <time.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "woofc.h"
 #include "senspot.h"
