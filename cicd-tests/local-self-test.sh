@@ -4,7 +4,7 @@ cp ../../apps/self-test/throughput.sh .
 echo "local-self-test $(pwd)"
 cd $(pwd)
 WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
-if ( ! test -z "$WPID ) ; then
+if ( ! test -z "$WPID" ) ; then
 	kill -9 $WPID
 fi
 ./woofc-namespace-platform -b spawn >& namespace.log &
