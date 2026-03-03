@@ -4,9 +4,24 @@ cp ../../apps/self-test/throughput.sh .
 echo "local-self-test $(pwd)"
 cd $(pwd)
 WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
-kill -9 $WPID
+if ( ! test -z "$WPID ) ; then
+	kill -9 $WPID
+fi
 ./woofc-namespace-platform -b spawn >& namespace.log &
-cat ./namespace.log
+RTEST=`cat ./namespace.log | grep listen`
+CNT=0
+while ( test $CNT -lt 10 ) ; do
+	if ( ! test -z "$RTEST" ) ; then
+		break
+	fi
+	sleep 1
+	RTEST=`cat ./namespace.log | grep listen`
+	CNT=$(($CNT+1))
+done
+if ( test $CNT -ge 10 ) ; then
+	echo "local-self-test could not start namespace server"
+	exit 1
+fi
 WPID=`ps auxww | grep actions | grep  "woofc" | grep -v grep | awk '{print $2}'`
 #CPID=`ps auxww | grep "$(pwd)/woofc-container" | grep -v grep | awk '{print $2}'`
 #WLIST=`ps auxww | grep "$(pwd)/woofc-forker-helper" | grep -v grep | awk '{print $2}'`
