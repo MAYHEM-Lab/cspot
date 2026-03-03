@@ -48,6 +48,10 @@ int main(int argc, char **argv)
 	struct timeval tv;
 	struct tm tm_buf;
 	char buffer[64];
+	double duration;
+	double total;
+	struct timeval start_tv;
+	struct timeval end_tv;
 
 	
 
@@ -145,6 +149,8 @@ int main(int argc, char **argv)
 		printf("\tsize: %d\n",sbuf.st_size);
 		printf("\tblocks: %d\n",blocks);
 		printf("\tlast: %d\n",last);
+		gettimeofday(&start_tv,NULL);
+		total = 0;
 	}
 
 
@@ -200,6 +206,7 @@ int main(int argc, char **argv)
 			printf("\tputting block %d, size %d, dedup_seqno %d flags: %d ",
 				blocks_to_write, bytes_read, sf.dedup_seqno,
 					sf.flags);
+			total += bytes_read;
 		}
 		gettimeofday(&tv,NULL);
 		sf.tv_sec = tv.tv_sec;
@@ -222,6 +229,7 @@ int main(int argc, char **argv)
 			}
 			sf.woof_end = seqno;
 			sf.flags = 0;
+			gettimeofday(&end_tv,NULL);
 		}
 		sf.dedup_seqno--;
 		blocks_to_write--;
@@ -244,6 +252,15 @@ int main(int argc, char **argv)
 			close(fd);
 			exit(1);
 		}
+	}
+
+	if(Verbose == 1) {
+		duration = (((double)end_tv.tv_sec + 
+			(double)end_tv.tv_usec/1000000) -
+			   (((double)start_tv.tv_sec + 
+                        (double)start_tv.tv_usec/1000000)));
+		printf("\t%f megabytes / second wrote\n",
+			(total/(1024*1024))/duration);
 	}
 		
 	close(fd);
