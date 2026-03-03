@@ -42,6 +42,10 @@ int main(int argc, char **argv)
         struct tm tm_buf;
 	time_t epoch;
         char buffer[64];
+	struct timeval start_tv;
+	struct timeval end_tv;
+	double total;
+	double duration;
 
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
@@ -189,6 +193,10 @@ int main(int argc, char **argv)
 	}
 
 	// main read loop -- read from the end of the log back
+	if(Verbose == 1) {
+		gettimeofday(&start_tv,NULL);
+		total = 0;
+	}
 	err = WooFGet(Wname,&sf,start_seqno);
 	if(err < 0) {
 		fprintf(stderr,
@@ -216,8 +224,10 @@ int main(int argc, char **argv)
 				fprintf(stderr,
 				"ERROR: bad write at %lu in %s %d %d\n",
 				seqno,Wname,sf.payload_size,bytes);
+				exit(1);
 			}
 			if(Verbose == 1) {
+				total += bytes;
 				printf("\twrote %d from %lu dedup: %d\n",
 					bytes,seqno,next_dedup);
 			}
@@ -242,6 +252,12 @@ int main(int argc, char **argv)
 			close(fd);
 			exit(1);
 		}
+	}
+	if(Verbose == 1) {
+		gettimeofday(&end_tv,NULL);
+		duration = (((double)end_tv.tv_sec + (double)end_tv.tv_usec / 1000000) -
+			    ((double)start_tv.tv_sec + (double)start_tv.tv_usec / 1000000));
+		printf("\t%f megabytes/sec read\n",(double)(total / (1024*1024))/duration);
 	}
 	close(fd);
 
