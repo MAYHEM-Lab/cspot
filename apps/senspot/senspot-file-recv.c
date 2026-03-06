@@ -49,6 +49,7 @@ int main(int argc, char **argv)
 	struct timeval end_tv;
 	double total;
 	double duration;
+	int found;
 
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
@@ -139,14 +140,21 @@ int main(int argc, char **argv)
 		printf("scanning for version %d:%d\n",version,minor);
 	}
 
-	while((sf.flags & SENS_START) == 0) {
-		if(minor == 0) {
-			if(sf.version == version) {
-				break;
+	found = 0;
+	while(found == 0) {
+		if((sf.flags && SENS_START) != 0) {
+			if(minor == 0) {
+				if(sf.version == version) {
+printf("found %d %d at %lu\n",version,minor,seqno);
+					found = 1;
+					break;
+				}
+			} else if((sf.version == version) &&
+				  (minor == sf.woof_end)) {
+printf("found 2 %d %d at %lu\n",version,minor,seqno);
+					found = 1;
+					break;
 			}
-		} else if((sf.version == version) &&
-			  (minor == sf.woof_end)) {
-				break;
 		}
 		seqno--;
 		err = WooFGet(Wname,&sf,seqno);
