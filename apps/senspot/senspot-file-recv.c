@@ -10,11 +10,12 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:LVv:f:"
+#define ARGS "W:LVv:f:m:"
 char *Usage = "senspot-file-recv -W woof_name for file storage\n\
 \t-f file-to-write-out\n\
 \t-L use same namespace for source and target\n\
 \t-v file version number to get\n\
+\t-m minor-version number (optional)\n\
 \t-V verbose\n";
 
 char Wname[4096];
@@ -34,7 +35,8 @@ int main(int argc, char **argv)
 	int uselocal;
 	SENSFILE sf;
 	int fd;
-	int version;
+	unsigned int version;
+	unsigned int minor;
 	unsigned long seqno;
 	unsigned long start_seqno;
 	unsigned long end_seqno;
@@ -51,6 +53,7 @@ int main(int argc, char **argv)
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
 	version = 0;
+	minor = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -62,6 +65,9 @@ int main(int argc, char **argv)
 				break;
 			case 'L':
 				uselocal = 1;
+				break;
+			case 'm':
+				minor = atoi(optarg);
 				break;
 			case 'v':
 				version = atoi(optarg);
@@ -130,17 +136,24 @@ int main(int argc, char **argv)
 	}
 
 	if(Verbose == 1) {
-		printf("scanning for version %d\n",version);
+		printf("scanning for version %d:%d\n",version,minor);
 	}
 
-	while(((sf.flags & SENS_START) == 0) ||
-		(sf.version != version)) {
+	while((sf.flags & SENS_START) == 0) {
+		if(minor == 0) {
+			if(sf.version == version) {
+				break;
+			}
+		} else if((sf.version == version) &&
+			  (minor == sf.woof_end)) {
+				break;
+		}
 		seqno--;
 		err = WooFGet(Wname,&sf,seqno);
 		if(err < 0) {
 			fprintf(stderr,
-		"ERROR: senspot-file-recv could not find start record for version %d in %s\n",
-				version,Wname);
+		"ERROR: senspot-file-recv could not find start record for version %d:%d in %s\n",
+				version,minor,Wname);
 			exit(1);
 		}
 	}	
@@ -150,7 +163,7 @@ int main(int argc, char **argv)
 	// we check but
 	//
 	start_seqno = seqno;
-	end_seqno = sf.woof_end; // is woof seqno for end record
+	minor = end_seqno = sf.woof_end; // is woof seqno for end record
 	if(Verbose == 1) {
 		epoch = (time_t)sf.creation_time;
 		localtime_r((const time_t *)&epoch, &tm_buf);
@@ -159,7 +172,7 @@ int main(int argc, char **argv)
              		&tm_buf);
 		printf("woof: %s\n",Wname);
 		printf("file: %s\n",Fname);
-		printf("\tversion: %d\n",version);
+		printf("\tversion: %d:%d\n",version,minor);
 		printf("\tcreation_time: %s (%lu)\n",buffer,sf.creation_time);
 		printf("\tstart: %lu\n",start_seqno);
 		printf("\tend: %lu\n",end_seqno);
@@ -206,10 +219,10 @@ int main(int argc, char **argv)
 		close(fd);
 		exit(1);
 	}
-	if(!(sf.flags & SENS_START) || (sf.version != version)) {
+	if(!(sf.flags & SENS_START) || (sf.version != version) || (sf.woof_end != minor)) {
 		fprintf(stderr,
-		"ERROR: start record changed in %s version %d to %d at %lu\n",
-		Wname,version, sf.version);
+		"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
+		Wname,version, sf.version,minor);
 		close(fd);
 		exit(1);
 	}
