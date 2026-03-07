@@ -10,10 +10,11 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:LVv:f:m:"
+#define ARGS "W:LVv:f:m:l"
 char *Usage = "senspot-file-recv -W woof_name for file storage\n\
 \t-f file-to-write-out\n\
-\t-L use same namespace for source and target\n\
+\t-l list latest version\n\
+\t-L list all versions\n\
 \t-v file version number to get\n\
 \t-m minor-version number (optional)\n\
 \t-V verbose\n";
@@ -50,6 +51,7 @@ int main(int argc, char **argv)
 	double total;
 	double duration;
 	int found;
+	int latest;
 
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
