@@ -9,15 +9,21 @@ if(APPLE)
     message(STATUS "Configuring for Apple Silicon (ARM64)")
 
     set(CMAKE_OSX_ARCHITECTURES arm64)
+    set(CMAKE_PREFIX_PATH "/opt/homebrew;/opt/homebrew/opt/openssl@3")
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+
 
     # Manually specify Homebrew ARM64 paths
     set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
     set(OPENSSL_INCLUDE_DIR "${OPENSSL_ROOT_DIR}/include")
     set(OPENSSL_LIBRARIES "${OPENSSL_ROOT_DIR}/lib")
 
-    include_directories(/opt/homebrew/include)
-    link_directories(/opt/homebrew/lib)
+#    include_directories(/opt/homebrew/include)
+#    link_directories(/opt/homebrew/lib)
     find_package(OpenSSL REQUIRED)
+    find_library(YAML_LIBRARY yaml HINTS /opt/homebrew/lib REQUIRED)
+    find_path(YAML_INCLUDE_DIR yaml.h HINTS /opt/homebrew/include REQUIRED)
+
 
 #    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
 #else()
@@ -25,13 +31,27 @@ if(APPLE)
 #    link_directories("/opt/openssl-musl/lib" "/opt/libyaml-musl/lib")
 endif()
 
-file(READ "/etc/os-release" OS_RELEASE_CONTENT)
+# Defaults (works on macOS too)
+set(OS_NAME "${CMAKE_SYSTEM_NAME}")
+set(OS_VERSION "${CMAKE_SYSTEM_VERSION}")
 
-string(REGEX MATCH "VERSION_ID=\"([0-9]+\\.[0-9]+)\"" _ ${OS_RELEASE_CONTENT})
-set(OS_VERSION_ID ${CMAKE_MATCH_1})
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND EXISTS "/etc/os-release")
+  file(READ "/etc/os-release" OS_RELEASE_CONTENT)
 
-string(REGEX MATCH "NAME=\"([^\"]+)\"" _ ${OS_RELEASE_CONTENT})
-set(OS_NAME ${CMAKE_MATCH_1})
+  # NAME=... (e.g., "Ubuntu")
+  string(REGEX MATCH "^[ \t]*NAME=\"?([^\n\"]+)\"?" _name_match "${OS_RELEASE_CONTENT}")
+  if(_name_match)
+    set(OS_NAME "${CMAKE_MATCH_1}")
+  endif()
+
+  # VERSION_ID=... (e.g., "22.04")
+  string(REGEX MATCH "^[ \t]*VERSION_ID=\"?([0-9]+(\\.[0-9]+)*)\"?" _ver_match "${OS_RELEASE_CONTENT}")
+  if(_ver_match)
+    set(OS_VERSION "${CMAKE_MATCH_1}")
+  endif()
+endif()
+
+message(STATUS "Detected OS: ${OS_NAME} ${OS_VERSION}")
 
 message(STATUS "Detected OS: ${OS_NAME} ID: ${OS_VERSION_ID}")
 
@@ -102,6 +122,15 @@ add_library(woof-mqtt
 	src/woofc-mqtt.cpp
 )
 
+if(APPLE)
+    target_include_directories(woof_caplets PRIVATE ${YAML_INCLUDE_DIR})
+    target_include_directories(woof_cmq_net PRIVATE ${YAML_INCLUDE_DIR})
+
+    target_link_libraries(woof_caplets PUBLIC OpenSSL::Crypto ${YAML_LIBRARY})
+    target_link_libraries(woof_cmq_net PUBLIC ${YAML_LIBRARY})
+endif()
+
+
 
 if(APPLE1)
 target_include_directories(woof PRIVATE
@@ -164,7 +193,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif ()
 
 add_executable(woofc-namespace-platform src/woofc-namespace-platform.cpp)
-target_link_libraries(woofc-namespace-platform woof)
+target_link_libraries(woofc-namespace-platform PRIVATE woof fmt::fmt)
 target_include_directories(woofc-namespace-platform PRIVATE src/include "/opt/musl-cross/x86_64-linux-musl/include")
 
 add_executable(woofc-container src/woofc-container.cpp)

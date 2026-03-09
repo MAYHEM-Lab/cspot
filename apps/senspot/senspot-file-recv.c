@@ -29,12 +29,69 @@ int Verbose;
 
 #define MAX_RETRIES 20
 
+SENSFILE sf;
+
+void PrintVersions(char *wname, int mode)
+{
+	unsigned long seqno;
+	int err;
+        struct tm tm_buf;
+	time_t epoch;
+        char buffer[64];
+
+	seqno = WooFGetLatestSeqno(wname);
+	if(WooFInvalid(seqno)) {
+		fprintf(stderr,"could not get latest seqno for %s\n",
+			wname);
+		exit(1);
+	}
+
+	memset(&sf,0,sizeof(sf));
+	err = WooFGet(wname,&sf,seqno);
+	if(err < 0) {
+		fprintf(stderr,"could not fetch tail from %s at %lu, created: %s\n",
+			wname,seqno);
+		exit(1);
+	}
+
+	while(1) {
+		if(sf.flags & SENS_START) {
+			epoch = (time_t)sf.creation_time;
+			localtime_r((const time_t *)&epoch, &tm_buf);
+			strftime(buffer, sizeof(buffer),
+				"%Y-%m-%d %H:%M:%S",
+				&tm_buf);
+			printf("version %d:%d at %lu, created: %s (%lu)\n",
+				sf.version,
+				sf.woof_end,
+				seqno,
+				buffer,
+				sf.creation_time);
+			fflush(stdout);
+			if(mode == 1) {
+				return;
+			}
+		}
+		seqno--;
+		if(seqno == 0) {
+			break;
+		}
+		memset(&sf,0,sizeof(sf));
+		err = WooFGet(wname,&sf,seqno);
+		if(err < 0) {
+			break;
+		}
+	}
+
+	return;
+}
+		
+
 int main(int argc, char **argv)
 {
 	int c;
 	int err;
 	int uselocal;
-	SENSFILE sf;
 	int fd;
 	unsigned int version;
 	unsigned int minor;
@@ -57,6 +114,7 @@ int main(int argc, char **argv)
 	uselocal = 0;
 	version = 0;
 	minor = 0;
+	latest = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -67,7 +125,10 @@ int main(int argc, char **argv)
 				strncpy(Fname,optarg,sizeof(Fname));
 				break;
 			case 'L':
-				uselocal = 1;
+				latest = 2;
+				break;
+			case 'l':
+				latest = 1;
 				break;
 			case 'm':
 				minor = atoi(optarg);
@@ -92,6 +153,12 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+
+	if((latest > 0) && (latest <= 2)) {
+		PrintVersions(Wname,latest);
+		exit(0);
+	}
+
 	if(Fname[0] == 0) {
 		fprintf(stderr,"ERROR: must specify file name to write\n");
 		fprintf(stderr,"%s",Usage);
