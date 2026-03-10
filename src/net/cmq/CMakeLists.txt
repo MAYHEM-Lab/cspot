@@ -1,4 +1,5 @@
 #add_library(woof_cmq_net zmq-backend.cpp zmq_wrap.hpp server.cpp common.hpp common.cpp backend.hpp endpoint.cpp backend.cpp client.cpp)
 add_library(woof_cmq_net cmq-pkt.c cmq-frame.c cmq-mqtt-xport.c cmq-cache.c cmq_wrap.hpp backend.hpp backend.cpp common.hpp common.cpp client.cpp server.cpp cmq-backend.cpp)
 target_link_libraries(woof_cmq_net PUBLIC woof woof_caplets crypto dl yaml pthread)
-target_include_directories(woof_cmq_net PRIVATE "." "../../include" "../../caplets")
+target_include_directories(woof_cmq_net PRIVATE "." "../../include" "../../caplets" "/opt/libyaml-musl/include" "/opt/openssl-musl/include")
+

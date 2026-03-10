@@ -5,6 +5,22 @@ cmake_minimum_required(VERSION 3.13)
 endif()
 project(cspot VERSION 2.0.0)
 
+if(EXISTS "/opt/libyaml-musl/include/yaml.h" AND EXISTS "/opt/openssl-musl/include/openssl/ssl.h")
+    message(STATUS "Using musl dependency stack")
+
+    include_directories(
+        /opt/libyaml-musl/include
+        /opt/openssl-musl/include
+        ${PROJECT_SOURCE_DIR}/deps/fmt/include
+    )
+
+    link_directories(
+        /opt/libyaml-musl/lib
+        /opt/openssl-musl/lib
+        /opt/openssl-musl/lib64
+    )
+endif()
+
 if(APPLE)
     message(STATUS "Configuring for Apple Silicon (ARM64)")
 
@@ -20,6 +36,11 @@ if(APPLE)
     find_package(OpenSSL REQUIRED)
 
 #    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
+else()
+	set(USE_MUSL_DEPS OFF)
+		if(EXISTS "/opt/musl-cross/bin/x86_64-linux-musl-gcc")
+    		set(USE_MUSL_DEPS ON)
+	endif()
 endif()
 
 
@@ -114,11 +135,60 @@ target_include_directories(woof-mqtt PUBLIC
 
 find_package(Threads REQUIRED)
 
-if(APPLE1)
-target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_cmq_net woof_caplets Threads::Threads)
-else()
-target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads)
+if(USE_MUSL_DEPS)
+    find_path(MUSL_OPENSSL_INCLUDE_DIR
+        NAMES openssl/hmac.h
+        HINTS /opt/openssl-musl/include
+        REQUIRED
+    )
+    find_library(MUSL_OPENSSL_CRYPTO
+        NAMES crypto libcrypto
+        HINTS /opt/openssl-musl/lib /opt/openssl-musl/lib64
+        REQUIRED
+    )
+
+    target_include_directories(woof_caplets PRIVATE ${MUSL_OPENSSL_INCLUDE_DIR})
+    target_link_libraries(woof_caplets PRIVATE ${MUSL_OPENSSL_CRYPTO})
 endif()
+
+if(EXISTS "/opt/libyaml-musl/include/yaml.h")
+    find_path(MUSL_YAML_INCLUDE_DIR
+        NAMES yaml.h
+        HINTS /opt/libyaml-musl/include
+        REQUIRED
+    )
+
+    find_library(MUSL_YAML_LIBRARY
+        NAMES yaml libyaml
+        HINTS /opt/libyaml-musl/lib /opt/libyaml-musl/lib64
+        REQUIRED
+    )
+
+    target_include_directories(woof_caplets PRIVATE ${MUSL_YAML_INCLUDE_DIR})
+    target_link_libraries(woof_caplets PRIVATE ${MUSL_YAML_LIBRARY})
+endif()
+
+if(CMAKE_C_COMPILER MATCHES "musl")
+    find_path(MUSL_YAML_INCLUDE_DIR
+        NAMES yaml.h
+        HINTS /opt/libyaml-musl/include
+        REQUIRED
+    )
+
+    find_library(MUSL_YAML_LIBRARY
+        NAMES yaml libyaml
+        HINTS /opt/libyaml-musl/lib /opt/libyaml-musl/lib64
+        REQUIRED
+    )
+
+    target_include_directories(woof_cmq_net PRIVATE ${MUSL_YAML_INCLUDE_DIR})
+    target_link_libraries(woof_cmq_net PRIVATE ${MUSL_YAML_LIBRARY})
+    target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads ${MUSL_YAML_LIBRARY} ${MUSL_OPENSSL_CRYPTO} )
+    else ()
+    target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads)
+
+endif()
+
 target_compile_features(woof PUBLIC cxx_std_17)
 
 target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)
