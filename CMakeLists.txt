@@ -21,21 +21,31 @@ if(EXISTS "/opt/libyaml-musl/include/yaml.h" AND EXISTS "/opt/openssl-musl/inclu
     )
 endif()
 
-if(APPLE)
+if(APPLE) 
     message(STATUS "Configuring for Apple Silicon (ARM64)")
 
     set(CMAKE_OSX_ARCHITECTURES arm64)
-
+    set(CMAKE_PREFIX_PATH "/opt/homebrew;/opt/homebrew/opt/openssl@3")
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+        
+    
     # Manually specify Homebrew ARM64 paths
     set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
     set(OPENSSL_INCLUDE_DIR "${OPENSSL_ROOT_DIR}/include")
     set(OPENSSL_LIBRARIES "${OPENSSL_ROOT_DIR}/lib")
-
-    include_directories(/opt/homebrew/include)
-    link_directories(/opt/homebrew/lib)
+        
+#    include_directories(/opt/homebrew/include)
+#    link_directories(/opt/homebrew/lib)
     find_package(OpenSSL REQUIRED)
+    find_library(YAML_LIBRARY yaml HINTS /opt/homebrew/lib REQUIRED)
+    find_path(YAML_INCLUDE_DIR yaml.h HINTS /opt/homebrew/include REQUIRED)
 
+    
 #    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
+#else()
+#    include_directories("/opt/openssl-musl/include")
+#    link_directories("/opt/openssl-musl/lib" "/opt/libyaml-musl/lib")
+
 else()
 	set(USE_MUSL_DEPS OFF)
 		if(EXISTS "/opt/musl-cross/bin/x86_64-linux-musl-gcc")
@@ -189,6 +199,14 @@ if(CMAKE_C_COMPILER MATCHES "musl")
 
 endif()
 
+if(APPLE)
+    target_include_directories(woof_caplets PRIVATE ${YAML_INCLUDE_DIR})
+    target_include_directories(woof_cmq_net PRIVATE ${YAML_INCLUDE_DIR})
+
+    target_link_libraries(woof_caplets PUBLIC OpenSSL::Crypto ${YAML_LIBRARY})
+    target_link_libraries(woof_cmq_net PUBLIC ${YAML_LIBRARY})
+endif()
+
 target_compile_features(woof PUBLIC cxx_std_17)
 
 target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)
@@ -208,7 +226,11 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif ()
 
 add_executable(woofc-namespace-platform src/woofc-namespace-platform.cpp)
+if(APPLE)
+target_link_libraries(woofc-namespace-platform PRIVATE woof fmt::fmt)
+else()
 target_link_libraries(woofc-namespace-platform woof)
+endif()
 target_include_directories(woofc-namespace-platform PRIVATE src/include)
 
 add_executable(woofc-container src/woofc-container.cpp)
