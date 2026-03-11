@@ -85,6 +85,7 @@ int SendFileNoMover(char *wname, int fd)
 
 	if(Verbose == 1) {
 		printf("woof: %s\n",wname);
+		printf("\tno_mover\n",
 		printf("\tversion: %d\n",sf.version);
 		printf("\tcreation_time: %s (%lu)\n",buffer,sf.creation_time);
 		printf("\tsize: %d\n",sbuf.st_size);
