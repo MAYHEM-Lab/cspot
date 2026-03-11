@@ -17,10 +17,8 @@ char *Usage = "senspot-file-send -W woof_name for put\n\
 \t-M <use file mover protocol>\n\
 \t-V verbose\n";
 
-char Wname[4096];
 char NameSpace[4096];
 char Namelog_dir[4096];
-char Fname[4096];
 char putbuf1[PAYLOAD];
 char putbuf2[PAYLOAD];
 int Verbose;
@@ -464,25 +462,25 @@ int main(int argc, char **argv)
 	}
 
 	if(use_mover == 0) {
-		use_mover = UseMover(Wname);
+		use_mover = UseMover(wname);
 		if(use_mover == (unsigned long)-1) {
 			fprintf(stderr,
 			"could not determine woof el size for %s\n",
-			Wname);
+			wname);
+			exit(1);
 		}
-		exit(1);
 	}
 
 	if(Verbose == 1) {
 		printf("file: %s\n",fname);
 	}
 	if(use_mover == 0) {
-		err = SendFileNoMover(Wname,fd);
+		err = SendFileNoMover(wname,fd);
 		if(err > 0) {
 			exit(0);
 		}
 	} else {
-		err = SendFileMover(Wname,fd,use_mover);
+		err = SendFileMover(wname,fd,use_mover);
 		if(err > 0) {
 			exit(0);
 		}
