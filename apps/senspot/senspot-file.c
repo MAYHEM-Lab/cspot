@@ -10,6 +10,8 @@
 #include "woofc.h"
 #include "senspot.h"
 
+extern unsigned long WooFMsgGetElSize(char *wname);
+
 // find the last valid file version in the woof wname
 unsigned int LastFileVersion(char *wname)
 {
@@ -33,4 +35,19 @@ unsigned int LastFileVersion(char *wname)
 	// no version found
 	return((unsigned int)-1);
 }
+
+unsigned long UseMover(char *wname)
+{       
+        unsigned long el_size;
+        el_size = WooFMsgGetElSize(wname);
+        if(el_size == (unsigned long)-1) {
+                return((unsigned long)-1);
+        }
+        if(el_size == sizeof(SENSFILE)) {
+                return(0);
+        } else {
+                return(el_size);
+        }
+}
+
 	

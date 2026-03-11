@@ -42,11 +42,29 @@ struct senspot_file_stc
 
 typedef struct senspot_file_stc SENSFILE;
 
+struct senspot_file_mv_str
+{
+	unsigned int proto;
+	unsigned int flags;
+	unsigned int version;
+	unsigned int creation_time;
+	unsigned int dedup_seqno;
+	unsigned int woof_end; // seqno in woof containing end record
+	unsigned int tv_sec;
+	unsigned int tv_usec;
+	unsigned int payload_size;
+	unsigned int element_size;
+};
+
+typedef struct senspot_file_mv_str SENSMV;
+
 #define PROTO_1 (1)
+#define PROTO_2 (2)
 
 #define SENS_START (1)
 #define SENS_EOF (2)
 unsigned int LastFileVersion(char *wname);
+unsigned long UseMover(char *wname);
 
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no);
 void SenspotAssign(SENSPOT *spt, char type, char *v);

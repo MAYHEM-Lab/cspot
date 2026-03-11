@@ -8,8 +8,9 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:s:"
+#define ARGS "W:s:M:"
 char *Usage = "senspot-file-init -W woof_name\n\
+\t-M mover-el-sizes (in KB)\n\
 \t-s (history size in number of elements)\n";
 
 char Wname[4096];
@@ -27,14 +28,20 @@ int main(int argc, char **argv)
 	SENSFILE sf;
 	char wname[4096];
 	unsigned long history_size;
+	unsigned long mover_size;
 
 	memset(wname,0,sizeof(wname));
 	history_size = 0;
+	mover_size = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
+				break;
+			case 'M':
+				mover_size = (unsigned long)(atol(optarg));
+				mover_size = mover_size * 1024;
 				break;
 			case 's':
 				history_size = atol(optarg);
@@ -69,12 +76,23 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-	err = WooFCreate(wname,sizeof(SENSFILE),history_size);
+	if(mover_size == 0) {
+		err = WooFCreate(wname,sizeof(SENSFILE),history_size);
+	} else {
+		if(mover_size < sizeof(SENSMV)+1) {
+			mover_size = sizeof(SENSMV)+1;
+		}
+		err = WooFCreate(wname,mover_size,history_size);
+	}
 
 	if(err < 0) {
-		fprintf(stderr,"senspot-file-init failed for %s with history size %lu\n",
+		if(mover_size == 0) {
+			mover_size = sizeof(SENSFILE);
+		}
+		fprintf(stderr,"senspot-file-init failed for %s with history size %lu, mover_size: %lu\n",
 			wname,
-			history_size);
+			history_size,
+			mover_size);
 		fflush(stderr);
 		exit(1);
 	}
