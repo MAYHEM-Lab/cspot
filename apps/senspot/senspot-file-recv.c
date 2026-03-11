@@ -29,7 +29,10 @@ int Verbose;
 
 #define MAX_RETRIES 20
 
-SENSFILE sf;
+SENSFILE *sf;
+SENSMV *sm;
+int Use_mover;
+int El_size;
 
 void PrintVersions(char *wname, int mode)
 {
@@ -38,6 +41,8 @@ void PrintVersions(char *wname, int mode)
         struct tm tm_buf;
 	time_t epoch;
         char buffer[64];
+	unsigned char *el_buf;
+	
 
 	seqno = WooFGetLatestSeqno(wname);
 	if(WooFInvalid(seqno)) {
@@ -46,38 +51,63 @@ void PrintVersions(char *wname, int mode)
 		exit(1);
 	}
 
-	memset(&sf,0,sizeof(sf));
-	err = WooFGet(wname,&sf,seqno);
+	memset(el_buf,0,El_size);
+	err = WooFGet(wname,el_buf,seqno);
 	if(err < 0) {
 		fprintf(stderr,"could not fetch tail from %s at %lu, created: %s\n",
 			wname,seqno);
 		exit(1);
 	}
 
+	if(Use_mover == 0) {
+		sf = (SENSFILE *)el_buf;
+	} else {
+		sm = (SENSMV *)el_buf;
+	}
 	while(1) {
-		if(sf.flags & SENS_START) {
-			epoch = (time_t)sf.creation_time;
-			localtime_r((const time_t *)&epoch, &tm_buf);
-			strftime(buffer, sizeof(buffer),
-				"%Y-%m-%d %H:%M:%S",
-				&tm_buf);
-			printf("version %d:%d at %lu, created: %s (%lu)\n",
-				sf.version,
-				sf.woof_end,
-				seqno,
-				buffer,
-				sf.creation_time);
-			fflush(stdout);
-			if(mode == 1) {
-				return;
+		if(Use_mover == 0) {
+			if(sf->flags & SENS_START) {
+				epoch = (time_t)sf->creation_time;
+				localtime_r((const time_t *)&epoch, &tm_buf);
+				strftime(buffer, sizeof(buffer),
+					"%Y-%m-%d %H:%M:%S",
+					&tm_buf);
+				printf("version %d:%d at %lu, created: %s (%lu)\n",
+					sf->version,
+					sf->woof_end,
+					seqno,
+					buffer,
+					sf->creation_time);
+				fflush(stdout);
+				if(mode == 1) {
+					return;
+				}
+			}
+		} else {
+			if(sm->flags & SENS_START) {
+				epoch = (time_t)sm->creation_time;
+				localtime_r((const time_t *)&epoch, &tm_buf);
+				strftime(buffer, sizeof(buffer),
+					"%Y-%m-%d %H:%M:%S",
+					&tm_buf);
+				printf("version %d:%d at %lu, created: %s (%lu)\n",
+					sm->version,
+					sm->woof_end,
+					seqno,
+					buffer,
+					sm->creation_time);
+				fflush(stdout);
+				if(mode == 1) {
+					return;
+				}
 			}
 		}
 		seqno--;
 		if(seqno == 0) {
 			break;
 		}
-		memset(&sf,0,sizeof(sf));
-		err = WooFGet(wname,&sf,seqno);
+		memset(el_buf,0,El_size);
+		err = WooFGet(wname,el_buf,seqno);
 		if(err < 0) {
 			break;
 		}
@@ -109,6 +139,10 @@ int main(int argc, char **argv)
 	double duration;
 	int found;
 	int latest;
+	unsigned char *el_buf;
+	unsigned char *pbuf;
+	unsigned int psize;
+	unsigned long pdedup;
 
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
@@ -175,7 +209,6 @@ int main(int argc, char **argv)
 		WooFInit();
 	}
 
-
 	if(version == 0) {
 		version = LastFileVersion(Wname);
 		if(version == -1) {
@@ -185,6 +218,33 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
+
+	Use_mover = UseMover(Wname);
+	if(Use_mover == -1) {
+		fprintf(stderr,
+		"could not get mover status for %s\n",
+		Wname);
+		exit(1);
+	}
+	if(Use_mover == 0) {
+		El_size = sizeof(SENSFILE);
+	} else {
+		El_size = Use_mover;
+	}
+
+	el_buf = malloc(El_size);
+	if(el_buf == NULL) {
+		fprintf(stderr,"could not get size for %lu bytes\n",
+		El_size);
+		exit(1);
+	}
+
+	if(Use_mover == 0) {
+		sf = (SENSFILE *)el_buf;
+	} else {
+		sm = (SENSMV *)el_buf;
+	}
+
 
 	// find start record for correct version
 	
@@ -196,7 +256,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	err = WooFGet(Wname,&sf,seqno);
+	memset(el_buf,0,El_size);
+	err = WooFGet(Wname,el_buf,seqno);
 
 	if(err < 0) {
 		fprintf(stderr,"ERROR: senspot-file-recv failed for %s at %lu\n",
@@ -211,22 +272,39 @@ int main(int argc, char **argv)
 
 	found = 0;
 	while(found == 0) {
-		if((sf.flags && SENS_START) != 0) {
-			if(minor == 0) {
-				if(sf.version == version) {
-printf("found %d %d at %lu\n",version,minor,seqno);
-					found = 1;
-					break;
+		if(Use_mover == 0) {
+			if((sf->flags && SENS_START) != 0) {
+				if(minor == 0) {
+					if(sf->version == version) {
+	printf("found %d %d at %lu\n",version,minor,seqno);
+						found = 1;
+						break;
+					}
+				} else if((sf->version == version) &&
+					  (minor == sf->woof_end)) {
+	printf("found 2 %d %d at %lu\n",version,minor,seqno);
+						found = 1;
+						break;
 				}
-			} else if((sf.version == version) &&
-				  (minor == sf.woof_end)) {
-printf("found 2 %d %d at %lu\n",version,minor,seqno);
-					found = 1;
-					break;
+			}
+		} else {
+			if((sm->flags && SENS_START) != 0) {
+				if(minor == 0) {
+					if(sm->version == version) {
+	printf("found %d %d at %lu\n",version,minor,seqno);
+						found = 1;
+						break;
+					}
+				} else if((sm->version == version) &&
+					  (minor == sm->woof_end)) {
+	printf("found 2 %d %d at %lu\n",version,minor,seqno);
+						found = 1;
+						break;
+				}
 			}
 		}
 		seqno--;
-		err = WooFGet(Wname,&sf,seqno);
+		err = WooFGet(Wname,el_buf,seqno);
 		if(err < 0) {
 			fprintf(stderr,
 		"ERROR: senspot-file-recv could not find start record for version %d:%d in %s\n",
@@ -240,17 +318,34 @@ printf("found 2 %d %d at %lu\n",version,minor,seqno);
 	// we check but
 	//
 	start_seqno = seqno;
-	minor = end_seqno = sf.woof_end; // is woof seqno for end record
+	if(Use_mover == 0) {
+		minor = end_seqno = sf->woof_end; // is woof seqno for end record
+	} else {
+		minor = end_seqno = sm->woof_end; // is woof seqno for end record
+	}
 	if(Verbose == 1) {
-		epoch = (time_t)sf.creation_time;
+		if(Use_mover == 0) {
+			epoch = (time_t)sf->creation_time;
+		} else {
+			epoch = (time_t)sm->creation_time;
+		}
 		localtime_r((const time_t *)&epoch, &tm_buf);
 		strftime(buffer, sizeof(buffer),
              		"%Y-%m-%d %H:%M:%S",
              		&tm_buf);
 		printf("woof: %s\n",Wname);
 		printf("file: %s\n",Fname);
+		if(Use_mover == 0) {
+			printf("\tno_mover\n");
+		} else {
+			printf("mover\n");
+		}
 		printf("\tversion: %d:%d\n",version,minor);
-		printf("\tcreation_time: %s (%lu)\n",buffer,sf.creation_time);
+		if(Use_mover == 0) {
+			printf("\tcreation_time: %s (%lu)\n",buffer,sf->creation_time);
+		} else {
+			printf("\tcreation_time: %s (%lu)\n",buffer,sm->creation_time);
+		}
 		printf("\tstart: %lu\n",start_seqno);
 		printf("\tend: %lu\n",end_seqno);
 	}
@@ -260,18 +355,28 @@ printf("found 2 %d %d at %lu\n",version,minor,seqno);
 		exit(1);
 	}
 				
-	err = WooFGet(Wname,&sf,end_seqno);
+	memset(el_buf,0,El_size);
+	err = WooFGet(Wname,el_buf,end_seqno);
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR: could not fetch end record from %s, version %d at %lu\n",
 			Wname,version,end_seqno);
 		exit(1);
 	}
-	if(!(sf.flags & SENS_EOF)) {
-		fprintf(stderr,
-		"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
-			end_seqno,Wname,version);
-		exit(1);
+	if(Use_mover == 0) {
+		if(!(sf->flags & SENS_EOF)) {
+			fprintf(stderr,
+			"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
+				end_seqno,Wname,version);
+			exit(1);
+		}
+	} else {
+		if(!(sm->flags & SENS_EOF)) {
+			fprintf(stderr,
+			"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
+				end_seqno,Wname,version);
+			exit(1);
+		}
 	}
 
 	// open the file for overwrite
@@ -288,7 +393,8 @@ printf("found 2 %d %d at %lu\n",version,minor,seqno);
 		gettimeofday(&start_tv,NULL);
 		total = 0;
 	}
-	err = WooFGet(Wname,&sf,start_seqno);
+	memset(el_buf,0,El_size);
+	err = WooFGet(Wname,el_buf,start_seqno);
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR: could not reread start record in %s, version %d at %lu\n",
@@ -296,25 +402,54 @@ printf("found 2 %d %d at %lu\n",version,minor,seqno);
 		close(fd);
 		exit(1);
 	}
-	if(!(sf.flags & SENS_START) || (sf.version != version) || (sf.woof_end != minor)) {
-		fprintf(stderr,
-		"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
-		Wname,version, sf.version,minor);
-		close(fd);
-		exit(1);
+	if(Use_mover == 0) {
+		if(!(sf->flags & SENS_START) || 
+		   (sf->version != version) || 
+		   (sf->woof_end != minor)) {
+			fprintf(stderr,
+			"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
+			Wname,version, sf->version,minor);
+			close(fd);
+			exit(1);
+		}
+	} else {
+		if(!(sm->flags & SENS_START) || 
+		   (sm->version != version) || 
+		   (sm->woof_end != minor)) {
+			fprintf(stderr,
+			"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
+			Wname,version, sm->version,minor);
+			close(fd);
+			exit(1);
+		}
 	}
 
 	// here is the main loop
 	seqno = start_seqno;
 	next_dedup = 1;
+	if(Use_mover != 0) {
+		pbuf = ((unsigned char *)sm) + sizeof(SENSMV);
+	}
 	while(end_seqno <= seqno) {
+		if(Use_mover == 0) {
+			pdedup = sf->dedup_seqno;
+		} else {
+			pdedup = sm->dedup_seqno;
+		}
 		// if we are on the right seqno, write out
-		if(next_dedup == sf.dedup_seqno) {
-			bytes = write(fd,sf.payload,sf.payload_size);
-			if(bytes != sf.payload_size) {
+		if(next_dedup == pdedup) {
+			if(Use_mover == 0) {
+				psize = sf->payload_size;
+				bytes = write(fd,&(sf->payload[0]),
+							sf->payload_size);
+			} else {
+				psize = sm->payload_size;
+				bytes = write(fd,pbuf,sm->payload_size);
+			}
+			if(bytes != psize) {
 				fprintf(stderr,
 				"ERROR: bad write at %lu in %s %d %d\n",
-				seqno,Wname,sf.payload_size,bytes);
+				seqno,Wname,psize,bytes);
 				exit(1);
 			}
 			if(Verbose == 1) {
@@ -326,16 +461,26 @@ printf("found 2 %d %d at %lu\n",version,minor,seqno);
 		// here, we could have duplicate end records so end_seqno
 		// could be a duplicate -- we could just read to the
 		// end, but better to exit prematurely
-		if(sf.flags & SENS_EOF) {
-			if(Verbose == 1) {
-				printf("\tEOF found at %lu dedup: %d\n",
-						seqno,next_dedup);
+		if(Use_mover == 0) {
+			if(sf->flags & SENS_EOF) {
+				if(Verbose == 1) {
+					printf("\tEOF found at %lu dedup: %d\n",
+							seqno,next_dedup);
+				}
+				break;
 			}
-			break;
+		} else {
+			if(sm->flags & SENS_EOF) {
+				if(Verbose == 1) {
+					printf("\tEOF found at %lu dedup: %d\n",
+							seqno,next_dedup);
+				}
+				break;
+			}
 		}
 		next_dedup = next_dedup+1;
 		seqno = seqno - 1;
-		err = WooFGet(Wname,&sf,seqno);
+		err = WooFGet(Wname,el_buf,seqno);
 		if(err < 0) {
 			fprintf(stderr,
 			"ERROR: could not get block at %lu in %s\n",
@@ -352,6 +497,7 @@ printf("found 2 %d %d at %lu\n",version,minor,seqno);
 	}
 	close(fd);
 
+	free(el_buf);
 
 	exit(0);
 }
