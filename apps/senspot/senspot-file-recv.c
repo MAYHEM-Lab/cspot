@@ -51,6 +51,11 @@ void PrintVersions(char *wname, int mode)
 		exit(1);
 	}
 
+	el_buf = malloc(El_size);
+	if(el_buf == NULL) {
+		fprintf(stderr,"no space to pint versions: %lu\n",El_size);
+		exit(1);
+	}
 	memset(el_buf,0,El_size);
 	err = WooFGet(wname,el_buf,seqno);
 	if(err < 0) {
@@ -80,6 +85,7 @@ void PrintVersions(char *wname, int mode)
 					sf->creation_time);
 				fflush(stdout);
 				if(mode == 1) {
+					free(el_buf);
 					return;
 				}
 			}
@@ -98,6 +104,7 @@ void PrintVersions(char *wname, int mode)
 					sm->creation_time);
 				fflush(stdout);
 				if(mode == 1) {
+					free(el_buf);
 					return;
 				}
 			}
@@ -113,6 +120,7 @@ void PrintVersions(char *wname, int mode)
 		}
 	}
 
+	free(el_buf);
 	return;
 }
 		
@@ -187,6 +195,19 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
+	// have to set these here
+	Use_mover = UseMover(Wname);
+	if(Use_mover == -1) {
+		fprintf(stderr,
+		"could not get mover status for %s\n",
+		Wname);
+		exit(1);
+	}
+	if(Use_mover == 0) {
+		El_size = sizeof(SENSFILE);
+	} else {
+		El_size = Use_mover;
+	}
 
 	if((latest > 0) && (latest <= 2)) {
 		PrintVersions(Wname,latest);
@@ -219,18 +240,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	Use_mover = UseMover(Wname);
-	if(Use_mover == -1) {
-		fprintf(stderr,
-		"could not get mover status for %s\n",
-		Wname);
-		exit(1);
-	}
-	if(Use_mover == 0) {
-		El_size = sizeof(SENSFILE);
-	} else {
-		El_size = Use_mover;
-	}
 
 	el_buf = malloc(El_size);
 	if(el_buf == NULL) {
