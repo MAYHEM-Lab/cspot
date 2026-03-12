@@ -266,6 +266,14 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if(Use_mover == 0) {
+		version = sf->version;
+		minor = sf->woof_end;
+	} else {
+		version = sm->version;
+		minor = sm->woof_end;
+	}
+
 	if(Verbose == 1) {
 		printf("scanning for version %d:%d\n",version,minor);
 	}
