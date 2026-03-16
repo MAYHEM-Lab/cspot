@@ -28,6 +28,8 @@ char *Usage = "cmq-perf [-c host_ip]\n\
 \t-S frame_size\n\
 \t-V verbose mode\n";
 
+extern int CMQ_use_mqtt;
+
 double Duration(struct timeval *end, struct timeval *start)
 {
 	double d;
@@ -61,6 +63,8 @@ int main(int argc, char **argv)
 	double total;
 	double duration;
 
+	// sockets for now
+	CMQ_use_mqtt = 0;
 	host_port = 8079;
 	memset(host_ip,0,sizeof(host_ip));
 	count = 1;
