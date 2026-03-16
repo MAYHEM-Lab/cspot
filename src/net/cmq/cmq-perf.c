@@ -4,6 +4,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/time.h>
 
 #include "woofc-access.h"
 #include "cmq-pkt.h"
@@ -17,12 +18,27 @@
 #define PORT 8079
 #define TIMEOUT 3000 // 3 second timeout
 
-#define ARGS "c:h:p:C:S:s"
+int Verbose;
+
+#define ARGS "c:h:p:C:S:sV"
 char *Usage = "cmq-perf [-c host_ip]\n\
 \t[-s] <server mode>\n\
 \t-p host_port\n\
 \t-C frame_count\n\
-\t-S frame_size\n";
+\t-S frame_size\n\
+\t-V verbose mode\n";
+
+double Duration(struct timeval *end, struct timeval *start)
+{
+	double d;
+	double d1;
+	double d2;
+
+	d1 = ((double)(end->tv_sec) + (double)(end->tv_usec)/1000000.0);
+	d2 = ((double)(start->tv_sec) + (double)(start->tv_usec)/1000000.0);
+	d = d1 - d2;
+	return(d);
+}
 
 int main(int argc, char **argv)
 {
@@ -42,11 +58,14 @@ int main(int argc, char **argv)
 	struct timeval start_tv;
 	struct timeval end_tv;
 	unsigned char ack[1];
+	double total;
+	double duration;
 
 	host_port = 8079;
 	memset(host_ip,0,sizeof(host_ip));
 	count = 1;
 	size = 8192;
+	Verbose = 0;
 
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -65,6 +84,9 @@ int main(int argc, char **argv)
 				break;
 			case 'S':
 				size = atoi(optarg);
+				break;
+			case 'V':
+				Verbose = 1;
 				break;
 			default:
 				fprintf(stderr,"unrecognized argument %c\n",
@@ -112,10 +134,14 @@ int main(int argc, char **argv)
 		}
 
 		// create a frame list
+		total = (double)count * (double)size;
+		gettimeofday(&start_tv,NULL);
 		for(i=0; i < count; i++) {
-			memset(payload,0,sizeof(payload));
+			//memset(payload,0,sizeof(payload));
 			sprintf(payload,"frame-%d",i);
-			printf("adding %s to frame list\n",(char *)payload);
+			if(Verbose == 1) {
+				printf("adding %s to frame list\n",(char *)payload);
+			}
 			err = cmq_frame_create(&f,(unsigned char *)payload,strlen(payload));
 			if(err < 0) {
 				fprintf(stderr,"ERROR: failed to create frame %d\n",i);
@@ -129,7 +155,9 @@ int main(int argc, char **argv)
 		}
 
 		// send frame list to server
-		printf("sending frame list to server %s:%lu\n",host_ip,host_port);
+		if(Verbose == 1) {
+			printf("sending frame list to server %s:%lu\n",host_ip,host_port);
+		}
 		err = cmq_pkt_send_msg(endpoint,fl);
 		if(err < 0) {
 			fprintf(stderr,"ERROR: failed to send msg\n");
@@ -140,7 +168,9 @@ int main(int argc, char **argv)
 		cmq_frame_list_destroy(fl);
 
 		// receive an ACK
-		printf("receiving frame list from server %s:%lu\n",host_ip,host_port);
+		if(Verbose == 1) {
+			printf("receiving frame list from server %s:%lu\n",host_ip,host_port);
+		}
 		err = cmq_pkt_recv_msg(endpoint,&fl);
 		if(err < 0) {
 			fprintf(stderr,"ERROR: failed to recv msg\n");
@@ -151,6 +181,9 @@ int main(int argc, char **argv)
 			fprintf(stderr,"ERROR: failed to recv ack frame\n");
 			exit(1);
 		}
+		gettimeofday(&end_tv,NULL);
+		duration = Duration(&end_tv,&start_tv);
+		printf("cmq-pkt client sent %f megabytes / sec\n",(total/(1024*1024)) / duration);
 		cmq_frame_destroy(f);
 		cmq_frame_list_destroy(fl);
 		exit(0);
@@ -184,7 +217,9 @@ int main(int argc, char **argv)
 				break;
 			}
 			for(i=0; i < cmq_frame_list_count(fl); i++) {
-				printf("recv: %s\n",(char *)cmq_frame_payload(f));
+				if(Verbose == 1) {
+					printf("recv: %s\n",(char *)cmq_frame_payload(f));
+				}
 				f = cmq_frame_next(f);
 				if(f == NULL) {
 					break;
@@ -216,7 +251,9 @@ int main(int argc, char **argv)
 				break;
 			}
 
-			printf("sending ack to client\n");
+			if(Verbose == 1) {
+				printf("sending ack to client\n");
+			}
 			err = cmq_pkt_send_msg(endpoint,fl);
 			if(err < 0) {
 				fprintf(stderr,"ERROR: failed to send msg\n");
