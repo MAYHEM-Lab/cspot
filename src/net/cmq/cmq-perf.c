@@ -17,7 +17,7 @@
 #define PORT 8079
 #define TIMEOUT 3000 // 3 second timeout
 
-#define ARGS "h:p:C:S:s"
+#define ARGS "c:h:p:C:S:s"
 char *Usage = "cmq-perf [-c host_ip]\n\
 \t[-s] <server mode>\n\
 \t-p host_port\n\
@@ -90,8 +90,8 @@ int main(int argc, char **argv)
 	} else {
 		printf("cmq-perf client connecting to server on host %s at port %d\n",
 			       host_ip,host_port);
+		printf("\tsending %d messages of size %d\n",count,size);
 	}	
-	printf("\tsending %d messages of size %d\n",count,size);
 
 		
 	if(is_server == 0) {
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 			fprintf(stderr,"ERROR: failed to recv msg\n");
 			exit(1);
 		}
-		err = frame_list_pop(fl,&f);
+		err = cmq_frame_pop(fl,&f);
 		if(err < 0) {
 			fprintf(stderr,"ERROR: failed to recv ack frame\n");
 			exit(1);
@@ -207,6 +207,12 @@ int main(int argc, char **argv)
 			err = cmq_frame_create(&f,&ack[0],sizeof(ack));
 			if(err < 0) {
 				fprintf(stderr,"ERROR: no frame for ack\n");
+				break;
+			}
+
+			err = cmq_frame_append(fl,f);
+			if(err < 0) {
+				fprintf(stderr,"ERROR: could not append ack to fl\n");
 				break;
 			}
 
