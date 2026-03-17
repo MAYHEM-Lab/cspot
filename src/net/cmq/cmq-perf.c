@@ -22,6 +22,7 @@
 #define IS_SERVER (2)
 
 int Verbose;
+int Quiet;
 
 #define ARGS "c:h:p:C:S:sVR"
 char *Usage = "cmq-perf [-c host_ip]\n\
@@ -202,7 +203,9 @@ int DoClient(int endpoint, int count, int size)
 	}
 	gettimeofday(&end_tv,NULL);
 	duration = Duration(&end_tv,&start_tv);
-	printf("cmq-pkt client sent %f megabytes / sec\n",(total/(1024*1024)) / duration);
+	if(Quiet == 0) {
+		printf("cmq-pkt client sent %f megabytes / sec\n",(total/(1024*1024)) / duration);
+	}
 	cmq_frame_destroy(f);
 	cmq_frame_list_destroy(fl);
 	cmq_pkt_close(endpoint);
@@ -314,6 +317,7 @@ int main(int argc, char **argv)
 	count = 1;
 	size = 8192;
 	Verbose = 0;
+	Quiet = 0;
 	reverse = 0;
 
 
@@ -378,6 +382,7 @@ int main(int argc, char **argv)
 		if(reverse == 0) { // client determines direction
 			flags = IS_CLIENT; // either client or server for now
 		} else {
+			gettimeofday(&start_tv,NULL);
 			flags = IS_SERVER;
 		}
 
@@ -403,6 +408,7 @@ int main(int argc, char **argv)
 			err = DoClient(endpoint,count,size);
 		} else {
 			err = DoServer(endpoint);
+			gettimeofday(&end_tv,NULL);
 		}
 
 		if(err < 0) {
@@ -415,6 +421,13 @@ int main(int argc, char **argv)
 			}
 			exit(1);
 		}
+		if(flags == IS_SERVER) {
+			duration = Duration(&end_tv,&start_tv);
+			total = (double)count*(double)size;
+			printf("cmq-pkt client received %f megabytes / sec\n",
+					(total/(1024*1024)) / duration);
+		}
+
 		exit(0);
 	} else { // i am the server
 		server_sd = cmq_pkt_listen(host_port);
@@ -449,7 +462,9 @@ int main(int argc, char **argv)
 					printf("server has completed\n");
 				}
 			} else {
+				Quiet = 1;
 				err = DoClient(endpoint,count,size);
+				Quiet = 0;
 				if(Verbose == 1) {
 					printf("reverse server has completed, count: %d, size: %d\n",
 							count,size);
