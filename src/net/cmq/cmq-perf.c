@@ -18,13 +18,17 @@
 #define PORT 8079
 #define TIMEOUT 3000 // 3 second timeout
 
+#define IS_CLIENT (1)
+#define IS_SERVER (2)
+
 int Verbose;
 
-#define ARGS "c:h:p:C:S:sV"
+#define ARGS "c:h:p:C:S:sVR"
 char *Usage = "cmq-perf [-c host_ip]\n\
 \t[-s] <server mode>\n\
 \t-p host_port\n\
 \t-C frame_count\n\
+\t-R <run client remotely>\n\
 \t-S frame_size\n\
 \t-V verbose mode\n";
 
@@ -41,6 +45,86 @@ double Duration(struct timeval *end, struct timeval *start)
 	d = d1 - d2;
 	return(d);
 }
+
+int SendFlags(int endpoint, int flags, int count, int size)
+{
+	unsigned char *fl;
+	unsigned char *f;
+	int err;
+	unsigned long flags_array[3];
+
+	flags_array[0] = htonl(flags);
+	flags_array[1] = htonl(count);
+	flags_array[2] = htonl(size);
+
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create frame list for flags\n");
+		return(-1);
+	}
+	err = cmq_frame_create(&f,(unsigned char *)&flags_array[0],sizeof(flags_array));
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create frame for flags\n");
+		return(-1);
+	}
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to append frame for flags\n");
+		return(-1);
+	}
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+		fprintf(stderr,"ERROR: failed to send flags msg\n");
+		return(-1);
+	}
+
+	// destroy the frame list
+	cmq_frame_list_destroy(fl);
+	return(1);
+
+}
+
+int RecvFlags(int endpoint, int *flags, int *count, int *size)
+{
+	unsigned long flags_array[3];
+	unsigned char *fl;
+	unsigned char *f;
+	unsigned char *p;
+	int err;
+
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv flags\n");
+		return(-1);
+	}
+
+	
+	f = cmq_frame_list_head(fl);
+	if(f == NULL) {
+		fprintf(stderr,"ERROR: frame list head is NULL for flags\n");
+		return(-1);
+	}
+	if(cmq_frame_size(f) < sizeof(flags_array)) {
+		fprintf(stderr,
+			"ERROR: flags too small: %d\n",cmq_frame_size(f));
+		return(-1);
+	}
+	memcpy(flags_array,cmq_frame_payload(f),sizeof(flags_array));
+	flags_array[0] = ntohl(flags_array[0]);
+	flags_array[1] = ntohl(flags_array[1]);
+	flags_array[2] = ntohl(flags_array[2]);
+	cmq_frame_list_destroy(fl);
+
+	p = (unsigned char *)&(flags_array[0]);
+	*flags = *((int *)p);
+	p = (unsigned char *)&(flags_array[1]);
+	*count = *((int *)p);
+	p = (unsigned char *)&(flags_array[2]);
+	*size = *((int *)p);
+	return(1);
+}
+
 
 int DoClient(int endpoint, int count, int size)
 {
@@ -94,6 +178,7 @@ int DoClient(int endpoint, int count, int size)
 
 	err = cmq_pkt_send_msg(endpoint,fl);
 	if(err < 0) {
+		cmq_frame_list_destroy(fl);
 		fprintf(stderr,"ERROR: failed to send msg\n");
 		return(-1);
 	}
@@ -120,6 +205,7 @@ int DoClient(int endpoint, int count, int size)
 	printf("cmq-pkt client sent %f megabytes / sec\n",(total/(1024*1024)) / duration);
 	cmq_frame_destroy(f);
 	cmq_frame_list_destroy(fl);
+	cmq_pkt_close(endpoint);
 	return(1);
 }
 
@@ -202,6 +288,7 @@ int main(int argc, char **argv)
 {
 	int c;
 	char host_ip[50];
+	int flags;
 	unsigned long host_port;
 	int endpoint;
 	int server_sd;
@@ -213,6 +300,7 @@ int main(int argc, char **argv)
 	int err;
 	int size;
 	int is_server = 0;
+	int reverse;
 	struct timeval start_tv;
 	struct timeval end_tv;
 	unsigned char ack[1];
@@ -226,6 +314,7 @@ int main(int argc, char **argv)
 	count = 1;
 	size = 8192;
 	Verbose = 0;
+	reverse = 0;
 
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -241,6 +330,9 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				is_server = 1;
+				break;
+			case 'R':
+				reverse = 1;
 				break;
 			case 'S':
 				size = atoi(optarg);
@@ -268,9 +360,9 @@ int main(int argc, char **argv)
 	}
 
 	if(is_server == 1) {
-		printf("cmq-perf server listening on port %d\n",host_port);
+		printf("cmq-perf server listening on port %lu\n",host_port);
 	} else {
-		printf("cmq-perf client connecting to server on host %s at port %d\n",
+		printf("cmq-perf client connecting to server on host %s at port %lu\n",
 			       host_ip,host_port);
 		printf("\tsending %d messages of size %d\n",count,size);
 	}	
@@ -283,16 +375,44 @@ int main(int argc, char **argv)
 					host_ip,host_port);
 			exit(1);
 		}
+		if(reverse == 0) { // client determines direction
+			flags = IS_CLIENT; // either client or server for now
+		} else {
+			flags = IS_SERVER;
+		}
+
+		err = SendFlags(endpoint,flags,count,size);
+		if(err < 0) {
+			fprintf(stderr,"ERROR: failed to send flags to %s:%lu\n",
+					host_ip,host_port);
+			exit(1);
+		}
+
 		if(Verbose == 1) {
-			printf("sending %d packets, size %d (total: %lu bytes) to %s:%lu\n",
+			if(flags == IS_CLIENT) {
+				printf("sending %d packets, size %d (total: %lu bytes) to %s:%lu\n",
 					count,size,(unsigned long)(count*size),
 					host_ip,host_port);
+			} else {
+				printf("receiving %d packets, size %d (total: %lu bytes) to %s:%lu\n",
+					count,size,(unsigned long)(count*size),
+					host_ip,host_port);
+			}
 		}
-		err = DoClient(endpoint,count,size);
+		if(flags == IS_CLIENT) {
+			err = DoClient(endpoint,count,size);
+		} else {
+			err = DoServer(endpoint);
+		}
 
 		if(err < 0) {
-			fprintf(stderr,"ERROR: client side failed to %s:%lu\n",
+			if(flags == IS_CLIENT) {
+				fprintf(stderr,"ERROR: client side failed to %s:%lu\n",
 					host_ip,host_port);
+			} else {
+				fprintf(stderr,"ERROR: reverse client side failed to %s:%lu\n",
+					host_ip,host_port);
+			}
 			exit(1);
 		}
 		exit(0);
@@ -314,11 +434,26 @@ int main(int argc, char **argv)
 			}
 			if(endpoint < 0) {
 				fprintf(stderr,"ERROR: accept failed\n");
+				fflush(stderr);
 				continue;
 			}
-			err = DoServer(endpoint);
-			if(Verbose == 1) {
-				printf("server has completed\n");
+			err = RecvFlags(endpoint,&flags,&count,&size);
+			if(err < 0) {
+				fprintf(stderr,"ERROR: receiving flags from client\n");
+				fflush(stderr);
+				continue;
+			}
+			if(flags == IS_CLIENT) { // client determine direction
+				err = DoServer(endpoint);
+				if(Verbose == 1) {
+					printf("server has completed\n");
+				}
+			} else {
+				err = DoClient(endpoint,count,size);
+				if(Verbose == 1) {
+					printf("reverse server has completed, count: %d, size: %d\n",
+							count,size);
+				}
 			}
 			if(err < 0) {
 				fprintf(stderr,"ERROR: server failed from %s:%lu\n",
