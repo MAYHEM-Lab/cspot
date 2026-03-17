@@ -42,6 +42,162 @@ double Duration(struct timeval *end, struct timeval *start)
 	return(d);
 }
 
+int DoClient(int endpoint, int count, int size)
+{
+	unsigned char *fl;
+	unsigned char *f;
+	int i;
+	unsigned char *payload;
+	int err;
+	double total;
+	double duration;
+	struct timeval start_tv;
+	struct timeval end_tv;
+
+	payload = malloc(size);
+	if(payload == NULL) {
+		fprintf(stderr,"ERROR: failed to create payload buffer: %d\n",size);
+		exit(1);
+	}
+
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to create frame list\n");
+		free(payload);
+		return(-1);
+	}
+
+	// create a frame list
+	total = (double)count * (double)size;
+	gettimeofday(&start_tv,NULL);
+	for(i=0; i < count; i++) {
+		//memset(payload,0,sizeof(payload));
+		sprintf(payload,"frame-%d",i);
+		if(Verbose == 1) {
+			printf("adding %s to frame list\n",(char *)payload);
+		}
+		err = cmq_frame_create(&f,(unsigned char *)payload,strlen(payload));
+		if(err < 0) {
+			fprintf(stderr,"ERROR: failed to create frame %d\n",i);
+			free(payload);
+			return(-1);
+		}
+		err = cmq_frame_append(fl,f);
+		if(err < 0) {
+			fprintf(stderr,"ERROR: failed to append frame %d\n",i);
+			free(payload);
+			return(-1);
+		}
+	}
+
+	free(payload);
+
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to send msg\n");
+		return(-1);
+	}
+
+	// destroy the frame list
+	cmq_frame_list_destroy(fl);
+
+	// receive an ACK
+	if(Verbose == 1) {
+		printf("receiving ack from server\n");
+	}
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv msg\n");
+		return(-1);
+	}
+	err = cmq_frame_pop(fl,&f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv ack frame\n");
+		return(-1);
+	}
+	gettimeofday(&end_tv,NULL);
+	duration = Duration(&end_tv,&start_tv);
+	printf("cmq-pkt client sent %f megabytes / sec\n",(total/(1024*1024)) / duration);
+	cmq_frame_destroy(f);
+	cmq_frame_list_destroy(fl);
+	return(1);
+}
+
+int DoServer(int endpoint)
+{
+	unsigned char *fl;
+	unsigned char *f;
+	int i;
+	unsigned char ack[1];
+	int err;
+
+
+	err = cmq_pkt_recv_msg(endpoint,&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to recv msg\n");
+		return(-1);
+	}
+
+	
+	// print out frame list without destroying it
+	if(Verbose == 1) {
+		printf("receiving frame list from client\n");
+	}
+	f = cmq_frame_list_head(fl);
+	if(f == NULL) {
+		fprintf(stderr,"ERROR: frame list head is NULL\n");
+		return(-1);
+	}
+	for(i=0; i < cmq_frame_list_count(fl); i++) {
+		if(Verbose == 1) {
+			printf("recv: %s\n",(char *)cmq_frame_payload(f));
+		}
+		f = cmq_frame_next(f);
+		if(f == NULL) {
+			break;
+		}
+	}
+
+	if((f == NULL) && (i < (cmq_frame_list_count(fl)-1))) {
+		fprintf(stderr,"ERROR: NULL frame at frame %d\n",i);
+		return(-1);
+	}
+
+	cmq_frame_list_destroy(fl);
+
+	// send an ack
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: no frame list for ack\n");
+		return(-1);
+	}
+	err = cmq_frame_create(&f,&ack[0],sizeof(ack));
+	if(err < 0) {
+		fprintf(stderr,"ERROR: no frame for ack\n");
+		return(-1);
+	}
+
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: could not append ack to fl\n");
+		return(-1);
+	}
+
+	if(Verbose == 1) {
+		printf("sending ack to client\n");
+	}
+	err = cmq_pkt_send_msg(endpoint,fl);
+	if(err < 0) {
+		fprintf(stderr,"ERROR: failed to send msg\n");
+		return(-1);
+	}
+
+	// destroy the frame list
+	cmq_frame_list_destroy(fl);
+	cmq_pkt_close(endpoint);
+	return(1);
+}
+
 int main(int argc, char **argv)
 {
 	int c;
@@ -121,75 +277,24 @@ int main(int argc, char **argv)
 
 		
 	if(is_server == 0) {
-		payload = malloc(size);
-		if(payload == NULL) {
-			exit(1);
-		}
 		endpoint = cmq_pkt_connect(host_ip,host_port,TIMEOUT);
 		if(endpoint < 0) {
-			fprintf(stderr,"ERROR: failed to create endpoint\n");
+			fprintf(stderr,"ERROR: failed to create endpoint to %s:%lu\n",
+					host_ip,host_port);
 			exit(1);
 		}
-
-		err = cmq_frame_list_create(&fl);
-		if(err < 0) {
-			fprintf(stderr,"ERROR: failed to create frame list\n");
-			exit(1);
-		}
-
-		// create a frame list
-		total = (double)count * (double)size;
-		gettimeofday(&start_tv,NULL);
-		for(i=0; i < count; i++) {
-			//memset(payload,0,sizeof(payload));
-			sprintf(payload,"frame-%d",i);
-			if(Verbose == 1) {
-				printf("adding %s to frame list\n",(char *)payload);
-			}
-			err = cmq_frame_create(&f,(unsigned char *)payload,strlen(payload));
-			if(err < 0) {
-				fprintf(stderr,"ERROR: failed to create frame %d\n",i);
-				exit(1);
-			}
-			err = cmq_frame_append(fl,f);
-			if(err < 0) {
-				fprintf(stderr,"ERROR: failed to append frame %d\n",i);
-				exit(1);
-			}
-		}
-
-		// send frame list to server
 		if(Verbose == 1) {
-			printf("sending frame list to server %s:%lu\n",host_ip,host_port);
+			printf("sending %d packets, size %d (total: %lu bytes) to %s:%lu\n",
+					count,size,(unsigned long)(count*size),
+					host_ip,host_port);
 		}
-		err = cmq_pkt_send_msg(endpoint,fl);
-		if(err < 0) {
-			fprintf(stderr,"ERROR: failed to send msg\n");
-			exit(1);
-		}
+		err = DoClient(endpoint,count,size);
 
-		// destroy the frame list
-		cmq_frame_list_destroy(fl);
-
-		// receive an ACK
-		if(Verbose == 1) {
-			printf("receiving frame list from server %s:%lu\n",host_ip,host_port);
-		}
-		err = cmq_pkt_recv_msg(endpoint,&fl);
 		if(err < 0) {
-			fprintf(stderr,"ERROR: failed to recv msg\n");
+			fprintf(stderr,"ERROR: client side failed to %s:%lu\n",
+					host_ip,host_port);
 			exit(1);
 		}
-		err = cmq_frame_pop(fl,&f);
-		if(err < 0) {
-			fprintf(stderr,"ERROR: failed to recv ack frame\n");
-			exit(1);
-		}
-		gettimeofday(&end_tv,NULL);
-		duration = Duration(&end_tv,&start_tv);
-		printf("cmq-pkt client sent %f megabytes / sec\n",(total/(1024*1024)) / duration);
-		cmq_frame_destroy(f);
-		cmq_frame_list_destroy(fl);
 		exit(0);
 	} else { // i am the server
 		server_sd = cmq_pkt_listen(host_port);
@@ -200,73 +305,25 @@ int main(int argc, char **argv)
 		}
 
 		while(1) {
-			endpoint = cmq_pkt_accept(server_sd, 0); // zero timeout implies wait forever
-			if(endpoint < 0) {
-				fprintf(stderr,"ERROR: failed to accept endpoint\n");
-				perror("listen");
-				exit(1);
-			}
-			err = cmq_pkt_recv_msg(endpoint,&fl);
-			if(err < 0) {
-				fprintf(stderr,"ERROR: failed to recv msg\n");
-				break;
-			}
-
-			
-			// print out frame list without destroying it
-			printf("receiving frame list from client\n");
-			f = cmq_frame_list_head(fl);
-			if(f == NULL) {
-				fprintf(stderr,"ERROR: frame list head is NULL\n");
-				break;
-			}
-			for(i=0; i < cmq_frame_list_count(fl); i++) {
-				if(Verbose == 1) {
-					printf("recv: %s\n",(char *)cmq_frame_payload(f));
-				}
-				f = cmq_frame_next(f);
-				if(f == NULL) {
-					break;
-				}
-			}
-
-			if((f == NULL) && (i < (cmq_frame_list_count(fl)-1))) {
-				fprintf(stderr,"ERROR: NULL frame at frame %d\n",i);
-				break;
-			}
-
-			cmq_frame_list_destroy(fl);
-
-			// send an ack
-			err = cmq_frame_list_create(&fl);
-			if(err < 0) {
-				fprintf(stderr,"ERROR: no frame list for ack\n");
-				break;
-			}
-			err = cmq_frame_create(&f,&ack[0],sizeof(ack));
-			if(err < 0) {
-				fprintf(stderr,"ERROR: no frame for ack\n");
-				break;
-			}
-
-			err = cmq_frame_append(fl,f);
-			if(err < 0) {
-				fprintf(stderr,"ERROR: could not append ack to fl\n");
-				break;
-			}
-
 			if(Verbose == 1) {
-				printf("sending ack to client\n");
+				printf("listening for connection\n");
 			}
-			err = cmq_pkt_send_msg(endpoint,fl);
+			endpoint = cmq_pkt_accept(server_sd, 0); // zero timeout implies wait forever
+			if(Verbose == 1) {
+				printf("accpet has completed\n");
+			}
+			if(endpoint < 0) {
+				fprintf(stderr,"ERROR: accept failed\n");
+				continue;
+			}
+			err = DoServer(endpoint);
+			if(Verbose == 1) {
+				printf("server has completed\n");
+			}
 			if(err < 0) {
-				fprintf(stderr,"ERROR: failed to send msg\n");
-				break;
+				fprintf(stderr,"ERROR: server failed from %s:%lu\n",
+						host_ip,host_port);
 			}
-
-			// destroy the frame list
-			cmq_frame_list_destroy(fl);
-			cmq_pkt_close(endpoint);
 		}
 		exit(0);
 	}
