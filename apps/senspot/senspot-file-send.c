@@ -282,7 +282,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 		printf("\tmover\n");
 		printf("\tversion: %d\n",sm->version);
 		printf("\tcreation_time: %s (%lu)\n",buffer,sm->creation_time);
-		printf("\tsize: %d\n",sbuf.st_size);
+		printf("\tsize: %d\n",sm->file_size);
 		printf("\tblocks: %d\n",blocks);
 		printf("\tlast: %d\n",last);
 		printf("\tel_size: %d\n",el_size);
