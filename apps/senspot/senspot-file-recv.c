@@ -10,6 +10,8 @@
 #include "woofc.h"
 #include "senspot.h"
 
+extern int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
+
 #define ARGS "W:LVv:f:m:l"
 char *Usage = "senspot-file-recv -W woof_name for file storage\n\
 \t-f file-to-write-out\n\
@@ -57,7 +59,8 @@ void PrintVersions(char *wname, int mode)
 		exit(1);
 	}
 	memset(el_buf,0,El_size);
-	err = WooFGet(wname,el_buf,seqno);
+	//err = WooFGet(wname,el_buf,seqno);
+	err = WooFMsgGet(wname,el_buf,El_size,seqno);
 	if(err < 0) {
 		fprintf(stderr,"could not fetch tail from %s at %lu, created: %s\n",
 			wname,seqno);
@@ -114,7 +117,8 @@ void PrintVersions(char *wname, int mode)
 			break;
 		}
 		memset(el_buf,0,El_size);
-		err = WooFGet(wname,el_buf,seqno);
+		//err = WooFGet(wname,el_buf,seqno);
+		err = WooFMsgGet(wname,el_buf,El_size,seqno);
 		if(err < 0) {
 			break;
 		}
@@ -266,7 +270,8 @@ int main(int argc, char **argv)
 	}
 
 	memset(el_buf,0,El_size);
-	err = WooFGet(Wname,el_buf,seqno);
+	//err = WooFGet(Wname,el_buf,seqno);
+	err = WooFMsgGet(Wname,el_buf,El_size,seqno);
 
 	if(err < 0) {
 		fprintf(stderr,"ERROR: senspot-file-recv failed for %s at %lu\n",
@@ -321,7 +326,8 @@ int main(int argc, char **argv)
 			}
 		}
 		seqno--;
-		err = WooFGet(Wname,el_buf,seqno);
+		//err = WooFGet(Wname,el_buf,seqno);
+		err = WooFMsgGet(Wname,el_buf,El_size,seqno);
 		if(err < 0) {
 			fprintf(stderr,
 		"ERROR: senspot-file-recv could not find start record for version %d:%d in %s\n",
@@ -373,7 +379,8 @@ int main(int argc, char **argv)
 	}
 				
 	memset(el_buf,0,El_size);
-	err = WooFGet(Wname,el_buf,end_seqno);
+	//err = WooFGet(Wname,el_buf,end_seqno);
+	err = WooFMsgGet(Wname,el_buf,El_size,end_seqno);
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR: could not fetch end record from %s, version %d at %lu\n",
@@ -411,7 +418,8 @@ int main(int argc, char **argv)
 		total = 0;
 	}
 	memset(el_buf,0,El_size);
-	err = WooFGet(Wname,el_buf,start_seqno);
+	//err = WooFGet(Wname,el_buf,start_seqno);
+	err = WooFMsgGet(Wname,el_buf,El_size,start_seqno);
 	if(err < 0) {
 		fprintf(stderr,
 		"ERROR: could not reread start record in %s, version %d at %lu\n",
@@ -497,7 +505,8 @@ int main(int argc, char **argv)
 		}
 		next_dedup = next_dedup+1;
 		seqno = seqno - 1;
-		err = WooFGet(Wname,el_buf,seqno);
+		//err = WooFGet(Wname,el_buf,seqno);
+		err = WooFMsgGet(Wname,el_buf,El_size,seqno);
 		if(err < 0) {
 			fprintf(stderr,
 			"ERROR: could not get block at %lu in %s\n",
