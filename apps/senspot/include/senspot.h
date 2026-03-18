@@ -53,7 +53,7 @@ struct senspot_file_mv_str
 	unsigned int tv_sec;
 	unsigned int tv_usec;
 	unsigned int payload_size;
-	unsigned int element_size;
+	unsigned int file_size;
 };
 
 typedef struct senspot_file_mv_str SENSMV;

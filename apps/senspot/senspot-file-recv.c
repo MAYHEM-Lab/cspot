@@ -99,12 +99,12 @@ void PrintVersions(char *wname, int mode)
 				strftime(buffer, sizeof(buffer),
 					"%Y-%m-%d %H:%M:%S",
 					&tm_buf);
-				printf("version %d:%d at %lu, created: %s (%lu)\n",
+		printf("version %d:%d at %lu, created: %s (%lu) size: %lu\n",
 					sm->version,
 					sm->woof_end,
 					seqno,
 					buffer,
-					sm->creation_time);
+					sm->file_size);
 				fflush(stdout);
 				if(mode == 1) {
 					free(el_buf);

@@ -251,7 +251,6 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	} else {
 		sm->version++;
 	}
-	sm->element_size = el_size;
 
 	err = fstat(fd,&sbuf);
 	if(err < 0) {
@@ -270,6 +269,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	}
 	blocks = sbuf.st_size / fpayload; // number of blocks
 	last = sbuf.st_size % fpayload; // partial block at the end
+	sm->file_size = sbuf.st_size;
 
 	// do not write an empty file
 	if((blocks == 0) && (last == 0)) {
