@@ -104,6 +104,7 @@ void PrintVersions(char *wname, int mode)
 					sm->woof_end,
 					seqno,
 					buffer,
+					epoch,
 					sm->file_size);
 				fflush(stdout);
 				if(mode == 1) {
