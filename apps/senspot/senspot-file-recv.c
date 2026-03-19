@@ -34,7 +34,7 @@ int Verbose;
 SENSFILE *sf;
 SENSMV *sm;
 int Use_mover;
-int El_size;
+unsigned long El_size;
 
 void PrintVersions(char *wname, int mode)
 {
@@ -299,13 +299,11 @@ int main(int argc, char **argv)
 			if((sf->flags && SENS_START) != 0) {
 				if(minor == 0) {
 					if(sf->version == version) {
-	printf("found %d %d at %lu\n",version,minor,seqno);
 						found = 1;
 						break;
 					}
 				} else if((sf->version == version) &&
 					  (minor == sf->woof_end)) {
-	printf("found 2 %d %d at %lu\n",version,minor,seqno);
 						found = 1;
 						break;
 				}
@@ -314,13 +312,11 @@ int main(int argc, char **argv)
 			if((sm->flags && SENS_START) != 0) {
 				if(minor == 0) {
 					if(sm->version == version) {
-	printf("found %d %d at %lu\n",version,minor,seqno);
 						found = 1;
 						break;
 					}
 				} else if((sm->version == version) &&
 					  (minor == sm->woof_end)) {
-	printf("found 2 %d %d at %lu\n",version,minor,seqno);
 						found = 1;
 						break;
 				}

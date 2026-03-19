@@ -23,6 +23,7 @@ unsigned int LastFileVersion(char *wname)
 	unsigned long el_size;
 	unsigned char *el_buf;
 	int use_mover;
+	unsigned long version;
 
 	seqno = WooFGetLatestSeqno(wname);
 	if(WooFInvalid(seqno)) {
@@ -30,13 +31,16 @@ unsigned int LastFileVersion(char *wname)
 	}
 
 	el_size = UseMover(wname);
+
 	if(el_size == (unsigned long) -1) {
-		return((unsigned int)-1);
+		return(el_size);
 	}
+
 	if(el_size == 0) {
 		use_mover = 0;
 		el_size = sizeof(SENSFILE);
 	}
+
 	el_buf = malloc(el_size);
 	if(el_buf == NULL) {
 		fprintf(stderr,"no space for %lu bytes\n",
@@ -48,40 +52,47 @@ unsigned int LastFileVersion(char *wname)
 		err = WooFGet(wname,el_buf,seqno);
 		if(err < 0) {
 			free(el_buf);
-			return((unsigned int)-1);
+			return((unsigned long)-1);
 		}
-		if(use_mover == 0) {
+		if(el_size == sizeof(SENSFILE)) {
 			sf = (SENSFILE *)el_buf;
 			if(sf->flags & SENS_START) { // we found the latest start record
+				version = sf->version;
 				free(el_buf);
-				return(sf->version);
+				return((unsigned long)version);
 			}
 		} else {
 			sm = (SENSMV *)el_buf;
 			if(sm->flags & SENS_START) { // we found the latest start record
+				version = sm->version;
 				free(el_buf);
-				return(sm->version);
+				return((unsigned long)version);
 			}
 		}
 		seqno--;
 	}
 	// no version found
 	free(el_buf);
-	return((unsigned int)-1);
+	return((unsigned long)-1);
 }
 
 unsigned long UseMover(char *wname)
 {       
         unsigned long el_size;
+	unsigned long ret;
+
         el_size = WooFMsgGetElSize(wname);
+
         if(el_size == (unsigned long)-1) {
-                return((unsigned long)-1);
-        }
-        if(el_size == sizeof(SENSFILE)) {
-                return(0);
-        } else {
                 return(el_size);
         }
+
+        if(el_size == sizeof(SENSFILE)) {
+		ret = 0;
+        } else {
+		ret = el_size;
+        }
+	return(ret);
 }
 
 	
