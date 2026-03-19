@@ -161,7 +161,7 @@ int DoClient(int endpoint, int count, int size)
 		if(Verbose == 1) {
 			printf("adding %s to frame list\n",(char *)payload);
 		}
-		err = cmq_frame_create(&f,(unsigned char *)payload,strlen(payload));
+		err = cmq_frame_create(&f,(unsigned char *)payload,size);
 		if(err < 0) {
 			fprintf(stderr,"ERROR: failed to create frame %d\n",i);
 			free(payload);
