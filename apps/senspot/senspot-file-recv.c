@@ -401,7 +401,7 @@ int main(int argc, char **argv)
 	}
 
 	// open the file for overwrite
-	fd = open(Fname,O_CREAT | O_WRONLY, 0600);
+	fd = open(Fname,O_CREAT | O_WRONLY | O_TRUNC, 0600);
 	if(fd < 0) {
 		fprintf(stderr,
 			"ERROR: could not open %s for writing\n",
