@@ -448,12 +448,14 @@ int main(int argc, char **argv)
 			if(endpoint < 0) {
 				fprintf(stderr,"ERROR: accept failed\n");
 				fflush(stderr);
+				cmq_pkt_close(endpoint);
 				continue;
 			}
 			err = RecvFlags(endpoint,&flags,&count,&size);
 			if(err < 0) {
 				fprintf(stderr,"ERROR: receiving flags from client\n");
 				fflush(stderr);
+				cmq_pkt_close(endpoint);
 				continue;
 			}
 			if(flags == IS_CLIENT) { // client determine direction
@@ -474,6 +476,7 @@ int main(int argc, char **argv)
 				fprintf(stderr,"ERROR: server failed from %s:%lu\n",
 						host_ip,host_port);
 			}
+			cmq_pkt_close(endpoint);
 		}
 		exit(0);
 	}
