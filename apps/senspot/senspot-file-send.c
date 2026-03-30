@@ -137,6 +137,9 @@ int SendFileNoMover(char *wname, int fd)
 			exit(1);
 		}
 		sf.payload_size = bytes_read;
+		if(blocks_to_write == 0) { // if there are no more full blocks
+			sf.flags |= SENS_START;
+		}
 		if(Verbose == 1) {
 			printf("\tputting block %d, size %d, dedup_seqno %d flags: %d ",
 				blocks_to_write, bytes_read, sf.dedup_seqno,
@@ -171,7 +174,7 @@ int SendFileNoMover(char *wname, int fd)
 		// sanity checks
 		if((sf.dedup_seqno == 1) &&
 		   (blocks_to_write == 0)) { // next write will be start
-			sf.flags = SENS_START;
+			sf.flags |= SENS_START;
 		} else if((sf.dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
@@ -335,6 +338,10 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 			exit(1);
 		}
 		sm->payload_size = bytes_read;
+
+		if(blocks_to_write == 0) { // if there are no more full blocks
+			sm->flags |= SENS_START;
+		}
 		if(Verbose == 1) {
 			printf("\tputting block %d, size %d, dedup_seqno %d flags: %d ",
 				blocks_to_write, bytes_read, sm->dedup_seqno,
@@ -369,7 +376,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 		// sanity checks
 		if((sm->dedup_seqno == 1) &&
 		   (blocks_to_write == 0)) { // next write will be start
-			sm->flags = SENS_START;
+			sm->flags |= SENS_START;
 		} else if((sm->dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
