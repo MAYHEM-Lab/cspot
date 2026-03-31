@@ -96,14 +96,13 @@ int SendFileNoMover(char *wname, int fd)
 
 	// for PROTO_1, read the file backwards
 	blocks_to_write = blocks;
+	// if this just fits the last block, don't read EOF
+	if(last == 0) {
+		blocks_to_write--;
+	}
 	sf.dedup_seqno = blocks+1; // seqno counts from 1
 
 	while(blocks_to_write >= 0) {
-		// if this just fits the last block, don't read EOF
-		if(last == 0) {
-			blocks_to_write--;
-			continue;
-		}
 		pos = lseek(fd,(blocks_to_write * FPAYLOAD),SEEK_SET);
 		if(pos == -1) {
 			fprintf(stderr,
@@ -157,6 +156,9 @@ int SendFileNoMover(char *wname, int fd)
 			exit(1);
 		}
 		if(Verbose == 1) {
+			if(sf.flags & SENS_START) {
+				gettimeofday(&end_tv,NULL);
+			}
 			printf("woof seqno: %d\n", seqno);
 			fflush(stdout);
 		}
@@ -174,9 +176,6 @@ int SendFileNoMover(char *wname, int fd)
 		if((sf.dedup_seqno == 1) &&
 		   (blocks_to_write == 0)) { // next write will be start
 			sf.flags |= SENS_START;
-			if(Verbose == 1) {
-				gettimeofday(&end_tv,NULL);
-			}
 		} else if((sf.dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
@@ -298,15 +297,14 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 
 	// for PROTO_1, read the file backwards
 	blocks_to_write = blocks;
+	// if this just fits the last block, don't read EOF
+	if(last == 0) {
+		blocks_to_write--;
+	}
 	sm->dedup_seqno = blocks+1; // seqno counts from 1
 
 	pbuf = ((unsigned char *)(sm)) + sizeof(SENSMV);
 	while(blocks_to_write >= 0) {
-		// if this just fits the last block, don't read EOF
-		if(last == 0) {
-			blocks_to_write--;
-			continue;
-		}
 		pos = lseek(fd,(blocks_to_write * fpayload),SEEK_SET);
 		if(pos == -1) {
 			fprintf(stderr,
@@ -361,6 +359,9 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 			exit(1);
 		}
 		if(Verbose == 1) {
+			if(sm->flags & SENS_START) {
+				gettimeofday(&end_tv,NULL);
+			}
 			printf("woof seqno: %d\n", seqno);
 			fflush(stdout);
 		}
@@ -378,9 +379,6 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 		if((sm->dedup_seqno == 1) &&
 		   (blocks_to_write == 0)) { // next write will be start
 			sm->flags |= SENS_START;
-			if(Verbose == 1) {
-				gettimeofday(&end_tv,NULL);
-			}
 		} else if((sm->dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
