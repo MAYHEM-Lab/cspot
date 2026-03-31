@@ -167,7 +167,6 @@ int SendFileNoMover(char *wname, int fd)
 			}
 			sf.woof_end = seqno;
 			sf.flags = 0;
-			gettimeofday(&end_tv,NULL);
 		}
 		sf.dedup_seqno--;
 		blocks_to_write--;
@@ -175,6 +174,9 @@ int SendFileNoMover(char *wname, int fd)
 		if((sf.dedup_seqno == 1) &&
 		   (blocks_to_write == 0)) { // next write will be start
 			sf.flags |= SENS_START;
+			if(Verbose == 1) {
+				gettimeofday(&end_tv,NULL);
+			}
 		} else if((sf.dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
@@ -369,7 +371,6 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 			}
 			sm->woof_end = seqno;
 			sm->flags = 0;
-			gettimeofday(&end_tv,NULL);
 		}
 		sm->dedup_seqno--;
 		blocks_to_write--;
@@ -377,6 +378,9 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 		if((sm->dedup_seqno == 1) &&
 		   (blocks_to_write == 0)) { // next write will be start
 			sm->flags |= SENS_START;
+			if(Verbose == 1) {
+				gettimeofday(&end_tv,NULL);
+			}
 		} else if((sm->dedup_seqno == 1) &&
 			  (blocks_to_write > 0)) {
 			fprintf(stderr,
