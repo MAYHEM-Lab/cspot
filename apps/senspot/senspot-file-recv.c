@@ -516,7 +516,10 @@ int main(int argc, char **argv)
 		gettimeofday(&end_tv,NULL);
 		duration = (((double)end_tv.tv_sec + (double)end_tv.tv_usec / 1000000) -
 			    ((double)start_tv.tv_sec + (double)start_tv.tv_usec / 1000000));
-		printf("\t%f megabytes/sec read\n",(double)(total / (1024*1024))/duration);
+		printf("\t%f megabytes/sec read (%f bytes in %f sec)\n",
+		(double)(total / (1024*1024))/duration,
+		total,
+		duration);
 	}
 	close(fd);
 
