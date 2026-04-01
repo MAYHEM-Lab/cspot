@@ -22,7 +22,7 @@ char *Usage = "stress-test -W woof_name for stress test\n\
 \t-V <verbose>\n";
 
 unsigned long WooFMsgGetElSize(const char* woof_name);
-extern unsigned long unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
+extern unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
 
 char Wname[4096];
 char Iname[4096];
