@@ -23,6 +23,7 @@ char *Usage = "stress-test -W woof_name for stress test\n\
 
 unsigned long WooFMsgGetElSize(const char* woof_name);
 extern unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
+int Local;
 
 char Wname[4096];
 char Iname[4096];
@@ -98,11 +99,13 @@ void *PutThread(void *arg)
 	pthread_mutex_unlock(&Plock);
 #endif
 
-	el_size = WooFMsgGetElSize(Iname);
-	if(el_size == (unsigned long)-1) {
-		fprintf(stderr,"could not get el size for %s\n",
-			Iname);
-		pthread_exit(NULL);
+	if(Local == 0) {
+		el_size = WooFMsgGetElSize(Iname);
+		if(el_size == (unsigned long)-1) {
+			fprintf(stderr,"could not get el size for %s\n",
+				Iname);
+			pthread_exit(NULL);
+		}
 	}
 	payload = (char *)malloc(Payload_size);
 	if(payload == NULL) {
@@ -128,8 +131,11 @@ void *PutThread(void *arg)
 		if((Mixed_mode == 1) && (drand48() > 0.5)) {
 			ChangeXport(Iname,"mqtt");
 		}
-		// seq_no = WooFPut(Iname,"stress_handler",st);
-		seq_no = WooFMsgPut(Iname,"stress_handler",st,el_size);
+		if(Local == 1) {
+			seq_no = WooFPut(Iname,"stress_handler",st);
+		} else {
+			seq_no = WooFMsgPut(Iname,"stress_handler",st,el_size);
+		}
 //printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 //fflush(stdout);
 		if(WooFInvalid(seq_no)) {
@@ -278,11 +284,10 @@ int main(int argc, char **argv)
 	int gt;
 	int pt;
 	int i;
-	int local;
 
 	gt = 1;
 	pt = 1;
-	local = 0;
+	Local = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
@@ -304,7 +309,7 @@ int main(int argc, char **argv)
 				Payload_size = atoi(optarg);
 				break;
 			case 'L':
-				local = 1;
+				Local = 1;
 				break;
 			case 'l':
 				IsLatency = 1;
@@ -372,7 +377,7 @@ int main(int argc, char **argv)
 //	seq_no = WooFGetLatestSeqno(Iname);
 //	pthread_mutex_unlock(&Plock);
 
-	if(local == 1) {
+	if(Local == 1) {
 		WooFInit();
 	}
 
