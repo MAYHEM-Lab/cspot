@@ -21,6 +21,9 @@ char *Usage = "stress-test -W woof_name for stress test\n\
 \t-P payload size\n\
 \t-V <verbose>\n";
 
+unsigned long WooFMsgGetElSize(const char* woof_name);
+extern unsigned long unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
+
 char Wname[4096];
 char Iname[4096];
 char Oname[4096];
@@ -77,6 +80,7 @@ void *PutThread(void *arg)
 	char *payload;
 	int i;
 	int size;
+	unsigned long el_size;
 
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
 #if 0
@@ -94,7 +98,12 @@ void *PutThread(void *arg)
 	pthread_mutex_unlock(&Plock);
 #endif
 
-
+	el_size = WooFMsgGetElSize(Iname);
+	if(el_size == (unsigned long)-1) {
+		fprintf(stderr,"could not get el size for %s\n",
+			Iname);
+		pthread_exit(NULL);
+	}
 	payload = (char *)malloc(Payload_size);
 	if(payload == NULL) {
 		exit(1);
@@ -119,7 +128,8 @@ void *PutThread(void *arg)
 		if((Mixed_mode == 1) && (drand48() > 0.5)) {
 			ChangeXport(Iname,"mqtt");
 		}
-		seq_no = WooFPut(Iname,"stress_handler",st);
+		// seq_no = WooFPut(Iname,"stress_handler",st);
+		seq_no = WooFMsgPut(Iname,"stress_handler",st,el_size);
 //printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
 //fflush(stdout);
 		if(WooFInvalid(seq_no)) {
