@@ -296,7 +296,7 @@ int main(int argc, char **argv)
 	found = 0;
 	while(found == 0) {
 		if(Use_mover == 0) {
-			if((sf->flags && SENS_START) != 0) {
+			if((sf->flags & SENS_START) != 0) {
 				if(minor == 0) {
 					if(sf->version == version) {
 						found = 1;
@@ -309,7 +309,7 @@ int main(int argc, char **argv)
 				}
 			}
 		} else {
-			if((sm->flags && SENS_START) != 0) {
+			if((sm->flags & SENS_START) != 0) {
 				if(minor == 0) {
 					if(sm->version == version) {
 						found = 1;
@@ -332,6 +332,19 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}	
+	// send can't fill in the end seqno if it is in the same element as
+	// the start seqno so need to test for this case
+	if(Use_mover == 0) {
+		if((sf->flags & SENS_START) && (sf->flags & SENS_EOF)) {
+			sf->woof_end = seqno;
+			minor = seqno;
+		}
+	} else {
+		if((sm->flags & SENS_START) && (sm->flags & SENS_EOF)) {
+			sm->woof_end = seqno;
+			minor = seqno;
+		}
+	} 
 	// save off start and end to do a log-wrap sanity check
 	//
 	// note that there is a race condition here in that the log might wrap after
@@ -425,6 +438,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	if(Use_mover == 0) {
+		// again -- need to test this special case
+		if((sf->flags & SENS_START) && (sf->flags & SENS_EOF)) {
+			sf->woof_end = minor;
+		}
 		if(!(sf->flags & SENS_START) || 
 		   (sf->version != version) || 
 		   (sf->woof_end != minor)) {
@@ -435,6 +452,9 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	} else {
+		if((sm->flags & SENS_START) && (sm->flags & SENS_EOF)) {
+			sm->woof_end = minor;
+		}
 		if(!(sm->flags & SENS_START) || 
 		   (sm->version != version) || 
 		   (sm->woof_end != minor)) {
