@@ -209,10 +209,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	if(Use_mover == 0) {
-		El_size = sizeof(SENSFILE);
-	} else {
-		El_size = Use_mover;
+		fprintf(stderr,"ERROR: %s appears to be in deprecated no-mover format\n");
+		exit(1);
 	}
+	El_size = Use_mover;
 
 	if((latest > 0) && (latest <= 2)) {
 		PrintVersions(Wname,latest);
@@ -231,10 +231,6 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
-	if(uselocal == 1) {
-		WooFInit();
-	}
-
 	if(version == 0) {
 		version = LastFileVersion(Wname);
 		if(version == -1) {
@@ -246,6 +242,7 @@ int main(int argc, char **argv)
 	}
 
 
+
 	el_buf = malloc(El_size);
 	if(el_buf == NULL) {
 		fprintf(stderr,"could not get size for %lu bytes\n",
@@ -253,12 +250,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(Use_mover == 0) {
-		sf = (SENSFILE *)el_buf;
-	} else {
-		sm = (SENSMV *)el_buf;
-	}
-
+	sm = (SENSMV *)el_buf;
 
 	// find start record for correct version
 	
@@ -271,7 +263,6 @@ int main(int argc, char **argv)
 	}
 
 	memset(el_buf,0,El_size);
-	//err = WooFGet(Wname,el_buf,seqno);
 	err = WooFMsgGet(Wname,el_buf,El_size,seqno);
 
 	if(err < 0) {
@@ -281,13 +272,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(Use_mover == 0) {
-		version = sf->version;
-		minor = sf->woof_end;
-	} else {
-		version = sm->version;
-		minor = sm->woof_end;
-	}
+/*
+	version = sm->version;
+	minor = sm->woof_end;
+*/
+
+	// note that if file fits in one element, woof_end will be zero
 
 	if(Verbose == 1) {
 		printf("scanning for version %d:%d\n",version,minor);
@@ -295,35 +285,19 @@ int main(int argc, char **argv)
 
 	found = 0;
 	while(found == 0) {
-		if(Use_mover == 0) {
-			if((sf->flags & SENS_START) != 0) {
-				if(minor == 0) {
-					if(sf->version == version) {
-						found = 1;
-						break;
-					}
-				} else if((sf->version == version) &&
-					  (minor == sf->woof_end)) {
-						found = 1;
-						break;
+		if((sm->flags & SENS_START) != 0) {
+			if(minor == 0) {
+				if(sm->version == version) {
+					found = 1;
+					break;
 				}
-			}
-		} else {
-			if((sm->flags & SENS_START) != 0) {
-				if(minor == 0) {
-					if(sm->version == version) {
-						found = 1;
-						break;
-					}
-				} else if((sm->version == version) &&
-					  (minor == sm->woof_end)) {
-						found = 1;
-						break;
-				}
+			} else if((sm->version == version) &&
+				  (minor == sm->woof_end)) {
+					found = 1;
+					break;
 			}
 		}
 		seqno--;
-		//err = WooFGet(Wname,el_buf,seqno);
 		err = WooFMsgGet(Wname,el_buf,El_size,seqno);
 		if(err < 0) {
 			fprintf(stderr,
@@ -332,85 +306,66 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}	
-	// send can't fill in the end seqno if it is in the same element as
-	// the start seqno so need to test for this case
-	if(Use_mover == 0) {
-		if((sf->flags & SENS_START) && (sf->flags & SENS_EOF)) {
-			sf->woof_end = seqno;
-			minor = seqno;
-		}
-	} else {
-		if((sm->flags & SENS_START) && (sm->flags & SENS_EOF)) {
-			sm->woof_end = seqno;
-			minor = seqno;
-		}
-	} 
+
 	// save off start and end to do a log-wrap sanity check
 	//
 	// note that there is a race condition here in that the log might wrap after
 	// we check but
 	//
 	start_seqno = seqno;
-	if(Use_mover == 0) {
-		minor = end_seqno = sf->woof_end; // is woof seqno for end record
-	} else {
-		minor = end_seqno = sm->woof_end; // is woof seqno for end record
-	}
+	minor = end_seqno = sm->woof_end; // is woof seqno for end record
+
+	// note that minor is zero when file fits in one element
+
 	if(Verbose == 1) {
-		if(Use_mover == 0) {
-			epoch = (time_t)sf->creation_time;
-		} else {
-			epoch = (time_t)sm->creation_time;
-		}
+		epoch = (time_t)sm->creation_time;
 		localtime_r((const time_t *)&epoch, &tm_buf);
 		strftime(buffer, sizeof(buffer),
              		"%Y-%m-%d %H:%M:%S",
              		&tm_buf);
 		printf("woof: %s\n",Wname);
 		printf("file: %s\n",Fname);
-		if(Use_mover == 0) {
-			printf("\tno_mover\n");
-		} else {
-			printf("mover\n");
-		}
+		printf("mover\n");
 		printf("\tversion: %d:%d\n",version,minor);
-		if(Use_mover == 0) {
-			printf("\tcreation_time: %s (%lu)\n",buffer,sf->creation_time);
-		} else {
-			printf("\tcreation_time: %s (%lu)\n",buffer,sm->creation_time);
-		}
+		printf("\tcreation_time: %s (%lu)\n",buffer,sm->creation_time);
 		printf("\tstart: %lu\n",start_seqno);
 		printf("\tend: %lu\n",end_seqno);
 	}
-	if((end_seqno < 1) || (end_seqno > start_seqno)) {
-		fprintf(stderr,"ERROR: band end seqno %lu with start %lu in %s\n",
+	if((sm->woof_end != 0) && 
+			((end_seqno < 1) || (end_seqno > start_seqno))) {
+		fprintf(stderr,"ERROR: bad end seqno %lu with start %lu in %s\n",
+				end_seqno,start_seqno,Wname);
+		exit(1);
+	} else if((sm->woof_end == 0) && (end_seqno > start_seqno)) {
+		fprintf(stderr,"ERROR: short file bad end seqno %lu with start %lu in %s\n",
 				end_seqno,start_seqno,Wname);
 		exit(1);
 	}
 				
 	memset(el_buf,0,El_size);
-	//err = WooFGet(Wname,el_buf,end_seqno);
-	err = WooFMsgGet(Wname,el_buf,El_size,end_seqno);
-	if(err < 0) {
-		fprintf(stderr,
-		"ERROR: could not fetch end record from %s, version %d at %lu\n",
-			Wname,version,end_seqno);
-		exit(1);
-	}
-	if(Use_mover == 0) {
-		if(!(sf->flags & SENS_EOF)) {
-			fprintf(stderr,
-			"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
-				end_seqno,Wname,version);
-			exit(1);
-		}
+	// fetch start if short file
+	if(sm->woof_end != 0) {
+		err = WooFMsgGet(Wname,el_buf,El_size,end_seqno);
 	} else {
-		if(!(sm->flags & SENS_EOF)) {
+		err = WooFMsgGet(Wname,el_buf,El_size,start_seqno);
+	}
+	if(err < 0) {
+		if(sm->woof_end != 0) {
 			fprintf(stderr,
-			"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
-				end_seqno,Wname,version);
+			"ERROR: could not fetch end record from %s, version %d at %lu\n",
+				Wname,version,end_seqno);
 			exit(1);
+		} else {
+			fprintf(stderr,
+			"ERROR: short file could not fetch end record from %s, version %d at %lu\n",
+				Wname,version,start_seqno);
 		}
+	}
+	if(!(sm->flags & SENS_EOF)) {
+		fprintf(stderr,
+		"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
+			end_seqno,Wname,version);
+		exit(1);
 	}
 
 	// open the file for overwrite
@@ -437,57 +392,26 @@ int main(int argc, char **argv)
 		close(fd);
 		exit(1);
 	}
-	if(Use_mover == 0) {
-		// again -- need to test this special case
-		if((sf->flags & SENS_START) && (sf->flags & SENS_EOF)) {
-			sf->woof_end = minor;
-		}
-		if(!(sf->flags & SENS_START) || 
-		   (sf->version != version) || 
-		   (sf->woof_end != minor)) {
-			fprintf(stderr,
-			"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
-			Wname,version, sf->version,minor);
-			close(fd);
-			exit(1);
-		}
-	} else {
-		if((sm->flags & SENS_START) && (sm->flags & SENS_EOF)) {
-			sm->woof_end = minor;
-		}
-		if(!(sm->flags & SENS_START) || 
-		   (sm->version != version) || 
-		   (sm->woof_end != minor)) {
-			fprintf(stderr,
-			"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
-			Wname,version, sm->version,minor);
-			close(fd);
-			exit(1);
-		}
+	if(!(sm->flags & SENS_START) || 
+	   (sm->version != version) || 
+	   (sm->woof_end != minor)) {
+		fprintf(stderr,
+		"ERROR: start record changed in %s version %d:%d to %d at %lu\n",
+		Wname,version, sm->version,minor);
+		close(fd);
+		exit(1);
 	}
 
 	// here is the main loop
 	seqno = start_seqno;
 	next_dedup = 1;
-	if(Use_mover != 0) {
-		pbuf = ((unsigned char *)sm) + sizeof(SENSMV);
-	}
+	pbuf = ((unsigned char *)sm) + sizeof(SENSMV);
 	while(end_seqno <= seqno) {
-		if(Use_mover == 0) {
-			pdedup = sf->dedup_seqno;
-		} else {
-			pdedup = sm->dedup_seqno;
-		}
+		pdedup = sm->dedup_seqno;
 		// if we are on the right seqno, write out
 		if(next_dedup == pdedup) {
-			if(Use_mover == 0) {
-				psize = sf->payload_size;
-				bytes = write(fd,&(sf->payload[0]),
-							sf->payload_size);
-			} else {
-				psize = sm->payload_size;
-				bytes = write(fd,pbuf,sm->payload_size);
-			}
+			psize = sm->payload_size;
+			bytes = write(fd,pbuf,sm->payload_size);
 			if(bytes != psize) {
 				fprintf(stderr,
 				"ERROR: bad write at %lu in %s %d %d\n",
@@ -503,26 +427,15 @@ int main(int argc, char **argv)
 		// here, we could have duplicate end records so end_seqno
 		// could be a duplicate -- we could just read to the
 		// end, but better to exit prematurely
-		if(Use_mover == 0) {
-			if(sf->flags & SENS_EOF) {
-				if(Verbose == 1) {
-					printf("\tEOF found at %lu dedup: %d\n",
-							seqno,next_dedup);
-				}
-				break;
+		if(sm->flags & SENS_EOF) {
+			if(Verbose == 1) {
+				printf("\tEOF found at %lu dedup: %d\n",
+						seqno,next_dedup);
 			}
-		} else {
-			if(sm->flags & SENS_EOF) {
-				if(Verbose == 1) {
-					printf("\tEOF found at %lu dedup: %d\n",
-							seqno,next_dedup);
-				}
-				break;
-			}
+			break;
 		}
 		next_dedup = next_dedup+1;
 		seqno = seqno - 1;
-		//err = WooFGet(Wname,el_buf,seqno);
 		err = WooFMsgGet(Wname,el_buf,El_size,seqno);
 		if(err < 0) {
 			fprintf(stderr,
