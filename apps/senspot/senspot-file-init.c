@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 
 	memset(wname,0,sizeof(wname));
 	history_size = 0;
-	mover_size = 8192;
+	mover_size = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -76,12 +76,19 @@ int main(int argc, char **argv)
 
 	WooFInit();
 
-	if(mover_size < sizeof(SENSMV)+1) {
-		mover_size = sizeof(SENSMV)+1;
+	if(mover_size == 0) {
+		err = WooFCreate(wname,sizeof(SENSFILE),history_size);
+	} else {
+		if(mover_size < sizeof(SENSMV)+1) {
+			mover_size = sizeof(SENSMV)+1;
+		}
+		err = WooFCreate(wname,mover_size,history_size);
 	}
-	err = WooFCreate(wname,mover_size,history_size);
 
 	if(err < 0) {
+		if(mover_size == 0) {
+			mover_size = sizeof(SENSFILE);
+		}
 		fprintf(stderr,"senspot-file-init failed for %s with history size %lu, mover_size: %lu\n",
 			wname,
 			history_size,
@@ -94,3 +101,7 @@ int main(int argc, char **argv)
 	exit(0);
 }
 
+	
+
+	
+	

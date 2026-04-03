@@ -27,7 +27,6 @@ int Verbose;
 
 SENSFILE sf;
 
-#if 0
 int SendFileNoMover(char *wname, int fd)
 {
 	int err;
@@ -208,7 +207,6 @@ int SendFileNoMover(char *wname, int fd)
 	close(fd);
 	return(1);
 }
-#endif
 
 int SendFileMover(char *wname, int fd, unsigned long el_size)
 {
@@ -485,18 +483,20 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
-	if(use_mover == 0) {
-		fprintf(stderr,
-			"ERROR: %s seems to be a in deprecated no-mover format.  Please reinit\n");
-		exit(1);
-	}
 
 	if(Verbose == 1) {
 		printf("file: %s\n",fname);
 	}
-	err = SendFileMover(wname,fd,use_mover);
-	if(err > 0) {
-		exit(0);
+	if(use_mover == 0) {
+		err = SendFileNoMover(wname,fd);
+		if(err > 0) {
+			exit(0);
+		}
+	} else {
+		err = SendFileMover(wname,fd,use_mover);
+		if(err > 0) {
+			exit(0);
+		}
 	}
 
 }
