@@ -363,8 +363,8 @@ int main(int argc, char **argv)
 	}
 	if(!(sm->flags & SENS_EOF)) {
 		fprintf(stderr,
-		"ERROR: bad end record at %lu in %s, version %d -- could be log wrap\n",
-			end_seqno,Wname,version);
+		"ERROR: bad end record at %lu in %s, version %d -- could be log wrap (flags: %d)\n",
+			end_seqno,Wname,version,sm->flags);
 		exit(1);
 	}
 
