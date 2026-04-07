@@ -275,6 +275,8 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	}
 	blocks = sbuf.st_size / fpayload; // number of blocks
 	last = sbuf.st_size % fpayload; // partial block at the end
+
+
 	sm->file_size = sbuf.st_size;
 
 	// do not write an empty file
@@ -299,11 +301,12 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 
 	// for PROTO_1, read the file backwards
 	blocks_to_write = blocks;
-	// if this just fits the last block, don't read EOF
 	if(last == 0) {
 		blocks_to_write--;
+		sm->dedup_seqno = blocks; // seqno counts from 1
+	} else {
+		sm->dedup_seqno = blocks+1; // seqno counts from 1
 	}
-	sm->dedup_seqno = blocks+1; // seqno counts from 1
 
 	pbuf = ((unsigned char *)(sm)) + sizeof(SENSMV);
 	while(blocks_to_write >= 0) {
