@@ -76,6 +76,9 @@ $(pwd)/kill-remote-platform.sh
 ssh ubuntu@$ADDR "rm -f /home/ubuntu/cspot/build/bin/zzzfile*"
 #echo "sending HUP to $WPID"
 #
+#
+
+echo "SENSPOT-FILE TEST PASSED"
 
 exit 0
 
