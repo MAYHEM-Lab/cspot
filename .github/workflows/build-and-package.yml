@@ -53,6 +53,9 @@ jobs:
           cp ../../cicd-tests/remote-senspot-test.sh .
           ./remote-senspot-test.sh
 
+          cp ../../cicd-tests/remote-senspot-file-test.sh .
+          ./remote-senspot-file-test.sh
+
       - name: Build .deb package
         id: package
         run: |
