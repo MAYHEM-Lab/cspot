@@ -480,6 +480,39 @@ int main(int argc, char **argv)
 		} else {
 			pdedup = sm->dedup_seqno;
 		}
+
+		// skip if the wong version
+
+		if(Use_mover == 0) {
+			if((sf->version != version) ||
+			   ((sf->woof_end != end_seqno) && (seqno != end_seqno))) {
+				seqno--;
+				err = WooFMsgGet(Wname,el_buf,El_size,seqno);
+				if(err < 0) {
+					fprintf(stderr,
+					"ERROR: could not get other block at %lu in %s\n",
+					seqno,Wname);
+					close(fd);
+					exit(1);
+				}
+				continue;
+			}
+		} else {
+			if((sm->version != version) ||
+			   ((sm->woof_end != end_seqno) && (seqno != end_seqno))) {
+				seqno--;
+				err = WooFMsgGet(Wname,el_buf,El_size,seqno);
+				if(err < 0) {
+					fprintf(stderr,
+					"ERROR: could not get other mover block at %lu in %s\n",
+					seqno,Wname);
+					close(fd);
+					exit(1);
+				}
+				continue;
+			}
+		}
+				
 		// if we are on the right seqno, write out
 		if(next_dedup == pdedup) {
 			if(Use_mover == 0) {
