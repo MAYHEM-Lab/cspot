@@ -54,7 +54,8 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
  */
 //#define WOOF_MSG_REQ_TIMEOUT (90000)
 //#define WOOF_MSG_REQ_TIMEOUT (500)
-#define WOOF_MSG_REQ_TIMEOUT (3000)
+//#define WOOF_MSG_REQ_TIMEOUT (3000)
+#define WOOF_MSG_REQ_TIMEOUT (20000)
 
 #define WOOF_MSG_THREADS (15)
 
