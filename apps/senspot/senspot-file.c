@@ -30,15 +30,10 @@ unsigned int LastFileVersion(char *wname)
 		return((unsigned int)-1);
 	}
 
-	el_size = UseMover(wname);
+	el_size = WooFMsgGetElSize(wname);
 
 	if(el_size == (unsigned long) -1) {
 		return(el_size);
-	}
-
-	if(el_size == 0) {
-		use_mover = 0;
-		el_size = sizeof(SENSFILE);
 	}
 
 	el_buf = malloc(el_size);
@@ -54,20 +49,11 @@ unsigned int LastFileVersion(char *wname)
 			free(el_buf);
 			return((unsigned long)-1);
 		}
-		if(el_size == sizeof(SENSFILE)) {
-			sf = (SENSFILE *)el_buf;
-			if(sf->flags & SENS_START) { // we found the latest start record
-				version = sf->version;
-				free(el_buf);
-				return((unsigned long)version);
-			}
-		} else {
-			sm = (SENSMV *)el_buf;
-			if(sm->flags & SENS_START) { // we found the latest start record
-				version = sm->version;
-				free(el_buf);
-				return((unsigned long)version);
-			}
+		sm = (SENSMV *)el_buf;
+		if(sm->flags & SENS_START) { // we found the latest start record
+			version = sm->version;
+			free(el_buf);
+			return((unsigned long)version);
 		}
 		seqno--;
 	}
@@ -76,23 +62,5 @@ unsigned int LastFileVersion(char *wname)
 	return((unsigned long)-1);
 }
 
-unsigned long UseMover(char *wname)
-{       
-        unsigned long el_size;
-	unsigned long ret;
-
-        el_size = WooFMsgGetElSize(wname);
-
-        if(el_size == (unsigned long)-1) {
-                return(el_size);
-        }
-
-        if(el_size == sizeof(SENSFILE)) {
-		ret = 0;
-        } else {
-		ret = el_size;
-        }
-	return(ret);
-}
 
 	

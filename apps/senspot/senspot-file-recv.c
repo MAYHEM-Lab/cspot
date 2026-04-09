@@ -11,6 +11,7 @@
 #include "senspot.h"
 
 extern int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
+extern unsigned long WooFMsgGetElSize(char *wname);
 
 #define ARGS "W:LVv:f:m:l"
 char *Usage = "senspot-file-recv -W woof_name for file storage\n\
@@ -174,8 +175,8 @@ int main(int argc, char **argv)
 		fflush(stderr);
 		exit(1);
 	}
-	El_size = UseMover(Wname);
-	if(El_size <= 0) {
+	El_size = WooFMsgGetElSize(Wname);;
+	if(El_size  == (unsigned long)-1) {
 		fprintf(stderr,"ERROR: could not get El_size for %s\n",Wname);
 		exit(1);
 	}

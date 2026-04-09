@@ -23,190 +23,9 @@ char putbuf1[PAYLOAD];
 char putbuf2[PAYLOAD];
 int Verbose;
 
+extern unsigned long WooFMsgGetElSize(char *wname);
+
 #define MAX_RETRIES 20
-
-SENSFILE sf;
-
-int SendFileNoMover(char *wname, int fd)
-{
-	int err;
-	struct stat sbuf;
-	int bytes_read;
-	int blocks_to_write;
-	int blocks;
-	unsigned long seqno;
-	int last;
-	off_t pos;
-	struct timeval tv;
-	struct tm tm_buf;
-	char buffer[64];
-	double duration;
-	double total;
-	struct timeval start_tv;
-	struct timeval end_tv;
-
-
-	// for PROTO_1 (no mover) put start record in at tail, end record
-	// at the head
-	sf.proto = PROTO_1;
-	sf.flags = SENS_EOF;
-	sf.version = LastFileVersion(wname);
-	if(sf.version == (unsigned int) -1) {
-		sf.version = 1;
-	} else {
-		sf.version++;
-	}
-
-	err = fstat(fd,&sbuf);
-	if(err < 0) {
-		fprintf(stderr,"could not stat file\n");
-		close(fd);
-		exit(1);
-	}
-
-	gettimeofday(&tv,NULL);
-	sf.creation_time = tv.tv_sec;
-	if(Verbose == 1) {
-		localtime_r(&sf.creation_time, &tm_buf);
-		strftime(buffer, sizeof(buffer),
-			"%Y-%m-%d %H:%M:%S",
-			&tm_buf);
-	}
-	blocks = sbuf.st_size / FPAYLOAD; // number of blocks
-	last = sbuf.st_size % FPAYLOAD; // partial block at the end
-
-	// do not write an empty file
-	if((blocks == 0) && (last == 0)) {
-		fprintf(stderr,"file is empty\n");
-		exit(1);
-	}
-
-	if(Verbose == 1) {
-		printf("woof: %s\n",wname);
-		printf("\tno_mover\n");
-		printf("\tversion: %d\n",sf.version);
-		printf("\tcreation_time: %s (%lu)\n",buffer,sf.creation_time);
-		printf("\tsize: %d\n",sbuf.st_size);
-		printf("\tblocks: %d\n",blocks);
-		printf("\tlast: %d\n",last);
-		gettimeofday(&start_tv,NULL);
-		total = 0;
-	}
-
-
-	// for PROTO_1, read the file backwards
-	blocks_to_write = blocks;
-	// if this just fits the last block, don't read EOF
-	if(last == 0) {
-		blocks_to_write--;
-	}
-	sf.dedup_seqno = blocks+1; // seqno counts from 1
-
-	while(blocks_to_write >= 0) {
-		pos = lseek(fd,(blocks_to_write * FPAYLOAD),SEEK_SET);
-		if(pos == -1) {
-			fprintf(stderr,
-				"could not seek to position %d\n",
-				blocks);
-			close(fd);
-			exit(1);
-		}
-		memset(sf.payload,0,sizeof(sf.payload));
-		// this assumes that either the end of the last block or a
-		// full block will be read
-		bytes_read = read(fd,sf.payload,sizeof(sf.payload));
-		if(bytes_read < 0) {
-			fprintf(stderr,"could not read byte %d at %d in %s\n",
-				bytes_read,pos,wname);
-			perror("read");
-			close(fd);
-			exit(1);
-		}
-		if(bytes_read == 0) {
-			fprintf(stderr,"read EOF at %d in %s\n",
-				pos,wname);
-			close(fd);
-			exit(1);
-		}
-		if((bytes_read != FPAYLOAD) && (bytes_read != last)) {
-			fprintf(stderr,
-				"short read at %d, of %d\n",
-					pos,bytes_read);
-			close(fd);
-			exit(1);
-		}
-		sf.payload_size = bytes_read;
-		if(blocks_to_write == 0) { // if there are no more full blocks
-			sf.flags |= SENS_START;
-		}
-		if(Verbose == 1) {
-			printf("\tputting block %d, size %d, dedup_seqno %d flags: %d ",
-				blocks_to_write, bytes_read, sf.dedup_seqno,
-					sf.flags);
-			total += bytes_read;
-		}
-		gettimeofday(&tv,NULL);
-		sf.tv_sec = tv.tv_sec;
-		sf.tv_usec = tv.tv_usec;
-		seqno = WooFPut(wname,NULL,&sf); // put it
-		if(WooFInvalid(seqno)) {
-			fprintf(stderr,"could not put block %d of %s\n",
-					blocks_to_write,wname);
-			close(fd);
-			exit(1);
-		}
-		if(Verbose == 1) {
-			if(sf.flags & SENS_START) {
-				gettimeofday(&end_tv,NULL);
-			}
-			printf("woof seqno: %d\n", seqno);
-			fflush(stdout);
-		}
-		// if EOF, remember seqno and clear the flag
-		if(sf.flags & SENS_EOF) {
-			if(Verbose == 1) {
-				printf("\tEOF put at %d\n",seqno);
-			}
-			sf.woof_end = seqno;
-			sf.flags = 0;
-		}
-		sf.dedup_seqno--;
-		blocks_to_write--;
-		// sanity checks
-		if((sf.dedup_seqno == 1) &&
-		   (blocks_to_write == 0)) { // next write will be start
-			sf.flags |= SENS_START;
-		} else if((sf.dedup_seqno == 1) &&
-			  (blocks_to_write > 0)) {
-			fprintf(stderr,
-			  "dedup_seqno: %d, blocks_left: %d in %s\n",
-					sf.dedup_seqno,blocks_to_write,wname);
-			close(fd);
-			exit(1);
-		} else if((sf.dedup_seqno > 1) &&
-			  (blocks_to_write == 0)) {
-			fprintf(stderr,
-			  "dedup_seqno: %d, blocks_left: %d in %s\n",
-					sf.dedup_seqno,blocks_to_write,wname);
-			close(fd);
-			exit(1);
-		}
-	}
-
-	if(Verbose == 1) {
-		duration = (((double)end_tv.tv_sec + 
-			(double)end_tv.tv_usec/1000000) -
-			   (((double)start_tv.tv_sec + 
-                        (double)start_tv.tv_usec/1000000)));
-		printf("\t%f megabytes / second wrote (%f bytes in %f sec)\n",
-			(total/(1024*1024))/duration,
-			total,
-			duration);
-	}
-		
-	close(fd);
-	return(1);
-}
 
 int SendFileMover(char *wname, int fd, unsigned long el_size)
 {
@@ -425,13 +244,12 @@ int main(int argc, char **argv)
 	char wname[4096];
 	char fname[4096];
 	int fd;
-	unsigned long use_mover;
+	unsigned long el_size;
 
 	
 
 	memset(wname,0,sizeof(wname));
 	memset(fname,0,sizeof(fname));
-	use_mover = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -471,35 +289,26 @@ int main(int argc, char **argv)
 		putenv(putbuf2);
 	}
 
+	el_size = WooFMsgGetElSize(wname);
+	if(el_size == (unsigned long)-1) {
+		fprintf(stderr,"could not get element size for %s\n",wname);
+		exit(1);
+	}
+
 	fd = open(fname,O_RDONLY,0);
 	if(fd < 0) {
 		fprintf(stderr,"could not open %s\n",fname);
 		exit(1);
 	}
 
-	if(use_mover == 0) {
-		use_mover = UseMover(wname);
-		if(use_mover == (unsigned long)-1) {
-			fprintf(stderr,
-			"could not determine woof el size for %s\n",
-			wname);
-			exit(1);
-		}
-	}
-
 	if(Verbose == 1) {
 		printf("file: %s\n",fname);
 	}
-	if(use_mover == 0) {
-		err = SendFileNoMover(wname,fd);
-		if(err > 0) {
-			exit(0);
-		}
-	} else {
-		err = SendFileMover(wname,fd,use_mover);
-		if(err > 0) {
-			exit(0);
-		}
+	err = SendFileMover(wname,fd,el_size);
+	if(err > 0) {
+		exit(0);
 	}
+	
+	exit(1);
 
 }

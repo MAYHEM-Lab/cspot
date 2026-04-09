@@ -64,7 +64,6 @@ typedef struct senspot_file_mv_str SENSMV;
 #define SENS_START (1)
 #define SENS_EOF (2)
 unsigned int LastFileVersion(char *wname);
-unsigned long UseMover(char *wname);
 
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no);
 void SenspotAssign(SENSPOT *spt, char type, char *v);
