@@ -227,7 +227,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 			(double)end_tv.tv_usec/1000000) -
 			   (((double)start_tv.tv_sec + 
                         (double)start_tv.tv_usec/1000000)));
-printf("\t%f megabytes / second wrote (%f bytes in %f sec) start_seno: %lu\n",
+printf("\t%f megabytes / second wrote (%f bytes in %f sec) start_seqno: %lu\n",
 			(total/(1024*1024))/duration,
 			total,
 			duration,
