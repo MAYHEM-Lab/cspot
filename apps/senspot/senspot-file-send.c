@@ -48,6 +48,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	unsigned char *el_buf;
 	unsigned long fpayload;
 	unsigned char *pbuf;
+	unsigned long start_block;
 
 	el_buf = (unsigned char *)malloc(el_size);
 	if(el_buf == NULL) {
@@ -185,6 +186,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 		if(Verbose == 1) {
 			if(sm->flags & SENS_START) {
 				gettimeofday(&end_tv,NULL);
+				start_block = seqno;
 			}
 			printf("woof seqno: %d\n", seqno);
 			fflush(stdout);
@@ -225,10 +227,11 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 			(double)end_tv.tv_usec/1000000) -
 			   (((double)start_tv.tv_sec + 
                         (double)start_tv.tv_usec/1000000)));
-		printf("\t%f megabytes / second wrote (%f bytes in %f sec)\n",
+printf("\t%f megabytes / second wrote (%f bytes in %f sec) start_seno: %lu\n",
 			(total/(1024*1024))/duration,
 			total,
-			duration);
+			duration,
+			start_block);
 	}
 		
 	close(fd);

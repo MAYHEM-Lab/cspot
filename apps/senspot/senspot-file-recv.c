@@ -13,13 +13,14 @@
 extern int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
 extern unsigned long WooFMsgGetElSize(char *wname);
 
-#define ARGS "W:LVv:f:m:l"
+#define ARGS "W:LVv:f:m:ls:"
 char *Usage = "senspot-file-recv -W woof_name for file storage\n\
 \t-f file-to-write-out\n\
 \t-l list latest version\n\
 \t-L list all versions\n\
 \t-v file version number to get\n\
 \t-m minor-version number (optional)\n\
+\t-s starting seqno for log scan (optional)\n\
 \t-V verbose\n";
 
 char Wname[4096];
@@ -75,13 +76,14 @@ void PrintVersions(char *wname, int mode)
 			strftime(buffer, sizeof(buffer),
 				"%Y-%m-%d %H:%M:%S",
 				&tm_buf);
-	printf("version %d:%d at %lu, created: %s (%lu) size: %lu\n",
+	printf("version %d:%d at %lu, created: %s (%lu) size: %lu start_seqno: %lu\n",
 				sm->version,
 				sm->woof_end,
 				seqno,
 				buffer,
 				epoch,
-				sm->file_size);
+				sm->file_size,
+				seqno);
 			fflush(stdout);
 			if(mode == 1) {
 				free(el_buf);
@@ -131,12 +133,15 @@ int main(int argc, char **argv)
 	unsigned char *pbuf;
 	unsigned int psize;
 	unsigned long pdedup;
+	unsigned long start_block;
 
 	memset(Wname,0,sizeof(Wname));
 	uselocal = 0;
 	version = 0;
 	minor = 0;
 	latest = 0;
+
+	start_block = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
@@ -154,6 +159,9 @@ int main(int argc, char **argv)
 				break;
 			case 'm':
 				minor = atoi(optarg);
+				break;
+			case 's':
+				start_block = atol(optarg);
 				break;
 			case 'v':
 				version = atoi(optarg);
@@ -219,13 +227,20 @@ int main(int argc, char **argv)
 	sm = (SENSMV *)el_buf;
 
 	// find start record for correct version
-	
-	seqno = WooFGetLatestSeqno(Wname);
-	if(WooFInvalid(seqno)) {
-		fprintf(stderr,
-			"ERROR: could not find last seqno in %s\n",
-			Wname);
-		exit(1);
+	if(start_block == 0) {
+		seqno = WooFGetLatestSeqno(Wname);
+		if(WooFInvalid(seqno)) {
+			fprintf(stderr,
+				"ERROR: could not find last seqno in %s\n",
+				Wname);
+			exit(1);
+		}
+	} else {
+		// start scan at this seqno
+		// does not wrap around the woof so can fail even
+		// even if version is present but at a higher
+		// seqno
+		seqno = start_block;
 	}
 
 	memset(el_buf,0,El_size);
