@@ -166,6 +166,8 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 
 		if(blocks_to_write == 0) { // if there are no more full blocks
 			sm->flags |= SENS_START;
+			gettimeofday(&tv,NULL);
+			sm->creation_time = tv.tv_sec;
 		}
 		if(Verbose == 1) {
 			printf("\tputting block %d, size %d, dedup_seqno %d flags: %d ",
