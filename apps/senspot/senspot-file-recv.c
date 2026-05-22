@@ -53,6 +53,10 @@ void PrintVersions(char *wname, int mode)
 			wname);
 		exit(1);
 	}
+	if(seqno == 0) {
+		printf("woof empty, no versions available\n");
+		return;
+	}
 
 	el_buf = malloc(El_size);
 	if(el_buf == NULL) {
