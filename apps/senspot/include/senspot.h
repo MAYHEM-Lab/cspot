@@ -7,7 +7,7 @@
 #ifdef JUMBO
 #define PAYLOAD (8*1024)
 #else
-#define PAYLOAD (1*2024)
+#define PAYLOAD (1*1024)
 #endif
 
 #define FPAYLOAD (8*1024)
@@ -22,6 +22,7 @@ struct senspot_stc
 	unsigned int dedup_seqno;
 	unsigned int send_size; // for file xfer
 	unsigned char payload[PAYLOAD]; // for strings
+#endif
 };
 
 typedef struct senspot_stc SENSPOT;
