@@ -34,13 +34,26 @@ else
 fi
 
 if ( ! test -e "$HERE/senspot-file-recv.$TYPE" ) ; then
-	curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/senspot-file-recv.$TYPE $HERE
+	curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/senspot-file-recv.$TYPE -o $HERE/senspot-file-recv.$TYPE
+	chmod 700 $HERE/senspot-file-recv.$TYPE
 fi
 
 $HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin.woof
 $HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin-sha256.woof
 SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
 LKEY=`sha256sum $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
+
+if ( test -z "LKEY" ) ; then
+	echo "local sha256 could not be computed"
+	echo "software not installed"
+	exit 1
+fi
+
+if ( test -z "SHKEY" ) ; then
+	echo "remote sha256 could not be computed"
+	echo "software not installed"
+	exit 1
+fi
 
 if ( test "$SHKEY" == "$LKEY" ) ; then
 	echo "updating cspot at " `/bin/date`
