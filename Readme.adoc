@@ -5,55 +5,49 @@ Reference: R. Wolski, C. Krintz, F. Bakir, G. George, and W-T. Lin, CSPOT: Porta
 
 == Installation
 
-Currently, CSPOT builds from source using a bash installation script on Ubuntu
-20.04 or later.  CentOS stream, Rocky, and Alma have been supported in the
-past, and can be made to work, but the source repository is tested using
-Ubuntu.
-
-CSPOT was originally written to install on cloud instances.  Thus, the
-installation scripts (written in bash) run as root and are not "gentle" with
-respect to updating and installing any needed dependencies.  If you are
-installing CSPOT on a server, please read the installation scripts to make
-sure there are no conflicts with respect to the dependencies.
-
-CSPOT can also run in two modes: containerized (using docker) and Linux process 
-isolated.  The default mode uses Linux processes.  If you want to use docker
-for further isolation, then use the install-ubuntu-docker.sh script.
-Otherwise, use install-ubuntu-nodocker.sh.  The docker install script will
-install docker ce which requires removing the docker that ships with older
-version of ubuntu.  If you are already using docker, then use the no-docker
-version to install and the script will not disturb your existing installation.
-
-Note that CSPOT uses static compilation of C and C++ which has been removed from Ubuntu
-24.04.  Thus, The following shows the installation procedure for Ubuntu 20.04.
-However, once compiled and linked, the binaries can be copied to new versions
-of Ubuntu.
-
+CSPOT now comes with its own installer (which uses CSPOT).  To get the latest
+CSPOT binaries, run the command
 [source sh]
 ----
-git clone https://github.com/MAYHEM-Lab/cspot.git
-cd cspot
-sudo ./install-ubuntu-20.04.sh
+mkdir -p cspot; cd cspot; (curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/dist/update-cspot-distribution.sh | /bin/bash)
 ----
 
-The build process puts the CSPOT tools and apps (e.g. senspot) in ./build/bin and installs CSPOT in /usr/local. 
+and the installer will put the binary distribution in the cspot subdirectory.
+Not that the installer will install the install script as well so future
+updates need only run
+[source sh]
+----
+cd cspot
+./update-cspot-distributions.sh
+----
+to get the latest.
 
-=== Quick Client/Server Tutorial
+Also -- CSPOT is statically linked so the binaries might look a little bit
+larger than expected.
 
-The following tutorial assumes that the path to the CSPOT source directory is
+Previous releases of CSPOT build from source using various bash scripts.
+CSPOT was originally written to install on cloud instances.  Thus, the
+installation scripts (written in bash) run as root and were not "gentle" with
+respect to updating and installing any needed dependencies. This mode of
+installation is still supported but static linking will require
+link:https://en.wikipedia.org/wiki/Musl[MUSL]. If you are
+installing CSPOT on a server, and you want to go this route,
+please read the installation script for Ubuntu 24.04 before you do anything.
+MUSL may have a problem coexisting with the standard C compiler.  The script
+assumes that the image does not have the C language toolchain installed and it
+will install MUSL.  Please be careful with this option.  It is not easy to
+remediate if it goes ary.
+
+The following tutorial assumes that the path to the CSPOT binary directory is
 [source sh]
 ----
 /home/ubuntu/cspot
 ----
-The installation script (which uses cmake) will create
-/home/ubuntu/cspot/build and will put the cspot binaries and some testing code
-in /home/ubuntu/cspot/build/bin. 
-
-Among these tests codes are a Linux command-line client toolset called senspot
+Among CSPOT code base are a Linux command-line client toolset called senspot
 that consists of three client programs
 [source sh]
 ----
-sensput-init
+senspot-init
 senspot-put
 senspot-get
 ----
@@ -85,14 +79,14 @@ To test, using senspot, the cspot installtion on these two hosts, log into
 192.168.10.2 as the ubuntu user and type the following
 [source sh]
 ----
-cd cspot/build/bin
+cd cspot
 ./woofc-namespace-platform >& namespace.log &
 ----
 This command sequence will start the namespace server in
-/home/ubuntu/cspor/build/bin where the binaries have been deposited by the
-cmake build.  If there is an error it will be printed to namespace.log.  Note
+/home/ubuntu/cspot where the binaries have been deposited by the
+make installer.  If there is an error it will be printed to namespace.log.  Note
 that woofc-namespace-platform will need read and write permission to
-cspot/build/bin.  If the installation was done as root, change the ownership
+the cspot directory.  If the installation was done as root, change the ownership
 of this directory to ubuntu:ubuntu.
 
 Next, in that same directory, initialize a test WOOF using senspot-init
@@ -108,19 +102,19 @@ The next step is to test senspot locally.  To append a first entry to testwoof
 type
 [source sh]
 ----
-echo "3.1415" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof -T d 
+echo "3.1415" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d 
 ----
 the senspot-put command takes a full URN for the WOOF which is woof://IPaddress/path-to-namespace/woofname
 with the -W argument.  It reads a string from standard in and converts it to a
 data type specified by the -T parameter (-d indicates a double precision value
 in this case).  If this command completes without printing an error message,
 then the value 3.1415 will have been appended to testwooof in the namespace
-/home/ubuntu/cspot/build/bin.
+/home/ubuntu/cspot.
 
 To read the value back, type
 [source sh]
 ----
-./senspot-get -W woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+./senspot-get -W woof://192.168.10.2/home/ubuntu/cspot/testwoof
 ----
 This command will read the most recent value appended to the WOOF and print it
 along with a timestamp and a sequence number.
@@ -139,18 +133,18 @@ the client and 192.168.10.3 will be the server.
 Log into 192.168.10.3 as the ubuntu user and type
 [source sh]
 ----
-cd cspot/build/bin
+cd cspot
 ./woofc-namespace-platform >& namespace.log &
 ./senspot-init -W testwoof
 ----
-which will start a namespace server at /home/ubuntu/cspot/build/bin and then
+which will start a namespace server at /home/ubuntu/cspot and then
 create testwoof as a WOOF in it.
 
-From 192.168.10.2 in the directory /home/ubuntu/cspot/build/bin run
+From 192.168.10.2 in the directory /home/ubuntu/cspot run
 [source sh]
 ----
-echo "2.71828" | ./senspot-put woof://192.168.10.3/home/ubuntu/cspot/build/bin/testwoof -T d
-./senspot-get woof://192.168.10.3/home/ubuntu/cspot/build/bin/testwoof
+echo "2.71828" | ./senspot-put woof://192.168.10.3/home/ubuntu/cspot/testwoof -T d
+./senspot-get woof://192.168.10.3/home/ubuntu/cspot/testwoof
 ----
 If this sequence is a success, the output should be something like
 [source sh]
@@ -162,7 +156,7 @@ Next, test the reverse direction. On the host 192.168.10.3, from the directory
 /home/ubuntu/cspot/build/bin run the following commands
 [source sh]
 ----
-echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof -T d
+echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d
 ./senspot-get woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
 ----
 If this test is successful, the output will be something like
@@ -171,7 +165,7 @@ If this test is successful, the output will be something like
 1234.000000 time: 1738431242.2993268967 192.168.10.3 seq_no: 2
 ----
 indicating that the append from 192.168.10.3 to
-/home/ubuntu/cspot/build/bin/testwoof on 192.168.10.2 has been completed.  
+/home/ubuntu/cspot/testwoof on 192.168.10.2 has been completed.  
 
 If senspot-put fails, it is usually for one of four reasons
 * woofc-namespace-platform on the server host is not running or has thrown an error
