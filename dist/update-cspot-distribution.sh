@@ -40,9 +40,11 @@ if ( ! test -e "$HERE/senspot-file-recv.$TYPE" ) ; then
 fi
 
 if ( ! test -e "$HERE/update-cspot-distribution.sh" ) ; then
-	curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/update-cspot-distribution.sh -o $HERE/update-cspot-distribution.sh
+	echo "pulling update script"
+	curl -fSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/update-cspot-distribution.sh -o $HERE/update-cspot-distribution.sh
 	chmod 700 $HERE/update-cspot-distribution.sh
 fi
+
 $HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin.woof
 $HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin-sha256.woof
 SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
