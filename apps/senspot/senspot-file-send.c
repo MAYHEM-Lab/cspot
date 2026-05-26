@@ -23,8 +23,6 @@ char putbuf1[PAYLOAD];
 char putbuf2[PAYLOAD];
 int Verbose;
 
-extern unsigned long WooFMsgGetElSize(char *wname);
-
 #define MAX_RETRIES 20
 
 int SendFileMover(char *wname, int fd, unsigned long el_size)

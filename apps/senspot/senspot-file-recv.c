@@ -10,9 +10,6 @@
 #include "woofc.h"
 #include "senspot.h"
 
-extern int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
-extern unsigned long WooFMsgGetElSize(char *wname);
-
 #define ARGS "W:LVv:f:m:ls:"
 char *Usage = "senspot-file-recv -W woof_name for file storage\n\
 \t-f file-to-write-out\n\

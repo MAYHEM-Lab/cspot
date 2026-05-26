@@ -87,5 +87,9 @@ typedef struct senspot_fwd_state_stc SENSFWDSTATE;
 #define FWDACTIVE (1)
 #define FWDIDLE (2)
 
+// this needs to become part of the regular API
+extern int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
+extern unsigned long WooFMsgGetElSize(char *wname);
+
 #endif
 

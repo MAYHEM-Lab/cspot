@@ -29,9 +29,10 @@ int main(int argc, char **argv)
 	int uselocal;
 	unsigned char input_buf[4096];
 	char *str;
-	SENSPOT spt;
+	SENSPOT *spt;
 	char wname[4096];
 	unsigned long seq_no;
+	unsigned long el_size;
 
 	memset(wname,0,sizeof(wname));
 	seq_no = 0;
@@ -76,18 +77,47 @@ int main(int argc, char **argv)
 	if(seq_no == 0) {
 		seq_no = WooFGetLatestSeqno(wname);
 	}
-
-	err = WooFGet(wname,&spt,seq_no);
-
-	if(err < 0) {
-		fprintf(stderr,"senspot-get failed for %s\n",
+	if(uselocal == 1) {
+		spt = (SENSPOT *)malloc(16*1024); // large enough
+		if(spt == NULL) {
+			fprintf(stderr,
+			"senspot-get: no space for element\n");
+			exit(1);
+		}
+		err = WooFGet(wname,spt,seq_no);
+		if(err < 0) {
+			fprintf(stderr,"senspot-get failed for %s\n",
 			wname);
-		fflush(stderr);
-		exit(1);
+			fflush(stderr);
+			exit(1);
+		}
+	} else {
+		// let remote woof determine size
+		// use MsgGet to avpid an extra GetElSize
+		el_size = WooFMsgGetElSize(wname);
+		if(el_size == (unsigned long)-1) {
+			fprintf(stderr,
+			"senspot-get: could not get element size for %s\n",
+			wname);
+		}
+		spt = (SENSPOT *)malloc(el_size);
+		if(spt == NULL) {
+			fprintf(stderr,
+			"senspot-get: no space for element\n");
+			exit(1);
+		}
+		err = WooFMsgGet(wname,spt,el_size,seq_no);
+		if(err < 0) {
+			fprintf(stderr,"senspot-get failed for %s\n",
+			wname);
+			fflush(stderr);
+			exit(1);
+		}
 	}
 
-	SenspotPrint(&spt,seq_no);
 
+	SenspotPrint(spt,seq_no);
+	free(spt);
 
 	exit(0);
 }
