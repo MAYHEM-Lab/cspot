@@ -41,7 +41,7 @@ fi
 
 if ( ! test -e "$HERE/update-cspot-distribution.sh" ) ; then
 	echo "pulling update script"
-	curl -fSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/update-cspot-distribution.sh -o $HERE/update-cspot-distribution.sh
+	curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/update-cspot-distribution.sh -o $HERE/update-cspot-distribution.sh
 	chmod 700 $HERE/update-cspot-distribution.sh
 fi
 
