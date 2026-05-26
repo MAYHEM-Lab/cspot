@@ -7,7 +7,7 @@
 #ifdef JUMBO
 #define PAYLOAD (8*1024)
 #else
-#define PAYLOAD (1*2024) // too big
+#define PAYLOAD (1024)
 #endif
 
 #define FPAYLOAD (8*1024)
