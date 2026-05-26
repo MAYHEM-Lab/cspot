@@ -33,11 +33,16 @@ else
 	fi
 fi
 
+# get the base recv binary if necessary
 if ( ! test -e "$HERE/senspot-file-recv.$TYPE" ) ; then
 	curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/senspot-file-recv.$TYPE -o $HERE/senspot-file-recv.$TYPE
 	chmod 700 $HERE/senspot-file-recv.$TYPE
 fi
 
+if ( ! test -e "$HERE/update-cspot-distribution.sh" ) ; then
+	curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/senspot-file-recv.$TYPE > $HERE/update-cspot-distribution.sh
+	chmod 700 $HERE/update-cspot-distribution.sh
+fi
 $HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin.woof
 $HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin-sha256.woof
 SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
