@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+# installer
 KEYCHAIN="$HOME/.cspot/capabilities.yaml"
 
 ARCH=`uname -m`
