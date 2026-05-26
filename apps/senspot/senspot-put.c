@@ -29,9 +29,9 @@ int main(int argc, char **argv)
 	int i;
 	int err;
 	int uselocal;
-	unsigned char input_buf[4096];
+	unsigned char input_buf[16*1024]; // big enough
 	char *str;
-	SENSPOT spt;
+	SENSPOT *spt;
 	char wname[4096];
 	char hname[4096];
 	char *handler;
@@ -90,13 +90,18 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	SenspotAssign(&spt,type,(char *)input_buf);
-	WooFLocalIP(spt.ip_addr,sizeof(spt.ip_addr));
-	gettimeofday(&tm,NULL);
-	spt.tv_sec = htonl(tm.tv_sec);
-	spt.tv_usec = htonl(tm.tv_usec);
+	spt = (SENSPOT *)malloc((16*1024)+sizeof(SENSPOT));
+	if(spt == NULL) {
+		exit(1);
+	}
 
-	seq_no = WooFPut(wname,handler,(void *)&spt);
+	SenspotAssign(spt,type,(char *)input_buf);
+	WooFLocalIP(spt->ip_addr,sizeof(spt->ip_addr));
+	gettimeofday(&tm,NULL);
+	spt->tv_sec = htonl(tm.tv_sec);
+	spt->tv_usec = htonl(tm.tv_usec);
+
+	seq_no = WooFPut(wname,handler,(void *)spt);
 
 	if(WooFInvalid(seq_no)) {
 		fprintf(stderr,"senspot-put failed for %s with handler %s type %c and cargo %s\n",
@@ -108,6 +113,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	free(spt);
 
 	exit(0);
 }
