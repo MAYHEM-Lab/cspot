@@ -216,6 +216,78 @@ network communication path and not the local fast path).
 
 ==== CAPLets example
 
+It is possible to create capabilities for individual WOOFs (i.e. CSPOT logs --
+see below) or for an entire namespace (again -- see CSPOT abstractions below).
+This example shows how to create a read-only capability for a CSPOT namespace
+and also a separate read-write capability.  Any process that has access to the
+read-only capability will be able to read (call Get) on any WOOF in the
+namespace that is not further protected by a capability.  Any process holding
+the read-write capability will be able to either read (Get) or write (Put) but
+will not be able to trigger a CSPOT handler as a result of a Put. 
+
+The first step is to create a principle capability in the namespace.  This
+capability grants all access so it should be protected using the most
+restrictive file systems permissions (e.g. as an ssh private key would be).
+The trust model assumes that a process with access permissions to the
+directory containing the namespace has access to all of its contents,
+including the principle capabilities.
+
+To create a principle capability for the namespace, log into the machine
+hosting the namespace and change into the namespace directory.  Ensure that
+woofc-namespace-platform is running for that namespace and that the user login
+has write permissions to the namespace directory.
+
+Run the command
+[source sh]
+----
+./woofc-init-principle -N
+----
+If the command is successful, it will create (silently) a file called
+CSPOT.CAP that contains the principle capability.
+
+All accesses to WOOFs in this namespace will need to include a capability in
+the CSPOT API calls that will be checked on each access to ensure that it is a
+legal attenuation of this principle capability.
+
+The CSPOT API uses a keyring (formatted as a YAML file) 
+located in the .cspot subdirectory of the user ID's home directory (e.g.
+similar to the .ssh directory used to hold ssh keys) or the current working
+directory.  The keyring file must be called "capabilities.yaml" and it must
+have all group and worl permissions disabled.
+
+To create a read-only attenuation for the namespace, run the command
+[source sh]
+----
+./woofc-print-cap -N -h 192.168.10.2 -p 1
+----
+where the IP address occurring after the -h parameter is the externally
+visible IP address for the namespace.  The "-p 1" says that the only
+permission enabled is READ.
+
+The output of this command is YAML text that needs to be put into the
+capabilities.yaml keyring file of any user running a process that exercises
+the CSPOT API and contacts this namespace and that is granted read-only access
+to the WOOFs in the namespace.
+
+To create a read-write attenuation, in the namespace directory, run the
+command 
+[source sh]
+----
+./woofc-print-cap -N -h 192.168.10.2 -p 3
+----
+which will print a YAML-formatted capability with READ and WRITE permissions
+enabled, but no other permissions enabled.
+
+Note that the procedure for individual WOOFs is the same, but the -N flag is
+replaced with -W local-woof-name.  The principle capability will be placed in
+local-woof-name.CAP and woofc-print-cap will print YAML for capabilities that
+are specific to that WOOF (and not the name space).
+
+Finally, if there is both a namespace principle capability and a principle 
+capability for a specific WOOF in the namespace, the access is granted if
+the presented capability is a legal attenuation of either (i.e. not the most
+restrictive).
+
   
 == CSPOT Overview
 
