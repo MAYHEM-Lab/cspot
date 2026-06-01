@@ -42,6 +42,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	double total;
 	struct timeval start_tv;
 	struct timeval end_tv;
+	time_t lt;
 	SENSMV *sm;
 	unsigned char *el_buf;
 	unsigned long fpayload;
@@ -86,7 +87,8 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	gettimeofday(&tv,NULL);
 	sm->creation_time = tv.tv_sec;
 	if(Verbose == 1) {
-		localtime_r(&sm->creation_time, &tm_buf);
+		lt = sm->creation_time;
+		localtime_r(&lt, &tm_buf);
 		strftime(buffer, sizeof(buffer),
 			"%Y-%m-%d %H:%M:%S",
 			&tm_buf);
