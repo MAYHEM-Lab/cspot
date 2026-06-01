@@ -20,7 +20,10 @@ updates need only run
 cd cspot
 ./update-cspot-distributions.sh
 ----
-to get the latest.
+to get the latest.  Note that this script uses CSPOT capabilities (see below)
+and, thus, will create a .cspot subdirectory in the home directory of the user
+running it, and it will add a public read-only capability to the
+capabilities.yaml file it will also create.
 
 Also -- CSPOT is statically linked so the binaries might look a little bit
 larger than expected.
