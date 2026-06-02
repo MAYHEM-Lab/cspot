@@ -195,7 +195,7 @@ int32_t backend::remote_create(std::string_view woof_name, uint32_t elem_size, u
 
     if (!r_msg) {
         DEBUG_WARN("Could not receive reply for WooFMsgCreate");
-	printf("WooFMsgGet: server request failed\n");
+	printf("WooFMsgCreate: server request failed\n");
 	perror("WooFMsgCreate");
         return -1;
     }

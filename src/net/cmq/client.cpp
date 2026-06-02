@@ -582,7 +582,7 @@ backend::remote_put(std::string_view woof_name_v, const char* handler_name, cons
 				unsigned char *payload = (unsigned char *)malloc(psize);
                         	if(payload == NULL) {
                                         free(new_cap);
-                                	DEBUG_WARN("Could not create payload for signing for WooFMsgPut for %s", woof_name);
+                                	DEBUG_WARN("Could not create payload for signing for WooFMsgPut for %s", std::string(woof_name).c_str());
                                 	return -1;
                         	}
                         	unsigned char *pptr = payload;
