@@ -101,10 +101,10 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
         strncat(local_name, name, sizeof(local_name));
     }
 
+    // will only work with CAP
     if (is_local == 0) {
-        fprintf(stderr, "WooFCreate: non-local create of %s not supported (yet)\n", name);
-        fflush(stderr);
-        return (-1);
+	err = WooFMsgCreate(name,element_size,history_size);
+        return (err);
     }
 
 #ifdef NOTRIGHTNOW

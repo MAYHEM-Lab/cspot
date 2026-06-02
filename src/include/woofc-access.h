@@ -17,6 +17,7 @@ int WooFPortFromURI(const char* woof_uri_str, int* woof_port);
 
 unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
 int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
+int WooFMsgCreate(const char* woof_name, unsigned long el_size, unsigned long history_size);
 unsigned long WooFMsgGetElSize(const char* woof_name);
 unsigned long
 WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsigned long cause_woof_latest_seq_no);

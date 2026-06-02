@@ -177,6 +177,18 @@ int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsi
 //	return cspot::get_active_backend()->remote_get(woof_name, element, el_size, seq_no);
 }
 
+int WooFMsgCreate(const char* woof_name, unsigned long el_size, unsigned long history_size) {
+	cspot::network_backend *be;
+	cspot::check_backends();
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_create(woof_name, el_size, history_size));
+	} else {
+		return(-1);
+	}
+//	return cspot::get_active_backend()->remote_get(woof_name, element, el_size, seq_no);
+}
+
 unsigned long WooFMsgGetElSize(const char* woof_name) {
 	thread_local cspot::network_backend *be;
 	unsigned long el_size;
