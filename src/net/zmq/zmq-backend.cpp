@@ -1118,6 +1118,17 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		}
 		DEBUG_LOG("WooFProcessCreatewithCAP: CAP auth, %s created\n",
 			wname);
+    		DEBUG_LOG("WooFProcessCreatewithCAP: responding with 1\n");
+    		auto resp = CreateMessage(std::to_string(1));
+    		if (!resp) {
+        		DEBUG_WARN("WooFProcessCreatewithCAP: Could not allocate message");
+        		return;
+    		}
+
+    		if (!Send(std::move(resp), *resp_sock)) {
+        		DEBUG_WARN("WooFProcessCreatewithCAP: Could not send response");
+			return;
+		}
 		return;
 	}
 
