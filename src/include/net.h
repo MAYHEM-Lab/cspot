@@ -12,6 +12,7 @@ public:
     virtual bool stop() = 0;
 
     virtual int32_t remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) = 0;
+    virtual int32_t remote_create(std::string_view woof_name, uint32_t elem_size, uint32_t history_size) = 0;
     virtual int32_t
     remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) = 0;
 

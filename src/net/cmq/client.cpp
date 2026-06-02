@@ -285,6 +285,10 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 	return 1;
 }
 
+int32_t backend::remote_create(std::string_view woof_name_v, uint32_t elem_size, uint32_t history_size) {
+	return(1);
+}
+
 int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, unsigned long el_size, int el_count) {
 	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);

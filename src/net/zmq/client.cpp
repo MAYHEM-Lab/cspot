@@ -115,6 +115,100 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
     return 1;
 }
 
+int32_t backend::remote_create(std::string_view woof_name, uint32_t elem_size, uint32_t history_size) {
+    auto endpoint_opt = endpoint_from_woof(woof_name);
+    std::string woof_n(woof_name);
+    char cap_file[1024];
+    int has_cap;
+    WCAP cap;
+    WCAP *new_cap;
+
+    if (!endpoint_opt) {
+        return -1;
+    }
+
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
+
+    auto& endpoint = *endpoint_opt;
+
+    if (elem_size == (uint32_t)-1) {
+        return (-1);
+    }
+
+    unsigned long my_log_seq_no;
+    if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
+        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
+    } else {
+        my_log_seq_no = 0;
+    }
+    ZMsgPtr msg;
+    if(has_cap == 1) {
+	char ns_cap[1024];
+	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+	// look for specific CAP before ns CAP
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			(SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
+		// attenuate down to read only
+		new_cap = WooFCapAttenuate(&cap,WCAP_INIT);
+		if(new_cap != NULL) {
+			char payload[2048];
+			// sign concatenation of woof name and seqno
+			snprintf(payload,sizeof(payload),"%s %s %s",
+				std::string(woof_name).c_str(),
+				std::to_string(elem_size).c_str(),
+				std::to_string(history_size).c_str());
+			uint64_t sig = WooFCapSign((unsigned char *)payload, strlen(payload), new_cap->check);
+			new_cap->check = sig;
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+			msg = CreateMessage(std::to_string(WOOF_MSG_CREATE_CAP),
+			     std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
+                             std::string(woof_name),
+                             std::to_string(elem_size),
+			     std::to_string(history_size)
+                            //  ,
+                            //  std::to_string(Name_id),
+                            //  std::to_string(my_log_seq_no)
+                             );
+			free(new_cap);
+			if(!msg) {
+				has_cap = 0;
+			}
+		} else {
+	    		DEBUG_WARN("WooFMsgCreate: cap attenuate failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+			has_cap = 0;
+		}
+	} else {
+	    	DEBUG_WARN("WooFMsgCreate: cap search failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+		has_cap = 0;
+	}
+    }
+
+
+    if(!msg || (has_cap == 0)) {
+	    DEBUG_WARN("WooFMsgCreate: could not create msg, failed\n");
+	    return(-1);
+    }
+
+    auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+
+    if (!r_msg) {
+        DEBUG_WARN("Could not receive reply for WooFMsgCreate");
+	printf("WooFMsgGet: server request failed\n");
+	perror("WooFMsgCreate");
+        return -1;
+    }
+
+    auto res = ExtractMessage<std::vector<uint8_t>>(*r_msg);
+    if (!res) {
+        DEBUG_WARN("Could not extract msg response for WooFMsgCreate");
+        return -1;
+    }
+
+    return 1;
+}
+
 int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
     char cap_file[1024];
