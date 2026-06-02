@@ -22,5 +22,9 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
+void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
+
+
+
 std::optional<std::string> endpoint_from_woof(std::string_view woof_name);
 } // namespace cspot::zmq

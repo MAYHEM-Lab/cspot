@@ -80,6 +80,7 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #define WOOF_MSG_REPAIR_PROGRESS_CAP (28)
 #define LOG_GET_REMOTE_CAP (29)
 #define LOG_GET_REMOTE_SIZE_CAP (30)
+#define WOOF_MSG_CREATE_CAP (31)
 
 #define WOOF_MSG_CACHE_SIZE (100)
 

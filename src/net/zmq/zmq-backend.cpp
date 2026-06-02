@@ -968,4 +968,161 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	return;
 }
 
+void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessCreatewithCAP: no cap frame\n");
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof cap frame\n");
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessCreatewithCAP local name failed\n");
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+
+	// remote create requires a CAP
+	if(!wf && !wf_ns) {
+		DEBUG_WARN("WooFProcessCreatewithCAP no CAP found in namespace\n");
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed\n");
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_INIT);
+		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP attn cap failed\n");
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: cap get suceeded CAP %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for ns\n");
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_INIT);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessCreatewithCAP attn cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: cap get suceeded for ns CAP\n");
+	}
+
+	zmsg_t *zm = req_msg.get();
+	zframe_t *sf = zmsg_first(zm); // woof name
+	sf = zmsg_next(zm); // element_size
+	char *c_element_size = (char *)zframe_data(sf);
+	sf = zmsg_next(zm); // history_size
+	char *c_history_size = (char *)zframe_data(sf);
+	char payload[4096];
+	snprintf(payload,sizeof(payload),"%s %s %s",wname,c_element_size,
+			c_history_size);
+	
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+		free(new_cap_p);
+	}
+
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		// reset cursor
+		(void)zmsg_first(req_msg.get());
+		unsigned long el_size;
+		unsigned long history_size;
+		char *end_ptr;
+		el_size = strtol(c_element_size,&end_ptr,10);
+		if(*end_ptr != '\0') {
+		DEBUG_WARN("WooFProcessCreatewithCAP bad el size, failed\n");
+			return;
+		}
+		history_size = strtol(c_history_size,&end_ptr,10);
+		if(*end_ptr != '\0') {
+		DEBUG_WARN("WooFProcessCreatewithCAP bad hist size, failed\n");
+			return;
+		}
+	
+		err = WooFCreate(wname,el_size,history_size);
+		if(err < 0) {
+	DEBUG_WARN("WooFProcessCreatewithCAP create failed for %s %lu %lu\n",
+				wname,el_size,history_size);
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: CAP auth, %s created\n",
+			wname);
+		return;
+	}
+
+	DEBUG_WARN("WooFProcessCreatewithCAP: create CAP denied\n");
+	// denied
+	return;
+}
 } // namespace cspot::zmq

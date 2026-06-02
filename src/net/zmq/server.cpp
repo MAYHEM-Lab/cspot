@@ -115,6 +115,9 @@ void WooFMsgThread() {
         case WOOF_MSG_GET_LATEST_SEQNO_CAP:
             WooFProcessGetLatestSeqnowithCAP(std::move(msg), receiver.get());
             break;
+	case WOOF_MSG_CREATE_CAP:
+            WooFProcessCreatewithCAP(std::move(msg), receiver.get());
+            break;
 #ifdef DONEFLAG
         case WOOF_MSG_GET_DONE:
             WooFProcessGetDone(msg, receiver);
