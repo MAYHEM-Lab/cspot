@@ -14,6 +14,7 @@ int WooFIPAddrFromURI(const char* woof_uri_str, char* woof_ip, int len);
 unsigned int WooFPortHash(const char* woof_namespace);
 int WooFLocalIP(char* ip_str, int len);
 int WooFPortFromURI(const char* woof_uri_str, int* woof_port);
+int WooFIsCAPName(const char *woof_uri_str);
 
 unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
 int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
