@@ -200,13 +200,13 @@ int32_t backend::remote_create(std::string_view woof_name, uint32_t elem_size, u
         return -1;
     }
 
-    auto res = ExtractMessage<std::vector<uint8_t>>(*r_msg);
+    auto res = ExtractMessage<std::string>(*r_msg);
     if (!res) {
         DEBUG_WARN("Could not extract msg response for WooFMsgCreate");
         return -1;
     }
-
-    return 1;
+    auto& [str] = *res;
+    return std::stoul(str, nullptr, 10);
 }
 
 int32_t backend::remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) {

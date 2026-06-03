@@ -878,6 +878,229 @@ void WooFProcessGetwithCAP(unsigned char *fl, int sd)
 	return;
 }
 
+void WooFProcessCreatewithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	unsigned char *eframe;
+	unsigned char *hframe;
+	char *wname;
+	char *s_elsize;
+	char *s_hist;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessCreatewithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessCreatewithCAP could not get cap frame");
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof cap frame payload\n");
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame payload\n");
+		return;
+	}
+
+	eframe = cmq_frame_next(wframe);
+	if(eframe == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get element frame\n");
+		return;
+	}
+
+	s_elsize = (char *)cmq_frame_payload(eframe);
+	if(s_elsize == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get element frame payload\n");
+		return;
+	}
+
+	hframe = cmq_frame_next(eframe);
+	if(eframe == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get history frame\n");
+		return;
+	}
+
+	s_hist = (char *)cmq_frame_payload(hframe);
+	if(s_hist == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get history frame payload\n");
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetwithCAP local name failed\n");
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+
+	// no CAP for create => denied
+	if(!wf && !wf_ns) {
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for %s\n", cap_name);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessCreatewithCAP attend cap failed for %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: read CAP from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for ns\n");
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessCreatewithCAP atten cap failed for ns\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: read CAP for ns\n");
+	}
+
+	char payload[2048];
+	snprintf(payload,sizeof(payload),"%s %s %s",wname,s_elsize,s_hist);
+	uint64_t sig_p = 0;
+        if(new_cap_p != NULL) {
+                sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+                free(new_cap_p);
+        }
+
+        uint64_t sig_ns = 0;
+        if(new_cap_ns != NULL) {
+                sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+                free(new_cap_ns);
+        }
+
+	// create access granted
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: CAP auth\n");
+		unsigned int el_size;
+		unsigned int history_size;
+		char *end_ptr;
+		el_size = strtol(s_elsize,&end_ptr,10);
+		if(*end_ptr != '\0') {
+			DEBUG_WARN("WooFProcessCreatewithCAP: bad element string\n");
+			return;
+		}
+		history_size = strtol(s_hist,&end_ptr,10);
+		if(*end_ptr != '\0') {
+			DEBUG_WARN("WooFProcessCreatewithCAP: bad history string\n");
+			return;
+		}
+		err = WooFCreate(wname,el_size,history_size);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: woof create failed\n");
+			// empty frame indicates failure
+			err = cmq_frame_create(&r_frame,NULL,0); 
+			if(err < 0) {
+				DEBUG_WARN("WooFProcessCreatewithCAP: r_frame create failed\n");
+				return;
+			}
+		}
+		err = cmq_frame_create(&r_frame,(unsigned char *)"1",strlen("1")); 
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: r_frame create failed\n");
+			return;
+		}
+		// create response msg -- r_frame is holding response
+		err = cmq_frame_list_create(&r_fl);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: Could not allocate resp message");
+			cmq_frame_destroy(r_frame);
+			return;
+		}
+		// add r_frame to response msg
+		// r_frame could be zero frame if create fails
+		err = cmq_frame_append(r_fl,r_frame);
+		if(err < 0) {
+			cmq_frame_list_destroy(r_fl);
+			cmq_frame_destroy(r_frame);
+			DEBUG_WARN("WooFProcessCreatewithCAP: Could not append frame");
+			return;
+		}
+		// send response -- timeout set in accept()
+		err = cmq_pkt_send_msg(sd,r_fl);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: Could not send response");
+		}
+		cmq_frame_list_destroy(r_fl);
+		return;
+	}
+
+	// denied
+	DEBUG_WARN("WooFProcessCreatewithCAP: create CAP denied\n");
+	return;
+}
 unsigned char *LeakTest()
 {
 	unsigned char *fl;
