@@ -25,8 +25,15 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     auto& [woof_name] = *res;
 
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	return;
+    }
+
+
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
     DEBUG_LOG("WooFProcessGetElSize: called on %s",local_name);
 
     char cap_name[1028] = {};
@@ -106,6 +113,12 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	// disallow remote access to CAP woofs
+	err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
 		return;
 	}
 
@@ -219,6 +232,11 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // auto cause_seq_no = std::stoul(log_seq_no_str);
     auto cause_host = 0;
     auto cause_seq_no = 0;
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	return;
+    }
 
     const char *hname;
     if(strcmp(hand_name.c_str(),"NULL") == 0) {
@@ -228,7 +246,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
     if (err < 0) {
         DEBUG_WARN("WooFProcessPut local name failed");
         return;
@@ -299,6 +317,10 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof name frame\n");
+		return;
+	}
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
 		return;
 	}
 
@@ -447,9 +469,14 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // auto cause_seq_no = std::stoul(log_seq_no_str);
     auto cause_host = 0;
     auto cause_seq_no = 0;
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	return;
+    }
 
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
 
     char cap_name[1028] = {};
     // if there is a cap there should not be one, error
@@ -536,6 +563,12 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
 		return;
 	}
 
@@ -658,8 +691,14 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     // auto cause_woof_latest_seq_no = 0;
     // std::string cause_woof = "";
 
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	return;
+    }
+
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
 
     char cap_name[1028] = {};
     // if there is a cap there should not be one, error
@@ -740,6 +779,11 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof name frame\n");
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
 		return;
 	}
 
@@ -848,8 +892,14 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto& [woof_name, el_count_str] = *res;
     auto el_count = std::stoul(el_count_str);
 
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	return;
+    }
+
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
 
     char cap_name[1028] = {};
     // if there is a cap there should not be one, error
@@ -929,6 +979,11 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof name frame\n");
 		return;
 	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		return;
+	}
 
 	char local_name[1024] = {};
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
@@ -997,6 +1052,11 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame\n");
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
 		return;
 	}
 

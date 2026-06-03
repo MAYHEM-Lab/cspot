@@ -143,6 +143,34 @@ int WooFNameFromURI(const char* woof_uri_str, char* woof_name, int len) {
     return (-1);
 }
 
+int WooFIsCAPName(const char *woof_uri_str) {
+	int err;
+	char local_name[4096];
+	char *s;
+	int len;
+
+
+	err = WooFNameFromURI(woof_uri_str,local_name,sizeof(local_name));
+	if(err < 0) {
+		return(err);
+	}
+	s = &(local_name[0]);
+	len = strlen(s);
+	if(len < 4) {
+		return(-1);
+	}
+	if(strcmp(s + len - 4,".CAP") == 0) {
+		return(1);
+	}
+	if(strcmp(s + len - 4,".cap") == 0) {
+		return(1);
+	}
+	return(0);
+}
+
+	
+	 
+
 /*
  * returns IP address to avoid DNS issues
  */
