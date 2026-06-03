@@ -93,6 +93,9 @@ void *WooFMsgThread(void *arg) {
 				case WOOF_MSG_GET_LATEST_SEQNO_CAP:
 				    WooFProcessGetLatestSeqnowithCAP(fl,c_sd);
 				    break;
+				case WOOF_MSG_CREATE_CAP:
+				    WooFProcessCreatewithCAP(fl,c_sd);
+				    break;
 	// these need to be  converte from zmq
 #ifdef DONEFLAG
 				case WOOF_MSG_GET_DONE:
