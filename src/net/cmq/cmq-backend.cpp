@@ -987,7 +987,7 @@ void WooFProcessCreatewithCAP(unsigned char *fl, int sd)
 			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for %s\n", cap_name);
 			return;
 		}
-		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_INIT);
 		if(new_cap_p == NULL) {
 			DEBUG_WARN("WooFProcessCreatewithCAP attend cap failed for %s\n", cap_name);
 			if(wf_ns) {
@@ -1013,7 +1013,7 @@ void WooFProcessCreatewithCAP(unsigned char *fl, int sd)
 			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for ns\n");
 			return;
 		}
-		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_INIT);
 		if(new_cap_ns == NULL) {
 			DEBUG_WARN("WooFProcessCreatewithCAP atten cap failed for ns\n");
 			if(new_cap_p != NULL) {
