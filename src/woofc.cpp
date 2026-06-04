@@ -23,7 +23,8 @@ extern "C" {
 
 void WooFDrop(WOOF* wf);
 
-int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size) {
+int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size) 
+{
     WOOF_SHARED* wfs;
     MIO* mio;
     unsigned long space;
@@ -199,6 +200,116 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 
     InitSem(&wfs->mutex, 1);
     InitSem(&wfs->tail_wait, history_size);
+
+    MIOClose(mio);
+
+    return (1);
+}
+
+int WooFSetSeqno(char *name, unsigned long new_seqno)
+{
+    WOOF_SHARED* wfs;
+    MIO* mio;
+    unsigned long space;
+    char local_name[4096] = {};
+    char temp_name[4096] = {};
+    char fname[1024];
+    char ip_str[25] = {};
+    int err;
+    int is_local;
+    struct stat sbuf;
+    struct stat obuf;
+    int renamed;
+    double r;
+
+    if (name == NULL) {
+        return (-1);
+    }
+
+    if (WooF_dir[0] == 0) {
+        fprintf(stderr, "WooFSetSeqno: must init system\n");
+        fflush(stderr);
+        exit(1);
+    }
+
+    is_local = 0;
+    /*
+     * if it is a woof:// spec, check to see if the path matches the namespace
+     *
+     * if it does, it is local => use WooF_dir
+     */
+    if (WooFValidURI(name)) {
+        err = WooFNameSpaceFromURI(name, local_name, sizeof(local_name));
+        if (err < 0) {
+            fprintf(stderr, "WooFSetSeqno: bad namespace in URI %s\n", name);
+            fflush(stderr);
+            return (-1);
+        }
+        /*
+         * check to see if there is a host spec
+         */
+        err = WooFIPAddrFromURI(name, ip_str, sizeof(ip_str));
+        if (err < 0) {
+            strncpy(ip_str, Host_ip, sizeof(ip_str));
+        }
+        if ((strcmp(WooF_namespace, local_name) == 0) && (strcmp(Host_ip, ip_str) == 0)) {
+            /*
+             * woof spec for local name space, use WooF_dir
+             */
+            is_local = 1;
+            memset(local_name, 0, sizeof(local_name));
+            strncpy(local_name, WooF_dir, sizeof(local_name));
+            if (local_name[strlen(local_name) - 1] != '/') {
+                strncat(local_name, "/", 2);
+            }
+            err = WooFNameFromURI(name, fname, sizeof(fname));
+            if (err < 0) {
+                fprintf(stderr, "WooFSetSeqno: bad name in URI %s\n", name);
+                fflush(stderr);
+                return (-1);
+            }
+            strncat(local_name, fname, sizeof(fname));
+        }
+    } else { /* not URI spec so must be local */
+        is_local = 1;
+        strncpy(local_name, WooF_dir, sizeof(local_name));
+        if (local_name[strlen(local_name) - 1] != '/') {
+            strncat(local_name, "/", 2);
+        }
+        strncat(local_name, name, sizeof(local_name));
+    }
+
+    // will only work with CAP -- NOT RIGHT NOW
+    if (is_local == 0) {
+//	err = WooFMsgCreate(name,element_size,history_size);
+	err = -1;
+        return (err);
+    }
+
+    mio = MIOReOpen(local_name);
+    if (mio == NULL) {
+        fprintf(stderr, "WooFSetSeqno: couldn't open %s\n", local_name);
+        return (-1);
+    }
+#ifdef DEBUG
+    if (stat(local_name, &obuf) >= 0) {
+        printf("WooFSetSeqno: opened %s with inode %lu\n", local_name, obuf.st_ino);
+    } else {
+        printf("WooFSetSeqno: opened %s\n", local_name);
+    }
+    fflush(stdout);
+#endif
+
+    wfs = (WOOF_SHARED*)MIOAddr(mio);
+
+    if(wfs->seq_no <= new_seqno) { // can only make it bigger
+    	wfs->seq_no = new_seqno;
+    } else {
+	fprintf(stderr,"WooFSeqno: cannot update %lu to %lu\n",
+		wfs->seq_no,new_seqno);
+    	MIOClose(mio);
+	return(-1);
+    }
 
     MIOClose(mio);
 

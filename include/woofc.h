@@ -11,6 +11,7 @@ void WooFSetInit();
 void WooFExit();
 
 int WooFCreate(const char* name, unsigned long element_size, unsigned long history_size);
+int WooFSetSeqno(char *name, unsigned long new_seqno); // for reset
 
 unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
 int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
