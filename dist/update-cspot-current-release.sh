@@ -30,14 +30,15 @@ if ( ! test -e "$KEYCHAIN" ) ; then
   	echo "    check: $BCHECK" >> $KEYCHAIN
 	chmod 600 $KEYCHAIN
 else
-	PTEST=`cat $KEYCHAIN | grep 'name: $PRIMARY'`
+	PTEST=`cat $KEYCHAIN | grep "name: $PRIMARY"`
+echo $PTEST
 	if ( test -z "$PTEST" ) ; then
 		echo "namespace:" >> $KEYCHAIN
   		echo "    name: $PRIMARY" >> $KEYCHAIN
   		echo "    permissions: 00000001" >> $KEYCHAIN
   		echo "    check: $PCHECK" >> $KEYCHAIN
 	fi
-	BTEST=`cat $KEYCHAIN | grep 'name: $BACKUP'`
+	BTEST=`cat $KEYCHAIN | grep "name: $BACKUP"`
 	if ( test -z "$BTEST" ) ; then
 		echo "namespace:" >> $KEYCHAIN
   		echo "    name: $BACKUP" >> $KEYCHAIN
