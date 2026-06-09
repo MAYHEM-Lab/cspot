@@ -46,7 +46,7 @@ else
 	fi
 fi
 
-echo "updating from $PRIMAY of latest release"
+echo "updating from $PRIMARY of latest release"
 ./senspot-file-recv -f cspot-"$TYPE"-bin.tgz -W $PRIMARY/cspot-"$TYPE"-bin.woof
 if ( test $? -eq 0 ) ; then
 	tar -xzf cspot-"$TYPE"-bin.tgz
