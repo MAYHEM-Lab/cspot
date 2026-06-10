@@ -7,11 +7,26 @@ if ( test -z "$SUBDIR" ) ; then
 	SUBDIR="release"
 fi
 
+if ( test "$SUBDIR" != "release" ) ; then
+	if ( test "$SUBDIR" != "daily" ) ; then
+		echo "must specify either release or daily"
+		exit 1
+	fi
+fi
+
 KEYCHAIN="$HOME/.cspot/capabilities.yaml"
 PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
-PCHECK="1688304179681876176"
+BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
 BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
-BCHECK2="8096705960766180829"
+if ( test "$SUBDIR" == "release" ) ; then
+	PCHECK="1688304179681876176"
+	BCHECK="423494180182850117"
+	BCHECK2="8096705960766180829"
+else
+	PCHECK="10022175549340067307"
+	BCHECK="8476964376741850441"
+fi
+
 
 ARCH=`uname -m`
 if ( test "$ARCH" == "aarch64" ) ; then
@@ -36,6 +51,10 @@ if ( ! test -e "$KEYCHAIN" ) ; then
   	echo "    permissions: 00000001" >> $KEYCHAIN
   	echo "    check: $PCHECK" >> $KEYCHAIN
 	echo "namespace:" >> $KEYCHAIN
+  	echo "    name: $BACKUP" >> $KEYCHAIN
+  	echo "    permissions: 00000001" >> $KEYCHAIN
+  	echo "    check: $BCHECK" >> $KEYCHAIN
+	echo "namespace:" >> $KEYCHAIN
   	echo "    name: $BACKUP2" >> $KEYCHAIN
   	echo "    permissions: 00000001" >> $KEYCHAIN
   	echo "    check: $BCHECK2" >> $KEYCHAIN
@@ -48,13 +67,22 @@ else
                 echo "    permissions: 00000001" >> $KEYCHAIN
                 echo "    check: $PCHECK" >> $KEYCHAIN
 	fi
-        BTEST2=`cat $KEYCHAIN | grep "name: $BACKUP"`
-        if ( test -z "$BTEST2" ) ; then
+        BTEST=`cat $KEYCHAIN | grep "name: $BACKUP"`
+        if ( test -z "$BTEST" ) ; then
                 echo "namespace:" >> $KEYCHAIN
-                echo "    name: $BACKUP2" >> $KEYCHAIN
+                echo "    name: $BACKUP" >> $KEYCHAIN
                 echo "    permissions: 00000001" >> $KEYCHAIN
-                echo "    check: $BCHECK2" >> $KEYCHAIN
+                echo "    check: $BCHECK" >> $KEYCHAIN
         fi
+	if ( test "$SUBDIR" == "release" ) ; then
+        	BTEST2=`cat $KEYCHAIN | grep "name: $BACKUP2"`
+        	if ( test -z "$BTEST2" ) ; then
+                	echo "namespace:" >> $KEYCHAIN
+                	echo "    name: $BACKUP2" >> $KEYCHAIN
+                	echo "    permissions: 00000001" >> $KEYCHAIN
+                	echo "    check: $BCHECK2" >> $KEYCHAIN
+        	fi
+	fi
 
 fi
 
@@ -69,8 +97,54 @@ if ( ! test -e "$HERE/update-cspot-distribution.sh" ) ; then
 	chmod 700 $HERE/update-cspot-distribution.sh
 fi
 
-$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin.woof
-$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W woof://169.231.230.76/sharedfs/cspot-distributions/cspot-"$TYPE"-bin-sha256.woof
+BOTH=0
+$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $PRIMARY/cspot-"$TYPE"-bin.woof
+if ( test $? -eq 0 ) ; then
+	NB=$(($BOTH+1))
+	BOTH=$NB
+fi
+$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $PRIMARY/cspot-"$TYPE"-bin-sha256.woof
+if ( test $? -eq 0 ) ; then
+	NB=$(($BOTH+1))
+	BOTH=$NB
+fi
+if ( test $BOTH -lt 2 ) ; then
+	BOTH=0
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP/cspot-"$TYPE"-bin.woof
+	if ( test $? -eq 0 ) ; then
+		NB=$(($BOTH+1))
+		BOTH=$NB
+	fi
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP/cspot-"$TYPE"-bin-sha256.woof
+	if ( test $? -eq 0 ) ; then
+		NB=$(($BOTH+1))
+		BOTH=$NB
+	fi
+fi
+
+if ( test $BOTH -lt 2 ) ; then
+	if ( test "$SUBDIR" == "daily" ) ; then
+		echo "could not fetch daily from $PRIMARY or $BACKUP"
+		exit 1
+	fi
+	BOTH=0
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP2/cspot-"$TYPE"-bin.woof
+	if ( test $? -eq 0 ) ; then
+		NB=$(($BOTH+1))
+		BOTH=$NB
+	fi
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP2/cspot-"$TYPE"-bin-sha256.woof
+	if ( test $? -eq 0 ) ; then
+		NB=$(($BOTH+1))
+		BOTH=$NB
+	fi
+	if ( test $BOTH -lt 2 ) ; then
+		echo "could not fetch release from $PRIMARY, $BACKUP, or $BACKUP2"
+		exit 1
+	fi
+fi
+
+ 
 SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
 LKEY=`sha256sum $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
 
