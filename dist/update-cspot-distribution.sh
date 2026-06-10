@@ -109,6 +109,7 @@ if ( test $? -eq 0 ) ; then
 	BOTH=$NB
 fi
 if ( test $BOTH -lt 2 ) ; then
+	LOCATION=$BACKUP
 	BOTH=0
 	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP/cspot-"$TYPE"-bin.woof
 	if ( test $? -eq 0 ) ; then
@@ -120,6 +121,8 @@ if ( test $BOTH -lt 2 ) ; then
 		NB=$(($BOTH+1))
 		BOTH=$NB
 	fi
+else
+	LOCATION=$PRIMARY
 fi
 
 if ( test $BOTH -lt 2 ) ; then
@@ -141,6 +144,8 @@ if ( test $BOTH -lt 2 ) ; then
 	if ( test $BOTH -lt 2 ) ; then
 		echo "could not fetch release from $PRIMARY, $BACKUP, or $BACKUP2"
 		exit 1
+	else
+		LOCATION=$BACKUP2
 	fi
 fi
 
@@ -161,7 +166,7 @@ if ( test -z "SHKEY" ) ; then
 fi
 
 if ( test "$SHKEY" == "$LKEY" ) ; then
-	echo "updating cspot from $SUBDIR at " `/bin/date`
+	echo "updating cspot $SUBDIR from $LOCATION at " `/bin/date`
 	tar -xzf $HERE/cspot-"$TYPE"-bin.tgz
 else
 	echo "local hash: " $LKEY "does not match remote hash" $SHKEY
