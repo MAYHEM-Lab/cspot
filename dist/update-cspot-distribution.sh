@@ -87,7 +87,7 @@ if ( test -z "SHKEY" ) ; then
 fi
 
 if ( test "$SHKEY" == "$LKEY" ) ; then
-	echo "updating cspot at " `/bin/date`
+	echo "updating cspot from $SUBDIR at " `/bin/date`
 	tar -xzf $HERE/cspot-"$TYPE"-bin.tgz
 else
 	echo "local hash: " $LKEY "does not match remote hash" $SHKEY
