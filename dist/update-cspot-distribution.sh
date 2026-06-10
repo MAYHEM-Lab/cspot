@@ -1,12 +1,25 @@
 #!/bin/bash
 # installer
+
+SUBDIR=$1
+
+if ( test -z "$SUBDIR" ) ; then
+	SUBDIR="release"
+fi
+
 KEYCHAIN="$HOME/.cspot/capabilities.yaml"
+PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
+PCHECK="1688304179681876176"
+BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
+BCHECK2="8096705960766180829"
 
 ARCH=`uname -m`
 if ( test "$ARCH" == "aarch64" ) ; then
 	TYPE="arm64"
 elif ( test "$ARCH" == "x86_64" ) ; then
 	TYPE="x86"
+elif ( test "$ARCH" == "arm64" ) ; then
+	TYPE="arm64-apple"
 else
 	echo "unrecognized architecture $ARCH"
 	exit 1
@@ -19,18 +32,30 @@ if ( ! test -e "$KEYCHAIN" ) ; then
 	mkdir -p $HOME/.cspot
 	chmod 700 $HOME/.cspot
 	echo "namespace:" > $KEYCHAIN
-  	echo "    name: woof://169.231.230.76/sharedfs/cspot-distributions" >> $KEYCHAIN
+  	echo "    name: $PRIMARY" >> $KEYCHAIN
   	echo "    permissions: 00000001" >> $KEYCHAIN
-  	echo "    check: 8096705960766180829" >> $KEYCHAIN
+  	echo "    check: $PCHECK" >> $KEYCHAIN
+	echo "namespace:" >> $KEYCHAIN
+  	echo "    name: $BACKUP2" >> $KEYCHAIN
+  	echo "    permissions: 00000001" >> $KEYCHAIN
+  	echo "    check: $BCHECK2" >> $KEYCHAIN
 	chmod 600 $KEYCHAIN
 else
-	CTEST=`cat $KEYCHAIN | grep 'name: woof://169.231.230.76/sharedfs/cspot-distributions'`
-	if ( test -z "$CTEST" ) ; then
-		echo "namespace:" >> $KEYCHAIN
-  		echo "    name: woof://169.231.230.76/sharedfs/cspot-distributions" >> $KEYCHAIN
-  		echo "    permissions: 00000001" >> $KEYCHAIN
-  		echo "    check: 8096705960766180829" >> $KEYCHAIN
+	PTEST=`cat $KEYCHAIN | grep "name: $PRIMARY"`
+	if ( test -z "$PTEST" ) ; then
+                echo "namespace:" >> $KEYCHAIN
+                echo "    name: $PRIMARY" >> $KEYCHAIN
+                echo "    permissions: 00000001" >> $KEYCHAIN
+                echo "    check: $PCHECK" >> $KEYCHAIN
 	fi
+        BTEST2=`cat $KEYCHAIN | grep "name: $BACKUP"`
+        if ( test -z "$BTEST2" ) ; then
+                echo "namespace:" >> $KEYCHAIN
+                echo "    name: $BACKUP2" >> $KEYCHAIN
+                echo "    permissions: 00000001" >> $KEYCHAIN
+                echo "    check: $BCHECK2" >> $KEYCHAIN
+        fi
+
 fi
 
 # get the base recv binary if necessary
