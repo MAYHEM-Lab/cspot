@@ -151,7 +151,11 @@ fi
 
  
 SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
-LKEY=`sha256sum $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
+if ( test "$TYPE" == "arm64-apple" ) ; then
+	LKEY=`shasum -a 256 $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
+else
+	LKEY=`sha256sum $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
+fi
 
 if ( test -z "LKEY" ) ; then
 	echo "local sha256 could not be computed"
