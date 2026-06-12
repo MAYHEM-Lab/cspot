@@ -979,8 +979,16 @@ unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* e
 }
 
 unsigned long WooFGetElSize(WOOF* wf, const char* wf_name){
-    if (wf == NULL){
-        return 0;
+    unsigned long el_size;
+
+    if(wf == NULL) {
+	wf = WooFOpen(wf_name);
+	if (wf == NULL){
+		return 0;
+    	}
+	el_size = wf->shared->element_size;
+	WooFDrop(wf);
+	return(el_size);
     }
     if (IsRemoteWoof(wf_name)) {
         return WooFMsgGetElSize(wf_name);
@@ -1219,6 +1227,13 @@ int WooFGetRange(const char* wf_name,
             fflush(stderr);
             return (-1);
         }
+    } else {
+	    el_size = WooFGetElSize(NULL,wf_name); // for range query
+	    if(el_size == (unsigned long)-1) {
+            	fprintf(stderr, "WooFGetRange: couldn't get element size for %s\n", wf_name);
+            	fflush(stderr);
+		return(-1);
+	    }
     }
 
     if (WooF_dir[0] == 0) {
@@ -1253,7 +1268,7 @@ int WooFGetRange(const char* wf_name,
 
     for(i=0; i < count; i++) {
     	err = WooFReadWithCause(wf, e_p, r_seq_no, Name_id, my_log_seq_no);
-	if(err >= 0) {
+	if(err > 0) {
 		el_read++;
 		e_p = e_p + el_size;
 		r_seq_no++;
