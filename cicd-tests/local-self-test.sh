@@ -8,14 +8,14 @@ if ( ! test -z "$WPID" ) ; then
 	kill -9 $WPID
 fi
 ./woofc-namespace-platform -b spawn >& namespace.log &
-RTEST=`cat ./namespace.log | grep listen`
+RTEST=`cat ./namespace.log | grep config`
 CNT=0
 while ( test $CNT -lt 10 ) ; do
 	if ( ! test -z "$RTEST" ) ; then
 		break
 	fi
 	sleep 1
-	RTEST=`cat ./namespace.log | grep listen`
+	RTEST=`cat ./namespace.log | grep config`
 	CNT=$(($CNT+1))
 done
 if ( test $CNT -ge 10 ) ; then
