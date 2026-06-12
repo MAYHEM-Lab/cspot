@@ -1153,6 +1153,122 @@ int WooFGet(const char* wf_name, void* element, unsigned long seq_no) {
     return (err);
 }
 
+int WooFGetRange(const char* wf_name, 
+	void* elements, unsigned long seq_no, unsigned int count) {
+    WOOF* wf;
+    unsigned long el_size;
+    char wf_namespace[2048];
+    int err;
+    char ns_ip[25];
+    char my_ip[25];
+    char* namelog_seq_no;
+    unsigned long my_log_seq_no;
+    struct timeval t1, t2;
+    double elapsedTime;
+    int i;
+    unsigned long r_seq_no;
+    int el_read;
+    unsigned char *e_p;
+
+    DEBUG_LOG("WooFGetRange: called %s seq_no: %lu, count: %d\n", 
+		wf_name, seq_no, count);
+
+    if(count < 0) {
+	return(-1);
+    }
+    if(count == 0) {
+	return(0);
+    }
+
+    memset(ns_ip, 0, sizeof(ns_ip));
+    err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+    if (err < 0) {
+        err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+        if (err < 0) {
+            fprintf(stderr, "WooFGetRange: no local IP\n");
+            exit(1);
+        }
+    }
+
+    memset(my_ip, 0, sizeof(my_ip));
+    err = WooFLocalIP(my_ip, sizeof(my_ip));
+    if (err < 0) {
+        fprintf(stderr, "WooFGetRange: no local IP\n");
+        exit(1);
+    }
+
+    memset(wf_namespace, 0, sizeof(wf_namespace));
+    err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
+    /*
+     * if this isn't for my namespace, try and remote get
+     *
+     * err < 0 implies that name is local name
+     *
+     * if the name space paths do not match or they do but the IP addresses don't this
+     * is remote
+     *
+     */
+    if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
+        el_size = WooFMsgGetElSize(wf_name);
+        if (el_size != (unsigned long)-1) {
+//            WooFMsgPut;
+            err = WooFMsgGetRange(wf_name, elements, el_size, seq_no, count);
+            return (err);
+        } else {
+            fprintf(stderr, "WooFGetRange: couldn't get element size for %s\n", wf_name);
+            fflush(stderr);
+            return (-1);
+        }
+    }
+
+    if (WooF_dir[0] == 0) {
+        fprintf(stderr, "WooFGetRange: must init system\n");
+        fflush(stderr);
+        return (-1);
+    }
+    DEBUG_LOG("WooFGetRange: namespace: %s,  WooF_dir: %s, name: %s\n", WooF_namespace, WooF_dir, wf_name);
+    wf = WooFOpen(wf_name);
+
+    if (wf == NULL) {
+        return (-1);
+    }
+
+    DEBUG_LOG("WooFGetRange: WooF %s open\n", wf_name);
+    // err = WooFRead(wf, element, seq_no);
+    namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO");
+    if (namelog_seq_no != NULL) {
+        my_log_seq_no = strtoul(namelog_seq_no, (char**)NULL, 10);
+    } else {
+        my_log_seq_no = 0;
+    }
+#if 0 // handled in read with cause now
+    if (seq_no == 0) {
+        seq_no = WooFLatestSeqno(wf);
+    }
+#endif
+    // read the elements, one at a time, locally
+    r_seq_no = seq_no;
+    e_p = (unsigned char *)elements;
+    el_read = 0;
+
+    for(i=0; i < count; i++) {
+    	err = WooFReadWithCause(wf, e_p, r_seq_no, Name_id, my_log_seq_no);
+	if(err >= 0) {
+		el_read++;
+		e_p = e_p + el_size;
+		r_seq_no++;
+	} else {
+		break;
+	}
+    }
+
+    WooFDrop(wf);
+    if(el_read > 0) {
+	return(el_read);
+    } else {
+	return(-1);
+    }
+}
 unsigned long WooFGetNameID()
 {
 	return(Name_id);

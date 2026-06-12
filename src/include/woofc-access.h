@@ -18,6 +18,9 @@ int WooFIsCAPName(const char *woof_uri_str);
 
 unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
 int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
+int WooFMsgGetRange(const char* woof_name, 
+		void* element, unsigned long el_size, 
+		unsigned long seq_no, unsigned int count);
 int WooFMsgCreate(const char* woof_name, unsigned long el_size, unsigned long history_size);
 unsigned long WooFMsgGetElSize(const char* woof_name);
 unsigned long
