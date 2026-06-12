@@ -149,7 +149,7 @@ bool backend::listen(std::string_view ns) {
 	return(false);
     }
 
-printf("cmq: listen: %s, port: %d sd: %d\n",woof_namespace.c_str(),port,listen_sd);
+printf("cmq configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
 fflush(stdout);
     
     /*

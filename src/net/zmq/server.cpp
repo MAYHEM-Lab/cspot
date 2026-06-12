@@ -153,8 +153,6 @@ void WooFMsgThread() {
         	msg = Receive(*receiver);
 	}
     }
-printf("zmq: received is dead\n");
-fflush(stdout);
     return; // will cause thread to exit
 }
 } // namespace
@@ -164,8 +162,6 @@ bool backend::listen(std::string_view ns) {
 
     std::string woof_namespace(ns);
 
-printf("listen: %s\n",woof_namespace.c_str());
-fflush(stdout);
     DEBUG_FATAL_IF(woof_namespace.empty(), "WooFMsgServer: couldn't find namespace");
 
     DEBUG_LOG("WooFMsgServer: started for namespace %s\n", woof_namespace.c_str());
@@ -174,6 +170,9 @@ fflush(stdout);
      * set up the front end router socket
      */
     auto port = WooFPortHash(woof_namespace.c_str());
+
+printf("zmq configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
+fflush(stdout);
 
     /*
      * listen to any tcp address on port hash of namespace
