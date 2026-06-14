@@ -22,6 +22,9 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 void WooFProcessGet(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
+void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
+void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
+
 void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 

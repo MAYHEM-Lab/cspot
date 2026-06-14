@@ -26,6 +26,7 @@ public:
     bool stop() override;
 
     int32_t remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) override;
+    int32_t remote_get_range(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no, uint32_t count) override;
     int32_t remote_create(std::string_view woof_name, uint32_t elem_size, uint32_t history_size) override;
     int32_t remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) override;
     int32_t remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) override;

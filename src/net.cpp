@@ -180,17 +180,16 @@ int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsi
 int WooFMsgGetRange(const char* woof_name, void* elements, 
 			unsigned long el_size, unsigned long seq_no,
 			unsigned int count) {
-#if 0
 	cspot::network_backend *be;
 	cspot::check_backends();
 	be = adjust_active_backend(woof_name);
 	if(be != NULL) {
-		return(be->remote_get(woof_name, element, el_size, seq_no));
+		int ret = be->remote_get_range(woof_name, elements, el_size, seq_no, count);
+		return(ret);
 	} else {
 		return(-1);
 	}
 //	return cspot::get_active_backend()->remote_get(woof_name, element, el_size, seq_no);
-#endif
 	return(1);
 }
 

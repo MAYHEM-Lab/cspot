@@ -285,6 +285,299 @@ int32_t backend::remote_get(std::string_view woof_name_v, void* elem, uint32_t e
 	return 1;
 }
 
+int32_t backend::remote_get_range(std::string_view woof_name_v, 
+		void* elem, uint32_t elem_size, uint32_t seq_no, uint32_t count) {
+	std::lock_guard<std::mutex> lock(CMQ_lock);
+	std::string woof_name(woof_name_v);
+	auto ip = ip_from_woof(woof_name);
+	auto port = port_from_woof(woof_name);
+	int sd;
+	int err;
+	unsigned char *f;
+	unsigned char *fl;
+	unsigned char *r_fl;
+	unsigned char *r_f;
+	char cap_file[1024];
+	int has_cap;
+	WCAP cap;
+	WCAP *new_cap;
+	int32_t r_count;
+
+
+	if (!ip) {
+		return -1;
+	}
+	if (!port) {
+		return -1;
+	}
+
+	if (elem_size == (uint32_t)-1) {
+		return (-1);
+	}
+
+	// create request msg
+	err = cmq_frame_list_create(&fl);
+	if(err < 0) {
+		DEBUG_WARN("Could not connect create msg for WoofMsgGetRange");
+		printf("WooFMsgGetRange: could not create msg\n");
+		return -1;
+	}
+
+	has_cap = WooFCapFile(cap_file,sizeof(cap_file));
+
+	const char *t_str;
+	if(has_cap == 1) {
+		char ns_cap[1024];
+                (void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+		if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			       (SearchKeychain(cap_file,ns_cap,&cap) >= 0))	{
+			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
+			if(new_cap != NULL) {
+				// tag first
+				t_str = std::to_string(WOOF_MSG_GET_RANGE_CAP).c_str();
+				err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
+				if(err < 0) {
+					DEBUG_WARN("Could not create tag frame for GetRange with cap for %s", woof_name.c_str());
+					cmq_frame_list_destroy(fl);
+					free(new_cap);
+					return(-1);
+				}
+				err = cmq_frame_append(fl,f);
+				if(err < 0) {
+					DEBUG_WARN("Could not append tag frame for GeRange with cap for %s", woof_name.c_str());
+					cmq_frame_list_destroy(fl);
+					cmq_frame_destroy(f);
+					free(new_cap);
+					return(-1);
+				}
+				char payload[2048];
+				snprintf(payload,sizeof(payload),"%s %s %s",
+						std::string(woof_name).c_str(),
+						std::to_string(seq_no).c_str(),
+						std::to_string(count).c_str());
+				uint64_t sig = WooFCapSign((unsigned char *)payload, strlen(payload), new_cap->check);
+				new_cap->check = sig;
+				// then cap
+				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
+				free(new_cap);
+				if(err < 0) {
+					DEBUG_WARN("Could not create cap frame for GetRange with cap for %s", woof_name.c_str());
+					cmq_frame_list_destroy(fl);
+					return(-1);
+				}
+				err = cmq_frame_append(fl,f);
+				if(err < 0) {
+					DEBUG_WARN("Could not append cap frame for GetRange with cap for %s", woof_name.c_str());
+					cmq_frame_list_destroy(fl);
+					cmq_frame_destroy(f);
+					return(-1);
+				}
+			} else {
+				has_cap = 0;
+			}
+		} else {
+			has_cap = 0;
+		}
+	}
+	// tag is in first frame
+	if(has_cap == 0) {
+		const char *cmd = std::to_string(WOOF_MSG_GET_RANGE).c_str();
+		err = cmq_frame_create(&f,(unsigned char *)cmd,strlen(cmd)+1);
+		if(err < 0) {
+			DEBUG_WARN("Could not connect create cmd for WoofMsgGetRange");
+			printf("WooFMsgGetRange: could not create cmd\n");
+			cmq_frame_list_destroy(fl);
+			return -1;
+		}
+		// add tag to msg
+		err = cmq_frame_append(fl,f);
+		if(err < 0) {
+			DEBUG_WARN("Could not connect append cmd for WoofMsgGetRange");
+			printf("WooFMsgGetRange: could not append cmd\n");
+			cmq_frame_list_destroy(fl);
+			cmq_frame_destroy(f);
+			return -1;
+		}
+	}
+
+	// convert woof name as a string view to char *
+	// and create frame with it
+	const char *w_ptr = woof_name.c_str();
+	err = cmq_frame_create(&f,(unsigned char *)w_ptr,strlen((const char *)w_ptr)+1);
+	if(err < 0) {
+        	DEBUG_WARN("Could not connect create woof_name for WoofMsgGetRange");
+		printf("WooFMsgGetRange: could not create woof_name\n");
+		cmq_frame_list_destroy(fl);
+		return -1;
+	}
+	// add woof name fframe to msg
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+        	DEBUG_WARN("Could not connect append woof_name for WoofMsgGetRange");
+		printf("WooFMsgGetRange: could not append woof_name\n");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return -1;
+	}
+
+	// convert seq_no to string and create frame
+	const char *sn = std::to_string(seq_no).c_str();
+	err = cmq_frame_create(&f,(unsigned char *)sn,strlen(sn)+1);
+	if(err < 0) {
+        	DEBUG_WARN("Could not connect create seqno for WoofMsgGetRange");
+		printf("WooFMsgGet: could not create seq_no\n");
+		cmq_frame_list_destroy(fl);
+		return -1;
+    	}
+	// add seq_no frame to request msg
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not connect append seq_no for WoofMsgGetRange");
+		printf("WooFMsgGet: could not append seq_no\n");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return -1;
+	}
+	
+	// convert count to string and create frame
+	const char *co = std::to_string(count).c_str();
+	err = cmq_frame_create(&f,(unsigned char *)co,strlen(co)+1);
+	if(err < 0) {
+        	DEBUG_WARN("Could not connect create count for WoofMsgGetRange");
+		printf("WooFMsgGet: could not create count\n");
+		cmq_frame_list_destroy(fl);
+		return -1;
+    	}
+	// add seq_no frame to request msg
+	err = cmq_frame_append(fl,f);
+	if(err < 0) {
+		DEBUG_WARN("Could not connect append count for WoofMsgGetRange");
+		printf("WooFMsgGet: could not append count\n");
+		cmq_frame_list_destroy(fl);
+		cmq_frame_destroy(f);
+		return -1;
+	}
+
+	// create IP addr string and port number
+	std::string ip_str = ip.value();
+	const char *c_ip_str = ip_str.c_str();
+	std::string port_str = port.value();
+
+	// connect to server using IP + port number
+//printf("BEFORE connect fl: %p\n",fl);
+//fflush(stdout);
+	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+//printf("AFTER connect fl: %p\n",fl);
+//fflush(stdout);
+	if(sd < 0) {
+		DEBUG_WARN("Could not connect to server for WoofMsgGetRange");
+		printf("WooFMsgGetRange: server connect failed to %s:%d\n",
+			c_ip_str,stoi(port_str));
+		cmq_frame_list_destroy(fl);
+		return -1;
+	}
+
+	// send request msg
+	err = cmq_pkt_send_msg(sd,fl);
+
+	if(err < 0) {
+		DEBUG_WARN("Could not send to server for WoofMsgGetRange");
+		printf("WooFMsgGetRange: server request send failed to %s:%d\n",
+			c_ip_str, stoi(port_str));
+		cmq_frame_list_destroy(fl);
+		cmq_pkt_err_close(sd);
+		return -1;
+	}
+
+#ifndef USE_CMQ_SD_CACHE
+	// destroy request msg
+	cmq_frame_list_destroy(fl);
+#endif
+
+	// recv response msg
+	err = cmq_pkt_recv_msg(sd,&r_fl);
+#ifdef USE_CMQ_SD_CACHE
+	// could be that the other side timed out
+	if(err < 0) {
+		cmq_pkt_err_close(sd);
+		sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
+		if(sd < 0) {
+			cmq_frame_list_destroy(r_fl);
+			return(-1);
+		}
+		//retry once
+		err = cmq_pkt_send_msg(sd,fl);
+		if(err < 0) {
+			DEBUG_WARN("Could not send to server for WoofMsgGetRange");
+			printf("WooFMsgGetRange: server request send failed to %s:%d\n",
+				c_ip_str, stoi(port_str));
+			cmq_frame_list_destroy(r_fl);
+			cmq_pkt_err_close(sd);
+			return -1;
+		}
+		cmq_frame_list_destroy(fl);
+		err = cmq_pkt_recv_msg(sd,&r_fl);
+	}
+#endif
+	if(err < 0) {
+		DEBUG_WARN("Could not receive reply for WoofMsgGetRange");
+		printf("WooFMsgGetRange: server request recv failed from %s:%d\n",
+			c_ip_str,stoi(port_str));
+		perror("WooFMsgGetRange");
+		cmq_pkt_err_close(sd);
+		return -1;
+	}
+
+	// close connection to server
+	// FIX: should caghe connection to server based on IP + port
+	cmq_pkt_close(sd);
+
+	// probably paranoid
+	if(cmq_frame_list_empty(r_fl)) {
+		DEBUG_WARN("Empty receive reply for WoofMsgGetRange");
+		printf("WooFMsgGetRange: empty recv from %s:%d\n",
+			c_ip_str,stoi(port_str));
+		perror("WooFMsgGetRange");
+		cmq_frame_list_destroy(r_fl);
+		return -1;
+	}
+
+	// pop the response frame
+    	err = cmq_frame_pop(r_fl, &r_f);
+	if(err < 0) {
+		DEBUG_WARN("msg pop failed receive reply for WoofMsgGetRange");
+		printf("WooFMsgGetRange: pop failed for recv from %s:%d\n",
+			c_ip_str,stoi(port_str));
+		perror("WooFMsgGetRange");
+		cmq_frame_list_destroy(r_fl);
+		return -1;
+	}
+
+	// destroy response msg
+	cmq_frame_list_destroy(r_fl);
+
+	// zero frame indicates read error
+	if((cmq_frame_payload(r_f) == NULL) ||
+		(cmq_frame_size(r_f) == 0))
+	{
+		DEBUG_WARN("empty frame receive reply for WoofMsgGetRange");
+		printf("WooFMsgGetRange: empty frame for recv from %s:%d\n",
+			c_ip_str,stoi(port_str));
+		//perror("WooFMsgGet");
+		cmq_frame_destroy(r_f);
+		return -1;
+	}
+
+	// copy contents of recv element
+	std::memcpy(elem, cmq_frame_payload(r_f), cmq_frame_size(r_f));
+	// compute the count of returns elements -> could be short
+	r_count = ((int32_t)cmq_frame_size(r_f)/(int32_t)elem_size); 
+
+	// destroy response frame
+	cmq_frame_destroy(r_f);
+	return r_count;
+}
+
 int32_t backend::remote_create(std::string_view woof_name_v, uint32_t elem_size, uint32_t history_size) {
 	std::lock_guard<std::mutex> lock(CMQ_lock);
 	std::string woof_name(woof_name_v);

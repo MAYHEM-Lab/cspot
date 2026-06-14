@@ -18,6 +18,9 @@ void WooFProcessGetTail(unsigned char *fl, int sd);
 void WooFProcessGet(unsigned char *fl, int sd, int no_cap);
 void WooFProcessGetwithCAP(unsigned char *fl, int sd);
 
+void WooFProcessGetRange(unsigned char *fl, int sd, int no_cap);
+void WooFProcessGetRangewithCAP(unsigned char *fl, int sd);
+
 void WooFProcessCreatewithCAP(unsigned char *fl, int sd);
 
 std::optional<std::string> ip_from_woof(std::string_view woof_name);

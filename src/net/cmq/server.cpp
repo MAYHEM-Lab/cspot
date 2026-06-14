@@ -78,6 +78,12 @@ void *WooFMsgThread(void *arg) {
 				case WOOF_MSG_GET_CAP:
 				    WooFProcessGetwithCAP(fl,c_sd);
 				    break;
+				case WOOF_MSG_GET_RANGE:
+				    WooFProcessGetRange(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_RANGE_CAP:
+				    WooFProcessGetRangewithCAP(fl,c_sd);
+				    break;
 				case WOOF_MSG_GET_EL_SIZE:
 				    WooFProcessGetElSize(fl,c_sd,1);
 				    break;
