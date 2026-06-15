@@ -1569,8 +1569,6 @@ int32_t backend::remote_get_earliest_seq_no(std::string_view woof_name_v)
 	WCAP cap;
 	WCAP *new_cap;
 
-return(0);
-#if 0
 
 	if(!ip) {
 	    return(-1);
@@ -1581,12 +1579,12 @@ return(0);
 
 	has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
-	DEBUG_LOG("WooFMsgGetElSize: cmq woof: %s trying enpoint\n", woof_name.c_str());
+	DEBUG_LOG("WooFMsgGetEarliestSeqno: cmq woof: %s trying enpoint\n", woof_name.c_str());
 
 	// create request msg
 	err = cmq_frame_list_create(&fl);
 	if(err < 0) {
-        	DEBUG_WARN("Could not create message for GetElSize for %s", woof_name.c_str());
+        	DEBUG_WARN("Could not create message for GetEarliestSeqno for %s", woof_name.c_str());
 		return(-1);
 	}
 
@@ -1599,17 +1597,17 @@ return(0);
 			new_cap = WooFCapAttenuate(&cap,WCAP_READ);
 			if(new_cap != NULL) {
 				// tag first
-				t_str = std::to_string(WOOF_MSG_GET_EL_SIZE_CAP).c_str();
+				t_str = std::to_string(WOOF_MSG_GET_EARLIEST_SEQNO_CAP).c_str();
 				err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
 				if(err < 0) {
-					DEBUG_WARN("Could not create tag frame for GetElSize with cap for %s", woof_name.c_str());
+					DEBUG_WARN("Could not create tag frame for GetEarliestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					free(new_cap);
 					return(-1);
 				}
 				err = cmq_frame_append(fl,f);
 				if(err < 0) {
-					DEBUG_WARN("Could not append tag frame for GetElSize with cap for %s", woof_name.c_str());
+					DEBUG_WARN("Could not append tag frame for GetEarliestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					cmq_frame_destroy(f);
 					free(new_cap);
@@ -1623,13 +1621,13 @@ return(0);
 				err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
 				free(new_cap);
 				if(err < 0) {
-					DEBUG_WARN("Could not create cap frame for GetElSize with cap for %s", woof_name.c_str());
+					DEBUG_WARN("Could not create cap frame for GetEarliestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					return(-1);
 				}
 				err = cmq_frame_append(fl,f);
 				if(err < 0) {
-					DEBUG_WARN("Could not append cap frame for GetElSize with cap for %s", woof_name.c_str());
+					DEBUG_WARN("Could not append cap frame for GetEarliestSeqno with cap for %s", woof_name.c_str());
 					cmq_frame_list_destroy(fl);
 					cmq_frame_destroy(f);
 					return(-1);
@@ -1645,18 +1643,18 @@ return(0);
 	// tag is first
 	// convert tag to string
 	if(has_cap == 0) {
-		t_str = std::to_string(WOOF_MSG_GET_EL_SIZE).c_str();
+		t_str = std::to_string(WOOF_MSG_GET_EARLIEST_SEQNO).c_str();
 		// create frame for tag
 		err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
 		if(err < 0) {
-			DEBUG_WARN("Could not create tag frame for GetElSize for %s", woof_name.c_str());
+			DEBUG_WARN("Could not create tag frame for GetEarliestSeqno for %s", woof_name.c_str());
 			cmq_frame_list_destroy(fl);
 			return(-1);
 		}
 		// add tag to msg
 		err = cmq_frame_append(fl,f);
 		if(err < 0) {
-			DEBUG_WARN("Could not append tag frame for GetElSize for %s", woof_name.c_str());
+			DEBUG_WARN("Could not append tag frame for GetEarliestSeqno for %s", woof_name.c_str());
 			cmq_frame_list_destroy(fl);
 			cmq_frame_destroy(f);
 			return(-1);
@@ -1668,14 +1666,14 @@ return(0);
 	// create frame for woof name
 	err = cmq_frame_create(&f,(unsigned char *)w_str,strlen(w_str)+1);
 	if(err < 0) {
-		DEBUG_WARN("Could not create woof name frame for GetElSize for %s", woof_name.c_str());
+		DEBUG_WARN("Could not create woof name frame for GetEarliestSeqno for %s", woof_name.c_str());
 		cmq_frame_list_destroy(fl);
 		return(-1);
 	}
 	// add woof name to msg
 	err = cmq_frame_append(fl,f);
 	if(err < 0) {
-		DEBUG_WARN("Could not append woof name frame for GetElSize for %s", woof_name.c_str());
+		DEBUG_WARN("Could not append woof name frame for GetEarliestSeqno for %s", woof_name.c_str());
 		cmq_frame_list_destroy(fl);
 		cmq_frame_destroy(f);
 		return(-1);
@@ -1689,16 +1687,16 @@ return(0);
 	// connect to server at IP address + port number
 	sd = cmq_pkt_connect((char *)c_ip_str, stoi(port_str), WOOF_MSG_REQ_TIMEOUT);
 	if(sd < 0) {
-		DEBUG_WARN("Could not connect to server for GetElSize with timeout %d ms\n",
+		DEBUG_WARN("Could not connect to server for GetEarliestSeqno with timeout %d ms\n",
 				WOOF_MSG_REQ_TIMEOUT);
-		perror("MooFMsgPut: connect failed");
+		perror("GetEarliestSeqno: connect failed");
 		cmq_frame_list_destroy(fl);
 		return(-1);
 	}
 	// send message
 	err = cmq_pkt_send_msg(sd,fl);
 	if(err < 0) {
-		DEBUG_WARN("Could not send msg for GetElSize");
+		DEBUG_WARN("Could not send msg for GetEarliestSeqno");
 		cmq_frame_list_destroy(fl);
 		cmq_pkt_err_close(sd);
 		return(-1);
@@ -1721,8 +1719,8 @@ return(0);
                 //retry once
                 err = cmq_pkt_send_msg(sd,fl);
                 if(err < 0) {
-                        DEBUG_WARN("Could not send to server for WooFMsgGetElSize");
-                        printf("WooFMsgGet: server request send failed to %s:%d\n",
+                        DEBUG_WARN("Could not send to server for WooFMsgGetEarliestSeqno");
+                        printf("WooFMsgGetEarliestSeqno: server request send failed to %s:%d\n",
                                 c_ip_str, stoi(port_str));
                         cmq_frame_list_destroy(fl);
                         cmq_pkt_err_close(sd);
@@ -1733,8 +1731,8 @@ return(0);
         }
 #endif
 	if(err < 0) {
-		DEBUG_WARN("Could not recv msg for GetElSize response");
-        	perror("WooFMsgGetElSize");
+		DEBUG_WARN("Could not recv msg for GetEarliestSeqno response");
+        	perror("WooFMsgGetEarliestSeqno");
 		close(sd);
 		return(-1);
 	}
@@ -1745,7 +1743,7 @@ return(0);
 
 	// extra careful
 	if(cmq_frame_list_empty(r_fl)) {
-		DEBUG_WARN("Could recv empty msg for GetElSize response");
+		DEBUG_WARN("Could recv empty msg for GetEarliestSeqno response");
 		cmq_frame_list_destroy(r_fl);
 		return(-1);
 	}
@@ -1753,7 +1751,7 @@ return(0);
 	// get first frame from response
 	err = cmq_frame_pop(r_fl,&r_f);
 	if(err < 0) {
-		DEBUG_WARN("Could not pop frame for GetElSize response");
+		DEBUG_WARN("Could not pop frame for GetEarliestSeqno response");
 		cmq_frame_list_destroy(r_fl);
 		return(-1);
 	}
@@ -1768,8 +1766,8 @@ return(0);
 
         return seq_no;
 
-#endif
 }
+
 int32_t backend::remote_get_latest_seq_no(std::string_view woof_name_v,
                                           const char* cause_woof_name,
                                           uint32_t cause_woof_latest_seq_no) {

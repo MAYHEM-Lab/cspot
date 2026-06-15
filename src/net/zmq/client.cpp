@@ -225,6 +225,11 @@ int32_t backend::remote_get_range(std::string_view woof_name, void* elem,
         return -1;
     }
 
+    if(vec.size() == 0) { // null message
+	    // throw an error
+	return -1;
+    }
+
     std::memcpy(elem, vec.data(), vec.size());
     return (int(vec.size()) / int(elem_size));
 }

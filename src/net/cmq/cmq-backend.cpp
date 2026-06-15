@@ -20,7 +20,8 @@ extern "C" {
 namespace cspot::cmq {
 constexpr size_t CMQ_MAX_TRANSFER = 64 * 1024 * 1024;
 
-void WooFProcessGetElSize(unsigned char *fl, int sd, int no_cap) {
+void WooFProcessGetElSize(unsigned char *fl, int sd, int no_cap) 
+{
 	int err;
 	unsigned char *woof_name;
 	char *wname;
@@ -307,6 +308,288 @@ void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd)
 	return;
 }
 
+void WooFProcessGetEarliestSeqno(unsigned char *fl, int sd, int no_cap) 
+{
+	int err;
+	unsigned char *woof_name;
+	char *wname;
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+	const char *s_str;
+	unsigned long earliest_seqno;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno Bad message");
+		cmq_frame_list_destroy(fl);
+        	return;
+	}
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&woof_name);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not get woof name");
+        	return;
+	}
+
+	// cannot access .CAP files remotely
+	wname = (char *)cmq_frame_payload(woof_name);
+	if(wname == NULL) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not get woof name string");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_list_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno cannot read CAP");
+        	return;
+    	}
+
+	// no more valid frames
+	cmq_frame_list_destroy(fl);
+
+	char local_name[1024] = {};
+	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+	// if we find a CAP and there should not be one, error
+	if(no_cap == 1) {
+		sprintf(cap_name,"%s.CAP",local_name);
+        	WOOF* wfc;
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+			cmq_frame_list_destroy(woof_name);
+            		return;
+        	}
+		strcpy(cap_name,"CSPOT.CAP");
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+			cmq_frame_list_destroy(woof_name);
+            		return;
+        	}
+	}
+
+	earliest_seqno = WooFGetEarliestSeqno((char *)cmq_frame_payload(woof_name));
+
+	if (earliest_seqno == (unsigned long)-1) {
+		DEBUG_LOG("WooFProcessGetEarliestSeqno: couldn't get earliest seqnoe open %s (%s)\n", local_name, (char *)cmq_frame_payload(woof_name));
+		cmq_frame_destroy(woof_name);
+		return;
+	}
+
+	// done with woof_name
+	cmq_frame_destroy(woof_name);
+
+	// create reply msg
+	err = cmq_frame_list_create(&r_fl);
+	if(err < 0) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not create resp message");
+        	return;
+	}
+
+	// convert el_size to a string
+	s_str = std::to_string(earliest_seqno).c_str();
+	err = cmq_frame_create(&r_frame,(unsigned char *)s_str,strlen(s_str)+1);
+	if(err < 0) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not create resp frame");
+		cmq_frame_list_destroy(r_fl);
+        	return;
+	}
+
+	// add it to the msg
+	err = cmq_frame_append(r_fl,r_frame);
+	if(err < 0) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not append resp frame");
+		cmq_frame_list_destroy(r_fl);
+		cmq_frame_destroy(r_frame);
+        	return;
+	}
+
+	// send response
+	err = cmq_pkt_send_msg(sd,r_fl);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not send response");
+	}
+
+	// destreoy the message
+	cmq_frame_list_destroy(r_fl);
+	return;
+}
+
+void WooFProcessGetEarliestSeqnowithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP could not get cap frame");
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof cap frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame\n");
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame payload\n");
+		return;
+	}
+	// cannot access .CAP files remotely
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: cannot read CAP\n");
+        	return;
+    	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP local name failed\n");
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		WooFProcessGetEarliestSeqno(fl,sd,0);
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf){
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed\n");
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP woof from %s\n",cap_name);
+	}
+
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns){
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get for ns failed\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap for ns failed\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP woof ns\n");
+	}
+
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: CAP auth\n",cap_name);
+		cmq_frame_destroy(cframe);
+		WooFProcessGetEarliestSeqno(fl,sd,0);
+		return;
+	}
+	cmq_frame_destroy(cframe);
+	cmq_frame_list_destroy(fl);
+	DEBUG_WARN("WooFProcessGetEarliestwithCAP: read CAP denied\n");
+	// denied
+	return;
+}
+
 void WooFProcessPut(unsigned char *fl, int sd, int no_cap) {
 	int err;
 	unsigned char *r_fl;
@@ -583,10 +866,8 @@ void WooFProcessPutwithCAP(unsigned char *fl, int sd)
 		}
 		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
                         new_cap_p = WooFCapAttenuate(&principal,WCAP_WRITE);
-printf("attn p NULL: %lu\n",new_cap_p->check);
                 } else {
                         new_cap_p = WooFCapAttenuate(&principal,WCAP_EXEC);
-printf("attn p %s: %lu\n",hname,new_cap_p->check);
                 }
                 if(new_cap_p == NULL) {
                         DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for woof cap\n");
@@ -799,11 +1080,11 @@ void WooFProcessGet(unsigned char *fl, int sd, int no_cap)
 		err = WooFReadWithCause(wf, cmq_frame_payload(r_frame), seq_no, cause_host, cause_seq_no);
 		if (err < 0) {
 		    DEBUG_WARN("WooFProcessGet: read failed: %s at %lu\n", (char *)cmq_frame_payload(woof_name), seq_no);
-		    cmq_frame_destroy(woof_name);
 		    cmq_frame_destroy(r_frame);
 		    err = cmq_frame_create(&r_frame,NULL,0); // create zero frame for error
 		    if(err < 0) {
 				DEBUG_WARN("WooFProcessGet: Could not allocate zero frame for error");
+		    		cmq_frame_destroy(woof_name);
 				return;
 		    }
 		}
@@ -993,7 +1274,6 @@ void WooFProcessGetRange(unsigned char *fl, int sd, int no_cap)
 			if (err < 0) {
 		    		DEBUG_WARN("WooFProcessGetRange: read failed: %s at %lu\n", (char *)cmq_frame_payload(woof_name), seq_no);
 				if(i == 0) {
-		    			cmq_frame_destroy(woof_name);
 		    			cmq_frame_destroy(r_frame);
 		    			err = cmq_frame_create(&r_frame,NULL,0); // create zero frame for error
 		    			if(err < 0) {
@@ -1001,6 +1281,7 @@ void WooFProcessGetRange(unsigned char *fl, int sd, int no_cap)
 						if(wf) {
 							WooFDrop(wf);
 						}
+		    				cmq_frame_destroy(woof_name);
 						return;
 					}
 					break;
@@ -1008,11 +1289,14 @@ void WooFProcessGetRange(unsigned char *fl, int sd, int no_cap)
 				break;
 			}
 		   }
+	} else {
+		i = 0;
 	}
+
 	// done with woof name from request
 	cmq_frame_destroy(woof_name);
 	// FIX CMQ -> need a frame resize
-	if(wf && (i < count)) { // short read -> create new frame
+	if(wf && (i > 0) && (i < count)) { // short read -> create new frame
 		unsigned char *new_frame;
 		err = cmq_frame_create(&new_frame,NULL,i*wf->shared->element_size);
 		if(err < 0) {

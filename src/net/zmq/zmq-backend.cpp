@@ -625,7 +625,9 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     DEBUG_LOG("WooFProcessGetRange: responding with element size * count found %d\n",esize*i);
-    elem.resize(i*esize);
+    if(i > 0) {
+    	elem.resize(i*esize);
+    }
     auto resp = CreateMessage(elem);
     if (!res) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");

@@ -90,6 +90,12 @@ void *WooFMsgThread(void *arg) {
 				case WOOF_MSG_GET_EL_SIZE_CAP:
 				    WooFProcessGetElSizewithCAP(fl,c_sd);
 				    break;
+				case WOOF_MSG_GET_EARLIEST_SEQNO:
+				    WooFProcessGetEarliestSeqno(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_EARLIEST_SEQNO_CAP:
+				    WooFProcessGetEarliestSeqnowithCAP(fl,c_sd);
+				    break;
 				case WOOF_MSG_GET_TAIL:
 				    WooFProcessGetTail(fl,c_sd);
 				    break;

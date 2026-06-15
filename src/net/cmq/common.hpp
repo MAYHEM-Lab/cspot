@@ -13,6 +13,9 @@ void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd);
 void WooFProcessGetLatestSeqno(unsigned char *fl, int sd, int no_cap);
 void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd);
 
+void WooFProcessGetEarliestSeqno(unsigned char *fl, int sd, int no_cap);
+void WooFProcessGetEarliestSeqnowithCAP(unsigned char *fl, int sd);
+
 void WooFProcessGetTail(unsigned char *fl, int sd);
 
 void WooFProcessGet(unsigned char *fl, int sd, int no_cap);

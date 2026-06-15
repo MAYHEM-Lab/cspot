@@ -1227,14 +1227,15 @@ int WooFGetRange(const char* wf_name,
             fflush(stderr);
             return (-1);
         }
-    } else {
-	    el_size = WooFGetElSize(NULL,wf_name); // for range query
-	    if(el_size == (unsigned long)-1) {
-            	fprintf(stderr, "WooFGetRange: couldn't get element size for %s\n", wf_name);
-            	fflush(stderr);
-		return(-1);
-	    }
-    }
+    } 
+//else {
+//	    el_size = WooFGetElSize(NULL,wf_name); // for range query
+//	    if(el_size == (unsigned long)-1) {
+//            	fprintf(stderr, "WooFGetRange: couldn't get element size for %s\n", wf_name);
+//            	fflush(stderr);
+//		return(-1);
+//	    }
+//    }
 
     if (WooF_dir[0] == 0) {
         fprintf(stderr, "WooFGetRange: must init system\n");
