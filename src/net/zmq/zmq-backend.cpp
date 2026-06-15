@@ -1175,7 +1175,7 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
 	}
     }
 
-    unsigned long earliest_seq_no = WooFGetEarliestSeqno(woof_name.c_str());
+    unsigned long earliest_seq_no = WooFGetEarliestSeqno(local_name);
     if (earliest_seq_no == (unsigned long)-1) {
         DEBUG_WARN("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
 printf("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
