@@ -15,7 +15,7 @@ int WooFSetSeqno(char *name, unsigned long new_seqno); // for reset
 
 unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element);
 int WooFGet(const char* wf_name, void* element, unsigned long seq_no);
-int WooFGetRange(const char* wf_name, void* elements, 
+int WooFGetRange(const char* wf_name, void* elements,
 		unsigned long seq_no, unsigned int count);
 
 unsigned long WooFGetLatestSeqno(const char* wf_name);

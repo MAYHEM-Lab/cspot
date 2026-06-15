@@ -139,7 +139,7 @@ int main(int argc, char **argv)
 		if(count == 1) {
 			recvd = WooFMsgGet(wname,spt,el_size,seq_no);
 		} else {
-			recvd = WooFMsgGetRange(wname,spt,el_size,seq_no,count);
+			recvd = WooFGetRange(wname,spt,seq_no,count);
 		}
 		if(recvd < 0) {
 			fprintf(stderr,"senspot-get failed for %s\n",
