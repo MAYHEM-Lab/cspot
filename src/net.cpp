@@ -218,6 +218,19 @@ unsigned long WooFMsgGetElSize(const char* woof_name) {
 //	return cspot::get_active_backend()->remote_get_elem_size(woof_name);
 }
 
+unsigned long WooFMsgGetEarliestSeqno(const char* woof_name)
+{
+	thread_local cspot::network_backend *be;
+	unsigned long el_size;
+	cspot::check_backends();
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_get_earliest_seq_no(woof_name));
+	} else {
+		return(-1);
+	}
+//	return cspot::get_active_backend()->remote_get_elem_size(woof_name);
+}
 unsigned long
 WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsigned long cause_woof_latest_seq_no) {
 	cspot::network_backend *be;

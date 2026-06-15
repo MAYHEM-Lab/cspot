@@ -228,6 +228,7 @@ int32_t backend::remote_get_range(std::string_view woof_name, void* elem,
     std::memcpy(elem, vec.data(), vec.size());
     return (int(vec.size()) / int(elem_size));
 }
+
 int32_t backend::remote_create(std::string_view woof_name, uint32_t elem_size, uint32_t history_size) {
     auto endpoint_opt = endpoint_from_woof(woof_name);
     std::string woof_n(woof_name);
@@ -542,7 +543,8 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     return std::stoul(str, nullptr, 10);
 }
 
-int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
+int32_t backend::remote_get_elem_size(std::string_view woof_name_v) 
+{
     std::string woof_name(woof_name_v);
     auto endpoint_opt = endpoint_from_woof(woof_name);
     char cap_file[1024];
@@ -616,6 +618,93 @@ int32_t backend::remote_get_elem_size(std::string_view woof_name_v) {
                 endpoint.c_str());
 	printf("WooFMsgGetElSize: server request failed\n");
         perror("WooFMsgGetElSize");
+        return -1;
+    }
+
+    auto res = ExtractMessage<std::string>(*r_msg);
+    if (!res) {
+        return -1;
+    }
+
+    auto& [str] = *res;
+    return std::stoul(str, nullptr, 10);
+}
+
+int32_t backend::remote_get_earliest_seq_no(std::string_view woof_name_v) 
+{
+    std::string woof_name(woof_name_v);
+    auto endpoint_opt = endpoint_from_woof(woof_name);
+    char cap_file[1024];
+    int has_cap;
+    WCAP cap;
+    WCAP *new_cap;
+
+    if (!endpoint_opt) {
+        return -1;
+    }
+
+    has_cap = WooFCapFile(cap_file,sizeof(cap_file));
+
+    auto& endpoint = *endpoint_opt;
+
+    DEBUG_LOG("WooFMsgGetEarliestSeqno: woof: %s trying enpoint %s, has_cap: %d\n", woof_name.c_str(), 
+		    endpoint.c_str(), has_cap);
+
+    ZMsgPtr msg;
+    if(has_cap == 1) {
+	char ns_cap[1024];
+	(void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+	// search for specifc CAP first
+	if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+			(SearchKeychain(cap_file,ns_cap,&cap) >= 0)) {
+		// attenuate down to read only
+		new_cap = WooFCapAttenuate(&cap,WCAP_READ);
+		if(new_cap != NULL) {
+			// sign the data with the attenuated cap
+			uint64_t sig = WooFCapSign((unsigned char *)std::string(woof_name).c_str(),
+					strlen(std::string(woof_name).c_str()), new_cap->check);
+			// replace the check with the frame signature
+			new_cap->check = sig;
+			auto cap_ptr = reinterpret_cast<const uint8_t*>(new_cap);
+    			msg = CreateMessage(std::to_string(WOOF_MSG_GET_EARLIEST_SEQNO_CAP), 
+					std::vector<uint8_t>(cap_ptr,cap_ptr + sizeof(cap)),
+					std::string(woof_name));
+			free(new_cap);
+			if(!msg) {
+				has_cap = 0;
+			}
+		} else {
+	    		DEBUG_WARN("WooFMsgGetEarliestSeqno: cap attenuate failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+			has_cap = 0;
+		}
+	} else {
+	    	DEBUG_WARN("WooFMsgGetEarliestSeqno: cap search failed for %s %s\n",
+					cap_file,(char *)std::string(woof_name).c_str());
+		has_cap = 0;
+	}
+    }
+
+    // backward compatibility
+    if((has_cap == 0) && (!msg)) {
+    	msg = CreateMessage(std::to_string(WOOF_MSG_GET_EARLIEST_SEQNO), std::string(woof_name));
+    }
+
+    if (!msg) {
+        DEBUG_WARN("Could not create message for GetEarliestSeqno for %s", woof_name.c_str());
+        return -1;
+    }
+
+    auto r_msg = ZMsgPtr(ServerRequest(endpoint.c_str(), std::move(msg)));
+
+    if (!r_msg) {
+        fprintf(stderr,
+                "WooFMsgGetEarliestSeqno: woof: %s couldn't recv msg for element size from "
+                "server at %s\n",
+                woof_name.c_str(),
+                endpoint.c_str());
+	printf("WooFMsgGetEarliestSeqno: server request failed\n");
+        perror("WooFMsgGetEarliestSeqno");
         return -1;
     }
 

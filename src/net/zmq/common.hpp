@@ -16,6 +16,9 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
+void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
+void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* receiver);
+
 void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 

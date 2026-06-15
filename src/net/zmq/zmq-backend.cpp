@@ -1126,6 +1126,205 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	return;
 }
 
+void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap)
+{
+    auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
+
+    if (!res) {
+        DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
+        return;
+    }
+
+    auto& [woof_name/*, name_id_str, log_seq_no_str, cause_woof, cause_woof_latest_seq_no_str*/] = *res;
+    // auto cause_host = std::stoul(name_id_str);
+    // auto cause_seq_no = std::stoul(log_seq_no_str);
+    // auto cause_woof_latest_seq_no = std::stoul(cause_woof_latest_seq_no_str);
+    // auto cause_host = 0;
+    // auto cause_seq_no = 0;
+    // auto cause_woof_latest_seq_no = 0;
+    // std::string cause_woof = "";
+
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	return;
+    }
+
+    char local_name[1024] = {};
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+    	WOOF* wfc;
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+            DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
+	    WooFDrop(wfc);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+    	wfc = WooFOpen(cap_name);
+    	if(wfc) {
+            DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
+	    WooFDrop(wfc);
+	    return;
+	}
+    }
+
+    unsigned long earliest_seq_no = WooFGetEarliestSeqno(woof_name.c_str());
+    if (earliest_seq_no == (unsigned long)-1) {
+        DEBUG_WARN("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
+printf("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
+	return;
+    }
+
+    DEBUG_LOG("WooFProcessGetEarliestSeqno: sending %lu for %s\n",earliest_seq_no,woof_name.c_str());
+    auto resp = CreateMessage(std::to_string(earliest_seq_no));
+    if (!res) {
+        DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not allocate message");
+        return;
+    }
+
+    if (!Send(std::move(resp), *resp_sock)) {
+        DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not send response");
+        return;
+    }
+}
+
+void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+	zframe_t *zm;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: no cap frame\n");
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof cap frame\n");
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame\n");
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: can't access CAP woof\n");
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP local name failed\n");
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGetEarliestSeqno(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed for %s\n",cap_name);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP from %s\n",cap_name);
+		new_cap_p = WooFCapAttenuate(&principal, WCAP_READ);
+		if(new_cap_p == NULL) {
+			if(wf_ns != NULL) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed for principal\n");
+			return;
+		}
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed for ns\n");
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP from ns\n");
+		new_cap_ns = WooFCapAttenuate(&ns_principal, WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed for ns principal\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			return;
+		}
+	}
+
+	// check the signature using attenuated CAP
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+
+	if((sig_p == cap->check) || (sig_ns == cap->check)) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: CAP auth\n");
+		WooFProcessGetEarliestSeqno(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	
+	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: read CAP denied %s\n",cap_name);
+	// denied
+	return;
+}
 void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string>(*req_msg);
 

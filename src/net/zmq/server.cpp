@@ -109,6 +109,12 @@ void WooFMsgThread() {
         case WOOF_MSG_GET_EL_SIZE_CAP:
             WooFProcessGetElSizewithCAP(std::move(msg), receiver.get());
             break;
+        case WOOF_MSG_GET_EARLIEST_SEQNO:
+            WooFProcessGetEarliestSeqno(std::move(msg), receiver.get(),1);
+            break;
+        case WOOF_MSG_GET_EARLIEST_SEQNO_CAP:
+            WooFProcessGetEarliestSeqnowithCAP(std::move(msg), receiver.get());
+            break;
         case WOOF_MSG_GET_TAIL:
             WooFProcessGetTail(std::move(msg), receiver.get(),1);
             break;

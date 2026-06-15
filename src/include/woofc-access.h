@@ -23,6 +23,7 @@ int WooFMsgGetRange(const char* woof_name,
 		unsigned long seq_no, unsigned int count);
 int WooFMsgCreate(const char* woof_name, unsigned long el_size, unsigned long history_size);
 unsigned long WooFMsgGetElSize(const char* woof_name);
+unsigned long WooFMsgGetEarliestSeqno(const char* woof_name);
 unsigned long
 WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned long el_size, int el_count);
@@ -75,6 +76,7 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #define LOG_GET_REMOTE (9)
 #define LOG_GET_REMOTE_SIZE (10)
 #define WOOF_MSG_GET_RANGE (11)
+#define WOOF_MSG_GET_EARLIEST_SEQNO (12)
 
 #define WOOF_MSG_PUT_CAP (21)
 #define WOOF_MSG_GET_EL_SIZE_CAP (22)
@@ -88,6 +90,7 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #define LOG_GET_REMOTE_SIZE_CAP (30)
 #define WOOF_MSG_CREATE_CAP (31)
 #define WOOF_MSG_GET_RANGE_CAP (32)
+#define WOOF_MSG_GET_EARLIEST_SEQNO_CAP (33)
 
 #define WOOF_MSG_CACHE_SIZE (100)
 

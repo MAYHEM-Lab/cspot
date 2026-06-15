@@ -1428,8 +1428,8 @@ unsigned long WooFGetEarliestSeqno(const char* wf_name)
      */
     if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
 // FIX this for remote
-//        latest_seq_no = WooFMsgGetLatestSeqno(wf_name, cause_woof_name, cause_woof_latest_seq_no);
-        return (latest_seq_no);
+        earliest_seq_no = WooFMsgGetEarliestSeqno(wf_name);
+        return (earliest_seq_no);
     }
 
     if (WooF_dir[0] == 0) {

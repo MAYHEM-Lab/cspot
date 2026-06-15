@@ -24,6 +24,7 @@ public:
     int32_t remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) override;
     int32_t remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) override;
     int32_t remote_get_elem_size(std::string_view woof_name) override;
+    int32_t remote_get_earliest_seq_no(std::string_view woof_name) override;
     int32_t remote_get_latest_seq_no(std::string_view woof_name,
                                      const char* cause_woof_name,
                                      uint32_t cause_woof_latest_seq_no) override;
