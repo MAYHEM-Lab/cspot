@@ -8,8 +8,9 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:C:LS:"
+#define ARGS "W:C:LS:e"
 char *Usage = "senspot-get -W woof_name for get\n\
+\t-e <return earliest seqno only>\n\
 \t-L use same namespace for source and target\n\
 \t-C count <count of values to get at specifc seq_no\n\
 \t-S seq_no <sequence number to get, latest if missing)\n";
@@ -38,14 +39,19 @@ int main(int argc, char **argv)
 	unsigned long r_seq_no;
 	unsigned long el_size;
 	unsigned int count;
+	int seqno_only;
 
 	memset(wname,0,sizeof(wname));
 	seq_no = 0;
 	uselocal = 0;
 	count = 1; // default is 1
+	seqno_only = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
+			case 'e':
+				seqno_only = 1;
+				break;
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
 				break;
@@ -88,6 +94,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if(seqno_only == 1) {
+		seq_no = WooFGetEarliestSeqno(wname);
+		printf("%lu\n",seq_no);
+		exit(0);
+	}
 
 	if(seq_no == 0) {
 		seq_no = WooFGetLatestSeqno(wname);

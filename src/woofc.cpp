@@ -1289,7 +1289,8 @@ unsigned long WooFGetNameID()
 	return(Name_id);
 }
 
-unsigned long WooFGetLatestSeqno(const char* wf_name) {
+unsigned long WooFGetLatestSeqno(const char* wf_name) 
+{
     WOOF* wf;
     char* cause_woof_name;
     char* woof_shepherd_seq_no;
@@ -1317,7 +1318,8 @@ unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
                                           unsigned long cause_host,
                                           unsigned long long cause_seq_no,
                                           const char* cause_woof_name,
-                                          unsigned long cause_woof_latest_seq_no) {
+                                          unsigned long cause_woof_latest_seq_no) 
+{
     WOOF* wf;
     unsigned long latest_seq_no;
     char wf_namespace[2048];
@@ -1381,6 +1383,78 @@ unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
     return (latest_seq_no);
 }
 
+unsigned long WooFGetEarliestSeqno(const char* wf_name)
+{
+    WOOF* wf;
+    unsigned long latest_seq_no;
+    unsigned long earliest_seq_no;
+    char wf_namespace[2048];
+    int err;
+    char ns_ip[25];
+    char my_ip[25];
+    char log_name[4096];
+    struct timeval t1, t2;
+    double elapsedTime;
+
+    DEBUG_LOG("WooFGetEarliestSeqno: called %s\n", wf_name);
+
+    memset(ns_ip, 0, sizeof(ns_ip));
+    err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
+    if (err < 0) {
+        err = WooFLocalIP(ns_ip, sizeof(ns_ip));
+        if (err < 0) {
+            fprintf(stderr, "WooFGetEarliestSeqno: no local IP\n");
+            exit(1);
+        }
+    }
+
+    memset(my_ip, 0, sizeof(my_ip));
+    err = WooFLocalIP(my_ip, sizeof(my_ip));
+    if (err < 0) {
+        fprintf(stderr, "WooFGetEarliestSeqno: no local IP\n");
+        exit(1);
+    }
+
+    memset(wf_namespace, 0, sizeof(wf_namespace));
+    err = WooFNameSpaceFromURI(wf_name, wf_namespace, sizeof(wf_namespace));
+    /*
+     * if this isn't for my namespace, try and remote get
+     *
+     * err < 0 implies that name is local name
+     *
+     * if the name space paths do not match or they do but the IP addresses don't this
+     * is remote
+     *
+     */
+    if ((err >= 0) && ((strcmp(WooF_namespace, wf_namespace) != 0) || (strcmp(my_ip, ns_ip) != 0))) {
+// FIX this for remote
+//        latest_seq_no = WooFMsgGetLatestSeqno(wf_name, cause_woof_name, cause_woof_latest_seq_no);
+        return (latest_seq_no);
+    }
+
+    if (WooF_dir[0] == 0) {
+        fprintf(stderr, "WooFGetEarliestSeqno: must init system\n");
+        fflush(stderr);
+        return (-1);
+    }
+    DEBUG_LOG("WooFGetEarliestSeqno: namespace: %s,  WooF_dir: %s, name: %s\n", WooF_namespace, WooF_dir, wf_name);
+    wf = WooFOpen(wf_name);
+    if (wf == NULL) {
+        return (-1);
+    }
+    DEBUG_LOG("WooFGetEarliestSeqno: WooF %s open\n", wf_name);
+//    latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof_name, cause_woof_latest_seq_no);
+    latest_seq_no = wf->shared->seq_no - 1;
+    // if woof has wrapped already
+    if(((wf->shared->head+1)%wf->shared->history_size) == wf->shared->tail) {
+    	earliest_seq_no = latest_seq_no - wf->shared->history_size + 1;
+    } else {
+	earliest_seq_no = latest_seq_no - wf->shared->head + 1;
+    } 
+    WooFDrop(wf);
+
+    return (earliest_seq_no);
+}
 int WooFReadTail(WOOF* wf, void* elements, int element_count) {
     int i;
     unsigned long ndx;

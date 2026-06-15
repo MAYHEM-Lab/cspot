@@ -19,6 +19,7 @@ int WooFGetRange(const char* wf_name, void* elements,
 		unsigned long seq_no, unsigned int count);
 
 unsigned long WooFGetLatestSeqno(const char* wf_name);
+unsigned long WooFGetEarliestSeqno(const char* wf_name);
 unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
                                           unsigned long cause_host,
                                           unsigned long long cause_seq_no,
