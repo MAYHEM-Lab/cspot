@@ -374,7 +374,7 @@ void WooFProcessGetEarliestSeqno(unsigned char *fl, int sd, int no_cap)
         	}
 	}
 
-	earliest_seqno = WooFGetEarliestSeqno((char *)cmq_frame_payload(woof_name));
+	earliest_seqno = WooFGetEarliestSeqno(local_name);
 
 	if (earliest_seqno == (unsigned long)-1) {
 		DEBUG_LOG("WooFProcessGetEarliestSeqno: couldn't get earliest seqnoe open %s (%s)\n", local_name, (char *)cmq_frame_payload(woof_name));
