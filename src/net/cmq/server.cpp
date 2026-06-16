@@ -12,8 +12,13 @@
 
 extern void cmq_mqtt_shutdown();
 
+extern "C" {
+	extern int CMQ_use_mqtt;
+}
+
 namespace cspot::cmq {
 namespace {
+
 
 void *WooFMsgThread(void *arg) {
 	int sd;
@@ -158,8 +163,13 @@ bool backend::listen(std::string_view ns) {
     if(listen_sd < 0) {
 	DEBUG_WARN("WooFMsgServer: could not create listen socket on %d\n",
 			(int)port);
-	printf("WooFMsgServer: cmq could not create listen socket on %d, shutting down\n",
+	if(CMQ_use_mqtt == 1) {
+		printf("WooFMsgServer: mqtt could not create listen socket on %d, shutting down xport\n",
+				(int)port);
+	} else {
+		printf("WooFMsgServer: cmq could not create listen socket on %d, shutting down xport\n",
                         (int)port);
+	}
 
 	return(false);
     }
