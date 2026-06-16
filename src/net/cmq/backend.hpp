@@ -32,8 +32,9 @@ public:
 private:
     //ZMsgPtr ServerRequest(const char* endpoint, ZMsgPtr msg_arg);
     //std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
-    pthread_t tids[WOOF_MSG_THREADS];
+    pthread_t tids[WOOF_MSG_THREADS] = {};
     std::atomic<bool> m_stop_called = false;
     int listen_sd;
+    int msg_threads = 0;
 };
 }

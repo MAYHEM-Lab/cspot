@@ -158,6 +158,9 @@ bool backend::listen(std::string_view ns) {
     if(listen_sd < 0) {
 	DEBUG_WARN("WooFMsgServer: could not create listen socket on %d\n",
 			(int)port);
+	printf("WooFMsgServer: cmq could not create listen socket on %d, shutting down\n",
+                        (int)port);
+
 	return(false);
     }
 
@@ -185,6 +188,7 @@ fflush(stdout);
 		DEBUG_WARN("WooFMsgThread: could not create WooFMsgThread %d\n",t);
 		return false;
 	    }
+	    msg_threads++;
     }
 
     return true;
@@ -204,7 +208,8 @@ bool backend::stop() {
     */
 
     int t;
-    for(t=0; t < WOOF_MSG_THREADS; t++) {
+    // do it this way in case there is a port conflict and we exit before spawning any threads
+    for(t=0; t < msg_threads; t++) {
 //printf("cmq.stop calling join %d\n",t);
 //fflush(stdout);
 	    pthread_join(tids[t],NULL);
