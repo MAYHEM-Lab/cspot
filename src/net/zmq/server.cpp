@@ -165,6 +165,7 @@ void WooFMsgThread() {
         	msg = Receive(*receiver);
 	}
     }
+    printf("zmq msg server thread is exiting\n");
     return; // will cause thread to exit
 }
 } // namespace
