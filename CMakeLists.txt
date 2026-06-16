@@ -50,6 +50,7 @@ else()
 	set(USE_MUSL_DEPS OFF)
 		if(EXISTS "/opt/musl-cross/bin/x86_64-linux-musl-gcc")
     		set(USE_MUSL_DEPS ON)
+#		add_compile_options(-g -O0 -fno-omit-frame-pointer)
 	endif()
 endif()
 

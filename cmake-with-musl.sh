@@ -6,8 +6,8 @@ HERE=`pwd`
 
 cmake -S . -B build \
   -DCMAKE_TOOLCHAIN_FILE=$HERE/toolchain-musl.cmake \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_BUILD_TYPE=Debug
+#  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_BUILD_TYPE=Release
 
 
 
