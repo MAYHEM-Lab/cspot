@@ -75,7 +75,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     DEBUG_LOG("WooFProcessGetElSize: sending %lu for %s\n",el_size,local_name);
     auto resp = CreateMessage(std::to_string(el_size));
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGetElSize: Could not allocate message");
         return;
     }
@@ -277,7 +277,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
         local_name, (hname == NULL) ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
 
     auto resp = CreateMessage(std::to_string(seq_no));
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessPut: Could not allocate message");
         return;
     }
@@ -525,7 +525,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     DEBUG_LOG("WooFProcessGet: responding with element size %d\n",esize);
     auto resp = CreateMessage(elem);
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
         return;
     }
@@ -629,7 +629,7 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	elem.resize(i*esize);
     }
     auto resp = CreateMessage(elem);
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
         return;
     }
@@ -985,7 +985,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
 
     DEBUG_LOG("WooFProcessGetLatestSeqno: sending %lu for %s\n",latest_seq_no,woof_name.c_str());
     auto resp = CreateMessage(std::to_string(latest_seq_no));
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate message");
         return;
     }
@@ -1130,6 +1130,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap)
 {
+
     auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
 
     if (!res) {
@@ -1175,6 +1176,9 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
 	}
     }
 
+//auto resp1 = CreateMessage(std::to_string(1));
+//Send(std::move(resp1), *resp_sock);
+//return;
     unsigned long earliest_seq_no = WooFGetEarliestSeqno(local_name);
     if (earliest_seq_no == (unsigned long)-1) {
         DEBUG_WARN("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
@@ -1184,7 +1188,7 @@ printf("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_nam
 
     DEBUG_LOG("WooFProcessGetEarliestSeqno: sending %lu for %s\n",earliest_seq_no,woof_name.c_str());
     auto resp = CreateMessage(std::to_string(earliest_seq_no));
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not allocate message");
         return;
     }
@@ -1385,7 +1389,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     auto resp = CreateMessage(std::to_string(el_read), elements);
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
         return;
     }

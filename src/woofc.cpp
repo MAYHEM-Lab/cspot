@@ -339,6 +339,8 @@ WOOF* WooFOpen(const char* name) {
     }
 
     memset(local_name, 0, sizeof(local_name));
+    memset(fname, 0, sizeof(fname));
+
     strncpy(local_name, WooF_dir, sizeof(local_name));
     if (local_name[strlen(local_name) - 1] != '/') {
         strncat(local_name, "/", 2);
@@ -356,7 +358,12 @@ WOOF* WooFOpen(const char* name) {
     } else { /* assume this is WooF_dir local */
         strncat(local_name, name, sizeof(local_name));
     }
-    DEBUG_LOG("WooFOpen: trying to open %s from fname %s, %s with dir %s\n", local_name, fname, name, WooF_dir);
+    if(fname[0] != 0) {
+    	DEBUG_LOG("WooFOpen: trying to open %s from fname %s, %s with dir %s\n", local_name, fname, name, WooF_dir);
+    } else {
+    	DEBUG_LOG("WooFOpen: trying to open %s %s with dir %s\n", local_name, name, WooF_dir);
+    }
+        
 
     if (stat(local_name, &sbuf) < 0) {
 #ifdef DEBUG

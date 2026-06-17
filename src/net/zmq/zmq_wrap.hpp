@@ -31,13 +31,26 @@ using ZActorDeleter = basic_deleter<zactor_t, zactor_destroy>;
 using ZActorPtr = std::unique_ptr<zactor_t, ZActorDeleter>;
 using ZProxyPtr = std::unique_ptr<zproxy_t , ZActorDeleter>;
 
-inline bool Send(ZMsgPtr msg, zsock_t& server) {
+inline bool OldSend(ZMsgPtr msg, zsock_t& server) {
     // It'll be destroyed by zmsg_send
     auto ptr = msg.release();
     if (auto err = zmsg_send(&ptr, &server); err == 0) {
         // Sent successfully.
         return true;
     }
+    return false;
+}
+
+inline bool Send(ZMsgPtr msg, zsock_t& server) {
+    zmsg_t* ptr = msg.release();
+
+    int err = zmsg_send(&ptr, &server);
+
+    if (err == 0) {
+        return true;   // zmsg_send destroyed it
+    }
+
+    zmsg_destroy(&ptr); // safe even if ptr == nullptr
     return false;
 }
 
