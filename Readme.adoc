@@ -12,15 +12,25 @@ CSPOT binaries, run the command
 mkdir -p cspot; cd cspot; (curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/dist/update-cspot-distribution.sh | /bin/bash)
 ----
 
-and the installer will put the binary distribution in the cspot subdirectory.
+and the installer will put the release binary distribution in the cspot subdirectory.
 Not that the installer will install the install script as well so future
 updates need only run
 [source sh]
 ----
 cd cspot
-./update-cspot-distributions.sh
+./update-cspot-distributions.sh release
 ----
-to get the latest.  Note that this script uses CSPOT capabilities (see below)
+
+to get the latest release binaries or
+
+----
+cd cspot
+./update-cspot-distributions.sh daily
+----
+
+to get current repo head (that compiles) as compiled binaries.
+
+Note that this script uses CSPOT capabilities (see below)
 and, thus, will create a .cspot subdirectory in the home directory of the user
 running it, and it will add a public read-only capability to the
 capabilities.yaml file it will also create.
@@ -223,9 +233,9 @@ It is possible to create capabilities for individual WOOFs (i.e. CSPOT logs --
 see below) or for an entire namespace (again -- see CSPOT abstractions below).
 This example shows how to create a read-only capability for a CSPOT namespace
 and also a separate read-write capability.  Any process that has access to the
-read-only capability will be able to read (call Get) on any WOOF in the
+read-only capability will be able to read (call WooFGet) on any WOOF in the
 namespace that is not further protected by a capability.  Any process holding
-the read-write capability will be able to either read (Get) or write (Put) but
+the read-write capability will be able to either read (WooFGet) or write (WooFPut) but
 will not be able to trigger a CSPOT handler as a result of a Put. 
 
 The first step is to create a principle capability in the namespace.  This
@@ -246,7 +256,9 @@ Run the command
 ./woofc-init-principle -N
 ----
 If the command is successful, it will create (silently) a file called
-CSPOT.CAP that contains the principle capability.
+CSPOT.CAP (which is a WOOF) that contains the principle capability.  Note that this file is
+analogous to an ssh private key.  If it is stolen, the possessor has full
+access rights to everything in the namespace.
 
 All accesses to WOOFs in this namespace will need to include a capability in
 the CSPOT API calls that will be checked on each access to ensure that it is a
@@ -265,7 +277,10 @@ To create a read-only attenuation for the namespace, run the command
 ----
 where the IP address occurring after the -h parameter is the externally
 visible IP address for the namespace.  The "-p 1" says that the only
-permission enabled is READ.
+permission enabled is READ since the capability bit pattern for READ is READ
+0x00000001.  
+
+  
 
 The output of this command is YAML text that needs to be put into the
 capabilities.yaml keyring file of any user running a process that exercises
@@ -280,6 +295,9 @@ command
 ----
 which will print a YAML-formatted capability with READ and WRITE permissions
 enabled, but no other permissions enabled.
+Because permissions are ordered, only the bit associated with the
+"highest" permission need be set to convery all lower permissions.  Thus, "-p
+3" (READ/WRITE/EXECUTE) is equivalent to "-p 2" (WRITE).  
 
 Note that the procedure for individual WOOFs is the same, but the -N flag is
 replaced with -W local-woof-name.  The principle capability will be placed in
@@ -290,6 +308,56 @@ Finally, if there is both a namespace principle capability and a principle
 capability for a specific WOOF in the namespace, the access is granted if
 the presented capability is a legal attenuation of either (i.e. not the most
 restrictive).
+
+One the namespace principle capability has been created,
+woofc-namespace-platform will check all remote CSPOT API requests to ensure
+that they carry the minimum necessary access rights for all WOOFs in the
+namespace.  If there is no namespace principle capability, but there is a
+capability for a specific WOOF or WOOFs, then it will check accress rights on API calls
+for those WOOFs.
+
+Older released versions of CSPOT did not include capability support.  To allow
+older CSPOT clients to work with the current platform, if there are no
+principle capabilities, woofc-namespace-platform will allow all accesses
+without rights checking. 
+
+To enable a client to have READ access to the namespace, the output of
+woof-print-cap -N -h 192.168.10.2 -p 1 needs to be present in the file
+[source bash]
+----
+~/.cspot/capabilities.yaml
+----
+exactly as it prints and the permissions on the .cspot directory and on the
+capabilities.yaml file must be read/write for the owner only.  In particular, YAML parser checks
+the indentation when it determmines whether the capability that is present in the
+file is valid.
+
+In this example, when ever an API call accesses a WOOF in the namespace on
+192.168.10.2, it will scan the capabilities.yaml file and send a request with
+READ permissions.  If the request can be completed with READ permissions, the
+API call will succeed.  If not, it will fail because woofc-namepsace-platform
+will deny the request due to insufficient permissions.
+
+Note that woof-print-cap must be run locally within the namespace (there is
+no provision in the current release for creating capabilities remotely).  Thus
+only the "owner" of the namespace (a user on the machine hosting the namespace
+with write access to the directory in which it has been created) is entitled
+to generate capabilities for and within that namespace.
+
+In the original CAPlets formulation, capabilities are sent in messages so that
+the server need not keep a record of them (i.e. on a resource restricted
+device).  The current CSPOT release API does not send capabilities in messages
+(and instead stores them either in the namespace or on the client in the
+capabilties.yaml keychain file).  Instead, it signs the message payload with
+the capability (possibly annnuating it down to the minimum access level) 
+on the client side and the server derives a capabilty (from the principle)
+with minimum access rights and checks the signature with this locally
+generated capability.
+
+In this way, capabilities can be treated like secret keys since they are never
+transmitted over the network.  However, an application can elect to send
+capabilities and use CAPlets attenuations to implement distributed access
+control.
 
   
 == CSPOT Overview
@@ -320,6 +388,23 @@ part of a single, common storage abstraction.
 The initial implementation and its test applications use C as the
 programming language. However, functions execute within Linux containers
 making it possible to employ a mixed-language programming approach.
+
+== Support for MQTT network transport
+
+The current release includes support for using MQTT as a network transport
+protocol instead of the default ZeroMQ messaging system.  This feature should
+be considered experimental.  However, the ZeroMQ message transport requires
+that the client be able to establish a TCP connection to the machine running
+the namep[sace on a port between 50000 and 60000.  As a result, the server
+cannot be behind a firewall that blocks TCP connections to this port range.
+
+If it is possible to configure an MQTT broker two which the client(s) and
+namespace machine can all connect, the MQTT transport permit the namespace to
+be behind a firewall that allows outgoing TCP connections, but blocks incoming
+ones.
+
+The current CSPOT release uses the mosquitto Linux utility to implement a
+socket emulation layer that is configured along side the ZermoMQ transport.
 
 == Current CSPOT Abstractions
 
