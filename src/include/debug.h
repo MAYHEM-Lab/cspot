@@ -53,7 +53,8 @@ void cspot_print_timing(const char* format, ...);
 #else
 
 #define DEBUG_LOG(...)
-#define DEBUG_WARN(...)
+//#define DEBUG_WARN(...)
+#define DEBUG_WARN(...) cspot_print_debug(__VA_ARGS__)
 #define DEBUG_FATAL(...)
 #define DEBUG_FATAL_IF(cond, ...)
 

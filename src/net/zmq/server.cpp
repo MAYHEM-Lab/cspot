@@ -161,6 +161,7 @@ void WooFMsgThread() {
 	if(!msg) {
 		// if something went wrong, next recive will fail
 //		zsock_destroy(receiver);
+printf("zmq: server failed to receive msg, creating new receiver\n");
     		receiver = ZServerPtr(zsock_new_rep(">inproc://workers"));
         	msg = Receive(*receiver);
 	}

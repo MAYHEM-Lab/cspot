@@ -10,6 +10,8 @@ std::optional<per_endpoint_data> per_endpoint_data::create(const std::string& ep
         return {};
     }
 
+    zsock_set_linger(res.server.get(), 0);
+
     res.resp_poll = ZPollerPtr(zpoller_new(res.server.get(), nullptr));
     if (!res.resp_poll) {
         DEBUG_WARN("ServerRequest: no poller for reply from %s\n", ep.c_str());

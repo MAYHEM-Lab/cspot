@@ -132,6 +132,7 @@ cspot::network_backend *adjust_active_backend(const char *woof_name)
 {
 	int be;
 	cspot::network_backend *nbe = NULL;
+
 	be = backend_from_woof(woof_name);
 	if(be != -1) {
 		if(be == 1) {

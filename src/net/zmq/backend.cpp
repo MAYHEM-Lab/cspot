@@ -6,9 +6,21 @@
 #include <woofc-access.h>
 
 namespace cspot::zmq {
+
+struct endpoint_cache {
+    std::unordered_map<std::string, per_endpoint_data> map;
+
+    ~endpoint_cache() {
+        map.clear();   // destroys pollers/sockets at thread exit
+    }
+};
+
 per_endpoint_data* backend::get_local_socket_for(const std::string& endpoint) {
 
-    thread_local std::unordered_map<std::string, per_endpoint_data> map_for_thread;
+//    thread_local std::unordered_map<std::string, per_endpoint_data> map_for_thread;
+    thread_local endpoint_cache cache;
+    auto& map_for_thread = cache.map;
+
     auto it = map_for_thread.find(endpoint);
     if (it == map_for_thread.end()) {
         // Socket does not exist
