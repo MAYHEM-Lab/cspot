@@ -17,11 +17,33 @@
 namespace cspot::zmq {
 constexpr size_t ZMQ_MAX_TRANSFER = 64 * 1024 * 1024;
 
+void SendErr(unsigned long err, zsock_t* resp_sock)
+{
+    auto resp_e = CreateMessage(std::to_string(-1));
+    if(resp_e) {
+    	Send(std::move(resp_e), *resp_sock);
+    }
+    return;
+}
+
+
+void SendNull(zsock_t* resp_sock)
+{
+    std::vector<uint8_t> elem;
+    elem = {};
+    auto resp_e = CreateMessage(elem);
+    if (resp_e) {
+    	Send(std::move(resp_e), *resp_sock);
+    }
+    return;
+}
+	
 void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessGetElSize Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -30,6 +52,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
 	return;
     }
 
@@ -47,6 +70,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGetElSize:  no cap in message for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -54,6 +78,7 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGetElSize:  no cap in message with ns cap for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
     }
@@ -77,13 +102,15 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto resp = CreateMessage(std::to_string(el_size));
     if (!resp) {
         DEBUG_WARN("WooFProcessGetElSize: Could not allocate message");
-        return;
+	SendErr(-1,resp_sock);
+	return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGetElSize: Could not send response");
-        return;
+	SendErr(-1,resp_sock);
     }
+    return;
 }
 
 void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
@@ -102,6 +129,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessGetElSizewithCAP: no cap frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -109,18 +137,21 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof cap frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
 	// disallow remote access to CAP woofs
 	err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+		SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -128,6 +159,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessGetElSizewithCAP local name failed\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -154,6 +186,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed for woof cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
 		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
@@ -162,6 +195,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf_ns) {
 				WooFDrop(wf_ns);
 			}
+			SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetElSizewithCAP cap get suceeded for cap %s\n",cap_name);
@@ -180,6 +214,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed for ns cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
 		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
@@ -191,6 +226,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf) {
 				WooFDrop(wf);
 			}
+			SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetElSizewithCAP cap get suceeded for ns cap\n");
@@ -217,6 +253,7 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied\n");
 	// denied
+	SendErr(-1,resp_sock);
 	return;
 }
 
@@ -225,6 +262,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     if (!res) {
         DEBUG_WARN("WooFProcessPut Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -237,6 +275,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
 	return;
     }
 
@@ -251,6 +290,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
     if (err < 0) {
         DEBUG_WARN("WooFProcessPut local name failed");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -263,6 +303,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessput:  no cap in message for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -270,6 +311,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessput:  no cap in message but ns cap for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
     }
@@ -279,6 +321,7 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto resp = CreateMessage(std::to_string(seq_no));
     if (!resp) {
         DEBUG_WARN("WooFProcessPut: Could not allocate message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -304,6 +347,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessPutwithCAP: no cap frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
         auto res = ExtractMessage<std::string, std::string, /*std::string, std::string,*/ std::vector<uint8_t>>(*req_msg);
@@ -313,22 +357,26 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof cap frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof name frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+		SendErr(-1,resp_sock);
 		return;
 	}
 
 	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
 	if(hname == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get handler frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -338,6 +386,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessPutwithCAP local name failed\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -363,6 +412,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for woof cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
 		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
@@ -375,6 +425,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for woof cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for woof cap %s\n",cap_name);
@@ -393,6 +444,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for ns cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
 		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
@@ -408,6 +460,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 			if(wf) {
 				WooFDrop(wf);
 			}
+			SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for ns cap\n");
@@ -423,6 +476,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 		if(new_cap_ns != NULL) {
 			free(new_cap_ns);
 		}
+		SendErr(-1,resp_sock);
 		return;
 	}
 	unsigned char *pptr = payload;
@@ -453,6 +507,7 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed handler: %s check %lu, denied\n",
 				hname,
 				cap->check);
+	SendErr(-1,resp_sock);
 	return;
 }
 
@@ -462,6 +517,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
+	SendNull(resp_sock);
         return;
     }
 
@@ -474,6 +530,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendNull(resp_sock);
 	return;
     }
 
@@ -489,6 +546,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
+	    SendNull(resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -496,6 +554,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
+	    SendNull(resp_sock);
 	    return;
 	}
     }
@@ -543,6 +602,7 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     if (!res) {
         DEBUG_WARN("WooFProcessGetRange Bad message");
+	SendNull(resp_sock);
         return;
     }
 
@@ -556,6 +616,7 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendNull(resp_sock);
 	return;
     }
 
@@ -571,6 +632,7 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
+	    SendNull(resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -578,6 +640,7 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	if(wfc) {
 	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
+	    SendNull(resp_sock);
 	    return;
 	}
     }
@@ -595,6 +658,8 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     if (!wf) {
         DEBUG_WARN("WooFProcessGetRange: couldn't open woof: %s\n", woof_name.c_str());
+	SendNull(resp_sock);
+	return;
     } else {
 //printf("esize: %d count: %d\n",esize,count);
 //fflush(stdout);
@@ -656,6 +721,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessGetwithCAP: no cap frame\n");
+		SendNull(resp_sock);
 		return;
 	}
 
@@ -663,18 +729,21 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof cap frame\n");
+		SendNull(resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame\n");
+		SendNull(resp_sock);
 		return;
 	}
 
 	// disallow access to CAP woofs
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+		SendNull(resp_sock);
 		return;
 	}
 
@@ -682,6 +751,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessGetwithCAP local name failed\n");
+		SendNull(resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -706,6 +776,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetwithCAP cap get failed\n");
+		        SendNull(resp_sock);
 			return;
 		}
 		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
@@ -714,6 +785,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetwithCAP attn cap failed\n");
+		        SendNull(resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetwithCAP: cap get suceeded CAP %s\n",cap_name);
@@ -732,6 +804,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessGetwithCAP cap get failed for ns\n");
+		        SendNull(resp_sock);
 			return;
 		}
 		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
@@ -743,6 +816,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
 			}
+		        SendNull(resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetwithCAP: cap get suceeded for ns CAP\n");
@@ -777,6 +851,7 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	DEBUG_WARN("WooFProcessGetwithCAP: read CAP denied\n");
 	// denied
+	SendNull(resp_sock);
 	return;
 }
 
@@ -796,6 +871,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessGetRangewithCAP: no cap frame\n");
+		SendNull(resp_sock);
 		return;
 	}
 
@@ -803,18 +879,21 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof cap frame\n");
+		SendNull(resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof name frame\n");
+		SendNull(resp_sock);
 		return;
 	}
 
 	// disallow access to CAP woofs
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+		SendNull(resp_sock);
 		return;
 	}
 
@@ -822,6 +901,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessGetRangewithCAP local name failed\n");
+		SendNull(resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -846,6 +926,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetRangewithCAP cap get failed\n");
+			SendNull(resp_sock);
 			return;
 		}
 		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
@@ -854,6 +935,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetRangewithCAP attn cap failed\n");
+			SendNull(resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetRangewithCAP: cap get suceeded CAP %s\n",cap_name);
@@ -872,6 +954,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessGetRangewithCAP cap get failed for ns\n");
+			SendNull(resp_sock);
 			return;
 		}
 		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
@@ -883,6 +966,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
 			}
+			SendNull(resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetRangewithCAP: cap get suceeded for ns CAP\n");
@@ -919,6 +1003,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	DEBUG_WARN("WooFProcessGetRangewithCAP: read CAP denied\n");
 	// denied
+	SendNull(resp_sock);
 	return;
 }
 void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
@@ -926,6 +1011,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
 
     if (!res) {
         DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -941,6 +1027,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
 	return;
     }
 
@@ -956,6 +1043,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     	if(wfc) {
             DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
 	    WooFDrop(wfc);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -963,6 +1051,7 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     	if(wfc) {
             DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
 	    WooFDrop(wfc);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
     }
@@ -1013,6 +1102,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: no cap frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1020,17 +1110,20 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof cap frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof name frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	// disallow access to CAP woofs
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1038,6 +1131,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP local name failed\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -1049,6 +1143,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// backwards compatibility: no CAP => authorized
 	if(!wf && !wf_ns) {
 		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	WCAP *new_cap_p = NULL;
@@ -1062,6 +1157,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for %s\n",cap_name);
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP from %s\n",cap_name);
@@ -1071,6 +1167,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP atten cap failed for principal\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 	}
@@ -1088,6 +1185,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for ns\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP from ns\n");
@@ -1100,6 +1198,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf) {
 				WooFDrop(wf);
 			}
+	                SendErr(-1,resp_sock);
 			return;
 		}
 	}
@@ -1125,6 +1224,7 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	
 	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied %s\n",cap_name);
 	// denied
+	SendErr(-1,resp_sock);
 	return;
 }
 
@@ -1135,6 +1235,7 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
 
     if (!res) {
         DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -1150,6 +1251,7 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
 	return;
     }
 
@@ -1165,6 +1267,7 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
     	if(wfc) {
             DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
 	    WooFDrop(wfc);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -1172,6 +1275,7 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
     	if(wfc) {
             DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
 	    WooFDrop(wfc);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
     }
@@ -1183,6 +1287,7 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
     if (earliest_seq_no == (unsigned long)-1) {
         DEBUG_WARN("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
 printf("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
+	SendErr(-1,resp_sock);
 	return;
     }
 
@@ -1216,6 +1321,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: no cap frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1223,18 +1329,21 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof cap frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	// disallow access to CAP woofs
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
 		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: can't access CAP woof\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1242,6 +1351,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP local name failed\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -1266,6 +1376,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed for %s\n",cap_name);
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP from %s\n",cap_name);
@@ -1275,6 +1386,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed for principal\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 	}
@@ -1292,6 +1404,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed for ns\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP from ns\n");
@@ -1304,6 +1417,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(wf) {
 				WooFDrop(wf);
 			}
+	                SendErr(-1,resp_sock);
 			return;
 		}
 	}
@@ -1329,6 +1443,7 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	
 	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: read CAP denied %s\n",cap_name);
 	// denied
+	SendErr(-1,resp_sock);
 	return;
 }
 void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
@@ -1489,6 +1604,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessCreatewithCAP: no cap frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1496,17 +1612,20 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof cap frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	// disallow access to CAP woofs
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+	        SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1514,6 +1633,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessCreatewithCAP local name failed\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -1526,6 +1646,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	// remote create requires a CAP
 	if(!wf && !wf_ns) {
 		DEBUG_WARN("WooFProcessCreatewithCAP no CAP found in namespace\n");
+	        SendErr(-1,resp_sock);
 		return;
 	}
 	WCAP *new_cap_p = NULL;
@@ -1539,6 +1660,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		new_cap_p = WooFCapAttenuate(&principal,WCAP_INIT);
@@ -1547,6 +1669,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				WooFDrop(wf_ns);
 			}
 			DEBUG_WARN("WooFProcessCreatewithCAP attn cap failed\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessCreatewithCAP: cap get suceeded CAP %s\n",cap_name);
@@ -1565,6 +1688,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 				free(new_cap_p);
 			}
 			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for ns\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_INIT);
@@ -1576,6 +1700,7 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 			if(new_cap_p != NULL) {
 				free(new_cap_p);
 			}
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		DEBUG_LOG("WooFProcessCreatewithCAP: cap get suceeded for ns CAP\n");
@@ -1612,11 +1737,13 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 		el_size = strtol(c_element_size,&end_ptr,10);
 		if(*end_ptr != '\0') {
 		DEBUG_WARN("WooFProcessCreatewithCAP bad el size, failed\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 		history_size = strtol(c_history_size,&end_ptr,10);
 		if(*end_ptr != '\0') {
 		DEBUG_WARN("WooFProcessCreatewithCAP bad hist size, failed\n");
+	                SendErr(-1,resp_sock);
 			return;
 		}
 	

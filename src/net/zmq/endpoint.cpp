@@ -2,6 +2,10 @@
 #include "debug.h"
 
 namespace cspot::zmq {
+
+per_endpoint_data::~per_endpoint_data() {
+    DEBUG_LOG("destroying endpoint data\n");
+}
 std::optional<per_endpoint_data> per_endpoint_data::create(const std::string& ep) {
     per_endpoint_data res;
     res.server = ZServerPtr(zsock_new_req(ep.c_str()));
