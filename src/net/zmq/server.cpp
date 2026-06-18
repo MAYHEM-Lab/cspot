@@ -15,6 +15,13 @@
 
 namespace cspot::zmq {
 namespace {
+#if 0
+void* m_zmq_ctx = nullptr;
+void* m_frontend = nullptr;
+void* m_backend = nullptr;
+std::thread m_proxy_thread;
+#endif
+
 int safe_stoul_to_int(const std::string& str) {
     try {
         size_t pos;
@@ -247,4 +254,82 @@ bool backend::stop() {
     m_proxy.reset();
     return true;
 }
+
+#if 0
+bool backend::listen(std::string_view ns) {
+    m_stop_called = false;
+
+    std::string woof_namespace(ns);
+    DEBUG_FATAL_IF(woof_namespace.empty(), "WooFMsgServer: couldn't find namespace");
+
+    auto port = WooFPortHash(woof_namespace.c_str());
+    auto endpoint = fmt::format("tcp://*:{}", port);
+
+    printf("zmq configured for namespace %s on port %d\n",
+           woof_namespace.c_str(), port);
+    fflush(stdout);
+
+    DEBUG_LOG("WooFMsgServer: frontend at %s\n", endpoint.c_str());
+
+    m_zmq_ctx = zmq_ctx_new();
+    if (!m_zmq_ctx) {
+        perror("zmq_ctx_new");
+        return false;
+    }
+
+    m_frontend = zmq_socket(m_zmq_ctx, ZMQ_ROUTER);
+    if (!m_frontend) {
+        perror("zmq_socket ROUTER");
+        zmq_ctx_term(m_zmq_ctx);
+        m_zmq_ctx = nullptr;
+        return false;
+    }
+
+    m_backend = zmq_socket(m_zmq_ctx, ZMQ_DEALER);
+    if (!m_backend) {
+        perror("zmq_socket DEALER");
+        zmq_close(m_frontend);
+        zmq_ctx_term(m_zmq_ctx);
+        m_frontend = nullptr;
+        m_zmq_ctx = nullptr;
+        return false;
+    }
+
+    if (zmq_bind(m_frontend, endpoint.c_str()) != 0) {
+        perror("zmq_bind frontend");
+        zmq_close(m_backend);
+        zmq_close(m_frontend);
+        zmq_ctx_term(m_zmq_ctx);
+        m_backend = nullptr;
+        m_frontend = nullptr;
+        m_zmq_ctx = nullptr;
+        return false;
+    }
+
+    if (zmq_bind(m_backend, "inproc://workers") != 0) {
+        perror("zmq_bind backend");
+        zmq_close(m_backend);
+        zmq_close(m_frontend);
+        zmq_ctx_term(m_zmq_ctx);
+        m_backend = nullptr;
+        m_frontend = nullptr;
+        m_zmq_ctx = nullptr;
+        return false;
+    }
+
+    m_proxy_thread = std::thread([this]() {
+        int rc = zmq_proxy(m_frontend, m_backend, nullptr);
+
+        if (rc != 0 && !m_stop_called) {
+            perror("zmq_proxy");
+        }
+    });
+
+    for (auto& t : m_threads) {
+        t = std::thread(WooFMsgThread);
+    }
+
+    return true;
+}
+#endif
 } // namespace cspot::zmq
