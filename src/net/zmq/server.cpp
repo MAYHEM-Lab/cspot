@@ -37,6 +37,7 @@ int safe_stoul_to_int(const std::string& str) {
     }
 }
 
+#define DEBUG
 void WooFMsgThread() {
     /*
      * right now, we use REQ-REP pattern from ZeroMQ.  need a way to timeout, however, as
@@ -167,6 +168,7 @@ printf("zmq: server failed to receive msg, creating new receiver\n");
 	}
     }
     printf("zmq msg server thread is exiting\n");
+#undef DEBUG
     return; // will cause thread to exit
 }
 } // namespace

@@ -4,6 +4,7 @@
 #include "net.h"
 #include "zmq_wrap.hpp"
 
+#include <filesystem>
 #include <czmq.h>
 #include <fmt/format.h>
 #include <global.h>
@@ -41,6 +42,7 @@ void SendNull(zsock_t* resp_sock)
 void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string>(*req_msg);
 
+
     if (!res) {
         DEBUG_WARN("WooFProcessGetElSize Bad message");
 	SendErr(-1,resp_sock);
@@ -65,18 +67,21 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // if we find a CAP and there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+//    	WOOF* wfc;
+//    	wfc = WooFOpen(cap_name);
+
+	if(std::filesystem::exists(cap_name)) {
+//    	if(wfc) {
+//	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGetElSize:  no cap in message for %s, denined\n",local_name);
 	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+	if(std::filesystem::exists(cap_name)) {
+//    	wfc = WooFOpen(cap_name);
+//    	if(wfc) {
+//	    WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGetElSize:  no cap in message with ns cap for %s, denined\n",local_name);
 	    SendErr(-1,resp_sock);
 	    return;
@@ -164,10 +169,18 @@ void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 
 	// backwards compatibility: no CAP => authorized
 	if(!wf && !wf_ns) {
