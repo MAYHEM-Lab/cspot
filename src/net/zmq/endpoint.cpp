@@ -11,6 +11,7 @@ std::optional<per_endpoint_data> per_endpoint_data::create(const std::string& ep
     res.server = ZServerPtr(zsock_new_req(ep.c_str()));
     if (!res.server) {
         DEBUG_WARN("ServerRequest: no server connection to %s\n", ep.c_str());
+        printf("ServerRequest: no server connection to %s\n", ep.c_str());
         return {};
     }
 
@@ -18,6 +19,7 @@ std::optional<per_endpoint_data> per_endpoint_data::create(const std::string& ep
 
     res.resp_poll = ZPollerPtr(zpoller_new(res.server.get(), nullptr));
     if (!res.resp_poll) {
+        DEBUG_WARN("ServerRequest: no poller for reply from %s\n", ep.c_str());
         DEBUG_WARN("ServerRequest: no poller for reply from %s\n", ep.c_str());
         return {};
     }

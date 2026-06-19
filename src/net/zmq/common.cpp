@@ -6,6 +6,9 @@
 #include <woofc-access.h>
 
 namespace cspot::zmq {
+thread_local int Msg_id;
+thread_local int Resp_id;
+
 std::optional<std::string> endpoint_from_woof(std::string_view woof_name_v) {
     std::string woof_name(woof_name_v);
 

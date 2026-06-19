@@ -7,6 +7,9 @@
 #include <string>
 
 namespace cspot::zmq {
+extern thread_local int Msg_id;
+extern thread_local int Resp_id;
+
 void WooFProcessPut(ZMsgPtr req_msg, zsock_t* receiver, int no_cap);
 void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 

@@ -2,6 +2,8 @@
 #include <string>
 #include <limits>
 #include <optional>
+#include <thread>
+#include <chrono>
 
 #include "backend.hpp"
 #include "common.hpp"
@@ -46,6 +48,8 @@ int safe_stoul_to_int(const std::string& str) {
 
 #define DEBUG
 void WooFMsgThread() {
+	Msg_id = 0;
+	Resp_id = 0;
     /*
      * right now, we use REQ-REP pattern from ZeroMQ.  need a way to timeout, however, as
      * this pattern blocks indefinitely on network partition
@@ -66,8 +70,14 @@ void WooFMsgThread() {
     if(msg == NULL) {
             DEBUG_WARN("WooFMsgThread: NULL msg\n");
     }
+    Msg_id++;
     while (msg) {
         DEBUG_LOG("WooFMsgThread: received");
+
+	//while(Msg_id > (Resp_id + 1)) {
+	//	printf("sleeping: %d %d\n",Msg_id,Resp_id);
+	//	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	//}
 
         /*
          * WooFMsg starts with a message tag for dispatch
@@ -87,6 +97,7 @@ void WooFMsgThread() {
         auto tag = safe_stoul_to_int(*str);
 	if(tag == -1) {
 		DEBUG_LOG("WooFMsgThread: processing msg with bad tag\n");
+		printf("WooFMsgThread: processing msg with bad tag\n");
         	msg = Receive(*receiver);
 		continue;
 	}
@@ -95,33 +106,63 @@ void WooFMsgThread() {
         switch (tag) {
         case WOOF_MSG_PUT:
             WooFProcessPut(std::move(msg), receiver.get(),1);
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from put\n");
+	    }
             break;
 	case WOOF_MSG_PUT_CAP:
 	    WooFProcessPutwithCAP(std::move(msg), receiver.get());
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from put with cap\n");
+	    }
 	    break;
         case WOOF_MSG_GET:
             WooFProcessGet(std::move(msg), receiver.get(),1);
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from get\n");
+	    }
             break;
         case WOOF_MSG_GET_CAP:
             WooFProcessGetwithCAP(std::move(msg), receiver.get());
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from get with cap\n");
+	    }
             break;
         case WOOF_MSG_GET_RANGE:
             WooFProcessGetRange(std::move(msg), receiver.get(),1);
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from get range\n");
+	    }
             break;
         case WOOF_MSG_GET_RANGE_CAP:
             WooFProcessGetRangewithCAP(std::move(msg), receiver.get());
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from get range with cap\n");
+	    }
             break;
         case WOOF_MSG_GET_EL_SIZE:
             WooFProcessGetElSize(std::move(msg), receiver.get(),1);
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from get el size\n");
+	    }
             break;
         case WOOF_MSG_GET_EL_SIZE_CAP:
             WooFProcessGetElSizewithCAP(std::move(msg), receiver.get());
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from get el size with cap\n");
+	    }
             break;
         case WOOF_MSG_GET_EARLIEST_SEQNO:
             WooFProcessGetEarliestSeqno(std::move(msg), receiver.get(),1);
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from eraliest\n");
+	    }
             break;
         case WOOF_MSG_GET_EARLIEST_SEQNO_CAP:
             WooFProcessGetEarliestSeqnowithCAP(std::move(msg), receiver.get());
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from eraliest with cap\n");
+	    }
             break;
         case WOOF_MSG_GET_TAIL:
             WooFProcessGetTail(std::move(msg), receiver.get(),1);
@@ -131,9 +172,15 @@ void WooFMsgThread() {
             break;
         case WOOF_MSG_GET_LATEST_SEQNO:
             WooFProcessGetLatestSeqno(std::move(msg), receiver.get(),1);
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from latest\n");
+	    }
             break;
         case WOOF_MSG_GET_LATEST_SEQNO_CAP:
             WooFProcessGetLatestSeqnowithCAP(std::move(msg), receiver.get());
+	    if(Msg_id != Resp_id) {
+		    printf("no resp from latest with cap\n");
+	    }
             break;
 	case WOOF_MSG_CREATE_CAP:
             WooFProcessCreatewithCAP(std::move(msg), receiver.get());
@@ -159,9 +206,11 @@ void WooFMsgThread() {
 #endif
         default:
             DEBUG_WARN("WooFMsgThread: unknown tag %d\n", int(tag));
+            printf("WooFMsgThread: unknown tag %d\n", int(tag));
             break;
         }
 
+	fflush(stdout);
         /*
          * wait for next request
          */
@@ -172,6 +221,9 @@ void WooFMsgThread() {
 printf("zmq: server failed to receive msg, creating new receiver\n");
     		receiver = ZServerPtr(zsock_new_rep(">inproc://workers"));
         	msg = Receive(*receiver);
+                Msg_id++;
+	} else {
+		Msg_id++;
 	}
     }
     printf("zmq msg server thread is exiting\n");

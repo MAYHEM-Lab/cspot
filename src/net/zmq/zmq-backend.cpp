@@ -22,7 +22,17 @@ void SendErr(unsigned long err, zsock_t* resp_sock)
 {
     auto resp_e = CreateMessage(std::to_string(-1));
     if(resp_e) {
-    	Send(std::move(resp_e), *resp_sock);
+    	if(Send(std::move(resp_e), *resp_sock)) {
+		Resp_id++;
+		if(Resp_id != Msg_id) {
+			printf("SendErr: double send\n");
+		}
+		else {
+			printf("SendErr: no send\n");
+		}
+	}
+    } else {
+	    printf("SendErr failed\n");
     }
     return;
 }
@@ -34,7 +44,16 @@ void SendNull(zsock_t* resp_sock)
     elem = {};
     auto resp_e = CreateMessage(elem);
     if (resp_e) {
-    	Send(std::move(resp_e), *resp_sock);
+    	if(Send(std::move(resp_e), *resp_sock)) {
+		Resp_id++;
+		if(Resp_id != Msg_id) {
+			printf("SendNull: double send\n");
+		} else {
+			printf("SendNull: no send\n");
+		}
+	}
+    } else {
+	    printf("SendNull failed\n");
     }
     return;
 }
@@ -114,7 +133,12 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGetElSize: Could not send response");
 	SendErr(-1,resp_sock);
+	return;
     }
+        Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("Put: double get el size %lu (%d %d)\n",el_size,Msg_id,Resp_id);
+	}
     return;
 }
 
@@ -341,9 +365,15 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
+        printf("WooFProcessPut: Could not send response");
         DEBUG_WARN("WooFProcessPut: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("Put: double send %lu (%d %d)\n",seq_no,Msg_id,Resp_id);
+	}
+	return;
 }
 
 void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
@@ -616,8 +646,14 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGet: Could not send response");
+        printf("WooFProcessGet: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("Get: double send %lu (%d %d)\n",seq_no,Msg_id,Resp_id);
+	}
+	return;
 }
 
 void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
@@ -727,9 +763,15 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
-        DEBUG_WARN("WooFProcessGet: Could not send response");
+        DEBUG_WARN("WooFProcessGetRange: Could not send response");
+        printf("WooFProcessGetRange: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("GetRange: double send\n");
+	}
+	return;
 }
 
 void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
@@ -1126,8 +1168,13 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGetLatestSeqno: Could not send response");
+        printf("WooFProcessGetLatestSeqno: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("GetLatestSeqno: double send %lu (%d %d)\n",latest_seq_no,Msg_id,Resp_id);
+	}
 }
 
 void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
@@ -1355,8 +1402,14 @@ printf("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_nam
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not send response");
+        printf("WooFProcessGetEarliestSeqno: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("GetEarliestSeqno: double send\n");
+	}
+	return;
 }
 
 void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
@@ -1575,9 +1628,15 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
-        DEBUG_WARN("WooFProcessGet: Could not send response");
+        DEBUG_WARN("WooFProcessGetTail: Could not send response");
+        printf("WooFProcessGetTail: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("GetTail: double send\n");
+	}
+	return;
 }
 
 void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
@@ -1844,7 +1903,12 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     		}
     		if (!Send(std::move(resp), *resp_sock)) {
         		DEBUG_WARN("WooFProcessCreatewithCAP: Could not send response");
+        		printf("WooFProcessCreatewithCAP: Could not send response");
 			return;
+		}
+		Resp_id++;
+		if(Resp_id != Msg_id) {
+			printf("Create: double send\n");
 		}
 		return;
 	}
