@@ -12,22 +12,6 @@
 #include <atomic>
 
 namespace cspot::zmq {
-#if 0
-class per_endpoint_data {
-public:
-    ZServerPtr server;
-    ZPollerPtr resp_poll;
-
-    ~per_endpoint_data() {
-        DEBUG_LOG("per_endpoint_data destructor\n");
-
-        resp_poll.reset();
-        server.reset();
-    }
-
-    static std::optional<per_endpoint_data> create(const std::string& ep);
-};
-#endif
 
 class per_endpoint_data {
 public:
