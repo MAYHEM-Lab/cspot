@@ -311,18 +311,20 @@ void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
             DEBUG_WARN("WooFProcessput:  no cap in message for %s, denined\n",local_name);
 	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
             DEBUG_WARN("WooFProcessput:  no cap in message but ns cap for %s, denined\n",local_name);
 	    SendErr(-1,resp_sock);
 	    return;
@@ -404,9 +406,17 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 
 	// backwards compatibility: no CAP => authorized
 	if(!wf_ns && !wf) {
@@ -554,18 +564,20 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
 	    SendNull(resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
 	    SendNull(resp_sock);
 	    return;
@@ -640,18 +652,20 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
 	    SendNull(resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
             DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
 	    SendNull(resp_sock);
 	    return;
@@ -769,10 +783,18 @@ void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 	// backwards compatibility: no CAP => authorized
 	if(!wf && !wf_ns) {
 		WooFProcessGet(std::move(req_msg),resp_sock,0);
@@ -919,10 +941,18 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 	// backwards compatibility: no CAP => authorized
 	if(!wf && !wf_ns) {
 		WooFProcessGet(std::move(req_msg),resp_sock,0);
@@ -1051,19 +1081,21 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) 
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
             DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
-	    WooFDrop(wfc);
+	    //WooFDrop(wfc);
 	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
             DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
-	    WooFDrop(wfc);
+	    //WooFDrop(wfc);
 	    SendErr(-1,resp_sock);
 	    return;
 	}
@@ -1149,10 +1181,18 @@ void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 	// backwards compatibility: no CAP => authorized
 	if(!wf && !wf_ns) {
 		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
@@ -1275,19 +1315,21 @@ void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
             DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
-	    WooFDrop(wfc);
+	    //WooFDrop(wfc);
 	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
             DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
-	    WooFDrop(wfc);
+	    //WooFDrop(wfc);
 	    SendErr(-1,resp_sock);
 	    return;
 	}
@@ -1369,10 +1411,18 @@ void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 	// backwards compatibility: no CAP => authorized
 	if(!wf && !wf_ns) {
 		WooFProcessGetEarliestSeqno(std::move(req_msg),resp_sock,0);
@@ -1483,16 +1533,18 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // if there is a cap there should not be one, error
     if(no_cap == 1) {
     	sprintf(cap_name,"%s.CAP",local_name);
-    	WOOF* wfc;
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
-    	wfc = WooFOpen(cap_name);
-    	if(wfc) {
-	    WooFDrop(wfc);
+	if(std::filesystem::exists(cap_name)) {
+    	//wfc = WooFOpen(cap_name);
+    	//if(wfc) {
+	    //WooFDrop(wfc);
 	    return;
 	}
     }
@@ -1572,7 +1624,11 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	char cap_name[1028] = {};
 	sprintf(cap_name,"%s.CAP",local_name);
 
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 	// backwards compatibility: no CAP => authorized
 	if(!wf) {
 		WooFProcessGetTail(std::move(req_msg),resp_sock,0);
@@ -1651,10 +1707,18 @@ void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	}
 	char cap_name[1028] = {};
 	strcpy(cap_name,"CSPOT.CAP");
-	wf_ns = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 
 	sprintf(cap_name,"%s.CAP",local_name);
-	wf = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 
 	// remote create requires a CAP
 	if(!wf && !wf_ns) {
