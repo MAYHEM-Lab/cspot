@@ -5,12 +5,16 @@
 #include <debug.h>
 #include <woofc-access.h>
 
+
 namespace cspot::zmq {
+extern thread_local int Msg_id;
+extern thread_local int Resp_id;
 
 struct endpoint_cache {
     std::unordered_map<std::string, per_endpoint_data> map;
 
     ~endpoint_cache() {
+	    printf("terminating %d sockets\n",map.size());
         map.clear();   // destroys pollers/sockets at thread exit
     }
 };
