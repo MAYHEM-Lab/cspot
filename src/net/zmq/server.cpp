@@ -17,13 +17,6 @@
 
 namespace cspot::zmq {
 namespace {
-#if 0
-void* m_zmq_ctx = nullptr;
-void* m_frontend = nullptr;
-void* m_backend = nullptr;
-std::thread m_proxy_thread;
-#endif
-
 int safe_stoul_to_int(const std::string& str) {
     try {
         size_t pos;
@@ -46,7 +39,6 @@ int safe_stoul_to_int(const std::string& str) {
     }
 }
 
-#define DEBUG
 void WooFMsgThread() {
 	Msg_id = 0;
 	Resp_id = 0;
@@ -69,8 +61,9 @@ void WooFMsgThread() {
     auto msg = Receive(*receiver);
     if(msg == NULL) {
             DEBUG_WARN("WooFMsgThread: NULL msg\n");
+    } else {
+	    Msg_id++;
     }
-    Msg_id++;
     while (msg) {
         DEBUG_LOG("WooFMsgThread: received");
 
@@ -99,6 +92,7 @@ void WooFMsgThread() {
 		DEBUG_LOG("WooFMsgThread: processing msg with bad tag\n");
 		printf("WooFMsgThread: processing msg with bad tag\n");
         	msg = Receive(*receiver);
+	        SendErr(-1,receiver.get());
 		continue;
 	}
         DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
@@ -185,28 +179,10 @@ void WooFMsgThread() {
 	case WOOF_MSG_CREATE_CAP:
             WooFProcessCreatewithCAP(std::move(msg), receiver.get());
             break;
-#ifdef DONEFLAG
-        case WOOF_MSG_GET_DONE:
-            WooFProcessGetDone(msg, receiver);
-            break;
-#endif
-#ifdef REPAIR
-        case WOOF_MSG_REPAIR:
-            WooFProcessRepair(msg, receiver);
-            break;
-        case WOOF_MSG_REPAIR_PROGRESS:
-            WooFProcessRepairProgress(msg, receiver);
-            break;
-        case LOG_GET_REMOTE_SIZE:
-            LogProcessGetSize(msg, receiver);
-            break;
-        case LOG_GET_REMOTE:
-            LogProcessGet(msg, receiver);
-            break;
-#endif
         default:
             DEBUG_WARN("WooFMsgThread: unknown tag %d\n", int(tag));
             printf("WooFMsgThread: unknown tag %d\n", int(tag));
+	    SendErr(-1,receiver.get());
             break;
         }
 
@@ -218,7 +194,7 @@ void WooFMsgThread() {
 	if(!msg) {
 		// if something went wrong, next recive will fail
 //		zsock_destroy(receiver);
-printf("zmq: server failed to receive msg, creating new receiver\n");
+	        printf("zmq: server failed to receive msg, creating new receiver\n");
     		receiver = ZServerPtr(zsock_new_rep(">inproc://workers"));
         	msg = Receive(*receiver);
                 Msg_id++;
@@ -227,7 +203,6 @@ printf("zmq: server failed to receive msg, creating new receiver\n");
 	}
     }
     printf("zmq msg server thread is exiting\n");
-#undef DEBUG
     return; // will cause thread to exit
 }
 } // namespace
@@ -307,81 +282,4 @@ bool backend::stop() {
     return true;
 }
 
-#if 0
-bool backend::listen(std::string_view ns) {
-    m_stop_called = false;
-
-    std::string woof_namespace(ns);
-    DEBUG_FATAL_IF(woof_namespace.empty(), "WooFMsgServer: couldn't find namespace");
-
-    auto port = WooFPortHash(woof_namespace.c_str());
-    auto endpoint = fmt::format("tcp://*:{}", port);
-
-    printf("zmq configured for namespace %s on port %d\n",
-           woof_namespace.c_str(), port);
-    fflush(stdout);
-
-    DEBUG_LOG("WooFMsgServer: frontend at %s\n", endpoint.c_str());
-
-    m_zmq_ctx = zmq_ctx_new();
-    if (!m_zmq_ctx) {
-        perror("zmq_ctx_new");
-        return false;
-    }
-
-    m_frontend = zmq_socket(m_zmq_ctx, ZMQ_ROUTER);
-    if (!m_frontend) {
-        perror("zmq_socket ROUTER");
-        zmq_ctx_term(m_zmq_ctx);
-        m_zmq_ctx = nullptr;
-        return false;
-    }
-
-    m_backend = zmq_socket(m_zmq_ctx, ZMQ_DEALER);
-    if (!m_backend) {
-        perror("zmq_socket DEALER");
-        zmq_close(m_frontend);
-        zmq_ctx_term(m_zmq_ctx);
-        m_frontend = nullptr;
-        m_zmq_ctx = nullptr;
-        return false;
-    }
-
-    if (zmq_bind(m_frontend, endpoint.c_str()) != 0) {
-        perror("zmq_bind frontend");
-        zmq_close(m_backend);
-        zmq_close(m_frontend);
-        zmq_ctx_term(m_zmq_ctx);
-        m_backend = nullptr;
-        m_frontend = nullptr;
-        m_zmq_ctx = nullptr;
-        return false;
-    }
-
-    if (zmq_bind(m_backend, "inproc://workers") != 0) {
-        perror("zmq_bind backend");
-        zmq_close(m_backend);
-        zmq_close(m_frontend);
-        zmq_ctx_term(m_zmq_ctx);
-        m_backend = nullptr;
-        m_frontend = nullptr;
-        m_zmq_ctx = nullptr;
-        return false;
-    }
-
-    m_proxy_thread = std::thread([this]() {
-        int rc = zmq_proxy(m_frontend, m_backend, nullptr);
-
-        if (rc != 0 && !m_stop_called) {
-            perror("zmq_proxy");
-        }
-    });
-
-    for (auto& t : m_threads) {
-        t = std::thread(WooFMsgThread);
-    }
-
-    return true;
-}
-#endif
 } // namespace cspot::zmq

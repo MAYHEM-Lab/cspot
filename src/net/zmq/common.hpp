@@ -33,7 +33,7 @@ void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
 void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* receiver);
 
-
+void SendErr(unsigned long err, zsock_t *receiver);
 
 std::optional<std::string> endpoint_from_woof(std::string_view woof_name);
 } // namespace cspot::zmq
