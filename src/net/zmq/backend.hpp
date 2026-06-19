@@ -74,7 +74,7 @@ private:
     ThreadMapT m_per_thread_socks;
 
     //std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
-    std::vector<std::thread> m_threads{256};
+    std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
 
     ZActorPtr m_proxy;
     std::atomic<bool> m_stop_called = false;
