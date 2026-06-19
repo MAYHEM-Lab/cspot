@@ -27,9 +27,8 @@ void SendErr(unsigned long err, zsock_t* resp_sock)
 		if(Resp_id != Msg_id) {
 			printf("SendErr: double send\n");
 		}
-		else {
-			printf("SendErr: no send\n");
-		}
+	} else {
+		printf("SendErr: saidn failed\n");
 	}
     } else {
 	    printf("SendErr failed\n");
