@@ -1739,161 +1739,6 @@ int WooFReadWithCause(
     return (1);
 }
 
-int WooFReadWithCauseOld(
-    WOOF* wf, void* element, unsigned long seq_no, unsigned long cause_host, unsigned long cause_seq_no) 
-{
-    int err;
-    unsigned char* buf;
-    unsigned char* ptr;
-    WOOF_SHARED* wfs;
-    unsigned long oldest;
-    unsigned long youngest;
-    unsigned long last_valid;
-    unsigned long ndx;
-    ELID* el_id;
-    EVENT* ev;
-    unsigned long ls;
-    unsigned long l_seq_no;
-
-    wfs = wf->shared;
-
-    buf = (unsigned char*)(((char*)wfs) + sizeof(WOOF_SHARED));
-
-    P(&wfs->mutex);
-
-    if(seq_no == 0) { // use 0 to indicate read end of log
-	if(wfs->seq_no == 0) {
-#ifdef DEBUG
-		fprintf(stdout,"reading empty woof %s\n",
-			wfs->filename);
-#endif
-		V(&wfs->mutex);
-		return(-1);
-	}
-	l_seq_no = wfs->seq_no - 1;
-    } else {
-	l_seq_no = seq_no;
-    }
-
-    ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
-    el_id = (ELID*)(ptr + wfs->element_size);
-    youngest = el_id->seq_no;
-
-    last_valid = wfs->tail;
-    ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
-    el_id = (ELID*)(ptr + wfs->element_size);
-    oldest = el_id->seq_no;
-
-    if (oldest == 0) { /* haven't wrapped yet */
-        last_valid++;
-        ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
-        el_id = (ELID*)(ptr + wfs->element_size);
-        oldest = el_id->seq_no;
-    }
-
-#ifdef DEBUG
-    fprintf(stdout,
-            "WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
-            "%lu old: %lu young: %lu\n",
-            wfs->head,
-            wfs->tail,
-            wfs->history_size,
-            last_valid,
-            l_seq_no,
-            oldest,
-            youngest);
-#endif
-
-    /*
-     * is the seq_no between head and tail ndx?
-     */
-    if ((l_seq_no < oldest) || (l_seq_no > youngest)) {
-        V(&wfs->mutex);
-        fprintf(stdout,
-                "WooFReadWithCause: seq_no not in range: seq_no: %lu, oldest: %lu, "
-                "youngest: %lu\n",
-                l_seq_no,
-                oldest,
-                youngest);
-        fflush(stdout);
-        return (-1);
-    }
-
-    /*
-     * yes, compute ndx forward from last_valid ndx
-     */
-    ndx = (last_valid + (l_seq_no - oldest)) % wfs->history_size;
-
-    DEBUG_LOG("WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
-              "%lu old: %lu young: %lu ndx: %lu\n",
-              wfs->head,
-              wfs->tail,
-              wfs->history_size,
-              last_valid,
-              l_seq_no,
-              oldest,
-              youngest,
-              ndx);
-
-    ptr = buf + (ndx * (wfs->element_size + sizeof(ELID)));
-    el_id = (ELID*)(ptr + wfs->element_size);
-    DEBUG_LOG("WooFReadWithCause: seq_no: %lu, found seq_no: %lu\n", l_seq_no, el_id->seq_no);
-    memcpy(element, ptr, wfs->element_size);
-    V(&wfs->mutex);
-
-#ifdef CAUSAL
-
-    ev = EventCreate(READ, Name_id);
-    if (ev == NULL) {
-        fprintf(stderr, "WooFReadWithCause: failed to create event\n");
-        fflush(stderr);
-        return (-1);
-    }
-    err = EventSetCause(ev, cause_host, cause_seq_no);
-    if (err != 0) {
-        fprintf(stderr, "WooFReadWithCause: failed to set event cause\n");
-        fflush(stderr);
-        EventFree(ev);
-        return (-1);
-    }
-
-    memset(ev->woofc_namespace, 0, sizeof(ev->woofc_namespace));
-    strncpy(ev->woofc_namespace, WooF_namespace, sizeof(ev->woofc_namespace));
-    DEBUG_LOG("WooFReadWithCause: namespace: %s\n", ev->woofc_namespace);
-
-    ev->woofc_ndx = ndx;
-    DEBUG_LOG("WooFReadWithCause: ndx: %lu\n", ev->woofc_ndx);
-    ev->woofc_seq_no = l_seq_no;
-    DEBUG_LOG("WooFReadWithCause: seq_no: %lu\n", ev->woofc_seq_no);
-    ev->woofc_element_size = wfs->element_size;
-    DEBUG_LOG("WooFReadWithCause: element_size %lu\n", ev->woofc_element_size);
-    ev->woofc_history_size = wfs->history_size;
-    DEBUG_LOG("WooFReadWithCause: history_size %lu\n", ev->woofc_history_size);
-    memset(ev->woofc_name, 0, sizeof(ev->woofc_name));
-    strncpy(ev->woofc_name, wfs->filename, sizeof(ev->woofc_name));
-    DEBUG_LOG("WooFReadWithCause: name %s\n", ev->woofc_name);
-
-    ev->ino = wf->ino;
-    DEBUG_LOG("WooFReadWithCause: ino %lu\n", ev->ino);
-
-    /*
-     * log the event so that it can be triggered
-     */
-    auto log_name = fmt::format("{}/{}", WooF_namelog_dir, Namelog_name);
-    DEBUG_LOG("WooFReadWithCause: logging event to %s\n", log_name.c_str());
-
-    ls = LogEvent(Name_log, ev);
-    if (ls == 0) {
-        DEBUG_WARN("WooFReadWithCause: couldn't log event to log %s\n", log_name.c_str());
-        EventFree(ev);
-    }
-
-    DEBUG_LOG("WooFReadWithCause: logged %lu for woof %s %s\n", ls, ev->woofc_name, ev->woofc_handler);
-
-    EventFree(ev);
-#endif
-    return (1);
-}
 unsigned long WooFEarliest(WOOF* wf) {
     unsigned long earliest;
     WOOF_SHARED* wfs;
@@ -2924,21 +2769,28 @@ unsigned long WooFIndexFromSeqno(WOOF* wf, unsigned long seq_no) {
 
     wfs = wf->shared;
 
-    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
-    ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
-    el_id = (ELID*)(ptr + wfs->element_size);
-    youngest = el_id->seq_no;
+//    buf = (unsigned char*)(((void*)wfs) + sizeof(WOOF_SHARED));
+//    ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
+//    el_id = (ELID*)(ptr + wfs->element_size);
+    youngest = (wfs->seq_no-1);
+    //youngest = el_id->seq_no;
 
     last_valid = wfs->tail;
-    ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
-    el_id = (ELID*)(ptr + wfs->element_size);
-    oldest = el_id->seq_no;
+//    ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
+//    el_id = (ELID*)(ptr + wfs->element_size);
+    oldest = WooFGetLatest((wf);
+    //oldest = el_id->seq_no;
 
+#if 0
     if (oldest == 0) { /* haven't wrapped yet */
         last_valid++;
         ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
         el_id = (ELID*)(ptr + wfs->element_size);
         oldest = el_id->seq_no;
+    }
+#endif
+    if(last_valid == 0) { // hasn't wraped yet
+		last_valid++;
     }
 
     if ((seq_no < oldest) || (seq_no > youngest)) {
