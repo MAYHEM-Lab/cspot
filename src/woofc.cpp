@@ -1391,6 +1391,22 @@ unsigned long WooFGetLatestSeqnoWithCause(const char* wf_name,
     return (latest_seq_no);
 }
 
+unsigned long WooFGetEarliest(WOOF *wf)
+{
+    unsigned long latest_seq_no;
+    unsigned long earliest_seq_no;
+
+    latest_seq_no = wf->shared->seq_no - 1;
+    // if woof has wrapped already
+    if(((wf->shared->head+1)%wf->shared->history_size) == wf->shared->tail) {
+        earliest_seq_no = latest_seq_no - wf->shared->history_size + 1;
+    } else {
+        earliest_seq_no = latest_seq_no - wf->shared->head + 1;
+    }
+
+    return(earliest_seq_no);
+}
+
 unsigned long WooFGetEarliestSeqno(const char* wf_name)
 {
     WOOF* wf;
@@ -1452,17 +1468,12 @@ unsigned long WooFGetEarliestSeqno(const char* wf_name)
     }
     DEBUG_LOG("WooFGetEarliestSeqno: WooF %s open\n", wf_name);
 //    latest_seq_no = WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof_name, cause_woof_latest_seq_no);
-    latest_seq_no = wf->shared->seq_no - 1;
-    // if woof has wrapped already
-    if(((wf->shared->head+1)%wf->shared->history_size) == wf->shared->tail) {
-    	earliest_seq_no = latest_seq_no - wf->shared->history_size + 1;
-    } else {
-	earliest_seq_no = latest_seq_no - wf->shared->head + 1;
-    } 
+    earliest_seq_no = WooFGetEarliest(wf);
     WooFDrop(wf);
 
     return (earliest_seq_no);
 }
+
 int WooFReadTail(WOOF* wf, void* elements, int element_count) {
     int i;
     unsigned long ndx;
@@ -1609,6 +1620,10 @@ int WooFReadWithCause(
     ptr = buf + (wfs->head * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
     youngest = el_id->seq_no;
+    if(youngest != (wf->shared->seq_no-1)) {
+	    printf("MISMATCH: youngest: %lu latest: %lu\n",
+			    oldest, wf->shared->seq_no-1);
+    }
 
     if(wfs->tail == 0) { // has not wrapped
     	last_valid = 1;
@@ -1618,6 +1633,11 @@ int WooFReadWithCause(
     ptr = buf + (last_valid * (wfs->element_size + sizeof(ELID)));
     el_id = (ELID*)(ptr + wfs->element_size);
     oldest = el_id->seq_no;
+
+    if(oldest != WooFGetEarliest(wf)) {
+	    printf("MISMATCH: oldest: %lu earliest: %lu\n",
+			    oldest, WooFGetEarliest(wf));
+    }
 
     DEBUG_LOG("WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
             "%lu old: %lu young: %lu\n",
