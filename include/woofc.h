@@ -37,8 +37,8 @@ int WooFLocalIP(char* ip_str, int len);
 #define WOOFNAMESIZE (256)
 unsigned long WooFGetElSize(WOOF* wf, const char* wf_name);
 
-const char* WoofGetFileName(WOOF* wf);
-#define WooFGetFileName WoofGetFileName
+const char* WooFGetFileName(WOOF* wf);
+#define WoofGetFileName WooFGetFileName
 
 extern int WooF_is_server; // for signal installation
 
