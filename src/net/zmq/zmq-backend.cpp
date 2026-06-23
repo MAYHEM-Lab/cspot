@@ -608,9 +608,9 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
             elem = {};
         }
         WooFDrop(wf);
+    	DEBUG_LOG("WooFProcessGet: responding with element size %d\n",esize);
     }
 
-    DEBUG_LOG("WooFProcessGet: responding with element size %d\n",esize);
     auto resp = CreateMessage(elem);
     if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
