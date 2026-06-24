@@ -1,0 +1,20 @@
+# Easy compilation of cspot using provided Dockerfile
+
+The dockerfile mounts the root of the repository and compiles it. 
+Output binaries are in `build/bin`
+
+This does assume you have cloned and ran `git submodule update --init
+--recursive` first.
+
+
+## Steps:
+
+> All steps assume that your working directory is the root of the repository.
+
+Steps:
+1. Create the compiler docker image.
+`sudo docker build . -t cspot-compiler`
+
+2. Run `./build.sh` to compile. This passes in the right arguments into `docker run`. 
+
+3. Have fun cspoting :)
