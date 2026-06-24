@@ -3,8 +3,8 @@
 The dockerfile mounts the root of the repository and compiles it. 
 Output binaries are in `build/bin`
 
-This does assume you have cloned and ran `git submodule update --init
---recursive` first.
+This does assume you have cloned and ran 
+`git submodule update --init --recursive` first.
 
 
 ## Steps:
