@@ -17,7 +17,35 @@
 #include <woofc-priv.h>
 
 void WooFDrop(WOOF* wf);
+namespace {
+bool IsRemoteWoof(const char* wf_name) {
+    auto ns_ip = cspot::ip_from_uri(wf_name);
+    /*
+     * if there is no IP address in the URI, use the local IP address
+     */
+    if (!ns_ip) {
+        ns_ip = cspot::local_ip();
+        DEBUG_FATAL_IF(!ns_ip, "WooFPut: no local IP\n");
+    }
 
+    auto my_ip = cspot::local_ip();
+    DEBUG_FATAL_IF(!my_ip, "WooFPut: no local IP\n");
+
+    auto wf_namespace = cspot::ns_from_uri(wf_name);
+
+    /*
+     * if this isn't for my namespace, try and remote put
+     *
+     * if namespace paths do not match or they do match but the IP addresses do not match,
+     * this is a remote put
+     */
+    if (wf_namespace && (WooF_namespace != *wf_namespace || *my_ip != *ns_ip)) {
+        return true;
+    }
+
+    return false;
+}
+} //namespace
 /*
  * creates or recreates a woof with #name#, with elements that are #element_size# bytes each, and 
  * #history_size# elements.  The circular buffer is reset.  The code attempts to determine
@@ -132,6 +160,9 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 	InitSem(&wfs->mutex, 1);
 	InitSem(&wfs->tail_wait, history_size);
 
+	wfs->watermark = CSPOT_WATERMARK;
+	wfs->version = CSPOT_VERSION;
+
 	MIOClose(mio);
 
 	return (1);
@@ -241,6 +272,51 @@ int WooFSetSeqno(char *name, unsigned long new_seqno)
 	return (1);
 }
 
+void WooFWatermark(char *name)
+{
+	WOOF_SHARED* wfs;
+	MIO* mio;
+	unsigned long space;
+	char local_name[4096] = {};
+	char temp_name[4096] = {};
+	char fname[1024];
+	char ip_str[25] = {};
+	int err;
+	int is_local;
+
+	if (name == NULL) {
+		return;
+	}
+
+	if (WooF_dir[0] == 0) {
+		fprintf(stderr, "WooFWatermark: must init system\n");
+		fflush(stderr);
+		return;
+	}
+
+	if(IsRemoteWoof(name)) {
+		fprintf(stderr,"WooFWatermark only works locally\n");
+		return;
+	}
+
+	// reopen the woof without resetting it
+	mio = MIOReOpen(name);
+	if (mio == NULL) {
+		fprintf(stderr, "WooFWatermark: couldn't open %s\n", local_name);
+		return;
+	}
+
+	wfs = (WOOF_SHARED*)MIOAddr(mio);
+
+	// CAREFUL -- this cannt check the target to see if
+	// it is a mio
+	wfs->watermark = CSPOT_WATERMARK;
+
+	MIOClose(mio);
+
+	return;
+}
+
 WOOF* WooFOpen(const char* name) 
 {
 	WOOF* wf;
@@ -309,6 +385,12 @@ WOOF* WooFOpen(const char* name)
 	memset(wf, 0, sizeof(WOOF));
 
 	wf->shared = (WOOF_SHARED*)MIOAddr(mio);
+	if(wf->shared->watermark != CSPOT_WATERMARK) {
+		fprintf(stderr, "WooFOpen: can't find watermark in %s, failed\n", local_name);
+		free(wf);
+		MIOClose(mio);
+		return(NULL);
+	}
 	wf->mio = mio;
 	// DEPRECATED
 	wf->ino = sbuf.st_ino;
@@ -762,36 +844,6 @@ unsigned long WooFAppendWithCause(
 	V(&wfs->tail_wait);
 	return (seq_no);
 }
-
-namespace {
-bool IsRemoteWoof(const char* wf_name) {
-    auto ns_ip = cspot::ip_from_uri(wf_name);
-    /*
-     * if there is no IP address in the URI, use the local IP address
-     */
-    if (!ns_ip) {
-        ns_ip = cspot::local_ip();
-        DEBUG_FATAL_IF(!ns_ip, "WooFPut: no local IP\n");
-    }
-
-    auto my_ip = cspot::local_ip();
-    DEBUG_FATAL_IF(!my_ip, "WooFPut: no local IP\n");
-
-    auto wf_namespace = cspot::ns_from_uri(wf_name);
-
-    /*
-     * if this isn't for my namespace, try and remote put
-     *
-     * if namespace paths do not match or they do match but the IP addresses do not match,
-     * this is a remote put
-     */
-    if (wf_namespace && (WooF_namespace != *wf_namespace || *my_ip != *ns_ip)) {
-        return true;
-    }
-
-    return false;
-}
-} // namespace
 
 unsigned long WooFPut(const char* wf_name, const char* wf_handler, const void* element) 
 {

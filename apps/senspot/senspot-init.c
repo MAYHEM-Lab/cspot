@@ -8,9 +8,10 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:s:R:"
+#define ARGS "W:s:R:M:"
 char *Usage = "senspot-init -W woof_name\n\
 \t-s (history size in number of elements)\n\
+	\t-M payload_size (default is 1K)\n\
 \t-R reset-sequence-number (and do not init)\n";
 
 char Wname[4096];
@@ -29,12 +30,17 @@ int main(int argc, char **argv)
 	SENSPOT spt;
 	char wname[4096];
 	unsigned long history_size;
+	int payload_size;
 
 	memset(wname,0,sizeof(wname));
 	history_size = 0;
+	payload_size = 1024;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
+			case 'M':
+				payload_size = atoi(optarg);
+				break;
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
 				break;
@@ -74,7 +80,7 @@ int main(int argc, char **argv)
 	WooFInit();
 
 	if(history_size > 0) {
-		err = WooFCreate(wname,sizeof(SENSPOT),history_size);
+		err = WooFCreate(wname,sizeof(SENSPOT_HEADER) + payload_size,history_size);
 		if(err < 0) {
 			fprintf(stderr,"senspot-init failed for %s with history size %lu\n",
 				wname,

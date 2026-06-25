@@ -26,6 +26,20 @@ struct senspot_stc
 
 typedef struct senspot_stc SENSPOT;
 
+struct senspot_stc_hdr
+{
+	char type;
+	Hval value;
+	char ip_addr[25];
+	unsigned int tv_sec;
+	unsigned int tv_usec;
+	unsigned int dedup_seqno;
+	unsigned int send_size; // for file xfer
+	// payload starts here
+};
+
+typedef struct senspot_stc_hdr SENSPOT_HEADER;
+
 struct senspot_file_stc
 {
 	unsigned int proto;
@@ -66,7 +80,7 @@ typedef struct senspot_file_mv_str SENSMV;
 unsigned int LastFileVersion(char *wname);
 
 void SenspotPrint(SENSPOT *spt, unsigned long seq_no);
-void SenspotAssign(SENSPOT *spt, char type, char *v);
+void SenspotAssign(SENSPOT *spt, char type, char *v, int size);
 
 struct senspot_forward_stc
 {

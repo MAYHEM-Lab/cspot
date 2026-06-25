@@ -118,12 +118,14 @@ int main(int argc, char **argv)
 			"senspot-get: no space for element\n");
 			exit(1);
 		}
-		// for older platforms that do not have range
+#if 0
 		if(count == 1) {
 			recvd = WooFGet(wname,spt,seq_no);
 		} else {
 			recvd = WooFGetRange(wname,spt,seq_no,count);
 		}
+#endif
+		recvd = WooFGetRange(wname,spt,seq_no,count);
 		if(recvd < 0) {
 			fprintf(stderr,"senspot-get failed for %s\n",
 			wname);
@@ -146,12 +148,15 @@ int main(int argc, char **argv)
 			"senspot-get: no space for element\n");
 			exit(1);
 		}
+ #if 0
 		// older platforms do not have range msg type
 		if(count == 1) {
 			recvd = WooFMsgGet(wname,spt,el_size,seq_no);
 		} else {
 			recvd = WooFGetRange(wname,spt,seq_no,count);
 		}
+#endif
+		recvd = WooFGetRange(wname,spt,seq_no,count);
 		if(recvd < 0) {
 			fprintf(stderr,"senspot-get failed for %s\n",
 			wname);

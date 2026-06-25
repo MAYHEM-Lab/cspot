@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#define CSPOT_VERSION (3.0)
+
 typedef struct woof_stc WOOF;
 
 int WooFInit();

@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	SenspotAssign(spt,type,(char *)input_buf);
+	SenspotAssign(spt,type,(char *)input_buf,sizeof(input_buf));
 	WooFLocalIP(spt->ip_addr,sizeof(spt->ip_addr));
 	gettimeofday(&tm,NULL);
 	spt->tv_sec = htonl(tm.tv_sec);
