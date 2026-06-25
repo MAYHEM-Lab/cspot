@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	spt = (SENSPOT *)malloc((16*1024)+sizeof(SENSPOT));
+	spt = (SENSPOT *)malloc((16*1024)+sizeof(SENSPOT_HEADER));
 	if(spt == NULL) {
 		exit(1);
 	}

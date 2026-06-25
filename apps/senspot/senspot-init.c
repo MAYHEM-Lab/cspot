@@ -11,7 +11,7 @@
 #define ARGS "W:s:R:M:"
 char *Usage = "senspot-init -W woof_name\n\
 \t-s (history size in number of elements)\n\
-	\t-M payload_size (default is 1K)\n\
+	\t-M payload_size in K (default is 1K)\n\
 \t-R reset-sequence-number (and do not init)\n";
 
 char Wname[4096];
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'M':
-				payload_size = atoi(optarg);
+				payload_size = atoi(optarg) * 1024;
 				break;
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));

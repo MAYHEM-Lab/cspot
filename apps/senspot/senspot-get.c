@@ -104,71 +104,36 @@ int main(int argc, char **argv)
 		seq_no = WooFGetLatestSeqno(wname);
 	}
 	if(uselocal == 1) {
-		// NULL says it is local
+		// NULL says it is local -- use local API
 		el_size = WooFGetElSize(NULL,wname);
-		if(el_size == (unsigned long)-1) {
-			fprintf(stderr,
-			"senspot-get: could not get element size for %s\n",
-			wname);
-			exit(1);
-		}
-		spt = (SENSPOT *)malloc(count * el_size); 
-		if(spt == NULL) {
-			fprintf(stderr,
-			"senspot-get: no space for element\n");
-			exit(1);
-		}
-#if 0
-		if(count == 1) {
-			recvd = WooFGet(wname,spt,seq_no);
-		} else {
-			recvd = WooFGetRange(wname,spt,seq_no,count);
-		}
-#endif
-		recvd = WooFGetRange(wname,spt,seq_no,count);
-		if(recvd < 0) {
-			fprintf(stderr,"senspot-get failed for %s\n",
-			wname);
-			fflush(stderr);
-			exit(1);
-		}
 	} else {
 		// let remote woof determine size
 		// use MsgGet to avpid an extra GetElSize
 		el_size = WooFMsgGetElSize(wname);
-		if(el_size == (unsigned long)-1) {
-			fprintf(stderr,
-			"senspot-get: could not get element size for %s\n",
-			wname);
-			exit(1);
-		}
-		spt = (SENSPOT *)malloc(count*el_size);
-		if(spt == NULL) {
-			fprintf(stderr,
-			"senspot-get: no space for element\n");
-			exit(1);
-		}
- #if 0
-		// older platforms do not have range msg type
-		if(count == 1) {
-			recvd = WooFMsgGet(wname,spt,el_size,seq_no);
-		} else {
-			recvd = WooFGetRange(wname,spt,seq_no,count);
-		}
-#endif
-		recvd = WooFGetRange(wname,spt,seq_no,count);
-		if(recvd < 0) {
-			fprintf(stderr,"senspot-get failed for %s\n",
-			wname);
-			fflush(stderr);
-			exit(1);
-		}
 	}
 
+	if(el_size == (unsigned long)-1) {
+		fprintf(stderr,
+		"senspot-get: could not get element size for %s\n",
+		wname);
+		exit(1);
+	}
+	spt = (SENSPOT *)malloc(count * el_size); 
+	if(spt == NULL) {
+		fprintf(stderr,
+		"senspot-get: no space for element\n");
+		exit(1);
+	}
+	recvd = WooFGetRange(wname,spt,seq_no,count);
+	if(recvd < 0) {
+		fprintf(stderr,"senspot-get failed for %s\n",
+		wname);
+		fflush(stderr);
+		exit(1);
+	}
 
 	r_seq_no = seq_no;
 	e_p = (unsigned char *)spt;
-//printf("recvd: %d\n",recvd);
 	for(i=0; i < recvd; i++) {
 		SenspotPrint((SENSPOT *)e_p,r_seq_no);
 		r_seq_no++;
