@@ -175,11 +175,26 @@ void *GetThread(void *arg)
 	struct timespec ts;
 	int started = 0;
 	unsigned long o_seq_no;
+	unsigned long el_size;
 	
 	
 //	sleep(10);
+//
+	
+	el_size = WooFGetElSize(NULL,Oname);
+	if(el_size == (unsigned long)-1) {
+		printf("could not get ElSize for %s\n",Oname);
+		pthread_exit(NULL);
+	}
 
-	st = (ST_EL *)malloc(Payload_size);
+	if(el_size < Payload_size) {
+		el_size = Payload_size;
+	}
+	st = (ST_EL *)malloc(el_size);
+	if(st == NULL) {
+		printf("could not get %lu bytes in get thread\n",el_size);
+		pthread_exit(NULL);
+	}
 	if(IsLatency == 0) {
 		ts.tv_sec = 0;
 		ts.tv_nsec = 1000000;  /* 2 ms wait time on get */
