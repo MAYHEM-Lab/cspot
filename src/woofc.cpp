@@ -898,6 +898,10 @@ unsigned long WooFGetElSize(WOOF* wf, const char* wf_name)
 {
 	unsigned long el_size;
 
+	if(IsRemoteWoof(wf_name)) {
+		return WooFMsgGetElSize(wf_name);
+	}
+
 	// NULL first param => use string
 	if(wf == NULL) {
 		wf = WooFOpen(wf_name);
@@ -908,11 +912,7 @@ unsigned long WooFGetElSize(WOOF* wf, const char* wf_name)
 		WooFDrop(wf);
 		return(el_size);
 	}
-	if (IsRemoteWoof(wf_name)) {
-		return WooFMsgGetElSize(wf_name);
-	} else {
-		return wf->shared->element_size;
-	}
+	return wf->shared->element_size;
 }
 
 const char* WooFGetFileName(WOOF* wf)
