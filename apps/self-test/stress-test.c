@@ -165,7 +165,7 @@ void *PutThread(void *arg)
 
 void *GetThread(void *arg)
 {
-	ST_EL st;
+	ST_EL *st;
 	char Oname[4096];
 	unsigned long seq_no = -1;
 	int err;
@@ -179,6 +179,7 @@ void *GetThread(void *arg)
 	
 //	sleep(10);
 
+	st = (ST_EL *)malloc(Payload_size);
 	if(IsLatency == 0) {
 		ts.tv_sec = 0;
 		ts.tv_nsec = 1000000;  /* 2 ms wait time on get */
@@ -221,7 +222,7 @@ void *GetThread(void *arg)
 					} else if(Mixed_mode == 1) {
 						ChangeXport(Oname,"woof");
 					}
-					err = WooFGet(Oname,&st,o_seq_no);
+					err = WooFGet(Oname,st,o_seq_no);
 					if(err < 0) {
 						printf("get of seq_no %lu failed, retrying\n",seq_no);
 						retries++;
@@ -230,7 +231,7 @@ void *GetThread(void *arg)
 						}
 						continue;
 					}
-					if(st.seq_no == seq_no) {
+					if(st->seq_no == seq_no) {
 //printf("FOUND %s %lu for %lu\n",Oname,o_seq_no,seq_no);
 						break;
 					}
@@ -246,12 +247,12 @@ void *GetThread(void *arg)
 				}
 				break;
 			}
-			if((retries == RETRIES) || (o_seq_no == 0) || (st.seq_no != seq_no)) {
+			if((retries == RETRIES) || (o_seq_no == 0) || (st->seq_no != seq_no)) {
 				printf("FAIL to get seq_no %lu\n",seq_no);
 				fflush(stdout);
 			} else {
-				elapsed=(st.fielded.tv_sec * 1000000.0 + st.fielded.tv_usec) -
-					(st.posted.tv_sec * 1000000.0 + st.posted.tv_usec);
+				elapsed=(st->fielded.tv_sec * 1000000.0 + st->fielded.tv_usec) -
+					(st->posted.tv_sec * 1000000.0 + st->posted.tv_usec);
 				elapsed = elapsed / 1000;
 				if(Verbose == 1) {
 					printf("seq_no %lu latency %f\n",seq_no,elapsed);
