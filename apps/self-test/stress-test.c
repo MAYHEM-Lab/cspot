@@ -181,12 +181,18 @@ void *GetThread(void *arg)
 //	sleep(10);
 //
 	
+	if(IsLatency == 0) {
+		ts.tv_sec = 0;
+		ts.tv_nsec = 1000000;  /* 2 ms wait time on get */
+	}
+	MAKE_EXTENDED_NAME(Oname,Wname,"output");
+//printf("Get: %ld starting with %s\n",pthread_self(), Oname);
+//fflush(stdout);
 	el_size = WooFGetElSize(NULL,Oname);
 	if(el_size == (unsigned long)-1) {
 		printf("could not get ElSize for %s\n",Oname);
 		pthread_exit(NULL);
 	}
-
 	if(el_size < Payload_size) {
 		el_size = Payload_size;
 	}
@@ -195,13 +201,6 @@ void *GetThread(void *arg)
 		printf("could not get %lu bytes in get thread\n",el_size);
 		pthread_exit(NULL);
 	}
-	if(IsLatency == 0) {
-		ts.tv_sec = 0;
-		ts.tv_nsec = 1000000;  /* 2 ms wait time on get */
-	}
-	MAKE_EXTENDED_NAME(Oname,Wname,"output");
-//printf("Get: %ld starting with %s\n",pthread_self(), Oname);
-//fflush(stdout);
 	while((Done == 0) || (Pending->first != NULL) ||
 			(started == 0)) {
 		if(IsLatency == 0) {
