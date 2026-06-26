@@ -18,6 +18,13 @@
 
 extern "C" {
 extern int handler(WOOF* wf, unsigned long seq_no, void* farg);
+#if defined(__APPLE__) && defined(__MACH__)
+__attribute__((used, section("__DATA,__cspotwm")))
+const char cspot_handler_watermark[] = "CODEBASE=cspot;VERSION=3.0\n";
+#else
+__attribute__((used, section(".note.my_codebase")))
+const char cspot_handler_watermark[] = "CODEBASE=cspot;VERSION=3.0\n";
+#endif
 }
 
 int main(int argc, char** argv, char** envp) {
