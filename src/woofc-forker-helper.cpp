@@ -390,6 +390,13 @@ int main(int argc,char **argv, char **env)
 			fprintf(stdout,"woofc-forker-helper: handler %s failed watermark check\n",
 					fargv[0]);
 #endif
+			// release thread in the container waiting for a reply
+			err = write(2,&c,1);
+			if(err < 1) {
+				printf("woof-forker-helper: ERROR sending response signal for unwatermarked handler %s\n",
+						fargv[0]);
+				fflush(stdout);
+			}
 			continue;
 		}
 
