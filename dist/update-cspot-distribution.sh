@@ -22,6 +22,7 @@ if [[ "$CMD" != "" && "$CMD" != "lib" && "$CMD" != "bin" && "$CMD" != "all" ]] ;
 fi
 
 KEYCHAIN="$HOME/.cspot/capabilities.yaml"
+
 PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
 BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
 BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
@@ -104,76 +105,146 @@ if ( ! test -e "$HERE/update-cspot-distribution.sh" ) ; then
 	chmod 700 $HERE/update-cspot-distribution.sh
 fi
 
-OK=0
+BINOK=0
 if [[ "$CMD" == "bin" || "$CMD" == "all" || "$CMD" == "" ]] ; then
+	echo "contacting repo at $PRIMARY for bin software"
 	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $PRIMARY/cspot-"$TYPE"-bin.woof
 	if ( test $? -eq 0 ) ; then
 		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $PRIMARY/cspot-"$TYPE"-bin-sha256.woof
 		if ( test $? -eq 0 ) ; then
-			OK=1
+			BINOK=1
 			LOCATION=$PRIMARY
 		fi
 	fi
-	if ( test $OK -eq 0 ) ; then
-		LOCATION=$BACKUP
+	if ( test $BINOK -eq 0 ) ; then
+		echo "$PRIMARY failed to respond"
+		echo "contacting repo at $BACKUP for bin software"
 		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP/cspot-"$TYPE"-bin.woof
 		if ( test $? -eq 0 ) ; then
 			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP/cspot-"$TYPE"-bin-sha256.woof
-			OK=1
+			BINOK=1
 			LOCATION=$BACKUP
+		fi
+	fi
+	if ( test $BINOK -eq 0 ) ; then
+		if ( test "$SUBDIR" == "daily" ) ; then
+			echo "could not fetch daily bin from $PRIMARY or $BACKUP"
+			exit 1
+		fi
+	fi
+	if [[ "$SUBDIR" == "release" && $BINOK -eq 0 ]] ; then 
+		echo "$BACKUP failed to respond"
+		echo "contacting repo at $BACKUP2 for bin software"
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP2/cspot-"$TYPE"-bin.woof
+		if ( test $? -eq 0 ) ; then
+			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP2/cspot-"$TYPE"-bin-sha256.woof
+			BINOK=1
+			LOCATION=$BACKUP2
+		fi
+		if ( test $BINOK -eq 0 ) ; then
+			echo "could not fetch daily bin from $PRIMARY or $BACKUP or $BACKUP2"
 		fi
 	fi
 fi
 
-if ( test $BOTH -lt 2 ) ; then
-	if ( test "$SUBDIR" == "daily" ) ; then
-		echo "could not fetch daily from $PRIMARY or $BACKUP"
-		exit 1
-	fi
-	BOTH=0
-	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP2/cspot-"$TYPE"-bin.woof
+LIBOK=0
+if [[ "$CMD" == "lib" || "$CMD" == "all" ]] ; then
+	echo "contacting repo at $PRIMARY for lib software"
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $PRIMARY/cspot-"$TYPE"-lib.woof
 	if ( test $? -eq 0 ) ; then
-		NB=$(($BOTH+1))
-		BOTH=$NB
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $PRIMARY/cspot-"$TYPE"-lib-sha256.woof
+		if ( test $? -eq 0 ) ; then
+			LIBOK=1
+			LIBLOCATION=$PRIMARY
+		fi
 	fi
-	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP2/cspot-"$TYPE"-bin-sha256.woof
-	if ( test $? -eq 0 ) ; then
-		NB=$(($BOTH+1))
-		BOTH=$NB
+	if ( test $LIBOK -eq 0 ) ; then
+		echo "$PRIMARY failed to respond"
+		echo "contacting repo at $BACKUP for lib software"
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $BACKUP/cspot-"$TYPE"-lib.woof
+		if ( test $? -eq 0 ) ; then
+			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $BACKUP/cspot-"$TYPE"-lib-sha256.woof
+			LIBOK=1
+			LIBLOCATION=$BACKUP
+		fi
 	fi
-	if ( test $BOTH -lt 2 ) ; then
-		echo "could not fetch release from $PRIMARY, $BACKUP, or $BACKUP2"
-		exit 1
+	if ( test $LIBOK -eq 0 ) ; then
+		if ( test "$SUBDIR" == "daily" ) ; then
+			echo "could not fetch daily lib from $PRIMARY or $BACKUP"
+			exit 1
+		fi
+	fi
+	if [[ "$SUBDIR" == "release" && $LIBOK -eq 0 ]] ; then
+		echo "$BACKUP failed to respond"
+		echo "contacting repo at $BACKUP2 for lib software"
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $BACKUP2/cspot-"$TYPE"-lib.woof
+		if ( test $? -eq 0 ) ; then
+			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $BACKUP2/cspot-"$TYPE"-lib-sha256.woof
+			LIBOK=1
+			LIBLOCATION=$BACKUP2
+		fi
+		if ( test $LIBOK -eq 0 ) ; then
+			echo "could not fetch daily lib from $PRIMARY or $BACKUP or $BACKUP2"
+		fi
+	fi
+fi
+
+if [[ "$CMD" == "bin" || "$CMD" == "all" || "$CMD" == "" ]] ; then
+	SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
+	if ( test "$TYPE" == "arm64-apple" ) ; then
+		LKEY=`shasum -a 256 $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
 	else
-		LOCATION=$BACKUP2
+		LKEY=`sha256sum $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
+	fi
+
+	if ( test -z "LKEY" ) ; then
+		echo "local sha256 could not be computed for bin"
+		echo "bin software not installed"
+		exit 1
+	fi
+
+	if ( test -z "SHKEY" ) ; then
+		echo "remote sha256 could not be computed for bin"
+		echo "bin software not installed"
+		exit 1
+	fi
+
+	if ( test "$SHKEY" == "$LKEY" ) ; then
+		echo "updating cspot bin $SUBDIR from $LOCATION at " `/bin/date`
+		tar -xzf $HERE/cspot-"$TYPE"-bin.tgz
+	else
+		echo "local hash: " $LKEY "does not match remote hash" $SHKEY "for bin"
+		echo "bin software not installed"
+		exit 1
 	fi
 fi
 
- 
-SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-bin.sha256 | awk '{print $1}'`
-if ( test "$TYPE" == "arm64-apple" ) ; then
-	LKEY=`shasum -a 256 $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
-else
-	LKEY=`sha256sum $HERE/cspot-"$TYPE"-bin.tgz | awk '{print $1}'`
-fi
+if [[ "$CMD" == "lib" || "$CMD" == "all" ]] ; then
+	SHKEY=`tail -n 1 $HERE/cspot-"$TYPE"-lib.sha256 | awk '{print $1}'`
+	if ( test "$TYPE" == "arm64-apple" ) ; then
+		LKEY=`shasum -a 256 $HERE/cspot-"$TYPE"-lib.tgz | awk '{print $1}'`
+	else
+		LKEY=`sha256sum $HERE/cspot-"$TYPE"-lib.tgz | awk '{print $1}'`
+	fi
 
-if ( test -z "LKEY" ) ; then
-	echo "local sha256 could not be computed"
-	echo "software not installed"
-	exit 1
-fi
+	if ( test -z "LKEY" ) ; then
+		echo "local sha256 could not be computed for lib"
+		echo "lib software not installed"
+		exit 1
+	fi
 
-if ( test -z "SHKEY" ) ; then
-	echo "remote sha256 could not be computed"
-	echo "software not installed"
-	exit 1
-fi
+	if ( test -z "SHKEY" ) ; then
+		echo "remote sha256 could not be computed for lib"
+		echo "lib software not installed"
+		exit 1
+	fi
 
-if ( test "$SHKEY" == "$LKEY" ) ; then
-	echo "updating cspot $SUBDIR from $LOCATION at " `/bin/date`
-	tar -xzf $HERE/cspot-"$TYPE"-bin.tgz
-else
-	echo "local hash: " $LKEY "does not match remote hash" $SHKEY
-	echo "software not installed"
-	exit 1
+	if ( test "$SHKEY" == "$LKEY" ) ; then
+		echo "updating cspot lib $SUBDIR from $LIBLOCATION at " `/bin/date`
+		tar -xzf $HERE/cspot-"$TYPE"-lib.tgz
+	else
+		echo "local hash: " $LKEY "does not match remote hash" $SHKEY "for lib"
+		echo "lib software not installed"
+		exit 1
+	fi
 fi
