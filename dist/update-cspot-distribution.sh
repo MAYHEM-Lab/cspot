@@ -14,6 +14,13 @@ if ( test "$SUBDIR" != "release" ) ; then
 	fi
 fi
 
+CMD=$2
+
+if [[ "$CMD" != "" && "$CMD" != "lib" && "$CMD" != "bin" && "$CMD" != "all" ]] ; then
+	echo "supported updates are 'all', 'lib' or 'bin'"
+	exit 1
+fi
+
 KEYCHAIN="$HOME/.cspot/capabilities.yaml"
 PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
 BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
@@ -97,32 +104,25 @@ if ( ! test -e "$HERE/update-cspot-distribution.sh" ) ; then
 	chmod 700 $HERE/update-cspot-distribution.sh
 fi
 
-BOTH=0
-$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $PRIMARY/cspot-"$TYPE"-bin.woof
-if ( test $? -eq 0 ) ; then
-	NB=$(($BOTH+1))
-	BOTH=$NB
-fi
-$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $PRIMARY/cspot-"$TYPE"-bin-sha256.woof
-if ( test $? -eq 0 ) ; then
-	NB=$(($BOTH+1))
-	BOTH=$NB
-fi
-if ( test $BOTH -lt 2 ) ; then
-	LOCATION=$BACKUP
-	BOTH=0
-	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP/cspot-"$TYPE"-bin.woof
+OK=0
+if [[ "$CMD" == "bin" || "$CMD" == "all" || "$CMD" == "" ]] ; then
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $PRIMARY/cspot-"$TYPE"-bin.woof
 	if ( test $? -eq 0 ) ; then
-		NB=$(($BOTH+1))
-		BOTH=$NB
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $PRIMARY/cspot-"$TYPE"-bin-sha256.woof
+		if ( test $? -eq 0 ) ; then
+			OK=1
+			LOCATION=$PRIMARY
+		fi
 	fi
-	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP/cspot-"$TYPE"-bin-sha256.woof
-	if ( test $? -eq 0 ) ; then
-		NB=$(($BOTH+1))
-		BOTH=$NB
+	if ( test $OK -eq 0 ) ; then
+		LOCATION=$BACKUP
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.tgz -W $BACKUP/cspot-"$TYPE"-bin.woof
+		if ( test $? -eq 0 ) ; then
+			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-bin.sha256 -W $BACKUP/cspot-"$TYPE"-bin-sha256.woof
+			OK=1
+			LOCATION=$BACKUP
+		fi
 	fi
-else
-	LOCATION=$PRIMARY
 fi
 
 if ( test $BOTH -lt 2 ) ; then
