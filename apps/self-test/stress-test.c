@@ -101,17 +101,22 @@ void *PutThread(void *arg)
 
 	if(Local == 0) {
 		el_size = WooFMsgGetElSize(Iname);
-		if(el_size == (unsigned long)-1) {
-			fprintf(stderr,"could not get el size for %s\n",
-				Iname);
-			pthread_exit(NULL);
-		}
+	} else {
+		el_size = WooFGetElSize(NULL,Iname);
 	}
-	payload = (char *)malloc(Payload_size);
+	if(el_size == (unsigned long)-1) {
+		fprintf(stderr,"could not get el size for %s\n",
+			Iname);
+		pthread_exit(NULL);
+	}
+	if(el_size < sizeof(ST_EL)) {
+		el_size = sizeof(ST_EL)+1;
+	}
+	payload = (char *)malloc(el_size);
 	if(payload == NULL) {
 		exit(1);
 	}
-	memset(payload,0,Payload_size);
+	memset(payload,0,el_size);
 	st = (ST_EL *)payload;
 //	memset(st,0,sizeof(ST_EL));
 	strncpy(st->woof_name,Wname,sizeof(st->woof_name));

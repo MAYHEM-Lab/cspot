@@ -26,7 +26,6 @@
 #define CSPOT_MACHO_ARM64 1
 #endif
 
-
 #if defined(CSPOT_ELF64_X86_64) || defined(CSPOT_ELF64_ARM64)
 #include <elf.h>
 
