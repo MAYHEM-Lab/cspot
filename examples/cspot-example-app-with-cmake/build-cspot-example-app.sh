@@ -26,7 +26,7 @@ else
   	-DCMAKE_INSTALL_PREFIX=$PWD/install
 fi
 
-build the application in the build directory
+#build the application in the build directory
 cd build
 make
 cd bin
@@ -39,13 +39,15 @@ cp ../../update-cspot-distribution.sh .
 $PWD/woofc-namespace-platform >& namespace.log &
 
 # give it a second to start up
-sleep 10
+sleep 3
 
 # run the init side
 ./cspot-app-example-init -W test -s 1000
 
 # run the client
 ./cspot-app-example-client -W test -S 100
+
+sleep 3
 
 # kill the platform
 kill -HUP `ps auxww | grep "$PWD" | grep woofc-namespace-platform | grep -v grep | awk '{print $2}'`
