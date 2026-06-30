@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int InitSem(sema* s, int count) {
+int oldInitSem(sema* s, int count) {
     int err;
 
     err = sem_init(s, 1, count);
@@ -20,11 +20,37 @@ int InitSem(sema* s, int count) {
     return (1);
 }
 
+int InitSem(sema* s, int count) {
+    if (sem_init(s, 1, count) < 0) {
+        int e = errno;
+        fprintf(stdout, "InitSem failed count=%d errno=%d: %s\n",
+                count, e, strerror(e));
+        return -1;
+    }
+
+    return 1;
+}
+
 void FreeSem(sema* s) {
     sem_destroy(s);
 }
 
 void P(sema* s) {
+    int err;
+
+    do {
+        errno = 0;
+        err = sem_wait(s);
+    } while (err < 0 && errno == EINTR);
+
+    if (err < 0) {
+        int e = errno;
+        fprintf(stdout, "P failed: errno=%d: %s\n", e, strerror(e));
+        return;
+    }
+}
+
+void oldP(sema* s) {
     int err;
 
     err = sem_wait(s);
@@ -41,6 +67,13 @@ void P(sema* s) {
 }
 
 void V(sema* s) {
+    if (sem_post(s) < 0) {
+        int e = errno;
+        fprintf(stdout, "V failed: errno=%d: %s\n", e, strerror(e));
+    }
+}
+
+void oldV(sema* s) {
 
     sem_post(s);
 
