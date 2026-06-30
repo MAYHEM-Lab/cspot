@@ -17,8 +17,11 @@ chmod 755 update-cspot-distribution.sh
 if [[ -e "/opt/musl-cross/bin/x86_64-linux-musl-gcc" && -e "/opt/musl-cross/bin/x86_64-linux-musl-g++" ]] ; then
 	cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=$PWD/toolchain-musl.cmake
 else
-	cmake -S . -B build
-endif
+	cmake -S . -B build \
+  	-DCMAKE_BUILD_TYPE=Release\
+  	-DCMAKE_BUILD_TYPE=Debug\
+  	-DCMAKE_INSTALL_PREFIX=$PWD/install
+fi
 
 build the application in the build directory
 cd build
