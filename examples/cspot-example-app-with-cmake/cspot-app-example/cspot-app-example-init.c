@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
 	MAKE_EXTENDED_NAME(Oname,Wname,"output");
 
-	if(!WoofValidURI(Iname)) {
+	if(!WooFValidURI(Iname)) {
 		WooFInit();
 	}
 

@@ -17,7 +17,7 @@ char Wname[4096];
 char Iname[4096];
 char Oname[4096];
 
-#define MAX_RETRIES (30)
+#define MAX_RETRIES (1000)
 
 /*
  * prints different in ms
