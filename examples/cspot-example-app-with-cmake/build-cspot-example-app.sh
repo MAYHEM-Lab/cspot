@@ -39,7 +39,7 @@ cp ../../update-cspot-distribution.sh .
 $PWD/woofc-namespace-platform >& namespace.log &
 
 # give it a second to start up
-sleep 2
+sleep 10
 
 # run the init side
 ./cspot-app-example-init -W test -s 1000
