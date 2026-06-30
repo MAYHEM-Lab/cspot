@@ -53,7 +53,9 @@ int main(int argc, char **argv)
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
 	MAKE_EXTENDED_NAME(Oname,Wname,"output");
 
-	WooFInit();
+	if(!WoofValidURI(Iname)) {
+		WooFInit();
+	}
 
 	/*
 	 * create an input woof for the handler to read

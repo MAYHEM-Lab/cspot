@@ -74,14 +74,14 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	// if the name is not a valid URI, assume it is local
-	// and intialize the fast path for local access
-	if(!WooFValidURI(Wname)) {
-		WooFInit();
-	}
 
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
 	MAKE_EXTENDED_NAME(Oname,Wname,"output");
+	// if the name is not a valid URI, assume it is local
+	// and intialize the fast path for local access
+	if(!WooFValidURI(Iname)) {
+		WooFInit();
+	}
 
 	memset(&input_el,0,sizeof(EX_EL));
 	strncpy(&(input_el.woof_name[0]),Wname,sizeof(input_el.woof_name));
