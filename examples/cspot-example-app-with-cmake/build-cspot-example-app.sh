@@ -15,7 +15,10 @@ chmod 755 update-cspot-distribution.sh
 # check to see if MUSL is installed.  If it is, use it instead of gnu
 
 if [[ -e "/opt/musl-cross/bin/x86_64-linux-musl-gcc" && -e "/opt/musl-cross/bin/x86_64-linux-musl-g++" ]] ; then
-	cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=$PWD/toolchain-musl.cmake
+	cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=$PWD/toolchain-musl.cmake\
+  	-DCMAKE_BUILD_TYPE=Release\
+  	-DCMAKE_BUILD_TYPE=Debug\
+  	-DCMAKE_INSTALL_PREFIX=$PWD/install
 else
 	cmake -S . -B build \
   	-DCMAKE_BUILD_TYPE=Release\
