@@ -85,7 +85,7 @@ set_target_properties(woof PROPERTIES
     IMPORTED_LOCATION "${WOOF_LIBDIR}/libwoof.a"
     INTERFACE_INCLUDE_DIRECTORIES "${WOOF_INCLUDEDIR}"
     INTERFACE_LINK_LIBRARIES
-        "woof_zmq_net;woof_cmq_net;woof_caplets;mio;euca_utils;uriparser2;fmt;czmq;zmq;pthread;yaml;crypto;m;dl"
+        "woof_zmq_net;woof_cmq_net;woof_caplets;mio;euca_utils;uriparser2;fmt;czmq;zmq;yaml;crypto;pthread;m;dl"
 )
 
 foreach(lib woof_zmq_net woof_cmq_net woof_caplets mio euca_utils uriparser2 czmq zmq)

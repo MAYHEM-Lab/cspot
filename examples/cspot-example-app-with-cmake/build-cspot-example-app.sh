@@ -33,7 +33,10 @@ cp ../../update-cspot-distribution.sh .
 ./update-cspot-distribution.sh daily
 
 # start the namespace platform
-./woofc-namespace-platform >& namespace.log &
+$PWD/woofc-namespace-platform >& namespace.log &
+
+# give it a second to start up
+sleep 2
 
 # run the init side
 ./cspot-app-example-init -W test -s 1000
@@ -42,4 +45,4 @@ cp ../../update-cspot-distribution.sh .
 ./cspot-app-example-client -W test -S 100
 
 # kill the platform
-kill -HUP %1
+kill -HUP `ps auxww | grep "$PWD" | grep woofc-namespace-platform | grep -v grep | awk '{print $2}'`
