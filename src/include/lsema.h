@@ -1,7 +1,7 @@
 #ifndef SEMA_H
 #define SEMA_H
 
-#define USE_POSIX_SEM // for backward woof compat
+//#define USE_POSIX_SEM // for backward woof compat
 
 #include <stdint.h>
 
