@@ -147,12 +147,24 @@ if [[ "$CMD" == "bin" || "$CMD" == "all" || "$CMD" == "" ]] ; then
 	fi
 fi
 
+if [[ -e "/opt/musl-cross/bin/x86_64-linux-musl-gcc" && -e "/opt/musl-cross/bin/x86_64-linux-musl-g++" ]] ; then
+	LIBTYPE="musl"
+fi
+
 LIBOK=0
 if [[ "$CMD" == "lib" || "$CMD" == "all" ]] ; then
-	echo "contacting repo at $PRIMARY for lib software"
+	echo "contacting repo at $PRIMARY for lib software $LIBTYPE"
+	if ( test "$LIBTYPE" == "musl" ) ; then
+	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $PRIMARY/cspot-"$TYPE"-lib-musl.woof
+else
 	$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $PRIMARY/cspot-"$TYPE"-lib.woof
+	fi
 	if ( test $? -eq 0 ) ; then
+		if ( test "$LIBTYPE" == "musl" ) ; then
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $PRIMARY/cspot-"$TYPE"-lib-musl-sha256.woof
+		else
 		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $PRIMARY/cspot-"$TYPE"-lib-sha256.woof
+		fi
 		if ( test $? -eq 0 ) ; then
 			LIBOK=1
 			LIBLOCATION=$PRIMARY
@@ -160,17 +172,25 @@ if [[ "$CMD" == "lib" || "$CMD" == "all" ]] ; then
 	fi
 	if ( test $LIBOK -eq 0 ) ; then
 		echo "$PRIMARY failed to respond"
-		echo "contacting repo at $BACKUP for lib software"
+		echo "contacting repo at $BACKUP for lib software $LIBTYPE"
+		if ( test "$LIBTYPE" == "musl" ) ; then
+		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $BACKUP/cspot-"$TYPE"-lib-musl.woof
+		else
 		$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.tgz -W $BACKUP/cspot-"$TYPE"-lib.woof
+		fi
 		if ( test $? -eq 0 ) ; then
+			if ( test "$LIBTYPE" == "musl" ) ; then
+			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $BACKUP/cspot-"$TYPE"-lib-musl-sha256.woof
+			else
 			$HERE/senspot-file-recv.$TYPE -f $HERE/cspot-"$TYPE"-lib.sha256 -W $BACKUP/cspot-"$TYPE"-lib-sha256.woof
+			fi
 			LIBOK=1
 			LIBLOCATION=$BACKUP
 		fi
 	fi
 	if ( test $LIBOK -eq 0 ) ; then
 		if ( test "$SUBDIR" == "daily" ) ; then
-			echo "could not fetch daily lib from $PRIMARY or $BACKUP"
+			echo "could not fetch daily lib from $PRIMARY or $BACKUP $LIBTYPE"
 			exit 1
 		fi
 	fi
