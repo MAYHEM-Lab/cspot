@@ -149,6 +149,8 @@ fi
 
 if [[ -e "/opt/musl-cross/bin/x86_64-linux-musl-gcc" && -e "/opt/musl-cross/bin/x86_64-linux-musl-g++" ]] ; then
 	LIBTYPE="musl"
+else
+	LIBTYPE="gnu"
 fi
 
 LIBOK=0
