@@ -71,7 +71,8 @@ void WooFShutdown(int sig) {
     int val;
 
     should_exit = true;
-    while (sem_getvalue(&Name_log->tail_wait, &val) >= 0) {
+    //while (sem_getvalue(&Name_log->tail_wait, &val) >= 0) {
+    while(GetSemValue(&Name_log->tail_wait, &val) >= 0) {
         if (val > 0) {
             break;
         }
