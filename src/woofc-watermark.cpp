@@ -68,10 +68,12 @@ extern void WooFWatermark(char *name);
 
 #define ARGS "W:U"
 char *Usage = "woofc-watermark -W local-woof-name\n\
-\t-U <perform upgrade>\n";
+\t-U <perform upgrade>\n\
+\t-F <force upgrade of current or higher version>\n";
 
 char Fname[2032];
 char NFname[2032];
+int Force;
 
 int main(int argc, char**argv)
 {
@@ -96,6 +98,9 @@ int main(int argc, char**argv)
 			case 'U':
 				do_upgrade = 1;
 				break;
+			case 'F':
+				Force = 1;
+				break;
 			default:
 				fprintf(stderr,"unrecognized command %c\n",(char)c);
 				fprintf(stderr,"%s",Usage);
@@ -110,9 +115,12 @@ int main(int argc, char**argv)
 
 	WooFInit();
 	if(do_upgrade == 0) {
+		printf("watermarking %s with version %f\n",Fname,CSPOT_VERSION);
+		fflush(stdout);
 		WooFWatermark(Fname);
 		exit(0);
 	}
+
 
 	r = drand48();
 	// make a cp string
@@ -124,6 +132,26 @@ int main(int argc, char**argv)
 	}
 
 	old_wfs = (WOOF_SHARED_3_0 *)old_wf->shared;
+
+	if((old_wfs->version >= CSPOT_VERSION)
+	   && (Force == 0)) {
+		fprintf(stderr,
+		"%s is at version %f which <= current version %f\n",
+		Fname,
+		old_wfs->version,
+		CSPOT_VERSION);
+		fprintf(stderr,
+		"-U is not idempotent and will destroy an already upgraded woof\n");
+		fprintf(stderr,
+			"if you are sure, rerun with the -F flag to force\n");
+		exit(1);
+	}
+
+	printf("upgrading %s (version %f) to latest format at version %f\n",
+		Fname,
+		old_wfs->version,
+		CSPOT_VERSION);
+	fflush(stdout);
 
 	err = WooFCreate(NFname,old_wfs->element_size,old_wfs->history_size);
 	if(err < 0) {

@@ -4,7 +4,9 @@
 extern "C" {
 #endif
 
-#define CSPOT_VERSION (3.0)
+// hundreths indicate partial upgrades that are not
+// backwards compatible
+#define CSPOT_VERSION (3.01)
 
 typedef struct woof_stc WOOF;
 

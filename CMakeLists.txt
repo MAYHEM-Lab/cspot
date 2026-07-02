@@ -40,6 +40,9 @@ if(APPLE)
     find_library(YAML_LIBRARY yaml HINTS /opt/homebrew/lib REQUIRED)
     find_path(YAML_INCLUDE_DIR yaml.h HINTS /opt/homebrew/include REQUIRED)
 
+    # use POSIX semaphores
+    add_compile_definitions(USE_POSIX_SEM)
+
     
 #    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
 #else()
