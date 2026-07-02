@@ -66,7 +66,7 @@ typedef struct woof_shared_stc_3_1 WOOF_SHARED_3_1;
 
 extern void WooFWatermark(char *name);
 
-#define ARGS "W:U"
+#define ARGS "W:UF"
 char *Usage = "woofc-watermark -W local-woof-name\n\
 \t-U <perform upgrade>\n\
 \t-F <force upgrade of current or higher version>\n";
