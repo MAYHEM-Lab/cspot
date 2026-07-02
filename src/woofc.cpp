@@ -143,6 +143,7 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 		if (local_name[strlen(local_name) - 1] != '/') {
 	    		strncat(local_name, "/", 2);
 		}
+		strncat(local_name, name, sizeof(local_name));
 	}
 
 	// map the file into the memory space
@@ -264,6 +265,7 @@ int WooFSetSeqno(char *name, unsigned long new_seqno)
 	strncpy(local_name, WooF_dir, sizeof(local_name));
 	if (local_name[strlen(local_name) - 1] != '/') {
 	    strncat(local_name, "/", 2);
+	    strncat(local_name, name, sizeof(local_name));
 	}
 
 	
