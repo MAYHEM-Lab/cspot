@@ -384,8 +384,7 @@ WOOF* WooFOpen(const char* name)
 	}
 
 	if (stat(local_name, &sbuf) < 0) {
-		fprintf(stderr, "WooFOpen: couldn't open woof: %s\n", local_name);
-		fflush(stderr);
+		DEBUG_WARN(stderr, "WooFOpen: couldn't open woof: %s\n", local_name);
 		return (NULL);
 	}
 

@@ -174,8 +174,12 @@ bool backend::listen(std::string_view ns) {
 	return(false);
     }
 
-printf("cmq configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
-fflush(stdout);
+    if(CMQ_use_mqtt) {
+	printf("mqtt configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
+    } else {
+	printf("cmq configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
+    }
+    fflush(stdout);
     
     /*
      * create a single thread for now.  multiple threads can call accept
