@@ -88,6 +88,9 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 	*
 	* if it does, it is local => use WooF_dir
 	*/
+#if 0
+	// this version will try to use the fastpath for localhost.  Let's just
+	// use the network for that case
 	if (WooFValidURI(name)) {
 		err = WooFNameSpaceFromURI(name, local_name, sizeof(local_name));
 		if (err < 0) {
@@ -129,11 +132,17 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 		}
 		strncat(local_name, name, sizeof(local_name));
 	}
-
-	// will only work with CAP
-	if (is_local == 0) {
+#endif
+	if(IsRemoteWoof(name)) {
+		// will only work with CAP
 		err = WooFMsgCreate(name,element_size,history_size);
 		return (err);
+	} else {
+		is_local = 1;
+		strncpy(local_name, WooF_dir, sizeof(local_name));
+		if (local_name[strlen(local_name) - 1] != '/') {
+	    		strncat(local_name, "/", 2);
+		}
 	}
 
 	// map the file into the memory space
@@ -196,6 +205,7 @@ int WooFSetSeqno(char *name, unsigned long new_seqno)
 	}
 
 	is_local = 0;
+#if 0
 	/*
 	* if it is a woof:// spec, check to see if the path matches the namespace
 	*
@@ -244,10 +254,19 @@ int WooFSetSeqno(char *name, unsigned long new_seqno)
 	}
 
 	// this function is only supported for local access
-	if (is_local == 0) {
+	if(IsRemoteWoof(name))
 		fprintf(stderr, "WooFSetSeqno: %s must be a local woof\n", local_name);
 		return (-1);
 	}
+#endif
+
+	is_local = 1;
+	strncpy(local_name, WooF_dir, sizeof(local_name));
+	if (local_name[strlen(local_name) - 1] != '/') {
+	    strncat(local_name, "/", 2);
+	}
+
+	
 
 	// reopen the woof without resetting it
 	mio = MIOReOpen(local_name);
