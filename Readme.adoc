@@ -88,7 +88,7 @@ the IP addresses
 and that ports 50000 to 60000 are open for ingress and egress between both
 hosts.
 
-To test, using senspot, the cspot installtion on these two hosts, log into
+To test, using senspot, the cspot installation on these two hosts, log into
 192.168.10.2 as the ubuntu user and type the following
 [source sh]
 ----
@@ -210,7 +210,7 @@ are logs, replayed messages can be deduplicated (although this deduplication
 support currently must be application level).   
 
 Privileges are ordered.  The currently supported privileges (from least to
-greatest privilige are)
+greatest privilege are)
 * READ (0x00000001)
 * WRITE (0x00000002)
 * EXECUTE (0x00000004)
@@ -219,8 +219,8 @@ greatest privilige are)
 * POLICY_ATTACH (0x00000020)
 
 Any capability can be attenuated to a lower level of privilege by the
-capabilitie's holder and CSPOT uses the least privileged capability to sign a
-CSPOT message.  Currently, all messages require at least READ privilige, the
+capability's holder and CSPOT uses the least privileged capability to sign a
+CSPOT message.  Currently, all messages require at least READ privilege, the
 PUT operation requires WRITE privileges and PUT with a concomitant handler
 invocation requires EXECUTE permissions.  Remote CREATE, DESTROY, and policy
 implementation are not yet supported.  Also, in the current release, message
@@ -268,7 +268,7 @@ The CSPOT API uses a keyring (formatted as a YAML file)
 located in the .cspot subdirectory of the user ID's home directory (e.g.
 similar to the .ssh directory used to hold ssh keys) or the current working
 directory.  The keyring file must be called "capabilities.yaml" and it must
-have all group and worl permissions disabled.
+have all group and world permissions disabled.
 
 To create a read-only attenuation for the namespace, run the command
 [source sh]
@@ -279,8 +279,6 @@ where the IP address occurring after the -h parameter is the externally
 visible IP address for the namespace.  The "-p 1" says that the only
 permission enabled is READ since the capability bit pattern for READ is READ
 0x00000001.  
-
-  
 
 The output of this command is YAML text that needs to be put into the
 capabilities.yaml keyring file of any user running a process that exercises
@@ -296,7 +294,7 @@ command
 which will print a YAML-formatted capability with READ and WRITE permissions
 enabled, but no other permissions enabled.
 Because permissions are ordered, only the bit associated with the
-"highest" permission need be set to convery all lower permissions.  Thus, "-p
+"highest" permission need be set to convey all lower permissions.  Thus, "-p
 3" (READ/WRITE/EXECUTE) is equivalent to "-p 2" (WRITE).  
 
 Note that the procedure for individual WOOFs is the same, but the -N flag is
@@ -313,7 +311,7 @@ One the namespace principle capability has been created,
 woofc-namespace-platform will check all remote CSPOT API requests to ensure
 that they carry the minimum necessary access rights for all WOOFs in the
 namespace.  If there is no namespace principle capability, but there is a
-capability for a specific WOOF or WOOFs, then it will check accress rights on API calls
+capability for a specific WOOF or WOOFs, then it will check access rights on API calls
 for those WOOFs.
 
 Older released versions of CSPOT did not include capability support.  To allow
@@ -329,13 +327,13 @@ woof-print-cap -N -h 192.168.10.2 -p 1 needs to be present in the file
 ----
 exactly as it prints and the permissions on the .cspot directory and on the
 capabilities.yaml file must be read/write for the owner only.  In particular, YAML parser checks
-the indentation when it determmines whether the capability that is present in the
+the indentation when it determines whether the capability that is present in the
 file is valid.
 
 In this example, when ever an API call accesses a WOOF in the namespace on
 192.168.10.2, it will scan the capabilities.yaml file and send a request with
 READ permissions.  If the request can be completed with READ permissions, the
-API call will succeed.  If not, it will fail because woofc-namepsace-platform
+API call will succeed.  If not, it will fail because woofc-namespace-platform
 will deny the request due to insufficient permissions.
 
 Note that woof-print-cap must be run locally within the namespace (there is
@@ -348,17 +346,107 @@ In the original CAPlets formulation, capabilities are sent in messages so that
 the server need not keep a record of them (i.e. on a resource restricted
 device).  The current CSPOT release API does not send capabilities in messages
 (and instead stores them either in the namespace or on the client in the
-capabilties.yaml keychain file).  Instead, it signs the message payload with
-the capability (possibly annnuating it down to the minimum access level) 
-on the client side and the server derives a capabilty (from the principle)
+capabilities.yaml keychain file).  Instead, it signs the message payload with
+the capability (possibly attenuating it down to the minimum access level) 
+on the client side and the server derives a capability (from the principle)
 with minimum access rights and checks the signature with this locally
 generated capability.
 
 In this way, capabilities can be treated like secret keys since they are never
 transmitted over the network.  However, an application can elect to send
-capabilities and use CAPlets attenuations to implement distributed access
+capabilities and use CAPlets attenuation to implement distributed access
 control.
 
+== Support for MQTT network transport
+
+The current release includes support for using MQTT as a network transport
+protocol instead of the default ZeroMQ messaging system.  This feature should
+be considered experimental.  However, the ZeroMQ message transport requires
+that the client be able to establish a TCP connection to the machine running
+the namep[sace on a port between 50000 and 60000.  As a result, the server
+cannot be behind a firewall that blocks TCP connections to this port range.
+
+If it is possible to configure an MQTT broker two which the client(s) and
+namespace machine can all connect, the MQTT transport permit the namespace to
+be behind a firewall that allows outgoing TCP connections, but blocks incoming
+ones.
+
+The current CSPOT release uses the mosquitto Linux utility to implement a
+socket emulation layer that is configured along side the ZermoMQ transport.
+
+=== Configuring the MQTT message transport
+
+Both the client and the server require a YAML file that describes how to
+contact an MQTT broker.  The current implementation (which should not be used
+in secure production) uses a user name and password (which are transmitted
+clear test and visible in a ps) to authenticate to the broker.
+
+In the following examples, the broker is running on IP address 192.168.10.4
+to which both the client and server can make a TCP connection on port 1883
+(the standard MQTT port for a non SSL connection).  The broker has been
+configured to authenticate the user "CSPOT-mqtt-user" with the password
+"CSPOT-mqtt-password".  
+
+On the client side, the CSPOT client API will look for the file
+$HOME/.cspot/mqtt-proxy.yaml.  The .cspot directory and the file must be rw
+for the owner only.  
+
+On the server side, the file mqtt-proxy.yaml must be found in the same
+directory where woof-namespace-platform is started and it must have
+permissions rw for the owner only.
+
+The format of the mqtt-proxy.yaml file is
+[source bash]
+----
+proxy:
+  namespace: name-of-namespace
+  host-ip: local-host-ip
+  broker-ip: broker-ip
+  user: mqtt-user-name
+  pw: mqtt-user-pw
+----
+
+Thus, in this example, if the client runs as the ubuntu user on 192.168.10.2, the file
+/home/ubuntu/.cspot/mqtt-proxy.yaml should contain
+
+[source bash]
+----
+proxy:
+  namespace: test-namespace
+  host-ip: 192.168.10.2
+  broker-ip: 192.168.10.4
+  user: CSPOT-mqtt-user
+  pw: CSPOT-mqtt-password
+----
+
+Similarly, this file must be in the directory where woofc-namespace-platform
+is started.
+
+Note that the implementation uses the mosquitto client tools (which must be
+installed) and that an abortive termination may leave one or more instances
+running.
+
+Once configured, the client tools will recognize the prefix "mqtt://" in
+place of "woof://" in any URI.  For example, the client in this example could
+issue the following commands
+
+[source bash]
+----
+echo "1234" | senspot-put -W woof://192.168.10.3/home/ubuntu/cspot/testwoof -T i
+senspot-get -W mqtt://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+
+where woofc-namespace-platform is running in the directory /home/ubuntu/cspot
+and that directory contains the mqtt-proxy.yaml file and get back
+
+[source bash]
+----
+1234 time: 1738353021.8613910675 192.168.10.2 seq_no: 1
+----
+
+In this example, senspot-put uses ZeroMQ and senspot-get uses MQTT.  The
+message transport will uses the URI prefix to determine which transport to use
+for each message.  
   
 == CSPOT Overview
 
@@ -388,23 +476,6 @@ part of a single, common storage abstraction.
 The initial implementation and its test applications use C as the
 programming language. However, functions execute within Linux containers
 making it possible to employ a mixed-language programming approach.
-
-== Support for MQTT network transport
-
-The current release includes support for using MQTT as a network transport
-protocol instead of the default ZeroMQ messaging system.  This feature should
-be considered experimental.  However, the ZeroMQ message transport requires
-that the client be able to establish a TCP connection to the machine running
-the namep[sace on a port between 50000 and 60000.  As a result, the server
-cannot be behind a firewall that blocks TCP connections to this port range.
-
-If it is possible to configure an MQTT broker two which the client(s) and
-namespace machine can all connect, the MQTT transport permit the namespace to
-be behind a firewall that allows outgoing TCP connections, but blocks incoming
-ones.
-
-The current CSPOT release uses the mosquitto Linux utility to implement a
-socket emulation layer that is configured along side the ZermoMQ transport.
 
 == Current CSPOT Abstractions
 
