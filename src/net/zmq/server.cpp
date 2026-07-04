@@ -91,8 +91,8 @@ void WooFMsgThread() {
 	if(tag == -1) {
 		DEBUG_LOG("WooFMsgThread: processing msg with bad tag\n");
 		printf("WooFMsgThread: processing msg with bad tag\n");
-        	msg = Receive(*receiver);
 	        SendErr(-1,receiver.get());
+        	msg = Receive(*receiver);
 		continue;
 	}
         DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
