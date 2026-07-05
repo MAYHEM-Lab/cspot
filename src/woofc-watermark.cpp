@@ -66,7 +66,7 @@ typedef struct woof_shared_stc_3_1 WOOF_SHARED_3_1;
 
 extern void WooFWatermark(char *name);
 
-#define ARGS "W:UF"
+#define ARGS "W:UFa"
 char *Usage = "woofc-watermark -W local-woof-name\n\
 \t-U <perform upgrade>\n\
 \t-F <force upgrade of current or higher version>\n";
@@ -88,6 +88,7 @@ int main(int argc, char**argv)
 	unsigned char *old_ptr;
 	unsigned char *new_ptr;
 	int err;
+	int adjust = 0;
 
 	do_upgrade = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
@@ -100,6 +101,9 @@ int main(int argc, char**argv)
 				break;
 			case 'F':
 				Force = 1;
+				break;
+			case 'a':
+				adjust = 1;
 				break;
 			default:
 				fprintf(stderr,"unrecognized command %c\n",(char)c);
@@ -114,6 +118,24 @@ int main(int argc, char**argv)
 	}
 
 	WooFInit();
+
+	if((adjust == 1) && (do_upgrade == 0)) {
+		old_wf = WooFOpen(Fname);
+		if(old_wf == NULL) {
+			fprintf(stderr,"could not open %s as copy",Fname);
+			exit(1);
+		}
+		if(old_wf->shared->version < CSPOT_VERSION) {
+			printf("cannot adjust version %f. upgrade first\n",old_wf->shared->version);
+			exit(1);
+		}
+		if(old_wf->shared->tail == 0) {
+			old_wf->shared->tail = (unsigned long)-1;
+			printf("set tail to -1\n");
+		}
+		WooFDrop(old_wf);
+		exit(0);
+	}
 	if(do_upgrade == 0) {
 		printf("watermarking %s with version %f\n",Fname,CSPOT_VERSION);
 		fflush(stdout);

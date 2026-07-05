@@ -1436,14 +1436,16 @@ int WooFReadWithCause(
 	//}
 
 	DEBUG_LOG("WooFReadWithCause: head: %lu tail: %lu size: %lu last_valid: %lu seq_no: "
-	    "%lu old: %lu young: %lu\n",
+	    "%lu old: %lu young: %lu head: %lu tail: %lu\n",
 	    wfs->head,
 	    wfs->tail,
 	    wfs->history_size,
 	    last_valid,
 	    l_seq_no,
 	    oldest,
-	    youngest);
+	    youngest,
+	    wfs->head,
+	    wfs->tail);
 	/*
 	* is the seq_no between head and tail ndx?
 	*/
@@ -1451,10 +1453,12 @@ int WooFReadWithCause(
 		V(&wfs->mutex);
 		fprintf(stdout,
 			"WooFReadWithCause: seq_no not in range: seq_no: %lu, oldest: %lu, "
-			"youngest: %lu\n",
+			"youngest: %lu head: %lu tail: %lu\n",
 			l_seq_no,
 			oldest,
-			youngest);
+			youngest,
+			wf->shared->head,
+			wf->shared->tail);
 		fflush(stdout);
 		return (-1);
 	}
