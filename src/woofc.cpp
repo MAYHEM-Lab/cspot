@@ -156,6 +156,7 @@ int WooFCreate(const char* name, unsigned long element_size, unsigned long histo
 
 	wfs = (WOOF_SHARED*)MIOAddr(mio);
 	memset(wfs, 0, sizeof(WOOF_SHARED));
+	wfs->tail = (unsigned long)-1;
 
 	if (WooFValidURI(name)) {
 		strncpy(wfs->filename, fname, sizeof(wfs->filename));
@@ -776,7 +777,9 @@ unsigned long WooFAppendWithCause(
 	* update circular buffer
 	*/
 	ndx = wfs->head = next;
-	if (next == wfs->tail) {
+	if((ndx == 0) && (wfs->tail == (unsigned long)-1)) { // we are wrapping
+		wfs->tail = 1;
+	} else if (next == wfs->tail) {
 		wfs->tail = (wfs->tail + 1) % wfs->history_size;
 	}
 	seq_no = wfs->seq_no;
@@ -1217,7 +1220,8 @@ unsigned long WooFGetEarliest(WOOF *wf)
 
 	latest_seq_no = wf->shared->seq_no - 1;
 	// if woof has wrapped already
-	if(((wf->shared->head+1)%wf->shared->history_size) == wf->shared->tail) {
+	if(wf->shared->tail != (unsigned long)-1) {
+//	if(((wf->shared->head+1)%wf->shared->history_size) == wf->shared->tail) {
 		earliest_seq_no = latest_seq_no - wf->shared->history_size + 1;
 	} else {
 		earliest_seq_no = latest_seq_no - wf->shared->head + 1;
@@ -1382,6 +1386,7 @@ int WooFReadWithCause(
 	EVENT* ev;
 	unsigned long ls;
 	unsigned long l_seq_no;
+	unsigned long next;
 
 	wfs = wf->shared;
 	P(&wfs->mutex);
@@ -1416,7 +1421,7 @@ int WooFReadWithCause(
 	//		    oldest, wf->shared->seq_no-1);
 	//}
 
-	if(wfs->tail == 0) { // has not wrapped
+	if(wfs->tail == (unsigned long)-1) { // has not wrapped so tail == 0 is not valid
 		last_valid = 1;
 	} else {
 		last_valid = wfs->tail;
@@ -1536,7 +1541,11 @@ unsigned long WooFEarliest(WOOF* wf) {
 
     wfs = wf->shared;
 
-    earliest = (wfs->tail + 1) % wfs->history_size;
+    if(wfs->tail == (unsigned long)-1) {
+	    earliest = 1;
+    } else {
+    	earliest = (wfs->tail + 1) % wfs->history_size;
+    }
     return (earliest);
 }
 
