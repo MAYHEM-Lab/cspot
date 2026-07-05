@@ -125,7 +125,7 @@ int main(int argc, char**argv)
 			fprintf(stderr,"could not open %s as copy",Fname);
 			exit(1);
 		}
-		if(old_wf->shared->version < CSPOT_VERSION) {
+		if(old_wf->shared->version == 0.0) {
 			printf("cannot adjust version %f. upgrade first\n",old_wf->shared->version);
 			exit(1);
 		}
