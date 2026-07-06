@@ -186,7 +186,7 @@ If senspot-put fails, it is usually for one of four reasons
 * the IP address or the path to the namespace specified in senspot-put do not match the IP address and/or path where woofc-namespace-platform is running
 * ports 50000 to 60000 are not open for TCP ingress on the server host or egress on the client host or both
 
-=== CSPOT Message Authentication using CAPLets.
+=== CSPOT Message Authentication using CAPLets
 
 Reference: Bakir, Fatih, Chandra Krintz, and Rich Wolski. "Caplets: Resource aware, capability-based access control for IoT." 2021 IEEE/ACM Symposium on Edge Computing (SEC). IEEE, 2021. https://sites.cs.ucsb.edu/~ckrintz/papers/caplets21.pdf
 
@@ -211,6 +211,7 @@ support currently must be application level).
 
 Privileges are ordered.  The currently supported privileges (from least to
 greatest privilege are)
+
 * READ (0x00000001)
 * WRITE (0x00000002)
 * EXECUTE (0x00000004)
