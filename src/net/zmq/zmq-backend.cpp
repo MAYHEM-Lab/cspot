@@ -1511,6 +1511,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -1520,6 +1521,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());
     if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
 	return;
     }
 
@@ -1535,6 +1537,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
 	if(std::filesystem::exists(cap_name)) {
     	//if(wfc) {
 	    //WooFDrop(wfc);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
 	strcpy(cap_name,"CSPOT.CAP");
@@ -1542,6 +1545,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     	//wfc = WooFOpen(cap_name);
     	//if(wfc) {
 	    //WooFDrop(wfc);
+	    SendErr(-1,resp_sock);
 	    return;
 	}
     }
@@ -1568,19 +1572,21 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto resp = CreateMessage(std::to_string(el_read), elements);
     if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
+        SendErr(-1,resp_sock);
         return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGetTail: Could not send response");
         printf("WooFProcessGetTail: Could not send response");
+        SendErr(-1,resp_sock);
         return;
     }
-	Resp_id++;
-	if(Resp_id != Msg_id) {
-		printf("GetTail: double send\n");
-	}
-	return;
+    Resp_id++;
+    if(Resp_id != Msg_id) {
+	printf("GetTail: double send\n");
+    }
+    return;
 }
 
 void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
