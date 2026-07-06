@@ -1291,6 +1291,9 @@ int WooFReadTail(WOOF* wf, void* elements, int element_count) {
         ndx = ndx - 1;
         if (ndx >= wfs->history_size) {
             ndx = 0;
+	    if(wfs->tail == (unsigned long)-1) { // zero is valid only if we have wrapped
+		    break;
+	    }
         }
         if (ndx == wfs->tail) {
             break;
@@ -1311,6 +1314,19 @@ unsigned long WooFGetTail(char* wf_name, void* elements, unsigned long element_c
 
     DEBUG_LOG("WooFGetTail: called %s\n", wf_name);
 
+    if(IsRemoteWoof(wf_name)) {
+            el_size = WooFMsgGetElSize(wf_name);
+            if (el_size != (unsigned long)-1) {
+            	err = WooFMsgGetTail(wf_name, elements, el_size, element_count);
+            	return (err);
+	   } else {
+            	fprintf(stderr, "WooFGetTail: couldn't get element size for %s\n", wf_name);
+            	fflush(stderr);
+            	return (-1);
+	   }
+    }
+
+#if 0
     memset(ns_ip, 0, sizeof(ns_ip));
     err = WooFIPAddrFromURI(wf_name, ns_ip, sizeof(ns_ip));
     if (err < 0) {
@@ -1350,6 +1366,7 @@ unsigned long WooFGetTail(char* wf_name, void* elements, unsigned long element_c
             return (-1);
         }
     }
+#endif
 
     if (WooF_dir[0] == 0) {
         fprintf(stderr, "WooFGetTail: must init system\n");
