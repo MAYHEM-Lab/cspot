@@ -778,7 +778,7 @@ unsigned long WooFAppendWithCause(
 	*/
 	ndx = wfs->head = next;
 	if((ndx == 0) && (wfs->tail == (unsigned long)-1)) { // we are wrapping
-		wfs->tail = (1 % wfs->history_zize);
+		wfs->tail = (1 % wfs->history_size);
 	} else if (next == wfs->tail) {
 		wfs->tail = (wfs->tail + 1) % wfs->history_size;
 	}
