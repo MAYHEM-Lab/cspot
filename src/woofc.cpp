@@ -778,7 +778,7 @@ unsigned long WooFAppendWithCause(
 	*/
 	ndx = wfs->head = next;
 	if((ndx == 0) && (wfs->tail == (unsigned long)-1)) { // we are wrapping
-		wfs->tail = 1;
+		wfs->tail = (1 % wfs->history_zize);
 	} else if (next == wfs->tail) {
 		wfs->tail = (wfs->tail + 1) % wfs->history_size;
 	}
@@ -1221,7 +1221,6 @@ unsigned long WooFGetEarliest(WOOF *wf)
 	latest_seq_no = wf->shared->seq_no - 1;
 	// if woof has wrapped already
 	if(wf->shared->tail != (unsigned long)-1) {
-//	if(((wf->shared->head+1)%wf->shared->history_size) == wf->shared->tail) {
 		earliest_seq_no = latest_seq_no - wf->shared->history_size + 1;
 	} else {
 		earliest_seq_no = latest_seq_no - wf->shared->head + 1;
@@ -1422,7 +1421,7 @@ int WooFReadWithCause(
 	//}
 
 	if(wfs->tail == (unsigned long)-1) { // has not wrapped so tail == 0 is not valid
-		last_valid = 1;
+		last_valid = (1 + wfs->history_size);
 	} else {
 		last_valid = wfs->tail;
 	}
@@ -1546,7 +1545,7 @@ unsigned long WooFEarliest(WOOF* wf) {
     wfs = wf->shared;
 
     if(wfs->tail == (unsigned long)-1) {
-	    earliest = 1;
+	    earliest = (1 % wfs->history_size);
     } else {
     	earliest = (wfs->tail + 1) % wfs->history_size;
     }
