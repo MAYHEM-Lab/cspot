@@ -232,7 +232,37 @@ partition resolves.
 
 The senspot toolchain includes the ability to store and retrieve files from
 WOOFs that are suffciently large enough to hold them.  
-The senspot application 
+The senspot application toolchain includes three commands for using CSPOT as a
+versioned file store
+[source sh]
+----
+senspot-file-init -W localwoofname -s size -M transfer-block-size (in KB)
+senspot-file-send -f localfilename -W woofname <-V>
+senspot-file-recv -f localfilename -W woofname <-v version-number> <-V>
+----
+where the -V parameter (which enables verbose mode) is optional.  The version
+number parameter will specify a previous version to retrieve.  If it is
+ommitted, the command fetches the latest version.
+
+The commands
+[source sh]
+----
+senspot-file-recv -W woofname -l
+senspot-file-recv -W woofname -L
+----
+print the latest version number and all version numbers stored in the
+specified WOOF respectively.
+
+The command senspot-file-init creates a local WOOF with the number of elements specified
+after the -s parameter, each one of which is the transfer-block-size (in KB) given by the -M
+parameter.  The WOOF must be large enough to hold at least one copy of the
+file.  That is the the product "size * transfer-block-size" must be greater
+than or equal to the file size.
+
+The model is that each file is stored in its own WOOF but that (depending on
+the total size specified in senspot-file-init) each time a file is sent to the
+WOOF, it will be given a new version number and appended (subject to space
+availability). 
 
 === CSPOT Message Authentication using CAPLets
 
