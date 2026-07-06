@@ -170,7 +170,7 @@ Next, test the reverse direction. On the host 192.168.10.3, from the directory
 [source sh]
 ----
 echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d
-./senspot-get woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+./senspot-get woof://192.168.10.2/home/ubuntu/cspot/testwoof
 ----
 If this test is successful, the output will be something like
 [source sh]
@@ -181,10 +181,58 @@ indicating that the append from 192.168.10.3 to
 /home/ubuntu/cspot/testwoof on 192.168.10.2 has been completed.  
 
 If senspot-put fails, it is usually for one of four reasons
+
 * woofc-namespace-platform on the server host is not running or has thrown an error
 * senspot-init has not been run in the namespace where a woofc-namespace-platform was started
 * the IP address or the path to the namespace specified in senspot-put do not match the IP address and/or path where woofc-namespace-platform is running
 * ports 50000 to 60000 are not open for TCP ingress on the server host or egress on the client host or both
+
+=== Replicating data with senspot
+
+The senspot toolchain includes the ability to automatically trigger a
+forwarding operation when data is appended to a WOOF.  The command
+[source sh]
+----
+./senspot-forward-init -W local-src-woof-name -F woof://target-ip/namespace-path/dst-woof-name
+----
+
+in the source namespace which must also contain the handler code in
+senspot_forward.
+
+In this example, to automatically forward data from
+/home/ubuntu/cspot/testwoof on 192.168.10.2 to /home/ubuntu/cspot/testwoof on
+192.169.10.3, cd into /home/ubuntu/cspot on 192.168.10.2 and run the command
+[source sh]
+----
+./senspot-forward-init -W testwoof -F woof://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+This command will initialize forwarding state to keep track of what data needs to
+be forwarded in the event the network partitions between the source and
+destination namespaces.
+
+To trigger forwarding when data is appended to the source, add the parameters
+"-H senspot_forward" to the senspot-put command.  Thus, in this example,
+running the command
+[source sh]
+----
+echo "8888" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d -H senspot_forward
+./senspot-get -W woof://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+
+should show "8888" as the payload fetched from 192.168.10.3 after the put to
+192.168.10.2.  Note that the sequence numbers are not kept consistent between
+the source WOOF and the destination WOOF by senspot_forward.  It does preserve
+the initial timestamp and, if the network partitions, it will forward all of
+the data that has yet to be forwaded in order with the original timestamps so
+that the data (but not the sequence numbers) are consistent between source and destination after the
+partition resolves.
+
+
+=== Moving files with senspot
+
+The senspot toolchain includes the ability to store and retrieve files from
+WOOFs that are suffciently large enough to hold them.  
+The senspot application 
 
 === CSPOT Message Authentication using CAPLets
 
