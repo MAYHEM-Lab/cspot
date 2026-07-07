@@ -1603,6 +1603,7 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessGetTailwithCAP: no cap frame\n");
+        	SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1610,17 +1611,20 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof cap frame\n");
+        	SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof name frame\n");
+        	SendErr(-1,resp_sock);
 		return;
 	}
 	// disallow access to CAP woofs
         err = WooFIsCAPName(wname);
 	if((err == 1) || (err < 0)) {
+        	SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -1628,6 +1632,7 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessGetTailwithCAP local name failed\n");
+        	SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
@@ -1648,6 +1653,7 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	WooFDrop(wf);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetTailwithCAP cap get failed\n");
+        	SendErr(-1,resp_sock);
 		return;
 	}
 	
@@ -1663,6 +1669,7 @@ void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock)
 	} 
 	DEBUG_WARN("WooFProcessGetTailwithCAP: read CAP denied %s\n",cap_name);
 	// denied
+        SendErr(-1,resp_sock);
 	return;
 }
 
