@@ -860,6 +860,11 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 	unsigned char *fl;
 	unsigned char *r_fl;
 	unsigned char *r_f;
+	char cap_file[1024];
+	int has_cap;
+	WCAP cap;
+	WCAP *new_cap;
+	unsigned long seq_no;
 
 	if (!ip) {
 		return -1;
@@ -872,7 +877,6 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 	if (el_size == (unsigned long)-1) {
         	return (-1);
 	}
-
 	// create request msg
 	err = cmq_frame_list_create(&fl);
 	if(err < 0) {
@@ -881,15 +885,81 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 		return -1;
 	}
 
-	// tag is first frame
-	const char *tag = std::to_string(WOOF_MSG_GET_TAIL).c_str();
-	err = cmq_frame_create(&f,(unsigned char *)tag,strlen(tag)+1);
-	if(err < 0) {
-		DEBUG_WARN("Could not connect create cmd for WoofMsgGetTail");
-		printf("WooFMsgGetTail: could not create cmd\n");
-		cmq_frame_list_destroy(fl);
-		return -1;
-	}
+	has_cap = WooFCapFile(cap_file,sizeof(cap_file));
+
+        const char *t_str;
+        if(has_cap == 1) {
+                char ns_cap[1024];
+                (void)WooFNamespaceURI((char *)std::string(woof_name).c_str(),ns_cap,sizeof(ns_cap));
+                if((SearchKeychain(cap_file,(char *)std::string(woof_name).c_str(),&cap) >= 0) ||
+                               (SearchKeychain(cap_file,ns_cap,&cap) >= 0))     {
+                        new_cap = WooFCapAttenuate(&cap,WCAP_READ);
+                        if(new_cap != NULL) {
+                                // tag first
+                                t_str = std::to_string(WOOF_MSG_GET_TAIL_CAP).c_str();
+                                err = cmq_frame_create(&f,(unsigned char *)t_str,strlen(t_str)+1);
+                                if(err < 0) {
+                                        DEBUG_WARN("Could not create tag frame for GetTail with cap for %s", woof_name.c_str());
+                                        cmq_frame_list_destroy(fl);
+                                        free(new_cap);
+                                        return(-1);
+                                }
+                                err = cmq_frame_append(fl,f);
+                                if(err < 0) {
+                                        DEBUG_WARN("Could not append tag frame for GetTail with cap for %s", woof_name.c_str());
+                                        cmq_frame_list_destroy(fl);
+                                        cmq_frame_destroy(f);
+                                        free(new_cap);
+                                        return(-1);
+                                }
+                                char payload[2048];
+                                snprintf(payload,sizeof(payload),"%s %s",std::string(woof_name).c_str(),std::to_string(seq_no).c_str());
+                                uint64_t sig = WooFCapSign((unsigned char *)payload, strlen(payload), new_cap->check);
+                                new_cap->check = sig;
+                                // then cap
+                                err = cmq_frame_create(&f,(unsigned char *)new_cap,sizeof(WCAP));
+                                free(new_cap);
+                                if(err < 0) {
+                                        DEBUG_WARN("Could not create cap frame for GetTail with cap for %s", woof_name.c_str());
+                                        cmq_frame_list_destroy(fl);
+                                        return(-1);
+                                }
+                                err = cmq_frame_append(fl,f);
+                                if(err < 0) {
+                                        DEBUG_WARN("Could not append cap frame for GetTail with cap for %s", woof_name.c_str());
+                                        cmq_frame_list_destroy(fl);
+                                        cmq_frame_destroy(f);
+                                        return(-1);
+                                }
+                        } else {
+                                has_cap = 0;
+                        }
+                } else {
+                        has_cap = 0;
+                }
+        }
+
+	// tag is in first frame
+        if(has_cap == 0) {
+                const char *cmd = std::to_string(WOOF_MSG_GET_TAIL).c_str();
+                err = cmq_frame_create(&f,(unsigned char *)cmd,strlen(cmd)+1);
+                if(err < 0) {
+                        DEBUG_WARN("Could not connect create cmd for WoofMsgGetTail");
+                        printf("WooFMsgGetRange: could not create cmd\n");
+                        cmq_frame_list_destroy(fl);
+                        return -1;
+                }
+                // add tag to msg
+                err = cmq_frame_append(fl,f);
+                if(err < 0) {
+                        DEBUG_WARN("Could not connect append cmd for WoofMsgGetTail");
+                        printf("WooFMsgGetTail: could not append cmd\n");
+                        cmq_frame_list_destroy(fl);
+                        cmq_frame_destroy(f);
+                        return -1;
+                }
+        }
+
 
 	// add tag to msg
 	err = cmq_frame_append(fl,f);
@@ -1020,7 +1090,7 @@ int32_t backend::remote_get_tail(std::string_view woof_name_v, void* elements, u
 		return -1;
 	}
 
-	// concert response count in first frame
+	// convert response count in first frame
 	unsigned long el_read = strtoul((char *)cmq_frame_payload(r_f),NULL,10);
 	cmq_frame_destroy(r_f);
 
