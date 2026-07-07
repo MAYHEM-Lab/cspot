@@ -343,7 +343,7 @@ following command is equivalent to the previous one
 senspot-file-recv -f testfile3.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof -v 1 -m 1
 ----
 
-Files are stored in WOOF is elements that are the size of the transfer size
+Files are stored in WOOFs in elements that are the size of the transfer size
 specified by the -M parameter in the senspot-file-init command.  Thus, in this
 example, each file version is stored in a 4 kilobyte block and up to 10
 versions of the file (all smaller than 4 kilobytes each) can be stored.  If a
