@@ -49,7 +49,7 @@ please read the installation script for Ubuntu 24.04 before you do anything.
 MUSL may have a problem coexisting with the standard C compiler.  The script
 assumes that the image does not have the C language toolchain installed and it
 will install MUSL.  Please be careful with this option.  It is not easy to
-remediate if it goes ary.
+remediate if it goes awry.
 
 The following tutorial assumes that the path to the CSPOT binary directory is
 [source sh]
@@ -223,15 +223,20 @@ should show "8888" as the payload fetched from 192.168.10.3 after the put to
 192.168.10.2.  Note that the sequence numbers are not kept consistent between
 the source WOOF and the destination WOOF by senspot_forward.  It does preserve
 the initial timestamp and, if the network partitions, it will forward all of
-the data that has yet to be forwaded in order with the original timestamps so
+the data that has yet to be forwarded (in order) with the original timestamps so
 that the data (but not the sequence numbers) are consistent between source and destination after the
 partition resolves.
+
+Note that if the destination is protected by a capability, the source
+namespace needs to contain a capabilities.yaml (for the forwarder to use) --
+handlers do not have access to the .cspot directory of the user running
+woofc-namespace-platform (see section on capabilities below). 
 
 
 === Moving files with senspot
 
 The senspot toolchain includes the ability to store and retrieve files from
-WOOFs that are suffciently large enough to hold them.  
+WOOFs that are sufficiently large enough to hold them.  
 The senspot application toolchain includes three commands for using CSPOT as a
 versioned file store
 [source sh]
@@ -242,7 +247,7 @@ senspot-file-recv -f localfilename -W woofname <-v version-number> <-V>
 ----
 where the -V parameter (which enables verbose mode) is optional.  The version
 number parameter will specify a previous version to retrieve.  If it is
-ommitted, the command fetches the latest version.
+omitted, the command fetches the latest version.
 
 The commands
 [source sh]
@@ -264,6 +269,82 @@ the total size specified in senspot-file-init) each time a file is sent to the
 WOOF, it will be given a new version number and appended (subject to space
 availability). 
 
+For example, the following commands store a file created on 192.168.10.2 in a WOOF on 192.168.10.3
+in the cspot namespace in the home directory of the ubuntu user.
+
+On 192.168.10.3 in /home/ubuntu/cspot, run the command
+[source sh]
+----
+senspot-file-init -W testfilewoof -M 4 -s 10
+----
+which creates the destination WOOF and sets the element size to 4K bytes.  The
+WOOF contains 10 elements.
+
+On the host 192.168.10.2, running the commands
+[source sh]
+----
+echo "Mary had a little lamb." > testfile.txt
+senspot-file-send -f testfile.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+stores the file in the destination WOOF.  
+
+Running the commands
+[source sh]
+----
+senspot-file-recv -f testfile2.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+fetches the file at the end of the woof testfilewoof.  In this example,
+testfile.txt and testfile2.txt should contain the same text.
+
+The following commands create a new version of the file and append it.
+[source sh]
+----
+echo "Whose fleece was white as snow." >> testfile.txt
+senspot-file-send -f testfile.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+
+The following command will then print the version numbers for both versions
+[source sh]
+----
+senspot-file-recv -L -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+
+The output should should resemble the following.
+[source sh]
+----
+version 2:2 at 2, created: 2026-07-07 11:06:50 (1783447610) size: 56 start_seqno: 2
+version 1:1 at 1, created: 2026-07-07 11:06:40 (1783447600) size: 24 start_seqno: 1
+----
+Note that the senspot-file tools create version numbers that have two
+components: a major and minor version number (separated by colons in the
+output).  It is possible for two files to have the same major version number
+(because the system does not maintain a shared version number than can be
+updated atomically amongst distributed clients) but the minor version number
+(which is a WOOF sequence number) is guaranteed to be unique (although not
+incrementing by 1 for each file creation).
+
+The following command fetches version 1:1 of the file and puts it in
+testfile3.txt
+[source sh]
+----
+senspot-file-recv -f testfile3.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof -v 1
+----
+Note that if the major version number is unique, only the -v parameter is
+necessary.  The -m parameter specifies a particular minor number.  Thus the
+following command is equivalent to the previous one
+[source sh]
+----
+senspot-file-recv -f testfile3.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof -v 1 -m 1
+----
+
+Files are stored in WOOF is elements that are the size of the transfer size
+specified by the -M parameter in the senspot-file-init command.  Thus, in this
+example, each file version is stored in a 4 kilobyte block and up to 10
+versions of the file (all smaller than 4 kilobytes each) can be stored.  If a
+version is larger than 4 kilobytes it could also be stored but the number of
+versions would be fewer than 10.  Because the senspot-init command specified
+10 elements of 4 KB each, the total space allocated for all versions in the
+WOOF is 40 KB.  Thus, in this example, no version could be larger than 40 KB.
 === CSPOT Message Authentication using CAPLets
 
 Reference: Bakir, Fatih, Chandra Krintz, and Rich Wolski. "Caplets: Resource aware, capability-based access control for IoT." 2021 IEEE/ACM Symposium on Edge Computing (SEC). IEEE, 2021. https://sites.cs.ucsb.edu/~ckrintz/papers/caplets21.pdf
@@ -442,7 +523,7 @@ The current release includes support for using MQTT as a network transport
 protocol instead of the default ZeroMQ messaging system.  This feature should
 be considered experimental.  However, the ZeroMQ message transport requires
 that the client be able to establish a TCP connection to the machine running
-the namep[sace on a port between 50000 and 60000.  As a result, the server
+the namespace on a port between 50000 and 60000.  As a result, the server
 cannot be behind a firewall that blocks TCP connections to this port range.
 
 If it is possible to configure an MQTT broker two which the client(s) and
@@ -808,7 +889,7 @@ int hw(WOOF *wf, unsigned long seq_no, void *ptr)
 
 Note that the handler's entry point must be a C function and that all handlers
 take 3 arguments:
-* a pointer ot a WOOF structure (defined in woofc.h)
+* a pointer to a WOOF structure (defined in woofc.h)
 * a sequence number
 * a void * pointer to an element
 The size of the elements are defined when the WOOF is created.
