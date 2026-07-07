@@ -42,6 +42,7 @@ void PrintVersions(char *wname, int mode)
 	time_t epoch;
         char buffer[64];
 	unsigned char *el_buf;
+	int minor;
 	
 
 	seqno = WooFGetLatestSeqno(wname);
@@ -72,6 +73,14 @@ void PrintVersions(char *wname, int mode)
 	sm = (SENSMV *)el_buf;
 	while(1) {
 		if(sm->flags & SENS_START) {
+			// if both start and end record
+			// seqno is the minor number
+			if((sm->flags & SENS_EOF) &&
+					(sm->woof_end == 0)) {
+				minor = seqno;
+			} else {
+				minor = sm->woof_end;
+			}
 			epoch = (time_t)sm->creation_time;
 			localtime_r((const time_t *)&epoch, &tm_buf);
 			strftime(buffer, sizeof(buffer),
@@ -79,7 +88,7 @@ void PrintVersions(char *wname, int mode)
 				&tm_buf);
 	printf("version %d:%d at %lu, created: %s (%lu) size: %lu start_seqno: %lu\n",
 				sm->version,
-				sm->woof_end,
+				minor,
 				seqno,
 				buffer,
 				epoch,
@@ -270,6 +279,13 @@ int main(int argc, char **argv)
 				}
 			} else if((sm->version == version) &&
 				  (minor == sm->woof_end)) {
+					found = 1;
+					break;
+			} else if((sm->version == version) && // happens when file fits in an element
+					(sm->flags & SENS_START) &&
+					(sm->flags & SENS_EOF) && 
+					(sm->woof_end == 0) &&
+					(minor == seqno)) {
 					found = 1;
 					break;
 			}

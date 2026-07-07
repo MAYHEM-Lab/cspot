@@ -70,6 +70,7 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 	// at the head
 	sm->proto = PROTO_2;
 	sm->flags = SENS_EOF;
+	sm->woof_end = 0;
 	sm->version = LastFileVersion(wname);
 	if(sm->version == (unsigned int) -1) {
 		sm->version = 1;
@@ -194,6 +195,8 @@ int SendFileMover(char *wname, int fd, unsigned long el_size)
 			fflush(stdout);
 		}
 		// if EOF, remember seqno and clear the flag
+		// if file is in single block, however, this
+		// next record won't get written
 		if(sm->flags & SENS_EOF) {
 			if(Verbose == 1) {
 				printf("\tEOF put at %d\n",seqno);
