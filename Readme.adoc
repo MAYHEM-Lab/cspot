@@ -3,6 +3,12 @@
 image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
 Reference: R. Wolski, C. Krintz, F. Bakir, G. George, and W-T. Lin, CSPOT: Portable, Multi-scale Functions-as-a-Service for IoT, ACM Symposium on Edge Computing (SEC), Nov 2019, https://sites.cs.ucsb.edu/~ckrintz/papers/cspot19.pdf
 
+== Github Repo
+[source bash]
+----
+https://github.com/MAYHEM-Lab/cspot
+----
+
 == Installation
 
 CSPOT now comes with its own installer (which uses CSPOT).  To get the latest
@@ -607,6 +613,27 @@ and that directory contains the mqtt-proxy.yaml file and get back
 In this example, senspot-put uses ZeroMQ and senspot-get uses MQTT.  The
 message transport will uses the URI prefix to determine which transport to use
 for each message.  
+
+== Example Application
+
+The contents of the
+link:https://github.com/MAYHEM-Lab/cspot/examples/cspot-example-app-with-cmake[https://github.com/MAYHEM-Lab/cspot/examples/cspot-example-app-with-cmake] 
+subfolder of the main repo contain an simple CSPOT example (that uses a
+handler) and the build environment necessary to compile it using cmake.
+To build and run it (using the CSPOT binary distributions and the daily
+binaries, copy the contents of this directory a directory that will act as a
+namespace.  If CSPOT is cloned in /home/ubuntu/cspot, then the following
+commands
+[source sh]
+----
+mkdir -p test-namespace
+cd test-namespace
+cp -r /home/ubuntu/cspot/examples/cspot-example-app-with-cmake/* .
+./build-cspot-example-app.sh
+----
+will download and install the necessary binaries, build the app contained in
+the cspot-app-example subdirectory, and run the app which prints the dispatch
+and round-trip times for local handler invocations.
   
 == CSPOT Overview
 
@@ -787,8 +814,12 @@ component for each namespace. Currently each namespace platform must be
 started manually using the commands
 
 ....
-woofc-namespace-platform -N path-to-namespace
+woofc-namespace-platform
 ....
+
+optionally with a -N command specifying a path for the namespace.  Note that
+woofc-namespace-platform prints its output to stdout and (sometimes) to
+standard error.
 
 The namespace platform must be executing before any puts to a namespace
 activate. That is, the platform is intended to function as a long
@@ -830,406 +861,7 @@ process must make a call to *WooFInit()* before doing so to initialize the
 runtime environment.  Handlers, however, inherit the environment in which they
 are to execute and, thus, need not call *WooFInit()*.
 
-== Example Applications
 
-A CSPOT application consists of an initial Linux process that starts the
-application by issuing one or more calls to *WooFPut()*, a set of
-WOOFs that the application will access, and a set of handlers that the
-runtime triggers optionally when data is appended to a WOOF. Each
-handler must be wrapped by the code contained in woofc-shepherd.c so
-that the API can find the internal runtime system log and also map the
-WOOFs referred to in any API calls. The initial process must make a call
-to *WooFInit()* after setting one or more environment variables
-appropriately before it attempts to issue a *WooFPut()* call. All
-of the namespace platforms must be running for the WOOFs that are
-mentioned in the application or the application will not execute.
-
-=== Build Model
-
-The CSPOT runtime causes the namespace containers to mount the namespace
-top-level directory from the host as a Docker volume. Each namespace
-container assumes that the handler binary is compiled for the baseline
-distribution used by the container (currently CentOS 7) and is present
-in the top-level namespace directory before it is invoked.
-
-The example applications contained in this repo build using make and
-copy the binaries into the namespace. This methodology works when the
-Linux distribution that is used to build CSPOT is matches the baseline
-used in the containers (CentOS 7, at present). However, if the
-distribution that builds CSPOT is different than the container
-distribution, the in-container binaries should be built in a container,
-separately, so that the dynamically loaded libraries are compatible.
-
-=== Hello World (cspot/apps/hello-world)
-
-The ``Hello world'' application consists of a single handler which
-prints to the string ``Hello world'' and then prints a string that the
-initial process has appended to the WOOF.  Here is the source code fpr the
-handler *hw()*.
-
-[source c]
-----
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include "woofc.h"
-#include "hw.h"
-
-int hw(WOOF *wf, unsigned long seq_no, void *ptr)
-{
-    HW_EL *el = (HW_EL *)ptr;
-    fprintf(stdout,"hello world\n");
-    fprintf(stdout,"from woof %s at %lu with string: %s\n",
-                    wf->shared->filename, seq_no, el->string);
-    fflush(stdout);
-    return(1);
-
-}
-----
-
-Note that the handler's entry point must be a C function and that all handlers
-take 3 arguments:
-* a pointer to a WOOF structure (defined in woofc.h)
-* a sequence number
-* a void * pointer to an element
-The size of the elements are defined when the WOOF is created.
-The header file woofc.h defines a C structure that the application uses
-as the type of each element in the WOOF.
-
-[source c]
-----
-#ifndef HW_H
-#define HW_H
-struct obj_stc
-{
-    char string[255];
-};
-typedef struct obj_stc HW_EL;
-#endif
-----
-
-Finally, the initial start process takes a WOOF name to use, creates the
-WOOF (with a history size of 5), types element as an HW_EL, fills in a
-string, and calls *WooFPut()* with ``hw'' specified as a handler.
-
-[source c]
-----
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "woofc.h"
-#include "hw.h"
-
-#define ARGS "f:N:W:"
-char *Usage = "hw-start -W woof_name\n\
-\t-N namespace <CWD is the default>\n";
-
-char Fname[4096];
-char Wname[4096];
-char NameSpace[4096];
-char Namelog_dir[4096];
-int UseNameSpace;
-
-char putbuf1[1024];
-char putbuf2[1024];
-
-int main(int argc, char **argv)
-{
-	int c;
-	int err;
-	HW_EL el;
-	unsigned long long ndx;
-
-	while((c = getopt(argc,argv,ARGS)) != EOF) {
-		switch(c) {
-			case 'f':
-			case 'W':
-				strncpy(Fname,optarg,sizeof(Fname));
-				break;
-			case 'N':
-				UseNameSpace = 1;
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			default:
-				fprintf(stderr,
-				"unrecognized command %c\n",(char)c);
-				fprintf(stderr,"%s",Usage);
-				exit(1);
-		}
-	}
-
-	if(Fname[0] == 0) {
-		fprintf(stderr,"must specify filename for woof\n");
-		fprintf(stderr,"%s",Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
-	}
-
-	if(UseNameSpace == 1) {
-		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
-		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
-		putenv(putbuf1);
-	} else {
-		strncpy(Wname,Fname,sizeof(Wname));
-	}
-
-	WooFInit(); // attach to namespace
-
-	err = WooFCreate(Wname,sizeof(HW_EL),5); // create a WOOF
-	if(err < 0) {
-		fprintf(stderr,"couldn't create woof from %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
-	/*
-	 * copy string into a structure to be stored as an element
-	 * in the WOOF
-	 */
-	memset(el.string,0,sizeof(el.string));
-	strncpy(el.string,"my first bark",sizeof(el.string));
-
-	/*
-	 * put the string in the WOOF and trigger a handler
-	 */
-	ndx = WooFPut(Wname,"hw",(void *)&el);
-
-	if(WooFInvalid(err)) {
-		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
-	printf("successfully appended %s to %s at seq_no %llu\n",
-		"my first bark",
-		Wname,
-		ndx);
-
-	return(0);
-}
-
-----
-The code for this application is in the apps/hello-world subdirectory of
-the CSPOT repo.
-
-To run ``Hello world'', first start the namespace platform for the
-application’s namespace. Typically, the method is to copy the CSPOT
-runtime into a directory to use as the name space and then to copy the code
-(handlers and start program) to the name space.  The easiest way to start the platform is to cd
-into the namespace on the host and to run the platform without any arguments. It
-will use the current working directory as the namespace in this case.
-
-[source sh]
-----
-mkdir test-name-space
-cp cspot/build/bin/woofc* test-name-space
-cp cspot/apps/hello-world/hw-start test-name-space
-cp cspot/apps/hello-world/hw test-name-space
-cd spot/apps/hello-world/cspot
-cd test-name-space
-./woofc-namespace-platform
-----
-
-Once the platform is running, it will spawn a Docker container.
-Unfortunately, the interaction between pthreads, the Linux system
-command, and docker isn’t completely bug free in CentOS 7. Currently,
-woofc-namespace-platform can't be terminated with a when running in the
-foreground.
-Alternatively, killing the process ID with ``kill -HUP'' will
-also trigger a clean up of the docker container. Any other form of
-termination may leave the container running which holds the port
-associated with the namespace.
-
-Once the platform is running, run the application
-
-[source sh]
-----
-./hw-start -W hello-woof
-----
-
-So, for example, if CSPOT were installed in /home/centos/cspot, the commands
-would be
-[source sh]
-----
-cd /home/centos
-mkdir /home/centos/test-name-space
-cp /home/centos/cspot/build/bin/woofc* test-name-space
-cp /home/centos/cspot/build/bin/hello-world/hw test-name-space
-cp /home/centos/cspot/build/bin/hello-world/hw-start test-name-space
-cp /home/centos/cspot/build/bin/hello-world/hw-client test-name-space
-cd /home/centos/test-name-space
-./woofc-namespace-platform >& namespace.log &
-./hw-start hello-woof
-----
-
-Because the start program creates the WOOF ``hello-woof'' in this example, the
-WOOF name is specified as a path.  If successful, in this example, the start
-program should have printed
-
-[source sh]
-----
-successfully appended my first bark to hello-woof at seq_no 1
-----
-
-and the file namespace.log should contain
-
-[source sh]
-----
-hello world
-at 1 with string: my first bark
-----
-
-Because the handler prints to stdout, the output of the handler will be
-sent to the controlling tty of the shell that is running the platform.
-
-To continue appending to ``hello-woof'' without recreating the woof each time,
-a client program (contained in cspot/apps/hello-word/hw-client) simply calls
-*WooFPut()* on the same WOOF.  
-
-[source C]
-
-----
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "woofc.h"
-#include "hw.h"
-
-#define ARGS "f:N:W:"
-char *Usage = "hw-client -W woof_name\n\
-\t-N namespace <CWD is the default>\n";
-
-char Fname[4096];
-char Wname[4096];
-char NameSpace[4096];
-char Namelog_dir[4096];
-int UseNameSpace;
-
-char putbuf1[1024];
-char putbuf2[1024];
-
-int main(int argc, char **argv)
-{
-	int c;
-	int err;
-	HW_EL el;
-	unsigned long long ndx;
-
-	while((c = getopt(argc,argv,ARGS)) != EOF) {
-		switch(c) {
-			case 'f':
-			case 'W':
-				strncpy(Fname,optarg,sizeof(Fname));
-				break;
-			case 'N':
-				UseNameSpace = 1;
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			default:
-				fprintf(stderr,
-				"unrecognized command %c\n",(char)c);
-				fprintf(stderr,"%s",Usage);
-				exit(1);
-		}
-	}
-
-	if(Fname[0] == 0) {
-		fprintf(stderr,"must specify filename for woof\n");
-		fprintf(stderr,"%s",Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
-	}
-
-	if(UseNameSpace == 1) {
-		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
-		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
-		putenv(putbuf1);
-	} else {
-		strncpy(Wname,Fname,sizeof(Wname));
-	}
-
-	/*
-	 * copy string into a structure to be stored as an element
-	 * in the WOOF
-	 */
-	memset(el.string,0,sizeof(el.string));
-	strncpy(el.string,"my second bark",sizeof(el.string));
-
-	/*
-	 * put the string in the WOOF and trigger a handler
-	 */
-	ndx = WooFPut(Wname,"hw",(void *)&el);
-
-	if(WooFInvalid(err)) {
-		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
-	printf("successfully appended %s to %s at seq_no %llu\n",
-		"my second bark",
-		Wname,
-		ndx);
-
-	return(0);
-}
-
-----
-
-
-If the client is running in the same
-namespace, it can refer to the WOOF by a path name.  Otherwise, as in the
-following example, the client uses a fully-qualified WOOF name.
-
-[source sh]
-----
-./hw-client -W woof://127.0.0.1/home/centos/test-name-space/hello-woof
-----
-
-Note that of the client had been located on another machine, the IP address
-or DNS name of the machine hosting the namespace would be substituted for the
-local IP address ``127.0.0.1'' in this example.
-
-=== Runs Test (cspot/apps/runs-test)
-
-The Runs test application is intended to simulate an IoT processing
-pipeline. A producing handler (RHandler in the application) generates
-a stream of pseudo-random numbers. The next stage of the pipeline
-(SHandler) processes the stream in batches of ``sample size''
-(specified as the -s parameter) and compute the Runs test statistic
-for each sample. It then puts each statistic in a WOOF for the final
-stage of the pipeline (Handler) which runs a KS-test for the set of
-statistics against a z-transformed, empirically generated Normal
-distribution of the same size. The number of such samples it considers
-is specified by the -c parameter to the start program.
-
-The apps/runs-test subdirectory contains several versions of this
-program
-
-* c-runstest.c: sequential C implementation
-* c-runstat.c: C implementation using pthreads and shared memory in an
-event-driven style
-* cspot-runstat: CSPOT implementation of c-runstat running in a single
-namespace
-* cspot-runstat-fast: CSPOT implementation that does not run
-``RHandler'' in a container
-* cspot-runstat-multi-ns: CSPOT implementation of c-runstat that runs
-handlers in separate namespaces
 
 == On-going and Future Work
 
