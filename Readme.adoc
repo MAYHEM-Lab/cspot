@@ -170,7 +170,7 @@ Next, test the reverse direction. On the host 192.168.10.3, from the directory
 [source sh]
 ----
 echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d
-./senspot-get woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+./senspot-get woof://192.168.10.2/home/ubuntu/cspot/testwoof
 ----
 If this test is successful, the output will be something like
 [source sh]
@@ -181,12 +181,90 @@ indicating that the append from 192.168.10.3 to
 /home/ubuntu/cspot/testwoof on 192.168.10.2 has been completed.  
 
 If senspot-put fails, it is usually for one of four reasons
+
 * woofc-namespace-platform on the server host is not running or has thrown an error
 * senspot-init has not been run in the namespace where a woofc-namespace-platform was started
 * the IP address or the path to the namespace specified in senspot-put do not match the IP address and/or path where woofc-namespace-platform is running
 * ports 50000 to 60000 are not open for TCP ingress on the server host or egress on the client host or both
 
-=== CSPOT Message Authentication using CAPLets.
+=== Replicating data with senspot
+
+The senspot toolchain includes the ability to automatically trigger a
+forwarding operation when data is appended to a WOOF.  The command
+[source sh]
+----
+./senspot-forward-init -W local-src-woof-name -F woof://target-ip/namespace-path/dst-woof-name
+----
+
+in the source namespace which must also contain the handler code in
+senspot_forward.
+
+In this example, to automatically forward data from
+/home/ubuntu/cspot/testwoof on 192.168.10.2 to /home/ubuntu/cspot/testwoof on
+192.169.10.3, cd into /home/ubuntu/cspot on 192.168.10.2 and run the command
+[source sh]
+----
+./senspot-forward-init -W testwoof -F woof://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+This command will initialize forwarding state to keep track of what data needs to
+be forwarded in the event the network partitions between the source and
+destination namespaces.
+
+To trigger forwarding when data is appended to the source, add the parameters
+"-H senspot_forward" to the senspot-put command.  Thus, in this example,
+running the command
+[source sh]
+----
+echo "8888" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d -H senspot_forward
+./senspot-get -W woof://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+
+should show "8888" as the payload fetched from 192.168.10.3 after the put to
+192.168.10.2.  Note that the sequence numbers are not kept consistent between
+the source WOOF and the destination WOOF by senspot_forward.  It does preserve
+the initial timestamp and, if the network partitions, it will forward all of
+the data that has yet to be forwaded in order with the original timestamps so
+that the data (but not the sequence numbers) are consistent between source and destination after the
+partition resolves.
+
+
+=== Moving files with senspot
+
+The senspot toolchain includes the ability to store and retrieve files from
+WOOFs that are suffciently large enough to hold them.  
+The senspot application toolchain includes three commands for using CSPOT as a
+versioned file store
+[source sh]
+----
+senspot-file-init -W localwoofname -s size -M transfer-block-size (in KB)
+senspot-file-send -f localfilename -W woofname <-V>
+senspot-file-recv -f localfilename -W woofname <-v version-number> <-V>
+----
+where the -V parameter (which enables verbose mode) is optional.  The version
+number parameter will specify a previous version to retrieve.  If it is
+ommitted, the command fetches the latest version.
+
+The commands
+[source sh]
+----
+senspot-file-recv -W woofname -l
+senspot-file-recv -W woofname -L
+----
+print the latest version number and all version numbers stored in the
+specified WOOF respectively.
+
+The command senspot-file-init creates a local WOOF with the number of elements specified
+after the -s parameter, each one of which is the transfer-block-size (in KB) given by the -M
+parameter.  The WOOF must be large enough to hold at least one copy of the
+file.  That is the the product "size * transfer-block-size" must be greater
+than or equal to the file size.
+
+The model is that each file is stored in its own WOOF but that (depending on
+the total size specified in senspot-file-init) each time a file is sent to the
+WOOF, it will be given a new version number and appended (subject to space
+availability). 
+
+=== CSPOT Message Authentication using CAPLets
 
 Reference: Bakir, Fatih, Chandra Krintz, and Rich Wolski. "Caplets: Resource aware, capability-based access control for IoT." 2021 IEEE/ACM Symposium on Edge Computing (SEC). IEEE, 2021. https://sites.cs.ucsb.edu/~ckrintz/papers/caplets21.pdf
 
@@ -211,6 +289,7 @@ support currently must be application level).
 
 Privileges are ordered.  The currently supported privileges (from least to
 greatest privilege are)
+
 * READ (0x00000001)
 * WRITE (0x00000002)
 * EXECUTE (0x00000004)
