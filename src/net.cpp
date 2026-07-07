@@ -246,7 +246,14 @@ WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsign
 }
 
 unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned long el_size, int el_count) {
-    return -1;
+	cspot::network_backend *be;
+	cspot::check_backends();
+	be = adjust_active_backend(woof_name);
+	if(be != NULL) {
+		return(be->remote_get_tail(woof_name, elements, el_size, el_count));
+	} else {
+		return(-1);
+	}
 }
 
 

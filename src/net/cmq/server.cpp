@@ -102,7 +102,10 @@ void *WooFMsgThread(void *arg) {
 				    WooFProcessGetEarliestSeqnowithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_TAIL:
-				    WooFProcessGetTail(fl,c_sd);
+				    WooFProcessGetTail(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_TAIL_CAP:
+				    WooFProcessGetTailwithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_LATEST_SEQNO:
 				    WooFProcessGetLatestSeqno(fl,c_sd,1);
