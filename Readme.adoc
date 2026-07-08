@@ -152,6 +152,18 @@ In this example, the output should be
 ----
 where the time value is Linux epoch.
 
+In order to tear down a running namespace that was created with
+`woofc-namespace-platform`, use the following command.
+
+[source,sh]
+----
+pkill -x woofc-container
+----
+
+This command will terminate the `woofc-container` process, which will also tear
+down the `woofc-forker-helper` processes that were spawned by running
+`woofc-namespace-platform`.
+
 The next step is to test senspot between machines, running it on each
 referencing a namespace on the other.  In the next example, 192.168.10.2 will be
 the client and 192.168.10.3 will be the server.
