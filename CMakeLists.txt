@@ -83,6 +83,13 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 #    endif()
 endif ()
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 4
+   AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv6l|armv7l)$")
+    set(CMAKE_CXX_STANDARD_LIBRARIES
+        "${CMAKE_CXX_STANDARD_LIBRARIES} -latomic"
+    )
+endif()
+
 add_subdirectory(deps)
 add_subdirectory(src)
 
@@ -231,11 +238,29 @@ endif ()
 
 add_executable(woofc-namespace-platform src/woofc-namespace-platform.cpp)
 if(APPLE)
-target_link_libraries(woofc-namespace-platform PRIVATE woof fmt::fmt)
+	target_link_libraries(woofc-namespace-platform PRIVATE woof fmt::fmt)
 else()
-target_link_libraries(woofc-namespace-platform woof)
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv6l|armv7l)$")
+		message(STATUS "ARM32 condition matched: adding libatomic")
+	if(CMAKE_SIZEOF_VOID_P EQUAL 4
+   		AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv6l|armv7l)$")
+
+    		find_package(OpenSSL REQUIRED)
+    		set_property(
+        		TARGET OpenSSL::Crypto
+        		APPEND PROPERTY INTERFACE_LINK_LIBRARIES atomic
+    		)
+	endif()
+    		target_link_libraries(woofc-namespace-platform PRIVATE woof crypto atomic fmt::fmt)
+	else()
+		target_link_libraries(woofc-namespace-platform woof)
+	endif()
 endif()
-target_include_directories(woofc-namespace-platform PRIVATE src/include)
+target_include_directories(woofc-namespace-platform PRIVATE include
+	src/include
+	deps/mio
+	deps/euca-cutils
+	deps/fmt/include)
 
 add_executable(woofc-container src/woofc-container.cpp)
 target_link_libraries(woofc-container PRIVATE woof)
