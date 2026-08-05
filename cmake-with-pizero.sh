@@ -2,6 +2,6 @@
 #
 
 mkdir -p ./build
-cmake -S . -B build     -DCMAKE_BUILD_TYPE=Release     -DENABLE_PYCSPOT=OFF
+cmake -S . -B build     -DCMAKE_BUILD_TYPE=Debug     -DENABLE_PYCSPOT=OFF
 cmake --build build --parallel 1
 
