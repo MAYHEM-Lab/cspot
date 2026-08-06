@@ -23,9 +23,6 @@ fi
 
 KEYCHAIN="$HOME/.cspot/capabilities.yaml"
 
-PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
-BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
-BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
 if ( test "$SUBDIR" == "release" ) ; then
 	PCHECK="1688304179681876176"
 	BCHECK="423494180182850117"
@@ -43,9 +40,28 @@ elif ( test "$ARCH" == "x86_64" ) ; then
 	TYPE="x86"
 elif ( test "$ARCH" == "arm64" ) ; then
 	TYPE="arm64-apple"
+elif ( test "$ARCH" == "armv6l" ) ; then
+	TYPE="armv6l"
 else
 	echo "unrecognized architecture $ARCH"
 	exit 1
+fi
+
+if ( test "$SUBDIR" == "release" ) ; then
+	PORT=54797
+else
+	PORT=53887
+fi
+PORT1=51356
+
+if ( test "$TYPE" == "armv6l" ) ; then
+	PRIMARY="woof://cspot-distributions.cs.ucsb.edu:$PORT/cspot-distributions/$SUBDIR"
+	BACKUP="woof://169.231.229.94:$PORT/cspot-distributions/$SUBDIR"
+	BACKUP2="woof://169.231.230.76:$PORT1/sharedfs/cspot-distributions"
+else
+	PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
+	BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
+	BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
 fi
 
 HERE=`pwd`
