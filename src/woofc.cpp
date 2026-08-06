@@ -1665,6 +1665,7 @@ unsigned long WooFLatestSeqnoWithCause(WOOF* wf,
 	return (latest_seq_no);
 }
 
+#if 0
 unsigned int WooFPortHash(const char* woof_namespace) {
     /*
      * hash namespace to port number between 50000 and 60000
@@ -1681,4 +1682,30 @@ unsigned long WooFNameHash(const char* woof_namespace) {
     }
 
     return (h);
+}
+
+#endif
+
+#include <stdint.h>
+
+uint64_t WooFNameHash(const char *woof_namespace)
+{
+    uint64_t h = UINT64_C(5381);
+    const uint64_t a = UINT64_C(33);
+    const unsigned char *p;
+
+    for (p = (const unsigned char *)woof_namespace; *p != '\0'; ++p) {
+        h = (h * a) + (uint64_t)*p;  /* intentional 64-bit wrap */
+    }
+
+    return h;
+}
+
+unsigned int WooFPortHash(const char *woof_namespace)
+{
+    /*
+     * Hash namespace to a port number from 50000 through 59999.
+     */
+    return 50000U +
+           (unsigned int)(WooFNameHash(woof_namespace) % UINT64_C(10000));
 }
