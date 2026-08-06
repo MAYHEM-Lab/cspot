@@ -70,39 +70,38 @@ HERE=`pwd`
 if ( ! test -e "$KEYCHAIN" ) ; then
 	mkdir -p $HOME/.cspot
 	chmod 700 $HOME/.cspot
-	echo "namespace:" > $KEYCHAIN
-  	echo "    name: $PRIMARY" >> $KEYCHAIN
+	echo "namespaces:" > $KEYCHAIN
+  	echo "  - name: $PRIMARY" >> $KEYCHAIN
   	echo "    permissions: 00000001" >> $KEYCHAIN
   	echo "    check: $PCHECK" >> $KEYCHAIN
-	echo "namespace:" >> $KEYCHAIN
-  	echo "    name: $BACKUP" >> $KEYCHAIN
+  	echo "  - name: $BACKUP" >> $KEYCHAIN
   	echo "    permissions: 00000001" >> $KEYCHAIN
   	echo "    check: $BCHECK" >> $KEYCHAIN
-	echo "namespace:" >> $KEYCHAIN
-  	echo "    name: $BACKUP2" >> $KEYCHAIN
+  	echo "  - name: $BACKUP2" >> $KEYCHAIN
   	echo "    permissions: 00000001" >> $KEYCHAIN
   	echo "    check: $BCHECK2" >> $KEYCHAIN
 	chmod 600 $KEYCHAIN
 else
-	PTEST=`cat $KEYCHAIN | grep "name: $PRIMARY"`
+	PTEST=`cat $KEYCHAIN | grep "namespaces:"`
 	if ( test -z "$PTEST" ) ; then
-                echo "namespace:" >> $KEYCHAIN
-                echo "    name: $PRIMARY" >> $KEYCHAIN
+		echo "namespaces:" >> $KEYCHAIN
+	fi
+	PTEST=`cat $KEYCHAIN | grep -- "- name: $PRIMARY"`
+	if ( test -z "$PTEST" ) ; then
+                echo "  - name: $PRIMARY" >> $KEYCHAIN
                 echo "    permissions: 00000001" >> $KEYCHAIN
                 echo "    check: $PCHECK" >> $KEYCHAIN
 	fi
-        BTEST=`cat $KEYCHAIN | grep "name: $BACKUP"`
+        BTEST=`cat $KEYCHAIN | grep -- "- name: $BACKUP"`
         if ( test -z "$BTEST" ) ; then
-                echo "namespace:" >> $KEYCHAIN
-                echo "    name: $BACKUP" >> $KEYCHAIN
+                echo "  - name: $BACKUP" >> $KEYCHAIN
                 echo "    permissions: 00000001" >> $KEYCHAIN
                 echo "    check: $BCHECK" >> $KEYCHAIN
         fi
 	if ( test "$SUBDIR" == "release" ) ; then
-        	BTEST2=`cat $KEYCHAIN | grep "name: $BACKUP2"`
+        	BTEST2=`cat $KEYCHAIN | grep -- "- name: $BACKUP2"`
         	if ( test -z "$BTEST2" ) ; then
-                	echo "namespace:" >> $KEYCHAIN
-                	echo "    name: $BACKUP2" >> $KEYCHAIN
+                	echo "   - name: $BACKUP2" >> $KEYCHAIN
                 	echo "    permissions: 00000001" >> $KEYCHAIN
                 	echo "    check: $BCHECK2" >> $KEYCHAIN
         	fi
