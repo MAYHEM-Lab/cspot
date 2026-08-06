@@ -89,7 +89,7 @@ int WooFExist(const char* name);
 
 unsigned int WooFPortHash(const char* woof_namespace);
 
-unsigned long WooFNameHash(const char* woof_namespace);
+uint64_t WooFNameHash(const char* woof_namespace);
 
 #ifdef REPAIR
 WOOF* WooFOpenOriginal(char* name);
