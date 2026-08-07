@@ -54,15 +54,20 @@ else
 fi
 PORT1=51356
 
-if ( test "$TYPE" == "armv6l" ) ; then
-	PRIMARY="woof://cspot-distributions.cs.ucsb.edu:$PORT/cspot-distributions/$SUBDIR"
-	BACKUP="woof://169.231.229.94:$PORT/cspot-distributions/$SUBDIR"
-	BACKUP2="woof://169.231.230.76:$PORT1/sharedfs/cspot-distributions"
-else
-	PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
-	BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
-	BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
-fi
+#if ( test "$TYPE" == "armv6l" ) ; then
+#	PRIMARY="woof://cspot-distributions.cs.ucsb.edu:$PORT/cspot-distributions/$SUBDIR"
+#	BACKUP="woof://169.231.229.94:$PORT/cspot-distributions/$SUBDIR"
+#	BACKUP2="woof://169.231.230.76:$PORT1/sharedfs/cspot-distributions"
+#else
+#	PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
+#	BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
+#	BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
+#fi
+ 
+
+PRIMARY="woof://cspot-distributions.cs.ucsb.edu/cspot-distributions/$SUBDIR"
+BACKUP="woof://169.231.229.94/cspot-distributions/$SUBDIR"
+BACKUP2="woof://169.231.230.76/sharedfs/cspot-distributions"
 
 HERE=`pwd`
 
