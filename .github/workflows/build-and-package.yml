@@ -3,12 +3,14 @@ name: Build, Test, and Package
 on:
   push:
     branches:
-      - caplets
+      - master
+      - release-3.0
 
 jobs:
   build-and-package:
     name: Build & Package (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+
     strategy:
       matrix:
         include:
@@ -28,7 +30,11 @@ jobs:
           mkdir -p build
           cd build
           if [ "${{ matrix.arch }}" = "amd64" ]; then
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake -DENABLE_PYCSPOT=OFF ..
+            cmake \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake \
+              -DENABLE_PYCSPOT=OFF \
+              ..
           else
             cmake -DCMAKE_BUILD_TYPE=Release ..
           fi
@@ -37,6 +43,7 @@ jobs:
       - name: Run self tests
         run: |
           cd build/bin
+
           cp ../../cicd-tests/local-self-test.sh .
           ./woofc-namespace-platform -b spawn >& namespace.log &
           ./local-self-test.sh
@@ -60,7 +67,7 @@ jobs:
         id: package
         run: |
           ARCH="${{ matrix.arch }}"
-          VERSION="1.0-${GITHUB_RUN_NUMBER}"
+          VERSION="3.0-${GITHUB_RUN_NUMBER}"
           PKG_NAME="cspot-${ARCH}.deb"
 
           PKG_DIR="pkg"
@@ -85,7 +92,7 @@ jobs:
 
           dpkg-deb --build "$PKG_DIR" "$PKG_NAME"
 
-          echo "pkg=$PKG_NAME" >> $GITHUB_OUTPUT
+          echo "pkg=$PKG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload package as build artifact
         uses: actions/upload-artifact@v4
@@ -96,6 +103,10 @@ jobs:
   publish-release:
     name: Publish to Latest Release
     needs: build-and-package
+
+    # Only the stable release branch updates the "latest" release.
+    if: github.ref == 'refs/heads/release-3.0'
+
     runs-on: ubuntu-latest
 
     steps:
@@ -108,8 +119,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          files: artifacts/**/* 
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
