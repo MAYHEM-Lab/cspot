@@ -23,7 +23,7 @@ CSPOT binaries, run the following command.
 mkdir -p cspot
 cd cspot
 rm -rf update-cspot-distribution.sh
-(curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/caplets/dist/update-cspot-distribution.sh | /bin/bash)
+(curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/dist/update-cspot-distribution.sh | /bin/bash)
 ----
 
 The installer will put the release binary distribution in the `cspot`
