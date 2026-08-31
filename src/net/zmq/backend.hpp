@@ -12,10 +12,20 @@
 #include <atomic>
 
 namespace cspot::zmq {
+
 class per_endpoint_data {
 public:
     ZServerPtr server;
     ZPollerPtr resp_poll;
+
+    per_endpoint_data() = default;
+    ~per_endpoint_data();
+
+    per_endpoint_data(per_endpoint_data&&) = default;
+    per_endpoint_data& operator=(per_endpoint_data&&) = default;
+
+    per_endpoint_data(const per_endpoint_data&) = delete;
+    per_endpoint_data& operator=(const per_endpoint_data&) = delete;
 
     static std::optional<per_endpoint_data> create(const std::string& ep);
 };
@@ -26,9 +36,12 @@ public:
     bool stop() override;
 
     int32_t remote_get(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no) override;
+    int32_t remote_get_range(std::string_view woof_name, void* elem, uint32_t elem_size, uint32_t seq_no, uint32_t count) override;
+    int32_t remote_create(std::string_view woof_name, uint32_t elem_size, uint32_t history_size) override;
     int32_t remote_get_tail(std::string_view woof_name, void* elements, unsigned long el_size, int el_count) override;
     int32_t remote_put(std::string_view woof_name, const char* handler_name, const void* elem, uint32_t elem_size) override;
     int32_t remote_get_elem_size(std::string_view woof_name) override;
+    int32_t remote_get_earliest_seq_no(std::string_view woof_name) override;
     int32_t remote_get_latest_seq_no(std::string_view woof_name,
                                      const char* cause_woof_name,
                                      uint32_t cause_woof_latest_seq_no) override;
@@ -44,6 +57,7 @@ private:
 
     ThreadMapT m_per_thread_socks;
 
+    //std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
     std::vector<std::thread> m_threads{WOOF_MSG_THREADS};
 
     ZActorPtr m_proxy;

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
@@ -334,7 +335,8 @@ zmsg_t *WooFMQTTRequest(char *endpoint, zmsg_t *msg)
 	char *ep;
 	Hval hv;
 	RB *my_endpoints;
-	double tid = (double)pthread_self();
+	uintptr_t tid_int = (uintptr_t)pthread_self();
+	double tid = (double)tid_int;
 	
 	ep = (char *)malloc(strlen(endpoint)+1);
 	if(ep == NULL) {

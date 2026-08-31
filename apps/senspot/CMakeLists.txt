@@ -1,6 +1,6 @@
 include_directories("./include" "../../src/include")
 
-add_library(senspot senspot.c)
+add_library(senspot senspot.c senspot-file.c)
 target_link_libraries(senspot PUBLIC woof)
 
 add_executable(senspot-get senspot-get.c)
@@ -14,6 +14,15 @@ target_link_libraries(senspot-init PUBLIC woof senspot)
 
 add_executable(senspot-forward-init senspot-forward-init.c)
 target_link_libraries(senspot-forward-init PUBLIC woof senspot)
+
+add_executable(senspot-file-init senspot-file-init.c)
+target_link_libraries(senspot-file-init PUBLIC woof senspot)
+
+add_executable(senspot-file-send senspot-file-send.c)
+target_link_libraries(senspot-file-send PUBLIC woof senspot)
+
+add_executable(senspot-file-recv senspot-file-recv.c)
+target_link_libraries(senspot-file-recv PUBLIC woof senspot)
 
 add_executable(device-ping-init device-ping-init.c)
 target_link_libraries(device-ping-init PUBLIC woof)

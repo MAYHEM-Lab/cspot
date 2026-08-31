@@ -71,7 +71,8 @@ void WooFShutdown(int sig) {
     int val;
 
     should_exit = true;
-    while (sem_getvalue(&Name_log->tail_wait, &val) >= 0) {
+    //while (sem_getvalue(&Name_log->tail_wait, &val) >= 0) {
+    while(GetSemValue(&Name_log->tail_wait, &val) >= 0) {
         if (val > 0) {
             break;
         }
@@ -281,7 +282,9 @@ static int WooFHostInit(std::unique_ptr<cspot_backend> executor, int min_contain
      * be caught which then triggers a clean up of the docker container
      */
     sleep(86400 * 365 * 10);
-    thread.join();
+//printf("HostInit: sleep interrupted\n");
+//fflush(stdout);
+//    thread.join();
 
     exit(0);
 }
@@ -298,11 +301,19 @@ const char* Usage = "woofc-namespace-platform -b backend -d application woof dir
 -t-M max container count\n\
 -t-N namespace\n";
 
+#ifdef USE_CMQ
+extern "C" {
+extern void cmq_pkt_shutdown();
+}
+#endif
 void sig_int_handler(int) {
     fprintf(stdout, "SIGINT caught\n");
     fflush(stdout);
 
     CleanUpDocker();
+#ifdef USE_CMQ
+    cmq_pkt_shutdown();
+#endif
     exit(0);
 }
 
@@ -331,7 +342,9 @@ int main(int argc, char** argv) {
 
     auto min_containers = 1;
     auto max_containers = 1;
-    std::string backend_name = "docker";
+    std::string backend_name = "spawn";
+
+    WooF_is_server = 1; // for signal handling
 
     int c;
     while ((c = getopt(argc, argv, ARGS)) != EOF) {
@@ -410,6 +423,8 @@ int main(int argc, char** argv) {
     DEBUG_LOG("Using backend %s", backend_name.c_str());
 
     WooFHostInit(maker_it->second(), min_containers, max_containers);
+//printf("HostInit completed\n");
+//fflush(stdout);
 
     pthread_exit(nullptr);
 }

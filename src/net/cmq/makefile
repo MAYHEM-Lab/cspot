@@ -1,20 +1,38 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS=-g -Wformat-truncation=0 -I ../../include
 
-all: cmq-frame-selftest cmq-test-client cmq-test-server
+RBINC=/sharedfs/cspot-mqtt/deps/euca-cutils
+RBSRC=/sharedfs/cspot-mqtt/deps/euca-cutils/redblack.c
+
+all: cmq-frame-selftest cmq-test-client cmq-test-server cmq-mqtt-test-client cmq-mqtt-test-server cmq-perf
 
 cmq-frame.o: cmq-frame.h cmq-frame.c
 	${CC} ${CFLAGS} -c cmq-frame.c
 
+cmq-mqtt-xport.o: cmq-mqtt-xport.c cmq-mqtt-xport.h
+	${CC} ${CFLAGS} -c cmq-mqtt-xport.c
+
+cmq-cache.o: cmq-cache.c cmq-cache.h
+	${CC} ${CFLAGS} -c cmq-cache.c
+
 cmq-frame-selftest: cmq-frame.c cmq-frame.h
 	${CC} ${CFLAGS} -DSELFTEST -o cmq-frame-selftest cmq-frame.c 
 
-cmq-test-client: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c
-	${CC} ${CFLAGS} -DTESTCLIENT -o cmq-test-client cmq-pkt.c cmq-frame.o
+cmq-test-client: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c cmq-mqtt-xport.o cmq-mqtt-xport.h cmq-cache.o cmq-cache.h
+	${CC} ${CFLAGS} -DTESTCLIENT -o cmq-test-client cmq-pkt.c cmq-frame.o cmq-mqtt-xport.o cmq-cache.o ${RBSRC} -lpthread -lyaml
 
-cmq-test-server: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c
-	${CC} ${CFLAGS} -DTESTSERVER -o cmq-test-server cmq-pkt.c cmq-frame.o
+cmq-test-server: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c cmq-mqtt-xport.o cmq-mqtt-xport.h cmq-cache.o cmq-cache.h
+	${CC} ${CFLAGS} -DTESTSERVER -o cmq-test-server cmq-pkt.c cmq-frame.o cmq-mqtt-xport.o cmq-cache.o ${RBSRC} -lpthread -lyaml
+
+cmq-mqtt-test-client: cmq-frame.o cmq-frame.h cmq-mqtt-xport.c cmq-mqtt-xport.h
+	${CC} ${CFLAGS} -DTESTCLIENT -I${RBINC} -o cmq-mqtt-test-client cmq-mqtt-xport.c ${RBSRC} cmq-frame.o -lpthread -lyaml
+
+cmq-mqtt-test-server: cmq-frame.o cmq-frame.h cmq-mqtt-xport.h cmq-mqtt-xport.c
+	${CC} ${CFLAGS} -DTESTSERVER -I${RBINC} -o cmq-mqtt-test-server cmq-mqtt-xport.c ${RBSRC} cmq-frame.o -lpthread -lyaml 
+
+cmq-perf: cmq-frame.o cmq-frame.h cmq-pkt.h cmq-pkt.c cmq-mqtt-xport.o cmq-mqtt-xport.h cmq-cache.o cmq-cache.h cmq-perf.c
+	${CC} ${CFLAGS} -o cmq-perf cmq-perf.c cmq-pkt.c cmq-frame.o cmq-mqtt-xport.o cmq-cache.o ${RBSRC} -lpthread -lyaml
 
 clean:
-	rm *.o cmq-frame-selftest cmq-test-client cmq-test-server
+	rm *.o cmq-frame-selftest cmq-test-client cmq-test-server cmq-mqtt-test-server cmq-mqtt-test-client
 

@@ -11,8 +11,8 @@
 #include "woofc.h"
 #include "woofc-caplets.h"
 
-#define ARGS "W:"
-char *Usage = "woofc-init-principal -W local-woof-name\n";
+#define ARGS "W:N"
+char *Usage = "woofc-init-principal [-W local-woof-name || -N <for namespace>]\n";
 
 int main(int argc, char**argv)
 {
@@ -27,6 +27,9 @@ int main(int argc, char**argv)
 		switch(c) {
 			case 'W':
 				strncpy(local_woof_name,optarg,sizeof(local_woof_name));
+				break;
+			case 'N':
+				strncpy(local_woof_name,"CSPOT",strlen("CSPOT"));
 				break;
 			default:
 				fprintf(stderr,"unrecognized command %c\n",(char)c);

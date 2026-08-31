@@ -5,7 +5,43 @@
 #include <signal.h>
 #include <errno.h>
 
+#include "woofc-access.h"
 #include "cmq-pkt.h"
+#include "cmq-mqtt-xport.h"
+
+#ifdef USE_CMQ_SD_CACHE
+#include <sys/socket.h>
+#include "cmq-cache.h"
+#endif
+
+int CMQ_use_mqtt = CMQMQTTXPORT;
+
+// from chatGPT June 3, 2025
+int is_connected(int sockfd) {
+    char buffer;
+    ssize_t result = recv(sockfd, &buffer, 1, MSG_PEEK | MSG_DONTWAIT);
+    if (result == 0) {
+        return 0; // Disconnected (peer has performed orderly shutdown)
+    } else if (result < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 1; // No data but still connected
+        } else {
+            return 0; // Error, probably disconnected
+        }
+    }
+    return 1; // Data is available, still connected
+}
+
+int cmq_pkt_init()
+{
+	int ret;
+	if(CMQ_use_mqtt == 0) {
+		return(1);
+	} else {
+		ret = cmq_mqtt_proxy_init();
+		return(1);
+	}
+}
 	
 int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 {
@@ -16,6 +52,35 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 #ifdef __APPLE__
 	int opt = 1;
 #endif
+
+#ifdef USE_CMQ_SD_CACHE
+	sd = cmq_sd_cache_find(addr,port);
+	if(sd != -1) {
+		// if this is a socket (not an mqqt connection)) and the other
+		// side has gone away, dispose of the connection
+		if((CMQ_use_mqtt == 0) &&
+		   !is_connected(sd)) {
+			cmq_sd_cache_destroy(sd);
+		} else {	
+//printf("found %d cached for %s %d\n",sd,addr,(int)port);
+//fflush(stdout);
+			return(sd);
+		}
+	}
+#endif
+	if(CMQ_use_mqtt == 1) {
+//printf("connecting %s %d\n",addr,(int)port);
+//fflush(stdout);
+		sd = cmq_mqtt_connect(addr,port,timeout);
+//printf("connected %s %d, created %d\n",addr,(int)port,sd);
+//fflush(stdout);
+#ifdef USE_CMQ_SD_CACHE
+		if(sd != -1) {
+			cmq_sd_cache_insert(addr,port,sd);
+		}
+#endif
+		return(sd);
+	}
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd < 0) {
@@ -28,28 +93,36 @@ int cmq_pkt_connect(char *addr, unsigned short port, unsigned long timeout)
 #else
 	signal(SIGPIPE,SIG_IGN);
 #endif
+
+	// set timeout only if not caching
+#ifndef USE_CMQ_SD_CACHE
 	tv.tv_sec = timeout / 1000;
 	tv.tv_usec = 0;
 	if(setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv))) {
 		return(-1);
 	}
+#endif
 
 	ep_in.sin_family = AF_INET;
 	ep_in.sin_port = htons(port);	
 
 	err = inet_pton(AF_INET,addr,&ep_in.sin_addr);
 	if(err <= 0) {
-		close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
 	err = connect(sd,(struct sockaddr *)&ep_in,sizeof(ep_in));
 	if(err < 0) {
 		perror("ERROR: connect failed");
-		close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
-
+#ifdef USE_CMQ_SD_CACHE
+	cmq_sd_cache_insert(addr,port,sd);
+//printf("inserted %d for %s %d in cache\n",sd,addr,(int)port);
+//fflush(stdout);
+#endif
 	return(sd);
 }
 
@@ -59,6 +132,10 @@ int cmq_pkt_listen(unsigned long port)
 	struct sockaddr_in local_address;
 	int opt = 1;
 	int err;
+
+	if(CMQ_use_mqtt == 1) {
+		return(cmq_mqtt_listen(port));
+	}
 
 	sd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sd == -1) {
@@ -85,13 +162,13 @@ int cmq_pkt_listen(unsigned long port)
 
 	err = bind(sd,(struct sockaddr *)&local_address, sizeof(local_address));
 	if(err < 0) {
-		close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
 	err = listen(sd,3);
 	if(err < 0) {
-		close(sd);
+		cmq_pkt_err_close(sd);
 		return(-1);
 	}
 
@@ -105,6 +182,10 @@ int cmq_pkt_accept(int sd, unsigned long timeout)
 	struct sockaddr_in local_address;
 	socklen_t len = sizeof(local_address);
 	struct timeval tv;
+
+	if(CMQ_use_mqtt == 1) {
+		return(cmq_mqtt_accept(sd,timeout));
+	}
 
 
 	// accept blocks forever but sets recv timeout for recv socket when
@@ -131,6 +212,10 @@ int cmq_pkt_send_msg(int endpoint, unsigned char *fl)
 	CMQPKTHEADER header;
 	int err;
 	unsigned long size;
+
+	if(CMQ_use_mqtt == 1) {
+		return(cmq_mqtt_send_msg(endpoint,fl));
+	}
 
 	header.version = htonl(CMQ_PKT_VERSION);
 	header.frame_count = htonl(frame_list->count);
@@ -174,6 +259,10 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	unsigned long size;
 	unsigned char *payload;
 	unsigned long max_size;
+
+	if(CMQ_use_mqtt == 1) {
+		return(cmq_mqtt_recv_msg(endpoint,fl));
+	}
 
 	// read the header
 	err = recv(endpoint,&header,sizeof(header),MSG_WAITALL);
@@ -268,6 +357,44 @@ int cmq_pkt_recv_msg(int endpoint, unsigned char **fl)
 	*fl = l_fl;
 
 	return(0);
+}
+
+void cmq_pkt_close(int sd)
+{
+#ifdef USE_CMQ_SD_CACHE
+	if(cmq_sd_cache_idle(sd) == 1) {
+//printf("idled %d\n",sd);
+ 		return;
+	}
+#endif
+	if(CMQ_use_mqtt == 1) {
+		cmq_mqtt_close(sd);
+		return;
+	}
+	close(sd);
+	return;
+}
+
+void cmq_pkt_err_close(int sd)
+{
+#ifdef USE_CMQ_SD_CACHE
+	cmq_sd_cache_destroy(sd);
+#endif
+	if(CMQ_use_mqtt == 1) {
+		cmq_mqtt_close(sd);
+		return;
+	}
+	close(sd);
+	return;
+}
+
+// this is here to  allow device gateway to compile
+void cmq_pkt_shutdown()
+{
+	if(CMQ_use_mqtt == 1) {
+		cmq_mqtt_shutdown();
+	}
+	return;
 }
 		
 
@@ -447,7 +574,7 @@ int main(int argc, char **argv)
 	cmq_frame_destroy(f);
 	printf("client recv zero frame echo\n");
 
-	close(endpoint);
+	cmq_pkt_close(endpoint);
 	return(0);
 }
 
@@ -600,7 +727,7 @@ int main(int argc, char **argv)
 	cmq_frame_list_destroy(fl);
 	printf("server sent zero frame echo\n");
 
-	close(endpoint);
+	cmq_pkt_close(endpoint);
 	return(0);
 }
 

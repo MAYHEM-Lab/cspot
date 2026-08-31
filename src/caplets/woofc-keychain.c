@@ -1,0 +1,744 @@
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+#include <yaml.h>
+#include "woofc-caplets.h"
+#include <sys/stat.h>
+#include <ctype.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
+
+#ifndef TEST
+#include "debug.h"
+#else
+void WooFCapPrint(char *woof_name, WCAP *cap)
+{
+        printf("woof:\n");
+        printf("\tname: %s\n",woof_name);
+        printf("\tpermissions: %8.8x\n",cap->permissions);
+        printf("\tcheck: %lu\n",cap->check);
+        return;
+}
+void WooFNamespaceCapPrint(char *woof_name, WCAP *cap)
+{
+        printf("namespace:\n");
+        printf("  name: %s\n",woof_name);
+        printf("  permissions: %8.8x\n",cap->permissions);
+        printf("  check: %lu\n",cap->check);
+        return;
+}
+#endif
+
+#if 0
+int SearchKeychain(const char *filename, char *woof_name, WCAP *cap) 
+{
+	FILE *file = fopen(filename, "r");
+	yaml_parser_t parser;
+	yaml_event_t event;
+	int done = 0;
+	char k_woof_name[4096];
+	char k_check[21];
+	char k_perms[20];
+	uint32_t k_perm_value;
+	uint64_t k_check_value;
+	int state; // 0 => looking, 1 => woof: 2 => check: 
+	int found;
+	int i;
+	int is_comment;
+
+
+	if(file == NULL) {
+#ifndef TEST
+		DEBUG_WARN("SearchKeychain: could not open %s\n",filename);
+#endif
+		return(-1);
+    	}
+
+
+	if(!yaml_parser_initialize(&parser)) {
+#ifndef TEST
+		DEBUG_WARN("SearchKeychain: could not initialize parser\n");
+#endif
+        	fclose(file);
+		return(-1);
+	}
+
+#ifndef TEST
+	if(woof_name == NULL) {
+#ifndef TEST
+		DEBUG_WARN("SearchKeychain: NULL woof name\n");
+#endif
+                fclose(file);
+		return(-1);
+	}
+#endif
+
+	yaml_parser_set_input_file(&parser, file);
+
+	state = 0;
+	found = 0;
+	while(done == 0) {
+		if(!yaml_parser_parse(&parser, &event)) {
+#ifdef TEST
+			fprintf(stderr, "SearchKeychain: YAML parsing error in %s\n",
+					filename);
+#endif
+			break;
+		}
+
+		switch(event.type) {
+			case YAML_SCALAR_EVENT:
+//printf("Key/Value: %s\n", event.data.scalar.value);
+				// NULL implies just print
+				if(woof_name == NULL) {
+					break;
+				}
+				is_comment = 0;
+				for(i=0; i < strlen(event.data.scalar.value); i++) {
+					// is this a comment?
+					if(event.data.scalar.value[i] == '#') {
+						is_comment = 1;
+						break;
+					}
+				}
+				if(is_comment == 1) {
+					break;
+				}
+				if(state == 0) {
+					if((strncmp(event.data.scalar.value,
+						"woof",strlen("woof")) == 0) ||
+					   (strncmp(event.data.scalar.value,
+                                                "namespace",strlen("namespace")) == 0))	{
+						state = 1; //next state
+					}
+				} else if(state == 1) {
+					if(strncmp(event.data.scalar.value,
+						"name",strlen("name")) == 0) {
+					state = 2;
+					}
+					if((strncmp(event.data.scalar.value,
+                                                "woof",strlen("woof")) == 0) ||
+				           (strncmp(event.data.scalar.value,
+                                                "namespace",strlen("namespace")) == 0))	{
+                                        state = 1;
+                                        }
+
+				} else if(state == 2) {
+					memset(k_woof_name,0,sizeof(k_woof_name));
+					strncpy(k_woof_name,event.data.scalar.value,
+                                                        sizeof(k_woof_name)-1);
+//printf("k_woof_name: %s -- %s\n",event.data.scalar.value,k_woof_name);
+					if((strncmp(k_woof_name,
+						"woof",sizeof(k_woof_name)) == 0) ||
+					   (strncmp(k_woof_name,
+                                                woof_name,sizeof(k_woof_name)) != 0))	{
+						state = 1; // start over
+					} else {
+//printf("woof found: %s\n",k_woof_name);
+						state = 3;
+					}
+				} else if(state == 3) {
+					memset(k_perms,0,sizeof(k_perms));
+					strncpy(k_perms,event.data.scalar.value,
+							sizeof(k_perms)-1);
+//printf("k_perms: %s -- %s\n",event.data.scalar.value,k_perms);
+					if(strncmp(k_perms,"permissions",
+							strlen("permissions")) == 0) {
+						state = 4;
+					}
+					if((strncmp(k_perms,"woof",
+							strlen("woof")) == 0) ||
+				           (strncmp(k_perms,"namespace",
+                                                        strlen("namespace")) == 0))	{
+						state = 1;
+					}
+				} else if(state == 4) {
+					k_perm_value = strtol(event.data.scalar.value,
+								NULL,16);
+//printf("perm found: %x\n",k_perm_value);
+					state = 5;
+				} else if(state == 5) {
+					memset(k_check,0,sizeof(k_check));
+					strncpy(k_check,event.data.scalar.value,
+							sizeof(k_check)-1);
+					if(strncmp(k_check,"check",
+							strlen("check")) == 0) {
+						state = 6;
+					}
+					if((strncmp(k_check,"woof",
+							strlen("woof")) == 0) ||
+				           (strncmp(k_check,"namespace",
+                                                        strlen("namespace")) == 0))	{
+						state = 1;
+					}
+				} else if(state == 6) {
+					k_check_value = strtoull(event.data.scalar.value,
+								NULL,10);
+//printf("k_check_value: %s -- %llu\n",event.data.scalar.value,k_check_value);
+					found = 1;
+					done = 1;
+					state = 0;
+				}
+				break;
+			case YAML_STREAM_END_EVENT:
+				done = 1;
+				break;
+			default:
+				break;
+		}
+		yaml_event_delete(&event);
+	}
+
+    yaml_parser_delete(&parser);
+    fclose(file);
+    if(found == 1) {
+	    cap->permissions = k_perm_value;
+	    cap->check = k_check_value;
+	    cap->flags = 0;
+	    cap->frame_size = 0;
+//printf("search: ");
+//WooFCapPrint(woof_name,cap);
+	    return(1);
+    } else {
+//printf("search: no cap %s %s\n",filename, woof_name);
+	    return(-1);
+    }
+}
+#endif
+
+/*
+ * Remove leading and trailing whitespace in place.
+ *
+ * The returned pointer may point inside the original buffer.
+ */
+static char *trim_space(char *text)
+{
+    char *end;
+
+    while (*text != '\0' && isspace((unsigned char)*text))
+        ++text;
+
+    if (*text == '\0')
+        return text;
+
+    end = text + strlen(text);
+
+    while (end > text && isspace((unsigned char)end[-1]))
+        --end;
+
+    *end = '\0';
+    return text;
+}
+
+
+/*
+ * Remove a YAML comment, but only when '#' is outside single or double
+ * quotes. This permits values containing a literal '#' when quoted.
+ */
+static void remove_yaml_comment(char *text)
+{
+    int in_single_quote = 0;
+    int in_double_quote = 0;
+    int escaped = 0;
+    char *p;
+
+    for (p = text; *p != '\0'; ++p) {
+        if (escaped) {
+            escaped = 0;
+            continue;
+        }
+
+        if (*p == '\\' && in_double_quote) {
+            escaped = 1;
+            continue;
+        }
+
+        if (*p == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+            continue;
+        }
+
+        if (*p == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+            continue;
+        }
+
+        if (*p == '#' && !in_single_quote && !in_double_quote) {
+            /*
+             * YAML comments begin with '#' when separated from the
+             * preceding value by whitespace. Also recognize a comment
+             * occupying the entire trimmed line.
+             */
+            if (p == text || isspace((unsigned char)p[-1])) {
+                *p = '\0';
+                return;
+            }
+        }
+    }
+}
+
+
+/*
+ * Remove matching single or double quotes surrounding a scalar.
+ *
+ * This does not perform general YAML escape processing because keychain
+ * names and numeric fields do not require it.
+ */
+static char *remove_scalar_quotes(char *text)
+{
+    size_t length;
+
+    text = trim_space(text);
+    length = strlen(text);
+
+    if (length >= 2 &&
+        ((text[0] == '"'  && text[length - 1] == '"') ||
+         (text[0] == '\'' && text[length - 1] == '\''))) {
+        text[length - 1] = '\0';
+        ++text;
+    }
+
+    return text;
+}
+
+
+/*
+ * Split a key/value line at its first colon.
+ *
+ * Splitting at the first colon is important because woof:// names contain
+ * additional colons.
+ */
+static int split_key_value(char *line, char **key_out, char **value_out)
+{
+    char *colon;
+    char *key;
+    char *value;
+
+    line = trim_space(line);
+
+    /*
+     * Sequence entries have the form:
+     *
+     *     - name: woof://...
+     */
+    if (*line == '-') {
+        ++line;
+        line = trim_space(line);
+    }
+
+    colon = strchr(line, ':');
+    if (colon == NULL)
+        return 0;
+
+    *colon = '\0';
+
+    key = trim_space(line);
+    value = trim_space(colon + 1);
+
+    if (*key == '\0')
+        return 0;
+
+    *key_out = key;
+    *value_out = value;
+    return 1;
+}
+
+
+static int parse_permission_value(const char *text, uint32_t *result)
+{
+    unsigned long value;
+    char *end;
+
+    if (text == NULL || result == NULL || *text == '\0')
+        return 0;
+
+    errno = 0;
+    end = NULL;
+
+    /*
+     * Permissions have historically been printed as eight hexadecimal
+     * digits without a 0x prefix.
+     */
+    value = strtoul(text, &end, 16);
+
+    if (errno == ERANGE ||
+        end == text ||
+        *trim_space(end) != '\0' ||
+        value > UINT32_MAX) {
+        return 0;
+    }
+
+    *result = (uint32_t)value;
+    return 1;
+}
+
+
+static int parse_check_value(const char *text, uint64_t *result)
+{
+    unsigned long long value;
+    char *end;
+
+    if (text == NULL || result == NULL || *text == '\0')
+        return 0;
+
+    errno = 0;
+    end = NULL;
+
+    /*
+     * Use strtoull(), not strtoul(). unsigned long is only 32 bits on
+     * the Raspberry Pi Zero ARM build.
+     */
+    value = strtoull(text, &end, 10);
+
+    if (errno == ERANGE ||
+        end == text ||
+        *trim_space(end) != '\0') {
+        return 0;
+    }
+
+    /*
+     * uint64_t may be an unsigned long or unsigned long long depending
+     * on the platform. Verify that conversion preserves the value.
+     */
+    if ((unsigned long long)(uint64_t)value != value)
+        return 0;
+
+    *result = (uint64_t)value;
+    return 1;
+}
+
+
+int SearchKeychain(const char *filename, char *woof_name, WCAP *cap)
+{
+    FILE *file;
+    char line[8192];
+    unsigned long line_number = 0;
+
+    char current_name[4096];
+    uint32_t current_permissions = 0;
+    uint64_t current_check = 0;
+
+    int in_record = 0;
+    int have_name = 0;
+    int have_permissions = 0;
+    int have_check = 0;
+
+    if (filename == NULL) {
+#ifndef TEST
+        DEBUG_WARN("SearchKeychain: NULL filename\n");
+#endif
+        return -1;
+    }
+
+    /*
+     * A NULL name was previously described as "just print", but the old
+     * function did not actually print scalar events. Reject it explicitly
+     * unless that behavior is still required elsewhere.
+     */
+    if (woof_name == NULL) {
+#ifndef TEST
+        DEBUG_WARN("SearchKeychain: NULL woof name\n");
+#endif
+        return -1;
+    }
+
+    if (cap == NULL) {
+#ifndef TEST
+        DEBUG_WARN("SearchKeychain: NULL capability result\n");
+#endif
+        return -1;
+    }
+
+    file = fopen(filename, "r");
+    if (file == NULL) {
+#ifndef TEST
+        DEBUG_WARN("SearchKeychain: could not open %s\n", filename);
+#endif
+        return -1;
+    }
+
+    current_name[0] = '\0';
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        char *text;
+        char *key;
+        char *value;
+
+        ++line_number;
+
+        /*
+         * Detect a line too long for our fixed input buffer.
+         */
+        if (strchr(line, '\n') == NULL && !feof(file)) {
+            int ch;
+
+            while ((ch = fgetc(file)) != '\n' && ch != EOF)
+                ;
+
+#ifndef TEST
+            DEBUG_WARN(
+                "SearchKeychain: line %lu in %s is too long\n",
+                line_number,
+                filename);
+#endif
+            fclose(file);
+            return -1;
+        }
+
+        remove_yaml_comment(line);
+        text = trim_space(line);
+
+        if (*text == '\0' || strcmp(text, "---") == 0)
+            continue;
+
+        if (strcmp(text, "...") == 0)
+            break;
+
+        if (!split_key_value(text, &key, &value))
+            continue;
+
+        value = remove_scalar_quotes(value);
+
+        /*
+         * Legacy record headers:
+         *
+         *     woof:
+         *     namespace:
+         *
+         * Sequence container headers:
+         *
+         *     woofs:
+         *     namespaces:
+         *
+         * A plural container does not itself begin a record. The next
+         * "- name:" entry does.
+         */
+        if ((strcmp(key, "woof") == 0 ||
+             strcmp(key, "namespace") == 0) &&
+            *value == '\0') {
+            in_record = 1;
+            have_name = 0;
+            have_permissions = 0;
+            have_check = 0;
+            current_name[0] = '\0';
+            continue;
+        }
+
+        if ((strcmp(key, "woofs") == 0 ||
+             strcmp(key, "namespaces") == 0) &&
+            *value == '\0') {
+            in_record = 0;
+            have_name = 0;
+            have_permissions = 0;
+            have_check = 0;
+            current_name[0] = '\0';
+            continue;
+        }
+
+        if (strcmp(key, "name") == 0) {
+            /*
+             * "name" starts a new record in both formats:
+             *
+             *     name: ...
+             *
+             * and:
+             *
+             *     - name: ...
+             */
+            in_record = 1;
+            have_permissions = 0;
+            have_check = 0;
+
+            if (*value == '\0' ||
+                strlen(value) >= sizeof(current_name)) {
+#ifndef TEST
+                DEBUG_WARN(
+                    "SearchKeychain: invalid name on line %lu in %s\n",
+                    line_number,
+                    filename);
+#endif
+                have_name = 0;
+                current_name[0] = '\0';
+                continue;
+            }
+
+            strcpy(current_name, value);
+            have_name = 1;
+            continue;
+        }
+
+        if (!in_record)
+            continue;
+
+        /*
+         * Indentation is intentionally ignored here. This is what allows
+         * the legacy incorrectly indented files to remain usable.
+         */
+        if (strcmp(key, "permissions") == 0) {
+            if (!parse_permission_value(value, &current_permissions)) {
+#ifndef TEST
+                DEBUG_WARN(
+                    "SearchKeychain: invalid permissions on line %lu "
+                    "in %s: %s\n",
+                    line_number,
+                    filename,
+                    value);
+#endif
+                have_permissions = 0;
+                continue;
+            }
+
+            have_permissions = 1;
+        } else if (strcmp(key, "check") == 0) {
+            if (!parse_check_value(value, &current_check)) {
+#ifndef TEST
+                DEBUG_WARN(
+                    "SearchKeychain: invalid check on line %lu "
+                    "in %s: %s\n",
+                    line_number,
+                    filename,
+                    value);
+#endif
+                have_check = 0;
+                continue;
+            }
+
+            have_check = 1;
+        } else {
+            continue;
+        }
+
+        /*
+         * Return as soon as the requested complete record has been read.
+         */
+        if (have_name &&
+            have_permissions &&
+            have_check &&
+            strcmp(current_name, woof_name) == 0) {
+            cap->permissions = current_permissions;
+            cap->check = current_check;
+            cap->flags = 0;
+            cap->frame_size = 0;
+
+            fclose(file);
+            return 1;
+        }
+    }
+
+    if (ferror(file)) {
+#ifndef TEST
+        DEBUG_WARN("SearchKeychain: read error in %s\n", filename);
+#endif
+    }
+
+    fclose(file);
+    return -1;
+}
+
+int WooFCapFile(char *capfile, int size)
+{
+	char *home_dir;
+	struct stat file_stat; 
+	char file_path[1024];
+	int found = 0;
+	memset(capfile,0,size);
+
+	// for caplets
+	// check local first
+	// must be user read but otherwise not accessible
+	if(access("./capabilities.yaml", R_OK) == 0) {
+		if(stat("./capabilities.yaml",&file_stat) == 0) {
+			if((file_stat.st_mode & S_IRUSR) != 0) {
+				  if((file_stat.st_mode & 
+				      (S_IRGRP | S_IWGRP | S_IXGRP |
+				       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
+					  strncpy(capfile,"./capabilities.yaml",size-1);
+					  found = 1;
+				  }
+			}
+		}
+	}
+
+	home_dir = getenv("HOME");
+	if(home_dir != NULL) {
+		memset(file_path,0,sizeof(file_path));
+		snprintf(file_path,sizeof(file_path),"%s/.cspot/capabilities.yaml",home_dir);
+		if(access(file_path, R_OK) == 0) {
+			if(stat(file_path,&file_stat) == 0) {
+				if((file_stat.st_mode & S_IRUSR) != 0) {
+					  if((file_stat.st_mode & 
+					      (S_IRGRP | S_IWGRP | S_IXGRP |
+					       S_IROTH | S_IWOTH | S_IROTH)) == 0) {
+						  strncpy(capfile,file_path,size-1);
+						  found = 1;
+					  }
+				}
+			}
+		}
+	}
+
+
+	return(found);
+}
+
+#ifdef TEST
+#define ARGS "f:W:N:"
+char *Usage = "woofc-keychain-search -f config.yaml\n\
+\t-N namespace\n\
+\t-W woof-name\n";
+char Fname[4096];
+char Wname[4096];
+int main(int argc, char **argv) 
+{
+	int c;
+	uint64_t check;
+	int err;
+	WCAP cap;
+	int is_namespace = 0;
+
+	while((c = getopt(argc,argv,ARGS)) != EOF) {
+		switch(c) {
+			case 'f':
+				strncpy(Fname,optarg,sizeof(Fname));
+				break;
+			case 'W':
+				strncpy(Wname,optarg,sizeof(Fname));
+				break;
+			case 'N':
+				strncpy(Wname,optarg,sizeof(Fname));
+				is_namespace = 1;
+				break;
+			default:
+				fprintf(stderr,"unrecognized command %c\n",
+						(char)c);
+				fprintf(stderr,"usage: %s",Usage);
+				exit(1);
+		}
+	}
+	if(Fname[0] == 0) {
+		fprintf(stderr,"must specify config file name\n");
+		fprintf(stderr,"usage: %s",Usage);
+		exit(1);
+	}
+	if(Wname[0] == 0) {
+		(void)SearchKeychain(Fname,NULL,&cap);
+	} else {
+		err = SearchKeychain(Fname,Wname,&cap);
+		if(err < 0) {
+			fprintf(stderr,"could not find check for %s in %s\n",
+					Wname,Fname);
+		} else {
+			if(is_namespace == 1) {
+				WooFNamespaceCapPrint(Wname,&cap);
+			} else {
+				WooFCapPrint(Wname,&cap);
+			}
+		}
+	}
+	return 0;
+}
+#endif
+

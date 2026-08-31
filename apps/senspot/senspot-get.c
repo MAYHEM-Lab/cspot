@@ -8,9 +8,11 @@
 #include "woofc.h"
 #include "senspot.h"
 
-#define ARGS "W:LS:"
+#define ARGS "W:C:LS:e"
 char *Usage = "senspot-get -W woof_name for get\n\
+\t-e <return earliest seqno only>\n\
 \t-L use same namespace for source and target\n\
+\t-C count <count of values to get at specifc seq_no\n\
 \t-S seq_no <sequence number to get, latest if missing)\n";
 
 char Wname[4096];
@@ -26,21 +28,35 @@ int main(int argc, char **argv)
 	int c;
 	int i;
 	int err;
+	int recvd;
 	int uselocal;
 	unsigned char input_buf[4096];
 	char *str;
-	SENSPOT spt;
+	SENSPOT *spt;
+	unsigned char *e_p;
 	char wname[4096];
 	unsigned long seq_no;
+	unsigned long r_seq_no;
+	unsigned long el_size;
+	unsigned int count;
+	int seqno_only;
 
 	memset(wname,0,sizeof(wname));
 	seq_no = 0;
 	uselocal = 0;
+	count = 1; // default is 1
+	seqno_only = 0;
 
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
+			case 'e':
+				seqno_only = 1;
+				break;
 			case 'W':
 				strncpy(wname,optarg,sizeof(wname));
+				break;
+			case 'C':
+				count = atoi(optarg);
 				break;
 			case 'L':
 				uselocal = 1;
@@ -72,22 +88,58 @@ int main(int argc, char **argv)
 		WooFInit();
 	}
 
+	if(count < 0) {
+		fprintf(stderr,"cannot specify negative count\n");
+		fprintf(stderr,"usage: %s",Usage);
+		exit(1);
+	}
+
+	if(seqno_only == 1) {
+		seq_no = WooFGetEarliestSeqno(wname);
+		printf("%lu\n",seq_no);
+		exit(0);
+	}
 
 	if(seq_no == 0) {
 		seq_no = WooFGetLatestSeqno(wname);
 	}
+	if(uselocal == 1) {
+		// NULL says it is local -- use local API
+		el_size = WooFGetElSize(NULL,wname);
+	} else {
+		// let remote woof determine size
+		// use MsgGet to avpid an extra GetElSize
+		el_size = WooFMsgGetElSize(wname);
+	}
 
-	err = WooFGet(wname,&spt,seq_no);
-
-	if(err < 0) {
+	if(el_size == (unsigned long)-1) {
+		fprintf(stderr,
+		"senspot-get: could not get element size for %s\n",
+		wname);
+		exit(1);
+	}
+	spt = (SENSPOT *)malloc(count * el_size); 
+	if(spt == NULL) {
+		fprintf(stderr,
+		"senspot-get: no space for element\n");
+		exit(1);
+	}
+	recvd = WooFGetRange(wname,spt,seq_no,count);
+	if(recvd < 0) {
 		fprintf(stderr,"senspot-get failed for %s\n",
-			wname);
+		wname);
 		fflush(stderr);
 		exit(1);
 	}
 
-	SenspotPrint(&spt,seq_no);
-
+	r_seq_no = seq_no;
+	e_p = (unsigned char *)spt;
+	for(i=0; i < recvd; i++) {
+		SenspotPrint((SENSPOT *)e_p,r_seq_no);
+		r_seq_no++;
+		e_p += el_size;
+	}
+	free(spt);
 
 	exit(0);
 }

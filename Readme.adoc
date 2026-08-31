@@ -1,45 +1,82 @@
 = CSPOT
 
 image::http://www.cs.ucsb.edu/~rich/spot.png[Spot,250,250]
-Reference: R. Wolski, C. Krintz, F. Bakir, G. George, and W-T. Lin, CSPOT: Portable, Multi-scale Functions-as-a-Service for IoT, ACM Symposium on Edge Computing (SEC), Nov 2019, https://sites.cs.ucsb.edu/~ckrintz/papers/cspot19.pdf
+
+Reference: R. Wolski,
+C. Krintz, F. Bakir, G. George, and W-T. Lin, CSPOT: Portable, Multi-scale
+Functions-as-a-Service for IoT, ACM Symposium on Edge Computing (SEC), Nov 2019,
+https://sites.cs.ucsb.edu/~ckrintz/papers/cspot19.pdf
+
+== Github Repo
+[source bash]
+----
+https://github.com/MAYHEM-Lab/cspot
+----
 
 == Installation
 
-Currently, CSPOT builds from source using a bash installation script on CentOS
-7, CentOS 8 Stream, CentOS 9 Stream, and Ubuntu 20.04.  It requires docker ce, which it will 
-install, but to do so it will remove the docker package that ships with the distro.  There are install scripts
-(written in bash).  It would be best to read them before running them to make
-sure that the installation will not "corrupt" the local installation.  CSPOT
-was originally designed to work in a virtualized environments (e.g. clouds) so
-it is not "gentle" with respect to software installation.
-
-The following shows the installation procedure for Ubuntu 20.04:
+CSPOT now comes with its own installer (which uses CSPOT).  To get the latest
+CSPOT binaries, run the following command.
 
 [source sh]
 ----
-git clone https://github.com/MAYHEM-Lab/cspot.git
+mkdir -p cspot
 cd cspot
-sudo ./install-ubuntu-20.04.sh
+rm -rf update-cspot-distribution.sh
+(curl -fsSL https://raw.githubusercontent.com/MAYHEM-Lab/cspot/dist/update-cspot-distribution.sh | /bin/bash)
 ----
 
-The build process puts the CSPOT tools and apps (e.g. senspot) in ./build/bin and installs CSPOT in /usr/local. 
+The installer will put the release binary distribution in the `cspot`
+subdirectory. Not that the installer will install the install script as well so
+future updates need only run:
 
-# Quick Client/Server Tutorial
+[source sh]
+----
+cd cspot
+./update-cspot-distribution.sh release
+----
 
-The following tutorial assumes that the path to the CSPOT source directory is
+to get the latest release binaries or
+
+----
+cd cspot
+./update-cspot-distribution.sh daily
+----
+
+to get current repo head (that compiles) as compiled binaries.
+
+Note that this script uses CSPOT capabilities (see below)
+and, thus, will create a .cspot subdirectory in the home directory of the user
+running it, and it will add a public read-only capability to the
+capabilities.yaml file it will also create.
+
+Also -- CSPOT is statically linked so the binaries might look a little bit
+larger than expected.
+
+Previous releases of CSPOT build from source using various bash scripts.
+CSPOT was originally written to install on cloud instances.  Thus, the
+installation scripts (written in bash) run as root and were not "gentle" with
+respect to updating and installing any needed dependencies. This mode of
+installation is still supported but static linking will require
+link:https://en.wikipedia.org/wiki/Musl[MUSL]. If you are
+installing CSPOT on a server, and you want to go this route,
+please read the installation script for Ubuntu 24.04 before you do anything.
+MUSL may have a problem coexisting with the standard C compiler.  The script
+assumes that the image does not have the C language toolchain installed and it
+will install MUSL.  Please be careful with this option.  It is not easy to
+remediate if it goes awry.
+
+The following tutorial assumes that the path to the CSPOT binary directory is
+
 [source sh]
 ----
 /home/ubuntu/cspot
 ----
-The installation script (which uses cmake) will create
-/home/ubuntu/cspot/build and will put the cspot binaries and some testing code
-in /home/ubuntu/cspot/build/bin. 
-
-Among these tests codes are a Linux command-line client toolset called senspot
+Among CSPOT code base are a Linux command-line client toolset called senspot
 that consists of three client programs
 [source sh]
 ----
-sensput-init
+senspot-init
 senspot-put
 senspot-get
 ----
@@ -67,18 +104,18 @@ the IP addresses
 and that ports 50000 to 60000 are open for ingress and egress between both
 hosts.
 
-To test, using senspot, the cspot installtion on these two hosts, log into
+To test, using senspot, the cspot installation on these two hosts, log into
 192.168.10.2 as the ubuntu user and type the following
 [source sh]
 ----
-cd cspot/build/bin
-./woofc-namespace-platform -b spawn >& namespace.log &
+cd cspot
+./woofc-namespace-platform >& namespace.log &
 ----
 This command sequence will start the namespace server in
-/home/ubuntu/cspor/build/bin where the binaries have been deposited by the
-cmake build.  If there is an error it will be printed to namespace.log.  Note
+/home/ubuntu/cspot where the binaries have been deposited by the
+make installer.  If there is an error it will be printed to namespace.log.  Note
 that woofc-namespace-platform will need read and write permission to
-cspot/build/bin.  If the installation was done as root, change the ownership
+the cspot directory.  If the installation was done as root, change the ownership
 of this directory to ubuntu:ubuntu.
 
 Next, in that same directory, initialize a test WOOF using senspot-init
@@ -94,19 +131,19 @@ The next step is to test senspot locally.  To append a first entry to testwoof
 type
 [source sh]
 ----
-echo "3.1415" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof -T d 
+echo "3.1415" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d 
 ----
 the senspot-put command takes a full URN for the WOOF which is woof://IPaddress/path-to-namespace/woofname
 with the -W argument.  It reads a string from standard in and converts it to a
 data type specified by the -T parameter (-d indicates a double precision value
 in this case).  If this command completes without printing an error message,
 then the value 3.1415 will have been appended to testwooof in the namespace
-/home/ubuntu/cspot/build/bin.
+/home/ubuntu/cspot.
 
 To read the value back, type
 [source sh]
 ----
-./senspot-get -W woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+./senspot-get -W woof://192.168.10.2/home/ubuntu/cspot/testwoof
 ----
 This command will read the most recent value appended to the WOOF and print it
 along with a timestamp and a sequence number.
@@ -118,6 +155,18 @@ In this example, the output should be
 ----
 where the time value is Linux epoch.
 
+In order to tear down a running namespace that was created with
+`woofc-namespace-platform`, use the following command.
+
+[source,sh]
+----
+pkill -x woofc-container
+----
+
+This command will terminate the `woofc-container` process, which will also tear
+down the `woofc-forker-helper` processes that were spawned by running
+`woofc-namespace-platform`.
+
 The next step is to test senspot between machines, running it on each
 referencing a namespace on the other.  In the next example, 192.168.10.2 will be
 the client and 192.168.10.3 will be the server.
@@ -125,18 +174,18 @@ the client and 192.168.10.3 will be the server.
 Log into 192.168.10.3 as the ubuntu user and type
 [source sh]
 ----
-cd cspot/build/bin
-./woofc-namespace-platform -b spawn >& namespace.log &
+cd cspot
+./woofc-namespace-platform >& namespace.log &
 ./senspot-init -W testwoof
 ----
-which will start a namespace server at /home/ubuntu/cspot/build/bin and then
+which will start a namespace server at /home/ubuntu/cspot and then
 create testwoof as a WOOF in it.
 
-From 192.168.10.2 in the directory /home/ubuntu/cspot/build/bin run
+From 192.168.10.2 in the directory /home/ubuntu/cspot run
 [source sh]
 ----
-echo "2.71828" | ./senspot-put woof://192.168.10.3/home/ubuntu/cspot/build/bin/testwoof -T d
-./senspot-get woof://192.168.10.3/home/ubuntu/cspot/build/bin/testwoof
+echo "2.71828" | ./senspot-put woof://192.168.10.3/home/ubuntu/cspot/testwoof -T d
+./senspot-get woof://192.168.10.3/home/ubuntu/cspot/testwoof
 ----
 If this sequence is a success, the output should be something like
 [source sh]
@@ -148,8 +197,8 @@ Next, test the reverse direction. On the host 192.168.10.3, from the directory
 /home/ubuntu/cspot/build/bin run the following commands
 [source sh]
 ----
-echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof -T d
-./senspot-get woof://192.168.10.2/home/ubuntu/cspot/build/bin/testwoof
+echo "1234" | ./senspot-put woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d
+./senspot-get woof://192.168.10.2/home/ubuntu/cspot/testwoof
 ----
 If this test is successful, the output will be something like
 [source sh]
@@ -157,16 +206,459 @@ If this test is successful, the output will be something like
 1234.000000 time: 1738431242.2993268967 192.168.10.3 seq_no: 2
 ----
 indicating that the append from 192.168.10.3 to
-/home/ubuntu/cspot/build/bin/testwoof on 192.168.10.2 has been completed.  
+/home/ubuntu/cspot/testwoof on 192.168.10.2 has been completed.  
 
 If senspot-put fails, it is usually for one of four reasons
+
 * woofc-namespace-platform on the server host is not running or has thrown an error
 * senspot-init has not been run in the namespace where a woofc-namespace-platform was started
 * the IP address or the path to the namespace specified in senspot-put do not match the IP address and/or path where woofc-namespace-platform is running
 * ports 50000 to 60000 are not open for TCP ingress on the server host or egress on the client host or both
 
+=== Replicating data with senspot
+
+The senspot toolchain includes the ability to automatically trigger a
+forwarding operation when data is appended to a WOOF.  The command
+[source sh]
+----
+./senspot-forward-init -W local-src-woof-name -F woof://target-ip/namespace-path/dst-woof-name
+----
+
+in the source namespace which must also contain the handler code in
+senspot_forward.
+
+In this example, to automatically forward data from
+/home/ubuntu/cspot/testwoof on 192.168.10.2 to /home/ubuntu/cspot/testwoof on
+192.169.10.3, cd into /home/ubuntu/cspot on 192.168.10.2 and run the command
+[source sh]
+----
+./senspot-forward-init -W testwoof -F woof://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+This command will initialize forwarding state to keep track of what data needs to
+be forwarded in the event the network partitions between the source and
+destination namespaces.
+
+To trigger forwarding when data is appended to the source, add the parameters
+"-H senspot_forward" to the senspot-put command.  Thus, in this example,
+running the command
+[source sh]
+----
+echo "8888" | ./senspot-put -W woof://192.168.10.2/home/ubuntu/cspot/testwoof -T d -H senspot_forward
+./senspot-get -W woof://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+
+should show "8888" as the payload fetched from 192.168.10.3 after the put to
+192.168.10.2.  Note that the sequence numbers are not kept consistent between
+the source WOOF and the destination WOOF by senspot_forward.  It does preserve
+the initial timestamp and, if the network partitions, it will forward all of
+the data that has yet to be forwarded (in order) with the original timestamps so
+that the data (but not the sequence numbers) are consistent between source and destination after the
+partition resolves.
+
+Note that if the destination is protected by a capability, the source
+namespace needs to contain a capabilities.yaml (for the forwarder to use) --
+handlers do not have access to the .cspot directory of the user running
+woofc-namespace-platform (see section on capabilities below). 
+
+
+=== Moving files with senspot
+
+The senspot toolchain includes the ability to store and retrieve files from
+WOOFs that are sufficiently large enough to hold them.  
+The senspot application toolchain includes three commands for using CSPOT as a
+versioned file store
+[source sh]
+----
+senspot-file-init -W localwoofname -s size -M transfer-block-size (in KB)
+senspot-file-send -f localfilename -W woofname <-V>
+senspot-file-recv -f localfilename -W woofname <-v version-number> <-V>
+----
+where the -V parameter (which enables verbose mode) is optional.  The version
+number parameter will specify a previous version to retrieve.  If it is
+omitted, the command fetches the latest version.
+
+The commands
+[source sh]
+----
+senspot-file-recv -W woofname -l
+senspot-file-recv -W woofname -L
+----
+print the latest version number and all version numbers stored in the
+specified WOOF respectively.
+
+The command senspot-file-init creates a local WOOF with the number of elements specified
+after the -s parameter, each one of which is the transfer-block-size (in KB) given by the -M
+parameter.  The WOOF must be large enough to hold at least one copy of the
+file.  That is the the product "size * transfer-block-size" must be greater
+than or equal to the file size.
+
+The model is that each file is stored in its own WOOF but that (depending on
+the total size specified in senspot-file-init) each time a file is sent to the
+WOOF, it will be given a new version number and appended (subject to space
+availability). 
+
+For example, the following commands store a file created on 192.168.10.2 in a WOOF on 192.168.10.3
+in the cspot namespace in the home directory of the ubuntu user.
+
+On 192.168.10.3 in /home/ubuntu/cspot, run the command
+[source sh]
+----
+senspot-file-init -W testfilewoof -M 4 -s 10
+----
+which creates the destination WOOF and sets the element size to 4K bytes.  The
+WOOF contains 10 elements.
+
+On the host 192.168.10.2, running the commands
+[source sh]
+----
+echo "Mary had a little lamb." > testfile.txt
+senspot-file-send -f testfile.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+stores the file in the destination WOOF.  
+
+Running the commands
+[source sh]
+----
+senspot-file-recv -f testfile2.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+fetches the file at the end of the woof testfilewoof.  In this example,
+testfile.txt and testfile2.txt should contain the same text.
+
+The following commands create a new version of the file and append it.
+[source sh]
+----
+echo "Whose fleece was white as snow." >> testfile.txt
+senspot-file-send -f testfile.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+
+The following command will then print the version numbers for both versions
+[source sh]
+----
+senspot-file-recv -L -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof
+----
+
+The output should should resemble the following.
+[source sh]
+----
+version 2:2 at 2, created: 2026-07-07 11:06:50 (1783447610) size: 56 start_seqno: 2
+version 1:1 at 1, created: 2026-07-07 11:06:40 (1783447600) size: 24 start_seqno: 1
+----
+Note that the senspot-file tools create version numbers that have two
+components: a major and minor version number (separated by colons in the
+output).  It is possible for two files to have the same major version number
+(because the system does not maintain a shared version number than can be
+updated atomically amongst distributed clients) but the minor version number
+(which is a WOOF sequence number) is guaranteed to be unique (although not
+incrementing by 1 for each file creation).
+
+The following command fetches version 1:1 of the file and puts it in
+testfile3.txt
+[source sh]
+----
+senspot-file-recv -f testfile3.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof -v 1
+----
+Note that if the major version number is unique, only the -v parameter is
+necessary.  The -m parameter specifies a particular minor number.  Thus the
+following command is equivalent to the previous one
+[source sh]
+----
+senspot-file-recv -f testfile3.txt -W woof://192.168.10.3/home/ubuntu/cspot/testfilewoof -v 1 -m 1
+----
+
+Files are stored in WOOFs in elements that are the size of the transfer size
+specified by the -M parameter in the senspot-file-init command.  Thus, in this
+example, each file version is stored in a 4 kilobyte block and up to 10
+versions of the file (all smaller than 4 kilobytes each) can be stored.  If a
+version is larger than 4 kilobytes it could also be stored but the number of
+versions would be fewer than 10.  Because the senspot-init command specified
+10 elements of 4 KB each, the total space allocated for all versions in the
+WOOF is 40 KB.  Thus, in this example, no version could be larger than 40 KB.
+=== CSPOT Message Authentication using CAPLets
+
+Reference: Bakir, Fatih, Chandra Krintz, and Rich Wolski. "Caplets: Resource aware, capability-based access control for IoT." 2021 IEEE/ACM Symposium on Edge Computing (SEC). IEEE, 2021. https://sites.cs.ucsb.edu/~ckrintz/papers/caplets21.pdf
+
+CSPOT can use a version of CAPLets capabilities for message authentication.
+Doing so requires the creation of a principal capability (stored in a woof
+with a .CAP extent) in the CSPOT
+namespace either for each woof that is to be protected or for the namespace as
+a whole.  When the CSPOT namespace platform detects a capability woof, it will
+check the message accessing that woof to make sure it has been signed using a
+capability of sufficient privilege.  If the capability is not present (e.g. an
+older version of CSPOT is attempting access) or if the signature does not
+match, the access is denied.  If capability woofs are not present in the
+namespace for a woof or for the namespace itself, no authentication is
+performed (for backward compatibility).
+
+Note that the messages are signed but not encrypted.  That is, each message is
+authenticated but the channel is not private.  If the capability used to sign
+each message is treated as a shared secret, then an eavesdropping attacker can
+replay an observed message but cannot alter it.  Further, because CSPOT woofs
+are logs, replayed messages can be deduplicated (although this deduplication
+support currently must be application level).   
+
+Privileges are ordered.  The currently supported privileges (from least to
+greatest privilege are)
+
+* READ (0x00000001)
+* WRITE (0x00000002)
+* EXECUTE (0x00000004)
+* CREATE (0x00000008)
+* DESTROY (0x00000010)
+* POLICY_ATTACH (0x00000020)
+
+Any capability can be attenuated to a lower level of privilege by the
+capability's holder and CSPOT uses the least privileged capability to sign a
+CSPOT message.  Currently, all messages require at least READ privilege, the
+PUT operation requires WRITE privileges and PUT with a concomitant handler
+invocation requires EXECUTE permissions.  Remote CREATE, DESTROY, and policy
+implementation are not yet supported.  Also, in the current release, message
+authentication is only checked when a CSPOT operation is remote (i.e. uses the
+network communication path and not the local fast path).
+
+==== CAPLets example
+
+It is possible to create capabilities for individual WOOFs (i.e. CSPOT logs --
+see below) or for an entire namespace (again -- see CSPOT abstractions below).
+This example shows how to create a read-only capability for a CSPOT namespace
+and also a separate read-write capability.  Any process that has access to the
+read-only capability will be able to read (call WooFGet) on any WOOF in the
+namespace that is not further protected by a capability.  Any process holding
+the read-write capability will be able to either read (WooFGet) or write (WooFPut) but
+will not be able to trigger a CSPOT handler as a result of a Put. 
+
+The first step is to create a principle capability in the namespace.  This
+capability grants all access so it should be protected using the most
+restrictive file systems permissions (e.g. as an ssh private key would be).
+The trust model assumes that a process with access permissions to the
+directory containing the namespace has access to all of its contents,
+including the principle capabilities.
+
+To create a principle capability for the namespace, log into the machine
+hosting the namespace and change into the namespace directory.  Ensure that
+woofc-namespace-platform is running for that namespace and that the user login
+has write permissions to the namespace directory.
+
+Run the command
+[source sh]
+----
+./woofc-init-principle -N
+----
+If the command is successful, it will create (silently) a file called
+CSPOT.CAP (which is a WOOF) that contains the principle capability.  Note that this file is
+analogous to an ssh private key.  If it is stolen, the possessor has full
+access rights to everything in the namespace.
+
+All accesses to WOOFs in this namespace will need to include a capability in
+the CSPOT API calls that will be checked on each access to ensure that it is a
+legal attenuation of this principle capability.
+
+The CSPOT API uses a keyring (formatted as a YAML file) 
+located in the .cspot subdirectory of the user ID's home directory (e.g.
+similar to the .ssh directory used to hold ssh keys) or the current working
+directory.  The keyring file must be called "capabilities.yaml" and it must
+have all group and world permissions disabled.
+
+To create a read-only attenuation for the namespace, run the command
+[source sh]
+----
+./woofc-print-cap -N -h 192.168.10.2 -p 1
+----
+where the IP address occurring after the -h parameter is the externally
+visible IP address for the namespace.  The "-p 1" says that the only
+permission enabled is READ since the capability bit pattern for READ is READ
+0x00000001.  
+
+The output of this command is YAML text that needs to be put into the
+capabilities.yaml keyring file of any user running a process that exercises
+the CSPOT API and contacts this namespace and that is granted read-only access
+to the WOOFs in the namespace.
+
+To create a read-write attenuation, in the namespace directory, run the
+command 
+[source sh]
+----
+./woofc-print-cap -N -h 192.168.10.2 -p 3
+----
+which will print a YAML-formatted capability with READ and WRITE permissions
+enabled, but no other permissions enabled.
+Because permissions are ordered, only the bit associated with the
+"highest" permission need be set to convey all lower permissions.  Thus, "-p
+3" (READ/WRITE/EXECUTE) is equivalent to "-p 2" (WRITE).  
+
+Note that the procedure for individual WOOFs is the same, but the -N flag is
+replaced with -W local-woof-name.  The principle capability will be placed in
+local-woof-name.CAP and woofc-print-cap will print YAML for capabilities that
+are specific to that WOOF (and not the name space).
+
+Finally, if there is both a namespace principle capability and a principle 
+capability for a specific WOOF in the namespace, the access is granted if
+the presented capability is a legal attenuation of either (i.e. not the most
+restrictive).
+
+One the namespace principle capability has been created,
+woofc-namespace-platform will check all remote CSPOT API requests to ensure
+that they carry the minimum necessary access rights for all WOOFs in the
+namespace.  If there is no namespace principle capability, but there is a
+capability for a specific WOOF or WOOFs, then it will check access rights on API calls
+for those WOOFs.
+
+Older released versions of CSPOT did not include capability support.  To allow
+older CSPOT clients to work with the current platform, if there are no
+principle capabilities, woofc-namespace-platform will allow all accesses
+without rights checking. 
+
+To enable a client to have READ access to the namespace, the output of
+woof-print-cap -N -h 192.168.10.2 -p 1 needs to be present in the file
+[source bash]
+----
+~/.cspot/capabilities.yaml
+----
+exactly as it prints and the permissions on the .cspot directory and on the
+capabilities.yaml file must be read/write for the owner only.  In particular, YAML parser checks
+the indentation when it determines whether the capability that is present in the
+file is valid.
+
+In this example, when ever an API call accesses a WOOF in the namespace on
+192.168.10.2, it will scan the capabilities.yaml file and send a request with
+READ permissions.  If the request can be completed with READ permissions, the
+API call will succeed.  If not, it will fail because woofc-namespace-platform
+will deny the request due to insufficient permissions.
+
+Note that woof-print-cap must be run locally within the namespace (there is
+no provision in the current release for creating capabilities remotely).  Thus
+only the "owner" of the namespace (a user on the machine hosting the namespace
+with write access to the directory in which it has been created) is entitled
+to generate capabilities for and within that namespace.
+
+In the original CAPlets formulation, capabilities are sent in messages so that
+the server need not keep a record of them (i.e. on a resource restricted
+device).  The current CSPOT release API does not send capabilities in messages
+(and instead stores them either in the namespace or on the client in the
+capabilities.yaml keychain file).  Instead, it signs the message payload with
+the capability (possibly attenuating it down to the minimum access level) 
+on the client side and the server derives a capability (from the principle)
+with minimum access rights and checks the signature with this locally
+generated capability.
+
+In this way, capabilities can be treated like secret keys since they are never
+transmitted over the network.  However, an application can elect to send
+capabilities and use CAPlets attenuation to implement distributed access
+control.
+
+== Support for MQTT network transport
+
+The current release includes support for using MQTT as a network transport
+protocol instead of the default ZeroMQ messaging system.  This feature should
+be considered experimental.  However, the ZeroMQ message transport requires
+that the client be able to establish a TCP connection to the machine running
+the namespace on a port between 50000 and 60000.  As a result, the server
+cannot be behind a firewall that blocks TCP connections to this port range.
+
+If it is possible to configure an MQTT broker two which the client(s) and
+namespace machine can all connect, the MQTT transport permit the namespace to
+be behind a firewall that allows outgoing TCP connections, but blocks incoming
+ones.
+
+The current CSPOT release uses the mosquitto Linux utility to implement a
+socket emulation layer that is configured along side the ZermoMQ transport.
+
+=== Configuring the MQTT message transport
+
+Both the client and the server require a YAML file that describes how to
+contact an MQTT broker.  The current implementation (which should not be used
+in secure production) uses a user name and password (which are transmitted
+clear test and visible in a ps) to authenticate to the broker.
+
+In the following examples, the broker is running on IP address 192.168.10.4
+to which both the client and server can make a TCP connection on port 1883
+(the standard MQTT port for a non SSL connection).  The broker has been
+configured to authenticate the user "CSPOT-mqtt-user" with the password
+"CSPOT-mqtt-password".  
+
+On the client side, the CSPOT client API will look for the file
+$HOME/.cspot/mqtt-proxy.yaml.  The .cspot directory and the file must be rw
+for the owner only.  
+
+On the server side, the file mqtt-proxy.yaml must be found in the same
+directory where woof-namespace-platform is started and it must have
+permissions rw for the owner only.
+
+The format of the mqtt-proxy.yaml file is
+[source bash]
+----
+proxy:
+  namespace: name-of-namespace
+  host-ip: local-host-ip
+  broker-ip: broker-ip
+  user: mqtt-user-name
+  pw: mqtt-user-pw
+----
+
+Thus, in this example, if the client runs as the ubuntu user on 192.168.10.2, the file
+/home/ubuntu/.cspot/mqtt-proxy.yaml should contain
+
+[source bash]
+----
+proxy:
+  namespace: test-namespace
+  host-ip: 192.168.10.2
+  broker-ip: 192.168.10.4
+  user: CSPOT-mqtt-user
+  pw: CSPOT-mqtt-password
+----
+
+Similarly, this file must be in the directory where woofc-namespace-platform
+is started.
+
+Note that the implementation uses the mosquitto client tools (which must be
+installed) and that an abortive termination may leave one or more instances
+running.
+
+Once configured, the client tools will recognize the prefix "mqtt://" in
+place of "woof://" in any URI.  For example, the client in this example could
+issue the following commands
+
+[source bash]
+----
+echo "1234" | senspot-put -W woof://192.168.10.3/home/ubuntu/cspot/testwoof -T i
+senspot-get -W mqtt://192.168.10.3/home/ubuntu/cspot/testwoof
+----
+
+where woofc-namespace-platform is running in the directory /home/ubuntu/cspot
+and that directory contains the mqtt-proxy.yaml file and get back
+
+[source bash]
+----
+1234 time: 1738353021.8613910675 192.168.10.2 seq_no: 1
+----
+
+In this example, senspot-put uses ZeroMQ and senspot-get uses MQTT.  The
+message transport will uses the URI prefix to determine which transport to use
+for each message.  
+
+== Example Application
+
+The contents of the
+link:https://github.com/MAYHEM-Lab/cspot/examples/cspot-example-app-with-cmake[https://github.com/MAYHEM-Lab/cspot/examples/cspot-example-app-with-cmake]
+subfolder of the main repo contain an simple CSPOT example (that uses a handler)
+and the build environment necessary to compile it using `cmake`. To build and
+run it (using the CSPOT binary distributions and the daily binaries, copy the
+contents of this directory a directory that will act as a namespace.  If CSPOT
+is cloned in /home/ubuntu/cspot, then the following commands
+
+[source sh]
+----
+mkdir -p test-namespace
+cd test-namespace
+cp -r /home/ubuntu/cspot/examples/cspot-example-app-with-cmake/* .
+./build-cspot-example-app.sh
+----
+
+will download and install the necessary binaries, build the app contained in
+the cspot-app-example subdirectory, and run the app which prints the dispatch
+and round-trip times for local handler invocations.
   
-# CSPOT Overview
+== CSPOT Overview
 
 CSPOT is acronym (slightly reordered) for _Serverless Platform of Things
 in C_. It is an empirical coding experiment that amalgamates
@@ -345,8 +837,12 @@ component for each namespace. Currently each namespace platform must be
 started manually using the commands
 
 ....
-woofc-namespace-platform -N path-to-namespace
+woofc-namespace-platform
 ....
+
+optionally with a -N command specifying a path for the namespace.  Note that
+woofc-namespace-platform prints its output to stdout and (sometimes) to
+standard error.
 
 The namespace platform must be executing before any puts to a namespace
 activate. That is, the platform is intended to function as a long
@@ -388,406 +884,7 @@ process must make a call to *WooFInit()* before doing so to initialize the
 runtime environment.  Handlers, however, inherit the environment in which they
 are to execute and, thus, need not call *WooFInit()*.
 
-== Example Applications
 
-A CSPOT application consists of an initial Linux process that starts the
-application by issuing one or more calls to *WooFPut()*, a set of
-WOOFs that the application will access, and a set of handlers that the
-runtime triggers optionally when data is appended to a WOOF. Each
-handler must be wrapped by the code contained in woofc-shepherd.c so
-that the API can find the internal runtime system log and also map the
-WOOFs referred to in any API calls. The initial process must make a call
-to *WooFInit()* after setting one or more environment variables
-appropriately before it attempts to issue a *WooFPut()* call. All
-of the namespace platforms must be running for the WOOFs that are
-mentioned in the application or the application will not execute.
-
-=== Build Model
-
-The CSPOT runtime causes the namespace containers to mount the namespace
-top-level directory from the host as a Docker volume. Each namespace
-container assumes that the handler binary is compiled for the baseline
-distribution used by the container (currently CentOS 7) and is present
-in the top-level namespace directory before it is invoked.
-
-The example applications contained in this repo build using make and
-copy the binaries into the namespace. This methodology works when the
-Linux distribution that is used to build CSPOT is matches the baseline
-used in the containers (CentOS 7, at present). However, if the
-distribution that builds CSPOT is different than the container
-distribution, the in-container binaries should be built in a container,
-separately, so that the dynamically loaded libraries are compatible.
-
-=== Hello World (cspot/apps/hello-world)
-
-The ``Hello world'' application consists of a single handler which
-prints to the string ``Hello world'' and then prints a string that the
-initial process has appended to the WOOF.  Here is the source code fpr the
-handler *hw()*.
-
-[source c]
-----
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include "woofc.h"
-#include "hw.h"
-
-int hw(WOOF *wf, unsigned long seq_no, void *ptr)
-{
-    HW_EL *el = (HW_EL *)ptr;
-    fprintf(stdout,"hello world\n");
-    fprintf(stdout,"from woof %s at %lu with string: %s\n",
-                    wf->shared->filename, seq_no, el->string);
-    fflush(stdout);
-    return(1);
-
-}
-----
-
-Note that the handler's entry point must be a C function and that all handlers
-take 3 arguments:
-* a pointer ot a WOOF structure (defined in woofc.h)
-* a sequence number
-* a void * pointer to an element
-The size of the elements are defined when the WOOF is created.
-The header file woofc.h defines a C structure that the application uses
-as the type of each element in the WOOF.
-
-[source c]
-----
-#ifndef HW_H
-#define HW_H
-struct obj_stc
-{
-    char string[255];
-};
-typedef struct obj_stc HW_EL;
-#endif
-----
-
-Finally, the initial start process takes a WOOF name to use, creates the
-WOOF (with a history size of 5), types element as an HW_EL, fills in a
-string, and calls *WooFPut()* with ``hw'' specified as a handler.
-
-[source c]
-----
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "woofc.h"
-#include "hw.h"
-
-#define ARGS "f:N:W:"
-char *Usage = "hw-start -W woof_name\n\
-\t-N namespace <CWD is the default>\n";
-
-char Fname[4096];
-char Wname[4096];
-char NameSpace[4096];
-char Namelog_dir[4096];
-int UseNameSpace;
-
-char putbuf1[1024];
-char putbuf2[1024];
-
-int main(int argc, char **argv)
-{
-	int c;
-	int err;
-	HW_EL el;
-	unsigned long long ndx;
-
-	while((c = getopt(argc,argv,ARGS)) != EOF) {
-		switch(c) {
-			case 'f':
-			case 'W':
-				strncpy(Fname,optarg,sizeof(Fname));
-				break;
-			case 'N':
-				UseNameSpace = 1;
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			default:
-				fprintf(stderr,
-				"unrecognized command %c\n",(char)c);
-				fprintf(stderr,"%s",Usage);
-				exit(1);
-		}
-	}
-
-	if(Fname[0] == 0) {
-		fprintf(stderr,"must specify filename for woof\n");
-		fprintf(stderr,"%s",Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
-	}
-
-	if(UseNameSpace == 1) {
-		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
-		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
-		putenv(putbuf1);
-	} else {
-		strncpy(Wname,Fname,sizeof(Wname));
-	}
-
-	WooFInit(); // attach to namespace
-
-	err = WooFCreate(Wname,sizeof(HW_EL),5); // create a WOOF
-	if(err < 0) {
-		fprintf(stderr,"couldn't create woof from %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
-	/*
-	 * copy string into a structure to be stored as an element
-	 * in the WOOF
-	 */
-	memset(el.string,0,sizeof(el.string));
-	strncpy(el.string,"my first bark",sizeof(el.string));
-
-	/*
-	 * put the string in the WOOF and trigger a handler
-	 */
-	ndx = WooFPut(Wname,"hw",(void *)&el);
-
-	if(WooFInvalid(err)) {
-		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
-	printf("successfully appended %s to %s at seq_no %llu\n",
-		"my first bark",
-		Wname,
-		ndx);
-
-	return(0);
-}
-
-----
-The code for this application is in the apps/hello-world subdirectory of
-the CSPOT repo.
-
-To run ``Hello world'', first start the namespace platform for the
-application’s namespace. Typically, the method is to copy the CSPOT
-runtime into a directory to use as the name space and then to copy the code
-(handlers and start program) to the name space.  The easiest way to start the platform is to cd
-into the namespace on the host and to run the platform without any arguments. It
-will use the current working directory as the namespace in this case.
-
-[source sh]
-----
-mkdir test-name-space
-cp cspot/build/bin/woofc* test-name-space
-cp cspot/apps/hello-world/hw-start test-name-space
-cp cspot/apps/hello-world/hw test-name-space
-cd spot/apps/hello-world/cspot
-cd test-name-space
-./woofc-namespace-platform
-----
-
-Once the platform is running, it will spawn a Docker container.
-Unfortunately, the interaction between pthreads, the Linux system
-command, and docker isn’t completely bug free in CentOS 7. Currently,
-woofc-namespace-platform can't be terminated with a when running in the
-foreground.
-Alternatively, killing the process ID with ``kill -HUP'' will
-also trigger a clean up of the docker container. Any other form of
-termination may leave the container running which holds the port
-associated with the namespace.
-
-Once the platform is running, run the application
-
-[source sh]
-----
-./hw-start -W hello-woof
-----
-
-So, for example, if CSPOT were installed in /home/centos/cspot, the commands
-would be
-[source sh]
-----
-cd /home/centos
-mkdir /home/centos/test-name-space
-cp /home/centos/cspot/build/bin/woofc* test-name-space
-cp /home/centos/cspot/build/bin/hello-world/hw test-name-space
-cp /home/centos/cspot/build/bin/hello-world/hw-start test-name-space
-cp /home/centos/cspot/build/bin/hello-world/hw-client test-name-space
-cd /home/centos/test-name-space
-./woofc-namespace-platform >& namespace.log &
-./hw-start hello-woof
-----
-
-Because the start program creates the WOOF ``hello-woof'' in this example, the
-WOOF name is specified as a path.  If successful, in this example, the start
-program should have printed
-
-[source sh]
-----
-successfully appended my first bark to hello-woof at seq_no 1
-----
-
-and the file namespace.log should contain
-
-[source sh]
-----
-hello world
-at 1 with string: my first bark
-----
-
-Because the handler prints to stdout, the output of the handler will be
-sent to the controlling tty of the shell that is running the platform.
-
-To continue appending to ``hello-woof'' without recreating the woof each time,
-a client program (contained in cspot/apps/hello-word/hw-client) simply calls
-*WooFPut()* on the same WOOF.  
-
-[source C]
-
-----
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "woofc.h"
-#include "hw.h"
-
-#define ARGS "f:N:W:"
-char *Usage = "hw-client -W woof_name\n\
-\t-N namespace <CWD is the default>\n";
-
-char Fname[4096];
-char Wname[4096];
-char NameSpace[4096];
-char Namelog_dir[4096];
-int UseNameSpace;
-
-char putbuf1[1024];
-char putbuf2[1024];
-
-int main(int argc, char **argv)
-{
-	int c;
-	int err;
-	HW_EL el;
-	unsigned long long ndx;
-
-	while((c = getopt(argc,argv,ARGS)) != EOF) {
-		switch(c) {
-			case 'f':
-			case 'W':
-				strncpy(Fname,optarg,sizeof(Fname));
-				break;
-			case 'N':
-				UseNameSpace = 1;
-				strncpy(NameSpace,optarg,sizeof(NameSpace));
-				break;
-			default:
-				fprintf(stderr,
-				"unrecognized command %c\n",(char)c);
-				fprintf(stderr,"%s",Usage);
-				exit(1);
-		}
-	}
-
-	if(Fname[0] == 0) {
-		fprintf(stderr,"must specify filename for woof\n");
-		fprintf(stderr,"%s",Usage);
-		fflush(stderr);
-		exit(1);
-	}
-
-	if(Namelog_dir[0] != 0) {
-		sprintf(putbuf2,"WOOF_NAMELOG_DIR=%s",Namelog_dir);
-		putenv(putbuf2);
-	}
-
-	if(UseNameSpace == 1) {
-		sprintf(Wname,"woof://%s/%s",NameSpace,Fname);
-		sprintf(putbuf1,"WOOFC_DIR=%s",NameSpace);
-		putenv(putbuf1);
-	} else {
-		strncpy(Wname,Fname,sizeof(Wname));
-	}
-
-	/*
-	 * copy string into a structure to be stored as an element
-	 * in the WOOF
-	 */
-	memset(el.string,0,sizeof(el.string));
-	strncpy(el.string,"my second bark",sizeof(el.string));
-
-	/*
-	 * put the string in the WOOF and trigger a handler
-	 */
-	ndx = WooFPut(Wname,"hw",(void *)&el);
-
-	if(WooFInvalid(err)) {
-		fprintf(stderr,"first WooFPut failed for %s\n",Wname);
-		fflush(stderr);
-		exit(1);
-	}
-
-	printf("successfully appended %s to %s at seq_no %llu\n",
-		"my second bark",
-		Wname,
-		ndx);
-
-	return(0);
-}
-
-----
-
-
-If the client is running in the same
-namespace, it can refer to the WOOF by a path name.  Otherwise, as in the
-following example, the client uses a fully-qualified WOOF name.
-
-[source sh]
-----
-./hw-client -W woof://127.0.0.1/home/centos/test-name-space/hello-woof
-----
-
-Note that of the client had been located on another machine, the IP address
-or DNS name of the machine hosting the namespace would be substituted for the
-local IP address ``127.0.0.1'' in this example.
-
-=== Runs Test (cspot/apps/runs-test)
-
-The Runs test application is intended to simulate an IoT processing
-pipeline. A producing handler (RHandler in the application) generates
-a stream of pseudo-random numbers. The next stage of the pipeline
-(SHandler) processes the stream in batches of ``sample size''
-(specified as the -s parameter) and compute the Runs test statistic
-for each sample. It then puts each statistic in a WOOF for the final
-stage of the pipeline (Handler) which runs a KS-test for the set of
-statistics against a z-transformed, empirically generated Normal
-distribution of the same size. The number of such samples it considers
-is specified by the -c parameter to the start program.
-
-The apps/runs-test subdirectory contains several versions of this
-program
-
-* c-runstest.c: sequential C implementation
-* c-runstat.c: C implementation using pthreads and shared memory in an
-event-driven style
-* cspot-runstat: CSPOT implementation of c-runstat running in a single
-namespace
-* cspot-runstat-fast: CSPOT implementation that does not run
-``RHandler'' in a container
-* cspot-runstat-multi-ns: CSPOT implementation of c-runstat that runs
-handlers in separate namespaces
 
 == On-going and Future Work
 

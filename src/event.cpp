@@ -1,5 +1,5 @@
 extern "C" {
-#include "event.h"
+#include "./include/event.h"
 }
 
 #include <math.h>

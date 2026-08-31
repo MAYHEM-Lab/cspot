@@ -1,63 +1,125 @@
-name: Build and package
+name: Build, Test, and Package
 
-on: [push]
-
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
+on:
+  push:
+    branches:
+      - master
+      - release-3.0
 
 jobs:
-  build:
-    # The CMake configure and build commands are platform agnostic and should work equally
-    # well on Windows or Mac.  You can convert this to a matrix build if you need
-    # cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-20.04
+  build-and-package:
+    name: Build & Package (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: [self-hosted, X64]
+          - arch: arm64
+            runner: [self-hosted, ARM64]
 
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: recursive
-    
-    - name: Install ninja
-      run: sudo apt-get update && sudo apt-get -y install ninja-build g++-9 rpm
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Create Build Environment
-      # Some projects don't allow in-source building, so create a separate build directory
-      # We'll use this as our working directory for all subsequent commands
-      run: cmake -E make_directory ${{runner.workspace}}/build
+      - name: Configure and build
+        run: |
+          mkdir -p build
+          cd build
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            cmake \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=../toolchain-musl.cmake \
+              -DENABLE_PYCSPOT=OFF \
+              ..
+          else
+            cmake -DCMAKE_BUILD_TYPE=Release ..
+          fi
+          make
 
-    - name: Configure CMake
-      # Use a bash shell so we can use the same syntax for environment variable
-      # access regardless of the host operating system
-      shell: bash
-      working-directory: ${{runner.workspace}}/build
-      # Note the current convention is to use the -S and -B options here to specify source 
-      # and build directories, but this is only available with CMake 3.13 and higher.  
-      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-      env:
-        CXX: g++-9
-        CC: gcc-9
-      run: cmake -G Ninja $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DENABLE_PYCSPOT=OFF
+      - name: Run self tests
+        run: |
+          cd build/bin
 
-    - name: Build
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      # Execute the build.  You can specify a specific target with "--target <NAME>"
-      run: cmake --build . --config $BUILD_TYPE
+          cp ../../cicd-tests/local-self-test.sh .
+          ./woofc-namespace-platform -b spawn >& namespace.log &
+          ./local-self-test.sh
 
-    - name: Package
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      # Execute the build.  You can specify a specific target with "--target <NAME>"
-      run: ninja package
+          cp ../../cicd-tests/local-network-test.sh .
+          ./woofc-namespace-platform -b spawn >& namespace.log &
+          ./local-network-test.sh
 
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: packages
-        path: |
-          ${{runner.workspace}}/build/*.rpm
-          ${{runner.workspace}}/build/*.deb
-          ${{runner.workspace}}/build/*.tar.gz
-          ${{runner.workspace}}/build/*.sh
+          cp ../../cicd-tests/start-remote-platform.sh .
+          cp ../../cicd-tests/kill-remote-platform.sh .
+          cp ../../cicd-tests/remote-network-test.sh .
+          ./remote-network-test.sh
+
+          cp ../../cicd-tests/remote-senspot-test.sh .
+          ./remote-senspot-test.sh
+
+          cp ../../cicd-tests/remote-senspot-file-test.sh .
+          ./remote-senspot-file-test.sh
+
+      - name: Build .deb package
+        id: package
+        run: |
+          ARCH="${{ matrix.arch }}"
+          VERSION="3.0-${GITHUB_RUN_NUMBER}"
+          PKG_NAME="cspot-${ARCH}.deb"
+
+          PKG_DIR="pkg"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR/DEBIAN"
+          mkdir -p "$PKG_DIR/usr/local/cspot/bin"
+          mkdir -p "$PKG_DIR/usr/local/cspot/lib"
+          mkdir -p "$PKG_DIR/usr/local/cspot/include"
+
+          cp build/bin/woofc* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/bin/senspot* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/bin/stress* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/bin/hw* "$PKG_DIR/usr/local/cspot/bin/" 2>/dev/null || true
+          cp build/lib/* "$PKG_DIR/usr/local/cspot/lib/" 2>/dev/null || true
+          cp src/include/*.h "$PKG_DIR/usr/local/cspot/include/" 2>/dev/null || true
+
+          echo "Package: cspot" > "$PKG_DIR/DEBIAN/control"
+          echo "Version: ${VERSION}" >> "$PKG_DIR/DEBIAN/control"
+          echo "Architecture: ${ARCH}" >> "$PKG_DIR/DEBIAN/control"
+          echo "Maintainer: Rich <rich@cs.ucsb.edu>" >> "$PKG_DIR/DEBIAN/control"
+          echo "Description: CSPOT platform runtime (${ARCH})" >> "$PKG_DIR/DEBIAN/control"
+
+          dpkg-deb --build "$PKG_DIR" "$PKG_NAME"
+
+          echo "pkg=$PKG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload package as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cspot-${{ matrix.arch }}
+          path: ${{ steps.package.outputs.pkg }}
+
+  publish-release:
+    name: Publish to Latest Release
+    needs: build-and-package
+
+    # Only the stable release branch updates the "latest" release.
+    if: github.ref == 'refs/heads/release-3.0'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload to latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

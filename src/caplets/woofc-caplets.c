@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#ifdef __APPLE__
+#include </opt/homebrew/opt/openssl/include/openssl/hmac.h>
+#else
 #include <openssl/hmac.h>
+#endif
 #include <time.h>
 #include <sys/time.h>
 
@@ -31,6 +35,23 @@ uint64_t WooFCapCheck(WCAP *cap, uint64_t key)
 	return(hm);
 }
 
+uint64_t WooFCapSign(unsigned char *udata, int len, uint64_t key)
+{
+	unsigned char full_hmac[EVP_MAX_MD_SIZE];  // Store full HMAC
+	unsigned int hmac_len;
+	unsigned char *ukey = (unsigned char *)&key;
+	uint64_t hm;
+
+	// Compute full HMAC using SHA-256
+	HMAC(EVP_sha256(), ukey, sizeof(key), udata, len, full_hmac, &hmac_len);
+
+	// Truncate to 64 bits (first 8 bytes)
+	memcpy(&hm, full_hmac, sizeof(hm));
+//printf("signing %s with len %d key %lu and %lu\n",
+//		(char *)udata,len,key,hm);
+
+	return(hm);
+}
 // create cap woof from woof name
 // must be done locally
 int WooFCapInit(char *local_woof_name)
@@ -95,6 +116,12 @@ WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm)
 		return(NULL);
 	}
 
+	if(perm == cap->permissions) { //no change
+		// just duplicate
+		memcpy(new_cap,cap,sizeof(WCAP));
+		return(new_cap);
+	}
+
 	// attenuate down to the input cap's perms
 	while(cap->permissions < permitted) {
 		permitted = permitted / 2;
@@ -118,6 +145,7 @@ WCAP *WooFCapAttenuate(WCAP *cap, uint32_t perm)
 
 }
 
+
 int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 {
 	WCAP local;
@@ -132,14 +160,23 @@ int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 	local.frame_size = 0;
 	local.check = secret;
 
-//printf("AUTH %d: start perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: start perms: %x %x %llu %llu\n",perm,local.permissions,
+//		permitted,local.check,cap->check);
 	while(permitted > perm) {
 		permitted = permitted / 2;
 		local.permissions = local.permissions / 2;
 		local.check = WooFCapCheck(&local,local.check);
-//printf("AUTH %d: atten perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: atten perms: %x %x %llu %llu\n",perm,local.permissions,permitted,
+//		local.check, cap->check);
+
+		// if the cap has highr perms, okay
+		if((cap->check == local.check) &&
+		   (local.permissions >= perm)) {
+			break;
+		}
 	}
-//printf("AUTH %d: final perms: %x %x %lu\n",perm,local.permissions,permitted,local.check);
+//printf("AUTH %d: final perms: %x %x %llu %llu\n",perm,local.permissions,permitted,
+//		local.check, cap->check);
 
 	if(local.check == cap->check) {
 		return(1);
@@ -152,8 +189,17 @@ int WooFCapAuthorized(uint64_t secret, WCAP *cap, uint32_t perm)
 void WooFCapPrint(char *woof_name, WCAP *cap)
 {
 	printf("woof:\n");
-	printf("\tname: %s\n",woof_name);
-	printf("\tpermissions: %8.8x\n",cap->permissions);
-	printf("\tcheck: %lu\n",cap->check);
+	printf("  name: %s\n",woof_name);
+	printf("  permissions: %8.8x\n",cap->permissions);
+	printf("  check: %llu\n",cap->check);
+	return;
+}
+
+void WooFNamespaceCapPrint(char *woof_name, WCAP *cap)
+{
+	printf("namespace:\n");
+	printf("  name: %s\n",woof_name);
+	printf("  permissions: %8.8x\n",cap->permissions);
+	printf("  check: %llu\n",cap->check);
 	return;
 }

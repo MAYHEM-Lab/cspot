@@ -10,15 +10,20 @@
 #include "stress-test.h"
 #include "dlist.h"
 
-#define ARGS "c:W:s:g:p:P:LlV"
+#define ARGS "c:W:s:g:p:P:LlVM"
 char *Usage = "stress-test -W woof_name for stress test\n\
 \t-L <use local woofs>\n\
 \t-l <do latency test, otherwise throughput test>\n\
 \t-s number of puts\n\
 \t-g get threads\n\
+\t-M <use mixed woof and mqtt modes>\n\
 \t-p put threads\n\
 \t-P payload size\n\
 \t-V <verbose>\n";
+
+unsigned long WooFMsgGetElSize(const char* woof_name);
+extern unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
+int Local;
 
 char Wname[4096];
 char Iname[4096];
@@ -40,6 +45,32 @@ double Total;
 double Count;
 int IsLatency;
 int Verbose;
+int Mixed_mode;
+
+// assumes that xport does not include ://
+void ChangeXport(char *wname, char *xport)
+{
+	char *new;
+	char *p;
+
+	new = (char *)malloc(strlen(wname)+8);
+	if(new == NULL) {
+		return;
+	}
+	memset(new,0,strlen(wname)+8);
+	strcpy(new,xport);
+	strcat(new,"://");
+	p = strstr(wname,"://");
+	if(p == NULL) {
+		return;
+	}
+	p += 3;
+	strcat(new,p);
+	memset(wname,0,strlen(wname));
+	strcpy(wname,new);
+//printf("wname: %s\n",wname);
+	return;
+}
 
 
 void *PutThread(void *arg)
@@ -50,8 +81,10 @@ void *PutThread(void *arg)
 	char *payload;
 	int i;
 	int size;
+	unsigned long el_size;
 
 	MAKE_EXTENDED_NAME(Iname,Wname,"input");
+#if 0
 	/*
 	 * register backend is not thread safe?
 	 * do this to prime the pump
@@ -59,14 +92,31 @@ void *PutThread(void *arg)
 	 * much faster when each thread does this
 	 */
 	pthread_mutex_lock(&Plock);
+	if((Mixed_mode == 1) && (drand48() > 0.5)) {
+		ChangeXport(Iname,"mqtt");
+	}
 	seq_no = WooFGetLatestSeqno(Iname);
 	pthread_mutex_unlock(&Plock);
+#endif
 
-	payload = (char *)malloc(Payload_size);
+	if(Local == 0) {
+		el_size = WooFMsgGetElSize(Iname);
+	} else {
+		el_size = WooFGetElSize(NULL,Iname);
+	}
+	if(el_size == (unsigned long)-1) {
+		fprintf(stderr,"could not get el size for %s\n",
+			Iname);
+		pthread_exit(NULL);
+	}
+	if(el_size < sizeof(ST_EL)) {
+		el_size = sizeof(ST_EL)+1;
+	}
+	payload = (char *)malloc(el_size);
 	if(payload == NULL) {
 		exit(1);
 	}
-	memset(payload,0,Payload_size);
+	memset(payload,0,el_size);
 	st = (ST_EL *)payload;
 //	memset(st,0,sizeof(ST_EL));
 	strncpy(st->woof_name,Wname,sizeof(st->woof_name));
@@ -80,24 +130,34 @@ void *PutThread(void *arg)
 	while(PutRemaining > 0) {
 		PutRemaining--;
 		gettimeofday(&st->posted,NULL);
-//printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
 		pthread_mutex_unlock(&Plock);
-		seq_no = WooFPut(Iname,"stress_handler",st);
+//printf("Put [%ld]: pr: %d\n",pthread_self(),PutRemaining);
+//fflush(stdout);
+		if((Mixed_mode == 1) && (drand48() > 0.5)) {
+			ChangeXport(Iname,"mqtt");
+		}
+		if(Local == 1) {
+			seq_no = WooFPut(Iname,"stress_handler",st);
+		} else {
+			seq_no = WooFMsgPut(Iname,"stress_handler",st,el_size);
+		}
 //printf("Put [%ld]: seq_no: %ld\n",pthread_self(),seq_no);
+//fflush(stdout);
 		if(WooFInvalid(seq_no)) {
 			fprintf(stderr,"put thread failed\n");
 			fflush(stderr);
 			pthread_exit(NULL);
 		}
+		st->seq_no = seq_no;
+		// must put seq_no on list in critical section
+		pthread_mutex_lock(&Glock);
+		DlistAppend(Pending,(Hval)seq_no);
+		pthread_mutex_unlock(&Glock);
 		if(IsLatency == 1) {
 			sleep(1);
 		}
 
-		pthread_mutex_lock(&Glock);
-		DlistAppend(Pending,(Hval)seq_no);
-		pthread_mutex_unlock(&Glock);
 
-		pthread_mutex_lock(&Plock);
 	}
 
 	pthread_mutex_unlock(&Plock);
@@ -106,9 +166,11 @@ void *PutThread(void *arg)
 	pthread_exit(NULL);
 }
 
+#define RETRIES 30
+
 void *GetThread(void *arg)
 {
-	ST_EL st;
+	ST_EL *st;
 	char Oname[4096];
 	unsigned long seq_no = -1;
 	int err;
@@ -117,9 +179,13 @@ void *GetThread(void *arg)
 	int retries;
 	struct timespec ts;
 	int started = 0;
+	unsigned long o_seq_no;
+	unsigned long el_size;
 	
 	
-
+//	sleep(10);
+//
+	
 	if(IsLatency == 0) {
 		ts.tv_sec = 0;
 		ts.tv_nsec = 1000000;  /* 2 ms wait time on get */
@@ -127,6 +193,19 @@ void *GetThread(void *arg)
 	MAKE_EXTENDED_NAME(Oname,Wname,"output");
 //printf("Get: %ld starting with %s\n",pthread_self(), Oname);
 //fflush(stdout);
+	el_size = WooFGetElSize(NULL,Oname);
+	if(el_size == (unsigned long)-1) {
+		printf("could not get ElSize for %s\n",Oname);
+		pthread_exit(NULL);
+	}
+	if(el_size < Payload_size) {
+		el_size = Payload_size;
+	}
+	st = (ST_EL *)malloc(el_size);
+	if(st == NULL) {
+		printf("could not get %lu bytes in get thread\n",el_size);
+		pthread_exit(NULL);
+	}
 	while((Done == 0) || (Pending->first != NULL) ||
 			(started == 0)) {
 		if(IsLatency == 0) {
@@ -140,24 +219,59 @@ void *GetThread(void *arg)
 			started = 1;
 			retries = 0;
 			seq_no = dn->value.l;
-			while(retries < 30) {
-				err = WooFGet(Oname,&st,seq_no);
-				if(err < 0) {
-					printf("get of seq_no %lu failed, retrying\n",seq_no);
+			while(retries < RETRIES) {
+//printf("GETING: %lu attempt: %d\n",seq_no, retries);
+				if((Mixed_mode == 1) && (drand48() > 0.5)) {
+					ChangeXport(Oname,"mqtt");
+				}
+				o_seq_no = WooFGetLatestSeqno(Oname);
+				if((o_seq_no == (unsigned long) -1) ||
+					       (o_seq_no == 0))	{
+//printf("Latest for %s for %lu\n",Oname,o_seq_no);
 					retries++;
-					if(IsLatency == 1) {
-						sleep(1);
+					continue;
+				}
+				if(retries == RETRIES) {
+					break;
+				}
+				while(1) {
+//printf("TRYING %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+					if((Mixed_mode == 1) && (drand48() > 0.5)) {
+						ChangeXport(Oname,"mqtt");
+					} else if(Mixed_mode == 1) {
+						ChangeXport(Oname,"woof");
 					}
+					err = WooFGet(Oname,st,o_seq_no);
+					if(err < 0) {
+						printf("get of seq_no %lu failed, retrying\n",seq_no);
+						retries++;
+						if(retries == RETRIES) {
+							break;
+						}
+						continue;
+					}
+					if(st->seq_no == seq_no) {
+//printf("FOUND %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+						break;
+					}
+					o_seq_no--;
+					if(o_seq_no == 0) {
+//printf("ZERO %s %lu for %lu\n",Oname,o_seq_no,seq_no);
+						break;
+					}
+				}
+				if(o_seq_no == 0) {
+					retries++;
 					continue;
 				}
 				break;
 			}
-			if(retries == 30) {
+			if((retries == RETRIES) || (o_seq_no == 0) || (st->seq_no != seq_no)) {
 				printf("FAIL to get seq_no %lu\n",seq_no);
 				fflush(stdout);
 			} else {
-				elapsed=(st.fielded.tv_sec * 1000000.0 + st.fielded.tv_usec) -
-					(st.posted.tv_sec * 1000000.0 + st.posted.tv_usec);
+				elapsed=(st->fielded.tv_sec * 1000000.0 + st->fielded.tv_usec) -
+					(st->posted.tv_sec * 1000000.0 + st->posted.tv_usec);
 				elapsed = elapsed / 1000;
 				if(Verbose == 1) {
 					printf("seq_no %lu latency %f\n",seq_no,elapsed);
@@ -190,11 +304,10 @@ int main(int argc, char **argv)
 	int gt;
 	int pt;
 	int i;
-	int local;
 
 	gt = 1;
 	pt = 1;
-	local = 0;
+	Local = 0;
 	while((c = getopt(argc,argv,ARGS)) != EOF) {
 		switch(c) {
 			case 'W':
@@ -206,6 +319,9 @@ int main(int argc, char **argv)
 			case 'g':
 				gt = atoi(optarg);
 				break;
+			case 'M':
+				Mixed_mode = 1;
+				break;
 			case 'p':
 				pt = atoi(optarg);
 				break;
@@ -213,7 +329,7 @@ int main(int argc, char **argv)
 				Payload_size = atoi(optarg);
 				break;
 			case 'L':
-				local = 1;
+				Local = 1;
 				break;
 			case 'l':
 				IsLatency = 1;
@@ -281,7 +397,7 @@ int main(int argc, char **argv)
 //	seq_no = WooFGetLatestSeqno(Iname);
 //	pthread_mutex_unlock(&Plock);
 
-	if(local == 1) {
+	if(Local == 1) {
 		WooFInit();
 	}
 
@@ -315,7 +431,7 @@ int main(int argc, char **argv)
 //printf("Joined with put threads\n");
 
 	if(IsLatency == 0) {
-		sleep(1);
+		sleep(3);
 		for(i=0; i < gt; i++) {
 			err = pthread_create(&gtids[i],NULL,GetThread,NULL);
 			if(err < 0) {

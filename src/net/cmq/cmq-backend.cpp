@@ -10,6 +10,7 @@
 #include <woofc-access.h>
 #include <woofc-priv.h>
 #include <woofc.h>
+#include <woofc-caplets.h>
 #include <string.h>
 
 extern "C" {
@@ -17,9 +18,95 @@ extern "C" {
 }
 
 namespace cspot::cmq {
-void WooFProcessGetElSize(unsigned char *fl, int sd) {
+constexpr size_t CMQ_MAX_TRANSFER = 64 * 1024 * 1024;
+
+void SendErr(unsigned long i_err, int sd)
+{
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+	const char *s_str;
+	int err;
+
+	err = cmq_frame_list_create(&r_fl);
+        if(err < 0) {
+                DEBUG_WARN("SendErr could not create resp message");
+                return;
+        }
+
+        // convert err to a string
+        s_str = std::to_string(i_err).c_str();
+        err = cmq_frame_create(&r_frame,(unsigned char *)s_str,strlen(s_str)+1);
+        if(err < 0) {
+                DEBUG_WARN("SendErr could not create resp frame");
+                cmq_frame_list_destroy(r_fl);
+                return;
+        }
+
+        // add it to the msg
+        err = cmq_frame_append(r_fl,r_frame);
+        if(err < 0) {
+                DEBUG_WARN("SendErr could not append resp frame");
+                cmq_frame_list_destroy(r_fl);
+                cmq_frame_destroy(r_frame);
+                return;
+        }
+
+	// send response
+        err = cmq_pkt_send_msg(sd,r_fl);
+        if(err < 0) {
+                DEBUG_WARN("SendErr: Could not send response");
+        }
+
+        // destreoy the message
+        cmq_frame_list_destroy(r_fl);
+        return;
+}
+
+void SendNull(int sd)
+{
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+	int err;
+
+	err = cmq_frame_list_create(&r_fl);
+        if(err < 0) {
+                DEBUG_WARN("SendNull could not create resp message");
+                return;
+        }
+
+	// create zero frame
+        err = cmq_frame_create(&r_frame,NULL,0);
+        if(err < 0) {
+                DEBUG_WARN("SendNull could not create resp frame");
+                cmq_frame_list_destroy(r_fl);
+                return;
+        }
+
+        // add it to the msg
+        err = cmq_frame_append(r_fl,r_frame);
+        if(err < 0) {
+                DEBUG_WARN("SendNull could not append resp frame");
+                cmq_frame_list_destroy(r_fl);
+                cmq_frame_destroy(r_frame);
+                return;
+        }
+
+	// send response
+        err = cmq_pkt_send_msg(sd,r_fl);
+        if(err < 0) {
+                DEBUG_WARN("SendNull: Could not send response");
+        }
+
+        // destreoy the message
+        cmq_frame_list_destroy(r_fl);
+        return;
+}
+
+void WooFProcessGetElSize(unsigned char *fl, int sd, int no_cap) 
+{
 	int err;
 	unsigned char *woof_name;
+	char *wname;
 	unsigned char *r_fl;
 	unsigned char *r_frame;
 	const char *s_str;
@@ -27,6 +114,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGetElSize Bad message");
 		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
         	return;
 	}
 	// tag  has been stripped
@@ -35,14 +123,54 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 	if(err < 0) {
 		cmq_frame_list_destroy(fl);
         	DEBUG_WARN("WooFProcessGetElSize could not get woof name");
+		SendErr(-1,sd);
         	return;
 	}
+
+	// cannot access .CAP files remotely
+	wname = (char *)cmq_frame_payload(woof_name);
+	if(wname == NULL) {
+        	DEBUG_WARN("WooFProcessGetElSize could not get woof name string");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_list_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+    	}
 
 	// no more valid frames
 	cmq_frame_list_destroy(fl);
 
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+	// if we find a CAP and there should not be one, error
+	if(no_cap == 1) {
+		sprintf(cap_name,"%s.CAP",local_name);
+        	WOOF* wfc;
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+			cmq_frame_list_destroy(woof_name);
+			SendErr(-1,sd);
+            		return;
+        	}
+		strcpy(cap_name,"CSPOT.CAP");
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+			cmq_frame_list_destroy(woof_name);
+			SendErr(-1,sd);
+            		return;
+        	}
+	}
 
 	WOOF* wf;
 	if (err < 0) {
@@ -67,6 +195,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetElSize could not create resp message");
+		SendErr(-1,sd);
         	return;
 	}
 
@@ -76,6 +205,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetElSize could not create resp frame");
 		cmq_frame_list_destroy(r_fl);
+		SendErr(-1,sd);
         	return;
 	}
 
@@ -85,6 +215,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
         	DEBUG_WARN("WooFProcessGetElSize could not append resp frame");
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(r_frame);
+		SendErr(-1,sd);
         	return;
 	}
 
@@ -92,6 +223,7 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetElSize: Could not send response");
+		SendErr(-1,sd);
 	}
 
 	// destreoy the message
@@ -99,7 +231,493 @@ void WooFProcessGetElSize(unsigned char *fl, int sd) {
 	return;
 }
 
-void WooFProcessPut(unsigned char *fl, int sd) {
+
+void WooFProcessGetElSizewithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetElSizewithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetElSizewithCAP could not get cap frame");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof cap frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame payload\n");
+		SendErr(-1,sd);
+		return;
+	}
+	// cannot access .CAP files remotely
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+    	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetElSizewithCAP local name failed\n");
+		SendErr(-1,sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		WooFProcessGetElSize(fl,sd,0);
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf){
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetElSizewithCAP atten cap failed\n");
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetElSizewithCAP: read CAP woof from %s\n",cap_name);
+	}
+
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns){
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get for ns failed\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetElSizewithCAP atten cap for ns failed\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetElSizewithCAP: read CAP woof ns\n");
+	}
+
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: CAP auth\n",cap_name);
+		cmq_frame_destroy(cframe);
+		WooFProcessGetElSize(fl,sd,0);
+		return;
+	}
+	cmq_frame_destroy(cframe);
+	cmq_frame_list_destroy(fl);
+	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied\n");
+	// denied
+	SendErr(-1,sd);
+	return;
+}
+
+void WooFProcessGetEarliestSeqno(unsigned char *fl, int sd, int no_cap) 
+{
+	int err;
+	unsigned char *woof_name;
+	char *wname;
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+	const char *s_str;
+	unsigned long earliest_seqno;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno Bad message");
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+	}
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&woof_name);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not get woof name");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	// cannot access .CAP files remotely
+	wname = (char *)cmq_frame_payload(woof_name);
+	if(wname == NULL) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not get woof name string");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_list_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno cannot read CAP");
+		SendErr(-1,sd);
+        	return;
+    	}
+
+	// no more valid frames
+	cmq_frame_list_destroy(fl);
+
+	char local_name[1024] = {};
+	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+	// if we find a CAP and there should not be one, error
+	if(no_cap == 1) {
+		sprintf(cap_name,"%s.CAP",local_name);
+        	WOOF* wfc;
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+			cmq_frame_list_destroy(woof_name);
+			SendErr(-1,sd);
+            		return;
+        	}
+		strcpy(cap_name,"CSPOT.CAP");
+        	wfc = WooFOpen(cap_name);
+        	if(wfc) {
+            		WooFDrop(wfc);
+			cmq_frame_list_destroy(woof_name);
+			SendErr(-1,sd);
+            		return;
+        	}
+	}
+
+	earliest_seqno = WooFGetEarliestSeqno(local_name);
+
+	if (earliest_seqno == (unsigned long)-1) {
+		DEBUG_LOG("WooFProcessGetEarliestSeqno: couldn't get earliest seqnoe open %s (%s)\n", local_name, (char *)cmq_frame_payload(woof_name));
+		cmq_frame_destroy(woof_name);
+		SendErr(-1,sd);
+		return;
+	}
+
+	// done with woof_name
+	cmq_frame_destroy(woof_name);
+
+	// create reply msg
+	err = cmq_frame_list_create(&r_fl);
+	if(err < 0) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not create resp message");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	// convert el_size to a string
+	s_str = std::to_string(earliest_seqno).c_str();
+	err = cmq_frame_create(&r_frame,(unsigned char *)s_str,strlen(s_str)+1);
+	if(err < 0) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not create resp frame");
+		cmq_frame_list_destroy(r_fl);
+		SendErr(-1,sd);
+        	return;
+	}
+
+	// add it to the msg
+	err = cmq_frame_append(r_fl,r_frame);
+	if(err < 0) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqno could not append resp frame");
+		cmq_frame_list_destroy(r_fl);
+		cmq_frame_destroy(r_frame);
+		SendErr(-1,sd);
+        	return;
+	}
+
+	// send response
+	err = cmq_pkt_send_msg(sd,r_fl);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not send response");
+		SendErr(-1,sd);
+	}
+
+	// destreoy the message
+	cmq_frame_list_destroy(r_fl);
+	return;
+}
+
+void WooFProcessGetEarliestSeqnowithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP could not get cap frame");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof cap frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame payload\n");
+		SendErr(-1,sd);
+		return;
+	}
+	// cannot access .CAP files remotely
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: cannot read CAP\n");
+		SendErr(-1,sd);
+        	return;
+    	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP local name failed\n");
+		SendErr(-1,sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		WooFProcessGetEarliestSeqno(fl,sd,0);
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf){
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed\n");
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP woof from %s\n",cap_name);
+	}
+
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns){
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get for ns failed\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap for ns failed\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP woof ns\n");
+	}
+
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: CAP auth\n",cap_name);
+		cmq_frame_destroy(cframe);
+		WooFProcessGetEarliestSeqno(fl,sd,0);
+		return;
+	}
+	cmq_frame_destroy(cframe);
+	cmq_frame_list_destroy(fl);
+	DEBUG_WARN("WooFProcessGetEarliestwithCAP: read CAP denied\n");
+	// denied
+	SendErr(-1,sd);
+	return;
+}
+
+void WooFProcessPut(unsigned char *fl, int sd, int no_cap) {
 	int err;
 	unsigned char *r_fl;
 	unsigned char *r_frame;
@@ -107,10 +725,12 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 	unsigned char *hand_name;
 	unsigned char *elem;
 	const char *s_str;
+	char *wname;
 
 	if(cmq_frame_list_empty(fl)) {
 		DEBUG_WARN("WooFProcessPut Bad message");
 		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
 		return;
 	}
 	// tag has been stripped
@@ -119,8 +739,25 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessPut could not pop woof name");
 		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
 		return;
 	}
+	// cannot access .CAP files remotely
+	wname = (char *)cmq_frame_payload(woof_name);
+	if(wname == NULL) {
+        	DEBUG_WARN("WooFProcessPut could not get woof name string");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+    	}
 	// pop handler name
 	// "NULL" is place holder
 	err = cmq_frame_pop(fl,&hand_name);
@@ -128,6 +765,7 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		DEBUG_WARN("WooFProcessPut could not pop handler name");
 		cmq_frame_list_destroy(fl);
 		cmq_frame_destroy(woof_name);
+		SendErr(-1,sd);
 		return;
 	}
 	if(strncmp((char *)cmq_frame_payload(hand_name),"NULL",strlen("NULL")) == 0) {
@@ -145,6 +783,7 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 		if(hand_name != NULL) {
 			cmq_frame_destroy(hand_name);
 		}
+		SendErr(-1,sd);
 		return;
 	}
 
@@ -161,6 +800,34 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 	// done with woof name
 	cmq_frame_destroy(woof_name);
 
+	char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+	if(no_cap == 1) {
+		sprintf(cap_name,"%s.CAP",local_name);
+		WOOF* wfc;
+		wfc = WooFOpen(cap_name);
+		if(wfc) {
+			WooFDrop(wfc);
+			if(hand_name != NULL) {
+				cmq_frame_destroy(hand_name);
+			}
+			cmq_frame_destroy(elem);
+			SendErr(-1,sd);
+			return;
+		}
+		strcpy(cap_name,"CSPOT.CAP");
+		wfc = WooFOpen(cap_name);
+		if(wfc) {
+			WooFDrop(wfc);
+			if(hand_name != NULL) {
+				cmq_frame_destroy(hand_name);
+			}
+			cmq_frame_destroy(elem);
+			SendErr(-1,sd);
+			return;
+		}
+	}
+
 	// do the put using frame payloads as inputs
 	unsigned long seq_no = WooFPutWithCause(
         	local_name, (hand_name == NULL) ? nullptr : (char *)cmq_frame_payload(hand_name), 
@@ -176,6 +843,7 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessPut: Could not allocate message");
+		SendErr(-1,sd);
         	return;
 	}
 
@@ -185,6 +853,7 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessPut: Could not allocate response frame");
 		cmq_frame_list_destroy(r_fl);
+		SendErr(-1,sd);
         	return;
 	}
 	// add seq_no to response msg
@@ -193,6 +862,7 @@ void WooFProcessPut(unsigned char *fl, int sd) {
         	DEBUG_WARN("WooFProcessPut: Could not append response frame");
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(r_frame);
+		SendErr(-1,sd);
         	return;
 	}
 
@@ -200,13 +870,259 @@ void WooFProcessPut(unsigned char *fl, int sd) {
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessPut: Could not send response");
+		SendErr(-1,sd);
 	}
 	// destroy (deep delete) response msg
 	cmq_frame_list_destroy(r_fl);
 	return;
 }
 
-void WooFProcessGet(unsigned char *fl, int sd) 
+void WooFProcessPutwithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	unsigned char *hframe;
+	unsigned char *eframe;
+	char *hname;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessPutwithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessPutwithCAP could not get cap frame");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof cap frame payload\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof name frame\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof name frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+    	}
+
+
+	hframe = cmq_frame_next(wframe);
+	if(hframe == NULL) {
+		DEBUG_WARN("WooFProcessPutwithCAP: could not get handler name frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	hname = (char *)cmq_frame_payload(hframe);
+	if(hname == NULL) {
+		DEBUG_WARN("WooFProcessPutwithCAP: could not get handler name string\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	eframe = cmq_frame_next(hframe);
+	if(eframe == NULL) {
+		DEBUG_WARN("WooFProcessPutwithCAP: could not get element frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	int elem_size = cmq_frame_size(eframe);
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessPutwithCAP local name failed\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		WooFProcessPut(fl,sd,0);
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for %s\n", cap_name);
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
+                        new_cap_p = WooFCapAttenuate(&principal,WCAP_WRITE);
+                } else {
+                        new_cap_p = WooFCapAttenuate(&principal,WCAP_EXEC);
+                }
+                if(new_cap_p == NULL) {
+                        DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for woof cap\n");
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+                        return;
+                }
+
+		DEBUG_LOG("WooFProcessPutwithCAP read cap from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for ns\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+                if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
+                        new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_WRITE);
+                } else {
+                        new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_EXEC);
+                }
+                if(new_cap_ns == NULL) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+                        DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for ns cap\n");
+                        if(new_cap_p != NULL) {
+                                free(new_cap_p);
+                        }
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+                        return;
+                }
+		DEBUG_LOG("WooFProcessPutwithCAP read ns cap\n");
+	}
+
+        int psize = elem_size + strlen(wname) + strlen(hname);
+        unsigned char *payload = (unsigned char *)malloc(psize);
+        if(payload == NULL) {
+                DEBUG_WARN("WooFProcessPutwithCAP could not get space for sig payload\n");
+                if(new_cap_p != NULL) {
+                        free(new_cap_p);
+                }
+                if(new_cap_ns != NULL) {
+                        free(new_cap_ns);
+                }
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+                return;
+        }
+
+        unsigned char *pptr = payload;
+        memset(payload,0,psize);
+        memcpy(pptr,wname,strlen(wname));
+        pptr += strlen(wname);
+        memcpy(pptr,hname,strlen(hname));
+        pptr += strlen(hname);
+        memcpy(pptr,cmq_frame_payload(eframe),elem_size);
+        uint64_t sig_p = 0;
+        if(new_cap_p != NULL) {
+                sig_p = WooFCapSign((unsigned char *)payload,psize,new_cap_p->check);
+                free(new_cap_p);
+        }
+        uint64_t sig_ns = 0;
+        if(new_cap_ns != NULL) {
+                sig_ns = WooFCapSign((unsigned char *)payload,psize,new_cap_ns->check);
+                free(new_cap_ns);
+        }
+        free(payload);
+        if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		cmq_frame_destroy(cframe);
+                WooFProcessPut(fl,sd,0);
+                DEBUG_WARN("WooFProcessPutwithCAP: auth %s handler: %s\n",cap_name,hname);
+                return;
+        }
+
+	DEBUG_WARN("WooFProcessPutwithCAP: put denied\n");
+	// denied
+	cmq_frame_destroy(cframe);
+	cmq_frame_list_destroy(fl);
+	SendErr(-1,sd);
+	return;
+}
+
+
+void WooFProcessGet(unsigned char *fl, int sd, int no_cap) 
 {
 	int err;
 	unsigned char *woof_name;
@@ -214,11 +1130,13 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	unsigned long seq_no;
 	unsigned char *r_fl;
 	unsigned char *r_frame;
+	char *wname;
 
 
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGet Bad message");
 		cmq_frame_list_destroy(fl);
+		SendNull(sd);
         	return;
     	}
 
@@ -228,14 +1146,32 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: no woof name in msg\n");
 		cmq_frame_list_destroy(fl);
+		SendNull(sd);
 		return;
 	}
+	// cannot access .CAP files remotely
+	wname = (char *)cmq_frame_payload(woof_name);
+	if(wname == NULL) {
+        	DEBUG_WARN("WooFProcessGet could not get woof name string");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+    	}
 
 	err = cmq_frame_pop(fl,&seqno_frame);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: no seqno in msg\n");
 		cmq_frame_destroy(woof_name);
 		cmq_frame_list_destroy(fl);
+		SendNull(sd);
 		return;
 	}
 	// destroy request msg
@@ -249,6 +1185,29 @@ void WooFProcessGet(unsigned char *fl, int sd)
 
     	char local_name[1024] = {};
     	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+        // if we find a CAP and there should not be one, error
+        if(no_cap == 1) {
+        	sprintf(cap_name,"%s.CAP",local_name);
+                WOOF* wfc;
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+    			cmq_frame_destroy(woof_name);
+			SendNull(sd);
+                        return;
+                }
+		strcpy(cap_name,"CSPOT.CAP");
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+    			cmq_frame_destroy(woof_name);
+			SendNull(sd);
+                        return;
+                }
+        }
+
     /*
      * attempt to get the element from the local woof_name
      */
@@ -274,6 +1233,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		if(wf) {
 			WooFDrop(wf);
 		}
+		SendNull(sd);
 		return;
 	}
 
@@ -283,11 +1243,12 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		err = WooFReadWithCause(wf, cmq_frame_payload(r_frame), seq_no, cause_host, cause_seq_no);
 		if (err < 0) {
 		    DEBUG_WARN("WooFProcessGet: read failed: %s at %lu\n", (char *)cmq_frame_payload(woof_name), seq_no);
-		    cmq_frame_destroy(woof_name);
 		    cmq_frame_destroy(r_frame);
 		    err = cmq_frame_create(&r_frame,NULL,0); // create zero frame for error
 		    if(err < 0) {
 				DEBUG_WARN("WooFProcessGet: Could not allocate zero frame for error");
+		    		cmq_frame_destroy(woof_name);
+				SendNull(sd);
 				return;
 		    }
 		}
@@ -304,6 +1265,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: Could not allocate message");
 		cmq_frame_destroy(r_frame);
+		SendNull(sd);
 		return;
 	}
 
@@ -314,6 +1276,7 @@ void WooFProcessGet(unsigned char *fl, int sd)
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(r_frame);
 		DEBUG_WARN("WooFProcessGet: Could not append frame");
+		SendNull(sd);
 		return;
 	}
 
@@ -321,12 +1284,954 @@ void WooFProcessGet(unsigned char *fl, int sd)
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGet: Could not send response");
+		SendNull(sd);
 	}
 	// destroy response msg
 	cmq_frame_list_destroy(r_fl);
 	return;
 }
 
+void WooFProcessGetRange(unsigned char *fl, int sd, int no_cap) 
+{
+	int err;
+	unsigned char *woof_name;
+	unsigned char *seqno_frame;
+	unsigned char *count_frame;
+	unsigned long seq_no;
+	unsigned long count;
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+	char *wname;
+	unsigned char *base;
+	unsigned char *current;
+	int i;
+	unsigned int r_size;
+
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetRange Bad message");
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+    	}
+
+	// the server thread has stripped the tag
+	// first remaining frame is woof_name
+	err = cmq_frame_pop(fl,&woof_name);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetRange: no woof name in msg\n");
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	// cannot access .CAP files remotely
+	wname = (char *)cmq_frame_payload(woof_name);
+	if(wname == NULL) {
+        	DEBUG_WARN("WooFProcessGetRange could not get woof name string\n");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+        	DEBUG_WARN("WooFProcessGetRange could not get range from a CAP\n");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+    	}
+
+	// next is seqno
+	err = cmq_frame_pop(fl,&seqno_frame);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetRange: no seqno in msg\n");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	// next is count
+	err = cmq_frame_pop(fl,&count_frame);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetRange: no count in msg\n");
+		cmq_frame_destroy(woof_name);
+		cmq_frame_destroy(seqno_frame);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	// destroy request msg
+	cmq_frame_list_destroy(fl);
+	// convert seq_no from second frame
+    	seq_no = strtoul((char *)cmq_frame_payload(seqno_frame),NULL,10);
+	// destroy second frame
+    	cmq_frame_destroy(seqno_frame);
+	// convert count from third frame
+    	count = strtoul((char *)cmq_frame_payload(count_frame),NULL,10);
+	// destroy third frame
+    	cmq_frame_destroy(count_frame);
+
+    	auto cause_host = 0;
+    	auto cause_seq_no = 0;
+
+    	char local_name[1024] = {};
+    	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+        // if we find a CAP and there should not be one, error
+        if(no_cap == 1) {
+        	sprintf(cap_name,"%s.CAP",local_name);
+                WOOF* wfc;
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+    			cmq_frame_destroy(woof_name);
+			SendNull(sd);
+                        return;
+                }
+		strcpy(cap_name,"CSPOT.CAP");
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+    			cmq_frame_destroy(woof_name);
+			SendNull(sd);
+                        return;
+                }
+        }
+
+    /*
+     * attempt to get the element from the local woof_name
+     */
+    	WOOF* wf;
+    	if (err < 0) {
+        	wf = WooFOpen((char *)cmq_frame_payload(woof_name));
+    	} else {
+        	wf = WooFOpen(local_name);
+    	}
+
+	if(wf) {
+		if((count*wf->shared->element_size) > CMQ_MAX_TRANSFER) {
+			r_size = CMQ_MAX_TRANSFER;
+		} else {
+			r_size = wf->shared->element_size * count;
+		}
+	}
+
+
+    	if (!wf) {
+        	DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", (char *)cmq_frame_payload(woof_name));
+		// zero frame indicates error
+		err = cmq_frame_create(&r_frame,NULL,0); 
+		r_size = 0;
+    	} else {
+		// create empty frame (to be filled in later) for response
+		err = cmq_frame_create(&r_frame,NULL,r_size);
+	}
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetRange: couldn't create response frame woof: %s\n", (char *)cmq_frame_payload(woof_name));
+		cmq_frame_destroy(woof_name);
+		if(wf) {
+			WooFDrop(wf);
+		}
+		SendNull(sd);
+		return;
+	}
+
+	// if response frame is not zero frame, fill it in with read using
+	// frame payload as read buffer
+	if(cmq_frame_payload(r_frame) != NULL) {
+		base = cmq_frame_payload(r_frame);
+		for(i=0; i < count; i++) {
+			current = base + (i*wf->shared->element_size);
+			err = WooFReadWithCause(wf, current, seq_no+i, cause_host, cause_seq_no);
+			if (err < 0) {
+		    		DEBUG_WARN("WooFProcessGetRange: read failed: %s at %lu\n", (char *)cmq_frame_payload(woof_name), seq_no);
+				if(i == 0) {
+		    			cmq_frame_destroy(r_frame);
+		    			err = cmq_frame_create(&r_frame,NULL,0); // create zero frame for error
+		    			if(err < 0) {
+						DEBUG_WARN("WooFProcessGetRange: Could not allocate zero frame for error");
+						if(wf) {
+							WooFDrop(wf);
+						}
+		    				cmq_frame_destroy(woof_name);
+						SendNull(sd);
+						return;
+					}
+					break;
+				}
+				break;
+			}
+		   }
+	} else {
+		i = 0;
+	}
+
+	// done with woof name from request
+	cmq_frame_destroy(woof_name);
+	// FIX CMQ -> need a frame resize
+	if(wf && (i > 0) && (i < count)) { // short read -> create new frame
+		unsigned char *new_frame;
+		err = cmq_frame_create(&new_frame,NULL,i*wf->shared->element_size);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessGetRange: Could not allocate new frame for error");
+			WooFDrop(wf);
+			SendNull(sd);
+			return;
+		}
+		// copy good data to new frame
+		memcpy(cmq_frame_payload(new_frame),cmq_frame_payload(r_frame),i*wf->shared->element_size);
+		cmq_frame_destroy(r_frame);
+		// replace r_frame
+		r_frame = new_frame;
+	}
+	// done with local woof
+	if(wf) {
+		WooFDrop(wf);
+	}
+
+	// create response msg -- r_frame is holding response
+	err = cmq_frame_list_create(&r_fl);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetRange: Could not allocate message");
+		cmq_frame_destroy(r_frame);
+		SendNull(sd);
+		return;
+	}
+
+	// add r_frame to response msg
+	// r_frame could be zero frame if open or read fails
+	err = cmq_frame_append(r_fl,r_frame);
+	if(err < 0) {
+		cmq_frame_list_destroy(r_fl);
+		cmq_frame_destroy(r_frame);
+		DEBUG_WARN("WooFProcessGetRange: Could not append frame");
+		SendNull(sd);
+		return;
+	}
+
+	// send response -- timeout set in accept()
+	err = cmq_pkt_send_msg(sd,r_fl);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetRange: Could not send response");
+		SendNull(sd);
+	}
+	// destroy response msg
+	cmq_frame_list_destroy(r_fl);
+	return;
+}
+
+void WooFProcessGetwithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	unsigned char *sframe;
+	char *wname;
+	char *s_seqno;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetwithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetwithCAP could not get cap frame");
+		SendNull(sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof cap frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+    	}
+
+	sframe = cmq_frame_next(wframe);
+	if(sframe == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get seqno frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	s_seqno = (char *)cmq_frame_payload(sframe);
+	if(s_seqno == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get seqno frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetwithCAP local name failed\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		WooFProcessGet(fl,sd,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetwithCAP cap get failed for %s\n", cap_name);
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetwithCAP attend cap failed for %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetwithCAP: read CAP from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetwithCAP cap get failed for ns\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetwithCAP atten cap failed for ns\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetwithCAP: read CAP for ns\n");
+	}
+
+	char payload[2048];
+	snprintf(payload,sizeof(payload),"%s %s",wname,s_seqno);
+	uint64_t sig_p = 0;
+        if(new_cap_p != NULL) {
+                sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+                free(new_cap_p);
+        }
+
+        uint64_t sig_ns = 0;
+        if(new_cap_ns != NULL) {
+                sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+                free(new_cap_ns);
+        }
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetwithCAP: CAP auth\n");
+		cmq_frame_destroy(cframe);
+		WooFProcessGet(fl,sd,0);
+		return;
+	}
+
+	DEBUG_WARN("WooFProcessGetwithCAP: read CAP denied\n");
+	// denied
+	cmq_frame_destroy(cframe);
+	cmq_frame_list_destroy(fl);
+	SendNull(sd);
+	return;
+}
+
+void WooFProcessGetRangewithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	unsigned char *sframe;
+	unsigned char *count_frame;
+	char *wname;
+	char *s_seqno;
+	char *s_count;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetRangewithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetRangewithCAP could not get cap frame");
+		SendNull(sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof cap frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof name frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof name frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: cannt read CAP\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+    	}
+
+	sframe = cmq_frame_next(wframe);
+	if(sframe == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get seqno frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	s_seqno = (char *)cmq_frame_payload(sframe);
+	if(s_seqno == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get seqno frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	count_frame = cmq_frame_next(sframe);
+	if(count_frame == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get count frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	s_count = (char *)cmq_frame_payload(count_frame);
+	if(s_count == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get seqno frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP local name failed\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		WooFProcessGetRange(fl,sd,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetRangewithCAP cap get failed for %s\n", cap_name);
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetRangewithCAP attend cap failed for %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetRangewithCAP: read CAP from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetRangewithCAP cap get failed for ns\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetRangewithCAP atten cap failed for ns\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendNull(sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetRangewithCAP: read CAP for ns\n");
+	}
+
+	char payload[2048];
+	snprintf(payload,sizeof(payload),"%s %s %s",wname,s_seqno,s_count);
+	uint64_t sig_p = 0;
+        if(new_cap_p != NULL) {
+                sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+                free(new_cap_p);
+        }
+
+        uint64_t sig_ns = 0;
+        if(new_cap_ns != NULL) {
+                sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+                free(new_cap_ns);
+        }
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: CAP auth\n");
+		cmq_frame_destroy(cframe);
+		WooFProcessGetRange(fl,sd,0);
+		return;
+	}
+
+	DEBUG_WARN("WooFProcessGetRangewithCAP: read CAP denied\n");
+	// denied
+	cmq_frame_destroy(cframe);
+	cmq_frame_list_destroy(fl);
+	SendNull(sd);
+	return;
+}
+void WooFProcessCreatewithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	unsigned char *eframe;
+	unsigned char *hframe;
+	char *wname;
+	char *s_elsize;
+	char *s_hist;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+	unsigned char *r_fl;
+	unsigned char *r_frame;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessCreatewithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessCreatewithCAP could not get cap frame");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof cap frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	err = WooFIsCAPName(wname);
+    	if((err == 1) || (err < 0)) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+    	}
+
+	eframe = cmq_frame_next(wframe);
+	if(eframe == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get element frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	s_elsize = (char *)cmq_frame_payload(eframe);
+	if(s_elsize == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get element frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	hframe = cmq_frame_next(eframe);
+	if(eframe == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get history frame\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	s_hist = (char *)cmq_frame_payload(hframe);
+	if(s_hist == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get history frame payload\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetwithCAP local name failed\n");
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+
+	// no CAP for create => denied
+	if(!wf && !wf_ns) {
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for %s\n", cap_name);
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_INIT);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessCreatewithCAP attend cap failed for %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: read CAP from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for ns\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_INIT);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessCreatewithCAP atten cap failed for ns\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: read CAP for ns\n");
+	}
+
+	char payload[2048];
+	snprintf(payload,sizeof(payload),"%s %s %s",wname,s_elsize,s_hist);
+	uint64_t sig_p = 0;
+        if(new_cap_p != NULL) {
+                sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+                free(new_cap_p);
+        }
+
+        uint64_t sig_ns = 0;
+        if(new_cap_ns != NULL) {
+                sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+                free(new_cap_ns);
+        }
+
+	// create access granted
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: CAP auth\n");
+		unsigned int el_size;
+		unsigned int history_size;
+		char *end_ptr;
+		el_size = strtol(s_elsize,&end_ptr,10);
+		if(*end_ptr != '\0') {
+			DEBUG_WARN("WooFProcessCreatewithCAP: bad element string\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			return;
+		}
+		history_size = strtol(s_hist,&end_ptr,10);
+		if(*end_ptr != '\0') {
+			DEBUG_WARN("WooFProcessCreatewithCAP: bad history string\n");
+			cmq_frame_destroy(cframe);
+			cmq_frame_list_destroy(fl);
+			return;
+		}
+		err = WooFCreate(wname,el_size,history_size);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: woof create failed\n");
+			// empty frame indicates failure
+			err = cmq_frame_create(&r_frame,NULL,0); 
+			if(err < 0) {
+				DEBUG_WARN("WooFProcessCreatewithCAP: r_frame create failed\n");
+				cmq_frame_destroy(cframe);
+				cmq_frame_list_destroy(fl);
+				return;
+			}
+		}
+
+		cmq_frame_destroy(cframe);
+		cmq_frame_list_destroy(fl);
+
+		err = cmq_frame_create(&r_frame,(unsigned char *)"1",strlen("1")); 
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: r_frame create failed\n");
+			SendErr(-1,sd);
+			return;
+		}
+		// create response msg -- r_frame is holding response
+		err = cmq_frame_list_create(&r_fl);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: Could not allocate resp message");
+			cmq_frame_destroy(r_frame);
+			SendErr(-1,sd);
+			return;
+		}
+		// add r_frame to response msg
+		// r_frame could be zero frame if create fails
+		err = cmq_frame_append(r_fl,r_frame);
+		if(err < 0) {
+			cmq_frame_list_destroy(r_fl);
+			cmq_frame_destroy(r_frame);
+			DEBUG_WARN("WooFProcessCreatewithCAP: Could not append frame");
+			SendErr(-1,sd);
+			return;
+		}
+		// send response -- timeout set in accept()
+		err = cmq_pkt_send_msg(sd,r_fl);
+		if(err < 0) {
+			DEBUG_WARN("WooFProcessCreatewithCAP: Could not send response");
+			SendErr(-1,sd);
+		}
+		cmq_frame_list_destroy(r_fl);
+		return;
+	}
+
+	// denied
+	DEBUG_WARN("WooFProcessCreatewithCAP: create CAP denied\n");
+	SendErr(-1,sd);
+	return;
+}
 unsigned char *LeakTest()
 {
 	unsigned char *fl;
@@ -354,7 +2259,8 @@ unsigned char *LeakTest()
 	}
 	return(fl);
 }
-void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
+
+void WooFProcessGetLatestSeqno(unsigned char *fl, int sd, int no_cap) {
 
 	int err;
 	unsigned char *woof_name;
@@ -365,6 +2271,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	if(cmq_frame_list_empty(fl)) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
 		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
 		return;
 	}
 	// tag has been stripped
@@ -373,6 +2280,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno could not pop woof_name");
 		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
 		return;
 	}
 
@@ -388,6 +2296,27 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 
 	char local_name[1024] = {};
 	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+	        char cap_name[1028] = {};
+
+        // if we find a CAP and there should not be one, error
+        if(no_cap == 1) {
+        	sprintf(cap_name,"%s.CAP",local_name);
+                WOOF* wfc;
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+			SendErr(-1,sd);
+                        return;
+                }
+		strcpy(cap_name,"CSPOT.CAP");
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+			SendErr(-1,sd);
+                        return;
+                }
+        }
+
 
 	// try and open the woof
 	WOOF* wf;
@@ -413,6 +2342,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate message");
+		SendErr(-1,sd);
         	return;
 	}
 
@@ -422,6 +2352,7 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate frame");
 		cmq_frame_list_destroy(r_fl);
+		SendErr(-1,sd);
         	return;
 	}
 	// add latest seqno to msg
@@ -430,12 +2361,14 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not append frame");
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(r_f);
+		SendErr(-1,sd);
         	return;
 	}
 	// send the response
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
         	DEBUG_WARN("WooFProcessGetLatestSeqno: Could not send response");
+		SendErr(-1,sd);
         	return;
 	}
 	// destroy response msg
@@ -444,8 +2377,156 @@ void WooFProcessGetLatestSeqno(unsigned char *fl, int sd) {
 
 }
 
+void WooFProcessGetLatestSeqnowithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
 
-void WooFProcessGetTail(unsigned char *fl, int sd) {
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendErr(-1,sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP could not get cap frame");
+		SendErr(-1,sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof cap frame payload\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof name frame\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof name frame payload\n");
+		SendErr(-1,sd);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP local name failed\n");
+		SendErr(-1,sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGetLatestSeqno(fl,sd,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed from %s\n", cap_name);
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP attn cap failed from %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP woof from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for ns\n");
+			SendErr(-1,sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP atten cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			SendErr(-1,sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP woof from ns\n");
+	}
+
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
+		WooFProcessGetLatestSeqno(fl,sd,0);
+		return;
+	}
+	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied\n");
+	// denied
+	SendErr(-1,sd);
+	return;
+}
+
+void WooFProcessGetTail(unsigned char *fl, int sd, int no_cap) {
 
 	int err;
 	unsigned char *woof_name;
@@ -459,6 +2540,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 
 	if (cmq_frame_list_empty(fl)) {
 		DEBUG_WARN("WooFProcessGetTail empty message");
+		SendNull(sd);
 		return;
 	}
 
@@ -467,6 +2549,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	err = cmq_frame_pop(fl,&woof_name);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetTail could not pop woof_name");
+		SendNull(sd);
 		return;
 	}
 
@@ -475,6 +2558,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	if(err < 0) {
 		cmq_frame_destroy(woof_name);
 		DEBUG_WARN("WooFProcessGetTail could not pop woof_name");
+		SendNull(sd);
 		return;
 	}
 	// convert frame payload to el_count
@@ -487,6 +2571,27 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 
     	char local_name[1024] = {};
     	err = WooFLocalName((char *)cmq_frame_payload(woof_name), local_name, sizeof(local_name));
+
+	char cap_name[1028] = {};
+
+        // if we find a CAP and there should not be one, error
+        if(no_cap == 1) {
+                sprintf(cap_name,"%s.CAP",local_name);
+                WOOF* wfc;
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+			SendNull(sd);
+                        return;
+                }
+                strcpy(cap_name,"CSPOT.CAP");
+                wfc = WooFOpen(cap_name);
+                if(wfc) {
+                        WooFDrop(wfc);
+			SendNull(sd);
+                        return;
+                }
+        }
 
 	WOOF* wf;
 	if (err < 0) {
@@ -507,6 +2612,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		if(err < 0) {
 			DEBUG_WARN("WooFProcessGetTail could not get space for elements");
 			cmq_frame_destroy(woof_name);
+			SendNull(sd);
 			return;
 		}
 		el_read = WooFReadTail(wf, cmq_frame_payload(e_f), el_count); // read into empty frame
@@ -524,6 +2630,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	err = cmq_frame_list_create(&r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetTail could not allocate response list");
+		SendNull(sd);
 		return;
 	}
 
@@ -533,6 +2640,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	if(err < 0) {
 		cmq_frame_list_destroy(r_fl);
 		DEBUG_WARN("WooFProcessGetTail could not allocate frame for el_read");
+		SendNull(sd);
 		return;
 	}
 	// add el_read to response
@@ -541,6 +2649,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(r_f);
 		DEBUG_WARN("WooFProcessGetTail could not append frame for el_read");
+		SendNull(sd);
 		return;
 	}
 
@@ -550,6 +2659,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		if(err < 0) {
 			cmq_frame_list_destroy(r_fl);
 			DEBUG_WARN("WooFProcessGetTail could not allocate frame for elements");
+			SendNull(sd);
 			return;
 		}
 	}
@@ -559,6 +2669,7 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 		cmq_frame_list_destroy(r_fl);
 		cmq_frame_destroy(e_f);
 		DEBUG_WARN("WooFProcessGetTail could not append frame for elements");
+		SendNull(sd);
 		return;
 	}
 
@@ -566,10 +2677,160 @@ void WooFProcessGetTail(unsigned char *fl, int sd) {
 	err = cmq_pkt_send_msg(sd,r_fl);
 	if(err < 0) {
 		DEBUG_WARN("WooFProcessGetTail could not send response");
+		SendNull(sd);
 		return;
 	}
 	// destroy response msg
 	cmq_frame_list_destroy(r_fl);
+	return;
+}
+
+void WooFProcessGetTailwithCAP(unsigned char *fl, int sd) 
+{
+	unsigned char *cframe;
+	unsigned char *wframe;
+	char *wname;
+	WCAP *cap;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	if(cmq_frame_list_empty(fl)) {
+        	DEBUG_WARN("WooFProcessGetTailwithCAP Bad message");
+		cmq_frame_list_destroy(fl);
+		SendNull(sd);
+        	return;
+	}
+	//
+	// tag  has been stripped
+	// first frame is woof name
+	err = cmq_frame_pop(fl,&cframe);
+	if(err < 0) {
+		cmq_frame_list_destroy(fl);
+        	DEBUG_WARN("WooFProcessGetTailwithCAP could not get cap frame");
+		SendNull(sd);
+        	return;
+	}
+
+	cap = (WCAP *)cmq_frame_payload(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof cap frame payload\n");
+		SendNull(sd);
+		return;
+	}
+
+	wframe = cmq_frame_list_head(fl);
+	if(wframe == NULL) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof name frame\n");
+		SendNull(sd);
+		return;
+	}
+
+	wname = (char *)cmq_frame_payload(wframe); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof name frame payload\n");
+		SendNull(sd);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP local name failed\n");
+		SendNull(sd);
+		return;
+	}
+	char cap_name[1028] = {};
+
+	strcpy(cap_name,"CSPOT.CAP");
+	wf_ns = WooFOpen(cap_name);
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	wf = WooFOpen(cap_name);
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGetTail(fl,sd,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetTailwithCAP cap get failed from %s\n", cap_name);
+			SendNull(sd);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetTailwithCAP attn cap failed from %s\n", cap_name);
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			SendNull(sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP woof from %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetTailwithCAP cap get failed for ns\n");
+			SendNull(sd);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetTailwithCAP atten cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			SendNull(sd);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetTailwithCAP: read CAP woof from ns\n");
+	}
+
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP: CAP auth\n");
+		WooFProcessGetTail(fl,sd,0);
+		return;
+	}
+	DEBUG_WARN("WooFProcessGetTailwithCAP: read CAP denied\n");
+	// denied
+	SendNull(sd);
 	return;
 }
 } // namespace cspot::cmq

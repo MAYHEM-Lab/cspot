@@ -4,6 +4,7 @@
 #include "net.h"
 #include "zmq_wrap.hpp"
 
+#include <filesystem>
 #include <czmq.h>
 #include <fmt/format.h>
 #include <global.h>
@@ -15,18 +16,87 @@
 #include <woofc-caplets.h>
 
 namespace cspot::zmq {
-void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock) {
+constexpr size_t ZMQ_MAX_TRANSFER = 64 * 1024 * 1024;
+
+void SendErr(unsigned long err, zsock_t* resp_sock)
+{
+    auto resp_e = CreateMessage(std::to_string(err));
+    if(resp_e) {
+    	if(Send(std::move(resp_e), *resp_sock)) {
+		Resp_id++;
+		if(Resp_id != Msg_id) {
+			printf("SendErr: double send\n");
+		}
+	} else {
+		printf("SendErr: saidn failed\n");
+	}
+    } else {
+	    printf("SendErr failed\n");
+    }
+    return;
+}
+
+
+void SendNull(zsock_t* resp_sock)
+{
+    std::vector<uint8_t> elem;
+    elem = {};
+    auto resp_e = CreateMessage(elem);
+    if (resp_e) {
+    	if(Send(std::move(resp_e), *resp_sock)) {
+		Resp_id++;
+		if(Resp_id != Msg_id) {
+			printf("SendNull: double send\n");
+		} else {
+			printf("SendNull: no send\n");
+		}
+	}
+    } else {
+	    printf("SendNull failed\n");
+    }
+    return;
+}
+	
+void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string>(*req_msg);
+
 
     if (!res) {
         DEBUG_WARN("WooFProcessGetElSize Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
     auto& [woof_name] = *res;
 
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
+	return;
+    }
+
+
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    DEBUG_LOG("WooFProcessGetElSize: called on %s",local_name);
+
+    char cap_name[1028] = {};
+    // if we find a CAP and there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGetElSize:  no cap in message for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGetElSize:  no cap in message with ns cap for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+    }
 
     WOOF* wf;
     if (err < 0) {
@@ -43,52 +113,250 @@ void WooFProcessGetElSize(ZMsgPtr req_msg, zsock_t* resp_sock) {
         WooFDrop(wf);
     }
 
+    DEBUG_LOG("WooFProcessGetElSize: sending %lu for %s\n",el_size,local_name);
     auto resp = CreateMessage(std::to_string(el_size));
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGetElSize: Could not allocate message");
-        return;
+	SendErr(-1,resp_sock);
+	return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGetElSize: Could not send response");
-        return;
+	SendErr(-1,resp_sock);
+	return;
     }
+        Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("Put: double get el size %lu (%d %d)\n",el_size,Msg_id,Resp_id);
+	}
+    return;
 }
 
-void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGetElSizewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: no cap frame\n");
+		SendErr(-1,resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof cap frame\n");
+		SendErr(-1,resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP: could not get woof name frame\n");
+		SendErr(-1,resp_sock);
+		return;
+	}
+
+	// disallow remote access to CAP woofs
+	err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		SendErr(-1,resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetElSizewithCAP local name failed\n");
+		SendErr(-1,resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGetElSize(std::move(req_msg),resp_sock,0);
+		return;
+	}
+
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed for woof cap\n");
+			SendErr(-1,resp_sock);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			DEBUG_WARN("WooFProcessGetElSizewithCAP attn cap failed for woof cap\n");
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetElSizewithCAP cap get suceeded for cap %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetElSizewithCAP cap get failed for ns cap\n");
+			SendErr(-1,resp_sock);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetElSizewithCAP attn cap failed for ns cap\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetElSizewithCAP cap get suceeded for ns cap\n");
+	}
+	
+	// check the signature using attenuated CAP
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+
+	if((sig_p == cap->check) || (sig_ns == cap->check)) {
+		DEBUG_WARN("WooFProcessGetGetElSizewithCAP: CAP auth\n");
+		WooFProcessGetElSize(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	DEBUG_WARN("WooFProcessGetElSizewithCAP: read CAP denied\n");
+	// denied
+	SendErr(-1,resp_sock);
+	return;
+}
+
+void WooFProcessPut(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string, /*std::string, std::string,*/ std::vector<uint8_t>>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessPut Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
+
 
     auto& [woof_name, hand_name, /*name_id_str, log_seq_no_str,*/ elem] = *res;
     // auto cause_host = std::stoul(name_id_str);
     // auto cause_seq_no = std::stoul(log_seq_no_str);
     auto cause_host = 0;
     auto cause_seq_no = 0;
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
+	return;
+    }
+
+    const char *hname;
+    if(strcmp(hand_name.c_str(),"NULL") == 0) {
+	    hname = NULL;
+    } else {
+	    hname = hand_name.c_str();
+    }
 
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
     if (err < 0) {
         DEBUG_WARN("WooFProcessPut local name failed");
+	SendErr(-1,resp_sock);
         return;
     }
 
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessput:  no cap in message for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessput:  no cap in message but ns cap for %s, denined\n",local_name);
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+    }
     unsigned long seq_no = WooFPutWithCause(
-        local_name, hand_name.empty() ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
+        local_name, (hname == NULL) ? nullptr : hand_name.c_str(), elem.data(), cause_host, cause_seq_no);
 
     auto resp = CreateMessage(std::to_string(seq_no));
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessPut: Could not allocate message");
+	SendErr(-1,resp_sock);
         return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
+        printf("WooFProcessPut: Could not send response");
         DEBUG_WARN("WooFProcessPut: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("Put: double send %lu (%d %d)\n",seq_no,Msg_id,Resp_id);
+	}
+	return;
 }
 
 void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
@@ -97,7 +365,9 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 	char *wname;
 	char *hname;
 	WOOF* wf;
+	WOOF* wf_ns;
 	WCAP principal;
+	WCAP ns_principal;
 	unsigned long seq_no;
 	int err;
 
@@ -105,25 +375,36 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
 	if(cframe == NULL) { // call withCAP and no cap => fail
 		DEBUG_WARN("WooFProcessPutwithCAP: no cap frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
+        auto res = ExtractMessage<std::string, std::string, /*std::string, std::string,*/ std::vector<uint8_t>>(*req_msg);
+	auto& [woof_name, hand_name, /*name_id_str, log_seq_no_str,*/ elem] = *res;
 
 	cap = (WCAP *)zframe_data(cframe);
 
 	if(cap == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof cap frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
 	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
 	if(wname == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get woof name frame\n");
+		SendErr(-1,resp_sock);
+		return;
+	}
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		SendErr(-1,resp_sock);
 		return;
 	}
 
 	hname = (char *)zframe_data(zmsg_next(req_msg.get()));
 	if(hname == NULL) {
 		DEBUG_WARN("WooFProcessPutwithCAP: could not get handler frame\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 
@@ -131,52 +412,145 @@ void WooFProcessPutwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) {
     	err = WooFLocalName(wname, local_name, sizeof(local_name));
 	if (err < 0) {
 		DEBUG_WARN("WooFProcessPutwithCAP local name failed\n");
+		SendErr(-1,resp_sock);
 		return;
 	}
 	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
 	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
 
-	wf = WooFOpen(cap_name);
 	// backwards compatibility: no CAP => authorized
-	if(!wf) {
-		WooFProcessPut(std::move(req_msg),resp_sock);
-		return;
-	}
-	seq_no = WooFLatestSeqno(wf);
-	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
-	WooFDrop(wf);
-	if(err < 0) {
-		DEBUG_WARN("WooFProcessPutwithCAP cap get failed\n");
+	if(!wf_ns && !wf) {
+		WooFProcessPut(std::move(req_msg),resp_sock,0);
 		return;
 	}
 
-	// reset zmsg cursor
-	wname = (char *)zmsg_first(req_msg.get());
-	if(hname == NULL) { // no handler check write permse
-		if(WooFCapAuthorized(principal.check,cap,WCAP_WRITE)) {
-			WooFProcessPut(std::move(req_msg),resp_sock);
+	WCAP *new_cap_p = NULL;
+	if(wf){
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for woof cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
-	} else { // check execute perms
-		if(WooFCapAuthorized(principal.check,cap,WCAP_EXEC)) {
-			WooFProcessPut(std::move(req_msg),resp_sock);
+		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
+			new_cap_p = WooFCapAttenuate(&principal,WCAP_WRITE);
+		} else {
+			new_cap_p = WooFCapAttenuate(&principal,WCAP_EXEC);
+		}
+		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for woof cap\n");
+			SendErr(-1,resp_sock);
 			return;
 		}
+		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for woof cap %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessPutwithCAP cap get failed for ns cap\n");
+			SendErr(-1,resp_sock);
+			return;
+		}
+		if(strncmp(hname,"NULL",strlen("NULL")) == 0) {
+			new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_WRITE);
+		} else {
+			new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_EXEC);
+		}
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessPutwithCAP attn cap failed for ns cap\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+			SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessPutwithCAP cap get suceeded for ns cap\n");
+	}
+
+	int psize = elem.size() + strlen(wname) + strlen(hname);
+	unsigned char *payload = (unsigned char *)malloc(psize);
+	if(payload == NULL) {
+		DEBUG_WARN("WooFProcessPutwithCAP could not get space for sig payload\n");
+		if(new_cap_p != NULL) {
+			free(new_cap_p);
+		}
+		if(new_cap_ns != NULL) {
+			free(new_cap_ns);
+		}
+		SendErr(-1,resp_sock);
+		return;
+	}
+	unsigned char *pptr = payload;
+	memset(payload,0,psize);
+	memcpy(pptr,wname,strlen(wname));
+	pptr += strlen(wname);
+	memcpy(pptr,hname,strlen(hname));
+	pptr += strlen(hname);
+	memcpy(pptr,elem.data(),elem.size());
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)payload,psize,new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)payload,psize,new_cap_ns->check);
+		free(new_cap_ns);
+	}
+	free(payload);
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		WooFProcessPut(std::move(req_msg),resp_sock,0);
+		DEBUG_WARN("WooFProcessPutwithCAP: no handler auth %s\n",cap_name);
+		return;
 	}
 
 	// denied
+	DEBUG_WARN("WooFProcessPutwithCAP: cap auth failed handler: %s check %lu, denied\n",
+				hname,
+				cap->check);
+	SendErr(-1,resp_sock);
 	return;
 }
 
-
-
-
-
-void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string/*, std::string, std::string*/>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
+	SendNull(resp_sock);
         return;
     }
 
@@ -186,9 +560,32 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
     // auto cause_seq_no = std::stoul(log_seq_no_str);
     auto cause_host = 0;
     auto cause_seq_no = 0;
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendNull(resp_sock);
+	return;
+    }
 
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
+	    SendNull(resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
+	    SendNull(resp_sock);
+	    return;
+	}
+    }
     /*
      * attempt to get the element from the local woof_name
      */
@@ -203,32 +600,466 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock) {
     if (!wf) {
         DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", woof_name.c_str());
     } else {
-        elem = std::vector<uint8_t>(wf->shared->element_size);
+	unsigned long esize = wf->shared->element_size;
+        elem = std::vector<uint8_t>(esize);
         err = WooFReadWithCause(wf, elem.data(), seq_no, cause_host, cause_seq_no);
         if (err < 0) {
             DEBUG_WARN("WooFProcessGet: read failed: %s at %lu\n", woof_name.c_str(), seq_no);
             elem = {};
         }
         WooFDrop(wf);
+    	DEBUG_LOG("WooFProcessGet: responding with element size %d\n",esize);
     }
 
     auto resp = CreateMessage(elem);
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
+	SendNull(resp_sock);
         return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
         DEBUG_WARN("WooFProcessGet: Could not send response");
+        printf("WooFProcessGet: Could not send response");
         return;
     }
+    Resp_id++;
+    if(Resp_id != Msg_id) {
+	printf("Get: double send %lu (%d %d)\n",seq_no,Msg_id,Resp_id);
+    }
+    return;
 }
 
-void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
+    auto res = ExtractMessage<std::string, std::string, std::string/*, std::string, std::string*/>(*req_msg);
+    unsigned long esize;
+    int i;
+
+    if (!res) {
+        DEBUG_WARN("WooFProcessGetRange Bad message");
+	SendNull(resp_sock);
+        return;
+    }
+
+    auto& [woof_name, seq_no_str, count_str/*, name_id_str, log_seq_no_str*/] = *res;
+    auto seq_no = std::stoul(seq_no_str);
+    auto count = std::stoi(count_str);
+    // auto cause_host = std::stoul(name_id_str);
+    // auto cause_seq_no = std::stoul(log_seq_no_str);
+    auto cause_host = 0;
+    auto cause_seq_no = 0;
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendNull(resp_sock);
+	return;
+    }
+
+    char local_name[1024] = {};
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGet:  no cap in message for %s, denined\n",local_name);
+	    SendNull(resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGet:  no cap in message but ns cap for %s, denined\n",local_name);
+	    SendNull(resp_sock);
+	    return;
+	}
+    }
+    /*
+     * attempt to get the element from the local woof_name
+     */
+    WOOF* wf;
+    std::vector<uint8_t> elem;
+    if (err < 0) {
+        wf = WooFOpen(woof_name.c_str());
+    } else {
+        wf = WooFOpen(local_name);
+    }
+
+    if (!wf) {
+        DEBUG_WARN("WooFProcessGetRange: couldn't open woof: %s\n", woof_name.c_str());
+	SendNull(resp_sock);
+	return;
+    } else {
+	esize = wf->shared->element_size;
+	if((count*esize) <= ZMQ_MAX_TRANSFER) {
+        	elem = std::vector<uint8_t>(count*esize);
+	} else {
+		elem = std::vector<uint8_t>(count*esize);
+	}
+	uint8_t *base = elem.data();
+	for(i=0; i < count; i++) {
+		uint8_t *current = base + (i * esize);
+        	err = WooFReadWithCause(wf, current, seq_no+i, cause_host, cause_seq_no);
+        	if (err < 0) {
+            		DEBUG_WARN("WooFProcessGetRange: read failed: %s at %lu\n", woof_name.c_str(), seq_no);
+			if(i == 0) {
+            			elem = {};
+			}
+			break;
+		}
+		if(((count+1)*esize) >= ZMQ_MAX_TRANSFER) {
+			break;
+		}
+        }
+        WooFDrop(wf);
+    }
+
+    DEBUG_LOG("WooFProcessGetRange: responding with element size * count found %d\n",esize*i);
+    if(i > 0) {
+    	elem.resize(i*esize);
+    }
+    auto resp = CreateMessage(elem);
+    if (!resp) {
+        DEBUG_WARN("WooFProcessGet: Could not allocate message");
+	SendNull(resp_sock);
+        return;
+    }
+
+    if (!Send(std::move(resp), *resp_sock)) {
+        DEBUG_WARN("WooFProcessGetRange: Could not send response");
+        printf("WooFProcessGetRange: Could not send response");
+        return;
+    }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("GetRange: double send\n");
+	}
+	return;
+}
+
+void WooFProcessGetwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetwithCAP: no cap frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof cap frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetwithCAP: could not get woof name frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		SendNull(resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetwithCAP local name failed\n");
+		SendNull(resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGet(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetwithCAP cap get failed\n");
+		        SendNull(resp_sock);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetwithCAP attn cap failed\n");
+		        SendNull(resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetwithCAP: cap get suceeded CAP %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetwithCAP cap get failed for ns\n");
+		        SendNull(resp_sock);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetwithCAP attn cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+		        SendNull(resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetwithCAP: cap get suceeded for ns CAP\n");
+	}
+
+	zmsg_t *zm = req_msg.get();
+	zframe_t *sf = zmsg_first(zm); // woof name
+	sf = zmsg_next(zm); // seqno
+	char *c_seqno = (char *)zframe_data(sf);
+	char payload[2048];
+	snprintf(payload,sizeof(payload),"%s %s",wname,c_seqno);
+	
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+		free(new_cap_p);
+	}
+
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		// reset cursor
+		(void)zmsg_first(req_msg.get());
+		DEBUG_LOG("WooFProcessGetwithCAP: CAP auth\n");
+		WooFProcessGet(std::move(req_msg),resp_sock,0);
+		return;
+	}
+
+	DEBUG_WARN("WooFProcessGetwithCAP: read CAP denied\n");
+	// denied
+	SendNull(resp_sock);
+	return;
+}
+
+void WooFProcessGetRangewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetRangewithCAP: no cap frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof cap frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP: could not get woof name frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		SendNull(resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetRangewithCAP local name failed\n");
+		SendNull(resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGet(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetRangewithCAP cap get failed\n");
+			SendNull(resp_sock);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_READ);
+		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetRangewithCAP attn cap failed\n");
+			SendNull(resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetRangewithCAP: cap get suceeded CAP %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetRangewithCAP cap get failed for ns\n");
+			SendNull(resp_sock);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetRangewithCAP attn cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			SendNull(resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetRangewithCAP: cap get suceeded for ns CAP\n");
+	}
+
+	zmsg_t *zm = req_msg.get();
+	zframe_t *sf = zmsg_first(zm); // woof name
+	sf = zmsg_next(zm); // seqno
+	char *c_seqno = (char *)zframe_data(sf);
+	sf = zmsg_next(zm); // count
+	char *c_count = (char *)zframe_data(sf);
+	char payload[2048];
+	snprintf(payload,sizeof(payload),"%s %s %s",wname,c_seqno,c_count);
+	
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+		free(new_cap_p);
+	}
+
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		// reset cursor
+		(void)zmsg_first(req_msg.get());
+		DEBUG_LOG("WooFProcessGetRangewithCAP: CAP auth\n");
+		WooFProcessGetRange(std::move(req_msg),resp_sock,0);
+		return;
+	}
+
+	DEBUG_WARN("WooFProcessGetRangewithCAP: read CAP denied\n");
+	// denied
+	SendNull(resp_sock);
+	return;
+}
+void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
 
     if (!res) {
-        DEBUG_WARN("WooFProcessGet Bad message");
+        DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
+	SendErr(-1,resp_sock);
         return;
     }
 
@@ -241,8 +1072,32 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
     // auto cause_woof_latest_seq_no = 0;
     // std::string cause_woof = "";
 
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
+	return;
+    }
+
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGetLatestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+    }
 
     WOOF* wf;
     if (err < 0) {
@@ -253,38 +1108,447 @@ void WooFProcessGetLatestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock) {
 
     unsigned long latest_seq_no = -1;
     if (!wf) {
-        DEBUG_WARN("WooFProcessGet: couldn't open woof: %s\n", woof_name.c_str());
+        DEBUG_WARN("WooFProcessGetLatestSeqno: couldn't open woof: %s\n", woof_name.c_str());
     } else {
         latest_seq_no = WooFLatestSeqno(wf);
-//            WooFLatestSeqnoWithCause(wf, cause_host, cause_seq_no, cause_woof.c_str(), cause_woof_latest_seq_no);
         WooFDrop(wf);
     }
 
+    DEBUG_LOG("WooFProcessGetLatestSeqno: sending %lu for %s\n",latest_seq_no,woof_name.c_str());
     auto resp = CreateMessage(std::to_string(latest_seq_no));
-    if (!res) {
-        DEBUG_WARN("WooFProcessGet: Could not allocate message");
+    if (!resp) {
+        DEBUG_WARN("WooFProcessGetLatestSeqno: Could not allocate message");
+	SendErr(-1,resp_sock);
         return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
-        DEBUG_WARN("WooFProcessGet: Could not send response");
+        DEBUG_WARN("WooFProcessGetLatestSeqno: Could not send response");
+        printf("WooFProcessGetLatestSeqno: Could not send response");
         return;
     }
+	Resp_id++;
+	if(Resp_id != Msg_id) {
+		printf("GetLatestSeqno: double send %lu (%d %d)\n",latest_seq_no,Msg_id,Resp_id);
+	}
 }
 
-void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock) {
+void WooFProcessGetLatestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: no cap frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof cap frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: could not get woof name frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP local name failed\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for %s\n",cap_name);
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP from %s\n",cap_name);
+		new_cap_p = WooFCapAttenuate(&principal, WCAP_READ);
+		if(new_cap_p == NULL) {
+			if(wf_ns != NULL) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP atten cap failed for principal\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP cap get failed for ns\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetLatestSeqnowithCAP: read CAP from ns\n");
+		new_cap_ns = WooFCapAttenuate(&ns_principal, WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP atten cap failed for ns principal\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+	                SendErr(-1,resp_sock);
+			return;
+		}
+	}
+
+	// check the signature using attenuated CAP
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+
+	if((sig_p == cap->check) || (sig_ns == cap->check)) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth\n");
+		WooFProcessGetLatestSeqno(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	
+	DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: read CAP denied %s\n",cap_name);
+	// denied
+	SendErr(-1,resp_sock);
+	return;
+}
+
+void WooFProcessGetEarliestSeqno(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap)
+{
+
+    auto res = ExtractMessage<std::string/*, std::string, std::string, std::string, std::string*/>(*req_msg);
+
+    if (!res) {
+        DEBUG_WARN("WooFProcessGetLatestSeqno Bad message");
+	SendErr(-1,resp_sock);
+        return;
+    }
+
+    auto& [woof_name/*, name_id_str, log_seq_no_str, cause_woof, cause_woof_latest_seq_no_str*/] = *res;
+    // auto cause_host = std::stoul(name_id_str);
+    // auto cause_seq_no = std::stoul(log_seq_no_str);
+    // auto cause_woof_latest_seq_no = std::stoul(cause_woof_latest_seq_no_str);
+    // auto cause_host = 0;
+    // auto cause_seq_no = 0;
+    // auto cause_woof_latest_seq_no = 0;
+    // std::string cause_woof = "";
+
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendErr(-1,resp_sock);
+	return;
+    }
+
+    char local_name[1024] = {};
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s\n", woof_name.c_str());
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+            DEBUG_WARN("WooFProcessGetEarliestSeqno: found CAP with no cap in message%s with ns\n", woof_name.c_str());
+	    SendErr(-1,resp_sock);
+	    return;
+	}
+    }
+
+    unsigned long earliest_seq_no = WooFGetEarliestSeqno(local_name);
+    if (earliest_seq_no == (unsigned long)-1) {
+        DEBUG_WARN("WooFProcessGetEarliestSeqno: couldn't earliest seqno for %s\n", woof_name.c_str());
+	SendErr(-1,resp_sock);
+	return;
+    }
+
+    DEBUG_LOG("WooFProcessGetEarliestSeqno: sending %lu for %s\n",earliest_seq_no,woof_name.c_str());
+    auto resp = CreateMessage(std::to_string(earliest_seq_no));
+    if (!resp) {
+        DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not allocate message");
+	SendErr(-1,resp_sock);
+        return;
+    }
+
+    if (!Send(std::move(resp), *resp_sock)) {
+        DEBUG_WARN("WooFProcessGetEarliestSeqno: Could not send response");
+        printf("WooFProcessGetEarliestSeqno: Could not send response");
+        return;
+    }
+    Resp_id++;
+    if(Resp_id != Msg_id) {
+	printf("GetEarliestSeqno: double send\n");
+    }
+    return;
+}
+
+void WooFProcessGetEarliestSeqnowithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: no cap frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof cap frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: could not get woof name frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: can't access CAP woof\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP local name failed\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+	// backwards compatibility: no CAP => authorized
+	if(!wf && !wf_ns) {
+		WooFProcessGetEarliestSeqno(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed for %s\n",cap_name);
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP from %s\n",cap_name);
+		new_cap_p = WooFCapAttenuate(&principal, WCAP_READ);
+		if(new_cap_p == NULL) {
+			if(wf_ns != NULL) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed for principal\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP cap get failed for ns\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessGetEarliestSeqnowithCAP: read CAP from ns\n");
+		new_cap_ns = WooFCapAttenuate(&ns_principal, WCAP_READ);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP atten cap failed for ns principal\n");
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			if(wf) {
+				WooFDrop(wf);
+			}
+	                SendErr(-1,resp_sock);
+			return;
+		}
+	}
+
+	// check the signature using attenuated CAP
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_p->check);
+		free(new_cap_p);
+	}
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)wname,strlen(wname),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+
+	if((sig_p == cap->check) || (sig_ns == cap->check)) {
+		DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: CAP auth\n");
+		WooFProcessGetEarliestSeqno(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	
+	DEBUG_WARN("WooFProcessGetEarliestSeqnowithCAP: read CAP denied %s\n",cap_name);
+	// denied
+	SendErr(-1,resp_sock);
+	return;
+}
+void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     auto res = ExtractMessage<std::string, std::string>(*req_msg);
 
     if (!res) {
         DEBUG_WARN("WooFProcessGet Bad message");
+	SendNull(resp_sock);
         return;
     }
 
     auto& [woof_name, el_count_str] = *res;
     auto el_count = std::stoul(el_count_str);
 
+    // disallow remote access to CAP woofs
+    auto err = WooFIsCAPName(woof_name.c_str());
+    if((err == 1) || (err < 0)) {
+	SendNull(resp_sock);
+	return;
+    }
+
     char local_name[1024] = {};
-    auto err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+    err = WooFLocalName(woof_name.c_str(), local_name, sizeof(local_name));
+
+    char cap_name[1028] = {};
+    // if there is a cap there should not be one, error
+    if(no_cap == 1) {
+    	sprintf(cap_name,"%s.CAP",local_name);
+    	//WOOF* wfc;
+    	//wfc = WooFOpen(cap_name);
+	if(std::filesystem::exists(cap_name)) {
+    	//if(wfc) {
+	    //WooFDrop(wfc);
+	    SendNull(resp_sock);
+	    return;
+	}
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+    	//wfc = WooFOpen(cap_name);
+    	//if(wfc) {
+	    //WooFDrop(wfc);
+	    SendNull(resp_sock);
+	    return;
+	}
+    }
 
     WOOF* wf;
     if (err < 0) {
@@ -306,14 +1570,310 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock) {
     }
 
     auto resp = CreateMessage(std::to_string(el_read), elements);
-    if (!res) {
+    if (!resp) {
         DEBUG_WARN("WooFProcessGet: Could not allocate message");
+	SendNull(resp_sock);
         return;
     }
 
     if (!Send(std::move(resp), *resp_sock)) {
-        DEBUG_WARN("WooFProcessGet: Could not send response");
+        DEBUG_WARN("WooFProcessGetTail: Could not send response");
+        printf("WooFProcessGetTail: Could not send response");
+	SendNull(resp_sock);
         return;
     }
+    Resp_id++;
+    if(Resp_id != Msg_id) {
+	printf("GetTail: double send\n");
+    }
+    return;
+}
+
+void WooFProcessGetTailwithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WCAP principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessGetTailwithCAP: no cap frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof cap frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP: could not get woof name frame\n");
+		SendNull(resp_sock);
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+		SendNull(resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP local name failed\n");
+		SendNull(resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	sprintf(cap_name,"%s.CAP",local_name);
+
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+	// backwards compatibility: no CAP => authorized
+	if(!wf) {
+		WooFProcessGetTail(std::move(req_msg),resp_sock,0);
+		return;
+	}
+	seq_no = WooFLatestSeqno(wf);
+	err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+	WooFDrop(wf);
+	if(err < 0) {
+		DEBUG_WARN("WooFProcessGetTailwithCAP cap get failed\n");
+		SendNull(resp_sock);
+		return;
+	}
+	
+	DEBUG_LOG("WooFProcessGetTailwithCAP: read CAP woof\n");
+	//
+	// reset cursor
+	wname = (char *)zmsg_first(req_msg.get());
+	// check read perms
+	if(WooFCapAuthorized(principal.check,cap,WCAP_READ)) {
+		DEBUG_WARN("WooFProcessGetLatestSeqnowithCAP: CAP auth %s\n",cap_name);
+		WooFProcessGetTail(std::move(req_msg),resp_sock,0);
+		return;
+	} 
+	DEBUG_WARN("WooFProcessGetTailwithCAP: read CAP denied %s\n",cap_name);
+	// denied
+	SendNull(resp_sock);
+	return;
+}
+
+void WooFProcessCreatewithCAP(ZMsgPtr req_msg, zsock_t* resp_sock) 
+{
+	zframe_t *cframe;
+	WCAP *cap;
+	char *wname;
+	WOOF* wf;
+	WOOF* wf_ns;
+	WCAP principal;
+	WCAP ns_principal;
+	unsigned long seq_no;
+	int err;
+
+	cframe = zmsg_pop(req_msg.get()); // pop the cap frame
+
+	if(cframe == NULL) { // call withCAP and no cap => fail
+		DEBUG_WARN("WooFProcessCreatewithCAP: no cap frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	cap = (WCAP *)zframe_data(cframe);
+
+	if(cap == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof cap frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	wname = (char *)zframe_data(zmsg_first(req_msg.get())); // remaining frames
+	if(wname == NULL) {
+		DEBUG_WARN("WooFProcessCreatewithCAP: could not get woof name frame\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	// disallow access to CAP woofs
+        err = WooFIsCAPName(wname);
+	if((err == 1) || (err < 0)) {
+	        SendErr(-1,resp_sock);
+		return;
+	}
+
+	char local_name[1024] = {};
+    	err = WooFLocalName(wname, local_name, sizeof(local_name));
+	if (err < 0) {
+		DEBUG_WARN("WooFProcessCreatewithCAP local name failed\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	char cap_name[1028] = {};
+	strcpy(cap_name,"CSPOT.CAP");
+	if(std::filesystem::exists(cap_name)) {
+		wf_ns = WooFOpen(cap_name);
+	} else {
+		wf_ns = NULL;
+	}
+
+	sprintf(cap_name,"%s.CAP",local_name);
+	if(std::filesystem::exists(cap_name)) {
+		wf = WooFOpen(cap_name);
+	} else {
+		wf = NULL;
+	}
+
+	// remote create requires a CAP
+	if(!wf && !wf_ns) {
+		DEBUG_WARN("WooFProcessCreatewithCAP no CAP found in namespace\n");
+	        SendErr(-1,resp_sock);
+		return;
+	}
+	WCAP *new_cap_p = NULL;
+	if(wf) {
+		memset(&principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf);
+		err = WooFReadWithCause(wf,&principal,seq_no,0,0);
+		WooFDrop(wf);
+		if(err < 0) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		new_cap_p = WooFCapAttenuate(&principal,WCAP_INIT);
+		if(new_cap_p == NULL) {
+			if(wf_ns) {
+				WooFDrop(wf_ns);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP attn cap failed\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: cap get suceeded CAP %s\n",cap_name);
+	}
+	WCAP *new_cap_ns = NULL;
+	if(wf_ns) {
+		memset(&ns_principal,0,sizeof(WCAP));
+		seq_no = WooFLatestSeqno(wf_ns);
+		err = WooFReadWithCause(wf_ns,&ns_principal,seq_no,0,0);
+		WooFDrop(wf_ns);
+		if(err < 0) {
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+			DEBUG_WARN("WooFProcessCreatewithCAP cap get failed for ns\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		new_cap_ns = WooFCapAttenuate(&ns_principal,WCAP_INIT);
+		if(new_cap_ns == NULL) {
+			DEBUG_WARN("WooFProcessCreatewithCAP attn cap failed for ns\n");
+			if(wf) {
+				WooFDrop(wf);
+			}
+			if(new_cap_p != NULL) {
+				free(new_cap_p);
+			}
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		DEBUG_LOG("WooFProcessCreatewithCAP: cap get suceeded for ns CAP\n");
+	}
+
+	zmsg_t *zm = req_msg.get();
+	zframe_t *sf = zmsg_first(zm); // woof name
+	sf = zmsg_next(zm); // element_size
+	char *c_element_size = (char *)zframe_data(sf);
+	sf = zmsg_next(zm); // history_size
+	char *c_history_size = (char *)zframe_data(sf);
+	char payload[4096];
+	snprintf(payload,sizeof(payload),"%s %s %s",wname,c_element_size,
+			c_history_size);
+	
+	uint64_t sig_p = 0;
+	if(new_cap_p != NULL) {
+		sig_p = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_p->check);
+		free(new_cap_p);
+	}
+
+	uint64_t sig_ns = 0;
+	if(new_cap_ns != NULL) {
+		sig_ns = WooFCapSign((unsigned char *)payload,strlen(payload),new_cap_ns->check);
+		free(new_cap_ns);
+	}
+
+	if((cap->check == sig_p) || (cap->check == sig_ns)) {
+		// reset cursor
+		(void)zmsg_first(req_msg.get());
+		unsigned long el_size;
+		unsigned long history_size;
+		char *end_ptr;
+		el_size = strtol(c_element_size,&end_ptr,10);
+		if(*end_ptr != '\0') {
+		DEBUG_WARN("WooFProcessCreatewithCAP bad el size, failed\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+		history_size = strtol(c_history_size,&end_ptr,10);
+		if(*end_ptr != '\0') {
+		DEBUG_WARN("WooFProcessCreatewithCAP bad hist size, failed\n");
+	                SendErr(-1,resp_sock);
+			return;
+		}
+	
+		int ret_val;
+		err = WooFCreate(wname,el_size,history_size);
+		if(err < 0) {
+	DEBUG_WARN("WooFProcessCreatewithCAP create failed for %s %lu %lu\n",
+				wname,el_size,history_size);
+			ret_val = -1;
+		} else {
+			DEBUG_LOG("WooFProcessCreatewithCAP: CAP auth, %s created\n",
+				wname);
+    			DEBUG_LOG("WooFProcessCreatewithCAP: responding with 1\n");
+			ret_val = 1;
+		}
+
+    		auto resp = CreateMessage(std::to_string(ret_val));
+    		if (!resp) {
+        		DEBUG_WARN("WooFProcessCreatewithCAP: Could not allocate message");
+			SendErr(-1,resp_sock);
+        		return;
+    		}
+    		if (!Send(std::move(resp), *resp_sock)) {
+        		DEBUG_WARN("WooFProcessCreatewithCAP: Could not send response");
+        		printf("WooFProcessCreatewithCAP: Could not send response");
+			return;
+		}
+		Resp_id++;
+		if(Resp_id != Msg_id) {
+			printf("Create: double send\n");
+		}
+		return;
+	}
+
+	DEBUG_WARN("WooFProcessCreatewithCAP: create CAP denied\n");
+	SendErr(-1,resp_sock);
+	// denied
+	return;
 }
 } // namespace cspot::zmq

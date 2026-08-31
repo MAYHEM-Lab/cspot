@@ -1,6 +1,8 @@
 #ifndef CSPOT_DEBUG_H
 #define CSPOT_DEBUG_H
 
+#include <stdbool.h>
+
 
 #if defined(__cplusplus)
 extern "C" {
@@ -52,6 +54,7 @@ void cspot_print_timing(const char* format, ...);
 
 #define DEBUG_LOG(...)
 #define DEBUG_WARN(...)
+//#define DEBUG_WARN(...) cspot_print_debug(__VA_ARGS__)
 #define DEBUG_FATAL(...)
 #define DEBUG_FATAL_IF(cond, ...)
 

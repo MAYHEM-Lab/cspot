@@ -24,8 +24,10 @@ int WooFValidURI(const char* str) {
     /*
      * must begin with woof://
      */
-    auto prefix = strstr(str, "woof://");
-    if (prefix == str) {
+    if((strstr(str, "woof://") != NULL) ||
+       (strstr(str, "cmq://") != NULL) ||
+       (strstr(str, "zmq://") != NULL) ||
+       (strstr(str, "mqtt://") != NULL)) {
         return (1);
     } else {
         return (0);
@@ -140,6 +142,34 @@ int WooFNameFromURI(const char* woof_uri_str, char* woof_name, int len) {
      */
     return (-1);
 }
+
+int WooFIsCAPName(const char *woof_uri_str) {
+	int err;
+	char local_name[4096];
+	char *s;
+	int len;
+
+
+	err = WooFNameFromURI(woof_uri_str,local_name,sizeof(local_name));
+	if(err < 0) {
+		return(err);
+	}
+	s = &(local_name[0]);
+	len = strlen(s);
+	if(len < 4) {
+		return(-1);
+	}
+	if(strcmp(s + len - 4,".CAP") == 0) {
+		return(1);
+	}
+	if(strcmp(s + len - 4,".cap") == 0) {
+		return(1);
+	}
+	return(0);
+}
+
+	
+	 
 
 /*
  * returns IP address to avoid DNS issues
@@ -270,6 +300,39 @@ int WooFLocalIP(char* ip_str, int len) {
 int WooFLocalName(const char* woof_name, char* local_name, int len) {
     return (WooFNameFromURI(woof_name, local_name, len));
 }
+
+// trim off woof name for ns look up (caplets)
+int WooFNamespaceURI(char *woof_name, char *uri, int len)
+{	
+	char *p;
+	char *next;
+	int i;
+
+	memset(uri,0,len);
+	next = woof_name;
+	p = NULL;
+	i = 0;
+	while(next[i] != 0) {
+		if(next[i] == '/') {
+			p = &next[i];
+		}
+		i++;
+		if(i >= len) {
+			break;
+		}
+	}
+	if(p == NULL) {
+		return(-1);
+	}
+	// was the last char a /?
+	if((p+1) == next) {
+		return(-1);
+	}
+	strncpy(uri,woof_name,(int)(p - woof_name));
+	return(1);
+}
+	
+
 
 #ifdef REPAIR
 void WooFProcessRepair(zmsg_t* req_msg, zsock_t* receiver) {

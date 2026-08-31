@@ -10,7 +10,9 @@ extern "C" {
 #include "woofc.h"
 
 struct woof_shared_stc {
-    char filename[2048];
+    char filename[2032]; // added watermark and version -- was 2048
+    uint64_t watermark; // this must be here in struct for bw compat
+    double version; // this must be here in struct for bw compat
     sema mutex;
     sema tail_wait;
     unsigned long long seq_no;
@@ -87,7 +89,7 @@ int WooFExist(const char* name);
 
 unsigned int WooFPortHash(const char* woof_namespace);
 
-unsigned long WooFNameHash(const char* woof_namespace);
+uint64_t WooFNameHash(const char* woof_namespace);
 
 #ifdef REPAIR
 WOOF* WooFOpenOriginal(char* name);
@@ -102,6 +104,8 @@ unsigned long WooFIndexFromSeqno(WOOF* wf, unsigned long seq_no);
 void WooFPrintMeta(FILE* fd, char* name);
 void WooFDump(FILE* fd, char* name);
 #endif
+
+#define CSPOT_WATERMARK (0xdeadbeef)
 
 #define DEFAULT_WOOF_DIR "./cspot/"
 #define DEFAULT_CSPOT_HOST_DIR "./cspot-host/"

@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+// test compile
+
 int WooFValidURI(const char* str);
 int WooFNameSpaceFromURI(const char* woof_uri_str, char* woof_namespace, int len);
 int WooFNameFromURI(const char* woof_uri_str, char* woof_name, int len);
@@ -12,10 +14,16 @@ int WooFIPAddrFromURI(const char* woof_uri_str, char* woof_ip, int len);
 unsigned int WooFPortHash(const char* woof_namespace);
 int WooFLocalIP(char* ip_str, int len);
 int WooFPortFromURI(const char* woof_uri_str, int* woof_port);
+int WooFIsCAPName(const char *woof_uri_str);
 
 unsigned long WooFMsgPut(const char* woof_name, const char* hand_name, const void* element, unsigned long el_size);
 int WooFMsgGet(const char* woof_name, void* element, unsigned long el_size, unsigned long seq_no);
+int WooFMsgGetRange(const char* woof_name, 
+		void* element, unsigned long el_size, 
+		unsigned long seq_no, unsigned int count);
+int WooFMsgCreate(const char* woof_name, unsigned long el_size, unsigned long history_size);
 unsigned long WooFMsgGetElSize(const char* woof_name);
+unsigned long WooFMsgGetEarliestSeqno(const char* woof_name);
 unsigned long
 WooFMsgGetLatestSeqno(const char* woof_name, const char* cause_woof_name, unsigned long cause_woof_latest_seq_no);
 unsigned long WooFMsgGetTail(const char* woof_name, void* elements, unsigned long el_size, int el_count);
@@ -29,6 +37,7 @@ unsigned long WooFPutWithCause(const char* wf_name,
 
 int WooFURINameSpace(char* woof_uri_str, char* woof_namespace, int len);
 int WooFLocalName(const char* woof_name, char* local_name, int len);
+int WooFNamespaceURI(char *woof_name, char *uri, int len);
 
 #ifdef REPAIR
 unsigned long int LogGetRemoteSize(char* endpoint);
@@ -36,8 +45,12 @@ int LogGetRemote(LOG* log, MIO* mio, char* endpoint);
 int WooFMsgRepair(char* woof_name, Dlist* holes);
 #endif
 
+//#define USE_CMQ
+#define CMQMQTTXPORT (1)
+#define USE_CMQ_SD_CACHE
 #ifdef USE_CMQ
 #define BACKEND "cmq"
+// change to 1 for mqtt version of cmq
 #else
 #define BACKEND "zmq"
 #endif
@@ -48,8 +61,9 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 //#define WOOF_MSG_REQ_TIMEOUT (90000)
 //#define WOOF_MSG_REQ_TIMEOUT (500)
 #define WOOF_MSG_REQ_TIMEOUT (3000)
+//#define WOOF_MSG_REQ_TIMEOUT (20000)
 
-#define WOOF_MSG_THREADS (15)
+#define WOOF_MSG_THREADS (16)
 
 #define WOOF_MSG_PUT (1)
 #define WOOF_MSG_GET_EL_SIZE (2)
@@ -61,6 +75,8 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #define WOOF_MSG_REPAIR_PROGRESS (8)
 #define LOG_GET_REMOTE (9)
 #define LOG_GET_REMOTE_SIZE (10)
+#define WOOF_MSG_GET_RANGE (11)
+#define WOOF_MSG_GET_EARLIEST_SEQNO (12)
 
 #define WOOF_MSG_PUT_CAP (21)
 #define WOOF_MSG_GET_EL_SIZE_CAP (22)
@@ -72,6 +88,9 @@ int WooFMsgRepair(char* woof_name, Dlist* holes);
 #define WOOF_MSG_REPAIR_PROGRESS_CAP (28)
 #define LOG_GET_REMOTE_CAP (29)
 #define LOG_GET_REMOTE_SIZE_CAP (30)
+#define WOOF_MSG_CREATE_CAP (31)
+#define WOOF_MSG_GET_RANGE_CAP (32)
+#define WOOF_MSG_GET_EARLIEST_SEQNO_CAP (33)
 
 #define WOOF_MSG_CACHE_SIZE (100)
 

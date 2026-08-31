@@ -10,42 +10,55 @@
 #include "cmq-pkt.h"
 #include <pthread.h>
 
+extern void cmq_mqtt_shutdown();
+
+extern "C" {
+	extern int CMQ_use_mqtt;
+}
+
 namespace cspot::cmq {
 namespace {
 
+
 void *WooFMsgThread(void *arg) {
-	int sd = *((int *)arg);
+	int sd;
 	int c_sd;
 	int err;
 	unsigned char *fl;
 	unsigned char *f;
+
+	sd = *((int *)arg);
+	free(arg);
+
 	
 
 	while(1) { // loop until something fails
-		DEBUG_LOG("WooFMsgThread: about to call accept");
+		DEBUG_LOG("WooFMsgThread.cmq: cmq about to call accept");
 
 		c_sd = cmq_pkt_accept(sd,WOOF_MSG_REQ_TIMEOUT); // timeout is set for c_sd
 		if(c_sd < 0) {
-			DEBUG_WARN("WooFMsgThread: accept failed");
-			perror("WooFMsgThread: accept failed");
-			return(NULL);
+			DEBUG_WARN("WooFMsgThread.cmq: accept failed");
+			perror("WooFMsgThread.cmq: accept failed");
+			//return(NULL);
+			pthread_exit(NULL);
 		}
 
 		err = cmq_pkt_recv_msg(c_sd,&fl);
 		if(err < 0) {
-			DEBUG_WARN("WooFMsgThread: recv failed");
-			perror("WooFMsgThread: recv failed");
-			return(NULL);
+			DEBUG_WARN("WooFMsgThread.cmq: recv failed");
+			perror("WooFMsgThread.cmq: recv failed");
+			continue;
+//			return(NULL);
 		}
 
 		while (err >= 0) {
 
-			DEBUG_LOG("WooFMsgThread: received");
+			DEBUG_LOG("WooFMsgThread.cmq: received");
 			err = cmq_frame_pop(fl,&f);
 			if(err < 0) {
 				cmq_frame_list_destroy(fl);
-				DEBUG_WARN("WooFMsgThread: couldn't get tag");
-				close(c_sd);
+				DEBUG_WARN("WooFMsgThread.cmq: couldn't get tag");
+				cmq_pkt_close(c_sd);
 				return(NULL);
 			}
 
@@ -53,25 +66,55 @@ void *WooFMsgThread(void *arg) {
 		 * WooFMsg starts with a message tag for dispatch
 		 */
 			long tag = strtol((char *)cmq_frame_payload(f),NULL,10);
-			DEBUG_LOG("WooFMsgThread: processing msg with tag: %lu\n", tag);
+			DEBUG_LOG("WooFMsgThread.cmq: processing msg with tag: %lu\n", tag);
 			cmq_frame_destroy(f);
 
 			// process routines destroy fl
 			switch (tag) {
 				case WOOF_MSG_PUT:
-				    WooFProcessPut(fl,c_sd);
+				    WooFProcessPut(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_PUT_CAP:
+				    WooFProcessPutwithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET:
-				    WooFProcessGet(fl,c_sd);
+				    WooFProcessGet(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_CAP:
+				    WooFProcessGetwithCAP(fl,c_sd);
+				    break;
+				case WOOF_MSG_GET_RANGE:
+				    WooFProcessGetRange(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_RANGE_CAP:
+				    WooFProcessGetRangewithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_EL_SIZE:
-				    WooFProcessGetElSize(fl,c_sd);
+				    WooFProcessGetElSize(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_EL_SIZE_CAP:
+				    WooFProcessGetElSizewithCAP(fl,c_sd);
+				    break;
+				case WOOF_MSG_GET_EARLIEST_SEQNO:
+				    WooFProcessGetEarliestSeqno(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_EARLIEST_SEQNO_CAP:
+				    WooFProcessGetEarliestSeqnowithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_TAIL:
-				    WooFProcessGetTail(fl,c_sd);
+				    WooFProcessGetTail(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_TAIL_CAP:
+				    WooFProcessGetTailwithCAP(fl,c_sd);
 				    break;
 				case WOOF_MSG_GET_LATEST_SEQNO:
-				    WooFProcessGetLatestSeqno(fl,c_sd);
+				    WooFProcessGetLatestSeqno(fl,c_sd,1);
+				    break;
+				case WOOF_MSG_GET_LATEST_SEQNO_CAP:
+				    WooFProcessGetLatestSeqnowithCAP(fl,c_sd);
+				    break;
+				case WOOF_MSG_CREATE_CAP:
+				    WooFProcessCreatewithCAP(fl,c_sd);
 				    break;
 	// these need to be  converte from zmq
 #ifdef DONEFLAG
@@ -94,12 +137,12 @@ void *WooFMsgThread(void *arg) {
 				    break;
 #endif
 				default:
-				    DEBUG_WARN("WooFMsgThread: unknown tag %d\n", int(tag));
+				    DEBUG_WARN("WooFMsgThread.cmq: unknown tag %d\n", int(tag));
 				    break;
 			}
 			err = cmq_pkt_recv_msg(c_sd,&fl);
 		}
-		close(c_sd);
+		cmq_pkt_close(c_sd);
 	}
     	return(NULL);
 }
@@ -110,9 +153,9 @@ bool backend::listen(std::string_view ns) {
 
     std::string woof_namespace(ns);
 
-    DEBUG_FATAL_IF(woof_namespace.empty(), "WooFMsgServer: couldn't find namespace");
+    DEBUG_FATAL_IF(woof_namespace.empty(), "WooFMsgServer.cmq: couldn't find namespace");
 
-    DEBUG_LOG("WooFMsgServer: started for namespace %s\n", woof_namespace.c_str());
+    DEBUG_LOG("WooFMsgServer.cmq: started for namespace %s\n", woof_namespace.c_str());
 
     /*
      * set up the front end router socket
@@ -123,8 +166,23 @@ bool backend::listen(std::string_view ns) {
     if(listen_sd < 0) {
 	DEBUG_WARN("WooFMsgServer: could not create listen socket on %d\n",
 			(int)port);
+	if(CMQ_use_mqtt == 1) {
+		printf("WooFMsgServer: mqtt could not create listen socket on %d, shutting down xport\n",
+				(int)port);
+	} else {
+		printf("WooFMsgServer: cmq could not create listen socket on %d, shutting down xport\n",
+                        (int)port);
+	}
+
 	return(false);
     }
+
+    if(CMQ_use_mqtt) {
+	printf("mqtt configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
+    } else {
+	printf("cmq configured for namespace %s on port %d\n",woof_namespace.c_str(), port);
+    }
+    fflush(stdout);
     
     /*
      * create a single thread for now.  multiple threads can call accept
@@ -136,20 +194,25 @@ bool backend::listen(std::string_view ns) {
     */
     int t;
     for(t=0; t < WOOF_MSG_THREADS; t++) {
-	    int *sp = &listen_sd;
+	    int *sp = (int *)malloc(sizeof(int));
+	    if(sp == NULL) {
+		   return false;
+	    } 
+	    *sp = listen_sd;
 	    int perr;
 	    perr = pthread_create(&tids[t],NULL,WooFMsgThread,(void *)sp);
 	    if(perr != 0) {
 		DEBUG_WARN("WooFMsgThread: could not create WooFMsgThread %d\n",t);
 		return false;
 	    }
+	    msg_threads++;
     }
 
     return true;
 }
 
 bool backend::stop() {
-printf("cmq::backend stop called\n");
+//printf("cmq::backend stop called\n");
     m_stop_called = true;
     /*
      * right now, there is no way for these threads to exit so the msg server will block
@@ -162,12 +225,19 @@ printf("cmq::backend stop called\n");
     */
 
     int t;
-    for(t=0; t < WOOF_MSG_THREADS; t++) {
+    // do it this way in case there is a port conflict and we exit before spawning any threads
+    for(t=0; t < msg_threads; t++) {
+//printf("cmq.stop calling join %d\n",t);
+//fflush(stdout);
 	    pthread_join(tids[t],NULL);
+//printf("cmq.stop joined %d\n",t);
+//fflush(stdout);
     }
 
     //m_proxy.reset();
-    close(listen_sd);
+//printf("cmq.stop calling shutdown\n");
+//fflush(stdout);
+    cmq_pkt_shutdown();
     return true;
 }
 } // namespace cspot::cmq

@@ -2,6 +2,7 @@
 #define PUT_TEST_H
 
 #include <time.h>
+#include <sys/time.h>
 
 struct put_test_stc
 {

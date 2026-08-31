@@ -67,7 +67,7 @@ void SenspotPrint(SENSPOT *spt, unsigned long seq_no)
 	return;
 }
 
-void SenspotAssign(SENSPOT *spt, char type, char *v)
+void SenspotAssign(SENSPOT *spt, char type, char *v, int size)
 {
 	
 	spt->type = type;
@@ -79,7 +79,7 @@ void SenspotAssign(SENSPOT *spt, char type, char *v)
 			break;
 		case 's':
 		case 'S':
-			strncpy(spt->payload,v,sizeof(spt->payload));
+			strncpy(spt->payload,v,size);
 			spt->value.s = v;
 			break;
 		case 'i':

@@ -2,16 +2,24 @@
 #include "debug.h"
 
 namespace cspot::zmq {
+
+per_endpoint_data::~per_endpoint_data() {
+    DEBUG_LOG("destroying endpoint data\n");
+}
 std::optional<per_endpoint_data> per_endpoint_data::create(const std::string& ep) {
     per_endpoint_data res;
     res.server = ZServerPtr(zsock_new_req(ep.c_str()));
     if (!res.server) {
         DEBUG_WARN("ServerRequest: no server connection to %s\n", ep.c_str());
+        printf("ServerRequest: no server connection to %s\n", ep.c_str());
         return {};
     }
 
+    zsock_set_linger(res.server.get(), 0);
+
     res.resp_poll = ZPollerPtr(zpoller_new(res.server.get(), nullptr));
     if (!res.resp_poll) {
+        DEBUG_WARN("ServerRequest: no poller for reply from %s\n", ep.c_str());
         DEBUG_WARN("ServerRequest: no poller for reply from %s\n", ep.c_str());
         return {};
     }

@@ -1,5 +1,62 @@
+if(APPLE)
+cmake_minimum_required(VERSION 3.13...4.0)
+else()
 cmake_minimum_required(VERSION 3.13)
+endif()
 project(cspot VERSION 2.0.0)
+
+if(EXISTS "/opt/libyaml-musl/include/yaml.h" AND EXISTS "/opt/openssl-musl/include/openssl/ssl.h")
+    message(STATUS "Using musl dependency stack")
+
+    include_directories(
+        /opt/libyaml-musl/include
+        /opt/openssl-musl/include
+        ${PROJECT_SOURCE_DIR}/deps/fmt/include
+    )
+
+    link_directories(
+        /opt/libyaml-musl/lib
+        /opt/openssl-musl/lib
+        /opt/openssl-musl/lib64
+    )
+endif()
+
+if(APPLE) 
+    message(STATUS "Configuring for Apple Silicon (ARM64)")
+
+    set(CMAKE_OSX_ARCHITECTURES arm64)
+    set(CMAKE_PREFIX_PATH "/opt/homebrew;/opt/homebrew/opt/openssl@3")
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+        
+    
+    # Manually specify Homebrew ARM64 paths
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+    set(OPENSSL_INCLUDE_DIR "${OPENSSL_ROOT_DIR}/include")
+    set(OPENSSL_LIBRARIES "${OPENSSL_ROOT_DIR}/lib")
+        
+#    include_directories(/opt/homebrew/include)
+#    link_directories(/opt/homebrew/lib)
+    find_package(OpenSSL REQUIRED)
+    find_library(YAML_LIBRARY yaml HINTS /opt/homebrew/lib REQUIRED)
+    find_path(YAML_INCLUDE_DIR yaml.h HINTS /opt/homebrew/include REQUIRED)
+
+    # use POSIX semaphores
+    add_compile_definitions(USE_POSIX_SEM)
+
+    
+#    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libyaml")
+#else()
+#    include_directories("/opt/openssl-musl/include")
+#    link_directories("/opt/openssl-musl/lib" "/opt/libyaml-musl/lib")
+
+else()
+	set(USE_MUSL_DEPS OFF)
+		if(EXISTS "/opt/musl-cross/bin/x86_64-linux-musl-gcc")
+    		set(USE_MUSL_DEPS ON)
+#		add_compile_options(-g -O0 -fno-omit-frame-pointer)
+	endif()
+endif()
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -12,10 +69,11 @@ set(BUILD_SHARED_LIBS OFF)
 option(ENABLE_PYCSPOT "Enable cspot python bindings" OFF)
 option(ENABLE_FEATURE_REPAIR "Enable repair" OFF)
 
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Emitting static binaries")
-    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic")
-    set(CMAKE_C_FLAGS "-ffunction-sections -fdata-sections")
+    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lpthread")
+    set(CMAKE_C_FLAGS "-I ../src/include -ffunction-sections -fdata-sections")
     set(CMAKE_CXX_FLAGS "-std=gnu++17 -ffunction-sections -fdata-sections -Wl,-Bstatic")
 
 #    if (CMAKE_BUILD_TYPE MATCHES "Release")
@@ -24,6 +82,13 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 #        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
 #    endif()
 endif ()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 4
+   AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv6l|armv7l)$")
+    set(CMAKE_CXX_STANDARD_LIBRARIES
+        "${CMAKE_CXX_STANDARD_LIBRARIES} -latomic"
+    )
+endif()
 
 add_subdirectory(deps)
 add_subdirectory(src)
@@ -56,14 +121,29 @@ add_library(woof-mqtt
 )
 
 
+if(APPLE1)
+target_include_directories(woof PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+#        ${OPENSSL_INCLUDE_DIR}
+        )
+else()
 target_include_directories(woof PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
         )
+endif()
 
+if(APPLE1)
+target_include_directories(woof PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+#        ${OPENSSL_INCLUDE_DIR}
+)
+else()
 target_include_directories(woof PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+endif()
 
 target_include_directories(woof-mqtt PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
@@ -76,7 +156,68 @@ target_include_directories(woof-mqtt PUBLIC
 
 find_package(Threads REQUIRED)
 
-target_link_libraries(woof PUBLIC mio euca_utils m Threads::Threads uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets)
+if(USE_MUSL_DEPS)
+    find_path(MUSL_OPENSSL_INCLUDE_DIR
+        NAMES openssl/hmac.h
+        HINTS /opt/openssl-musl/include
+        REQUIRED
+    )
+    find_library(MUSL_OPENSSL_CRYPTO
+        NAMES crypto libcrypto
+        HINTS /opt/openssl-musl/lib /opt/openssl-musl/lib64
+        REQUIRED
+    )
+
+    target_include_directories(woof_caplets PRIVATE ${MUSL_OPENSSL_INCLUDE_DIR})
+    target_link_libraries(woof_caplets PRIVATE ${MUSL_OPENSSL_CRYPTO})
+endif()
+
+if(EXISTS "/opt/libyaml-musl/include/yaml.h")
+    find_path(MUSL_YAML_INCLUDE_DIR
+        NAMES yaml.h
+        HINTS /opt/libyaml-musl/include
+        REQUIRED
+    )
+
+    find_library(MUSL_YAML_LIBRARY
+        NAMES yaml libyaml
+        HINTS /opt/libyaml-musl/lib /opt/libyaml-musl/lib64
+        REQUIRED
+    )
+
+    target_include_directories(woof_caplets PRIVATE ${MUSL_YAML_INCLUDE_DIR})
+    target_link_libraries(woof_caplets PRIVATE ${MUSL_YAML_LIBRARY})
+endif()
+
+if(CMAKE_C_COMPILER MATCHES "musl")
+    find_path(MUSL_YAML_INCLUDE_DIR
+        NAMES yaml.h
+        HINTS /opt/libyaml-musl/include
+        REQUIRED
+    )
+
+    find_library(MUSL_YAML_LIBRARY
+        NAMES yaml libyaml
+        HINTS /opt/libyaml-musl/lib /opt/libyaml-musl/lib64
+        REQUIRED
+    )
+
+    target_include_directories(woof_cmq_net PRIVATE ${MUSL_YAML_INCLUDE_DIR})
+    target_link_libraries(woof_cmq_net PRIVATE ${MUSL_YAML_LIBRARY})
+    target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads ${MUSL_YAML_LIBRARY} ${MUSL_OPENSSL_CRYPTO} )
+    else ()
+    target_link_libraries(woof PUBLIC mio euca_utils m uriparser2 fmt::fmt woof_zmq_net woof_cmq_net woof_caplets Threads::Threads)
+
+endif()
+
+if(APPLE)
+    target_include_directories(woof_caplets PRIVATE ${YAML_INCLUDE_DIR})
+    target_include_directories(woof_cmq_net PRIVATE ${YAML_INCLUDE_DIR})
+
+    target_link_libraries(woof_caplets PUBLIC OpenSSL::Crypto ${YAML_LIBRARY})
+    target_link_libraries(woof_cmq_net PUBLIC ${YAML_LIBRARY})
+endif()
+
 target_compile_features(woof PUBLIC cxx_std_17)
 
 target_link_libraries(woof-mqtt PUBLIC euca_utils m uriparser2)
@@ -96,8 +237,30 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif ()
 
 add_executable(woofc-namespace-platform src/woofc-namespace-platform.cpp)
-target_link_libraries(woofc-namespace-platform woof)
-target_include_directories(woofc-namespace-platform PRIVATE src/include)
+if(APPLE)
+	target_link_libraries(woofc-namespace-platform PRIVATE woof fmt::fmt)
+else()
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv6l|armv7l)$")
+		message(STATUS "ARM32 condition matched: adding libatomic")
+	if(CMAKE_SIZEOF_VOID_P EQUAL 4
+   		AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv6l|armv7l)$")
+
+    		find_package(OpenSSL REQUIRED)
+    		set_property(
+        		TARGET OpenSSL::Crypto
+        		APPEND PROPERTY INTERFACE_LINK_LIBRARIES atomic
+    		)
+	endif()
+    		target_link_libraries(woofc-namespace-platform PRIVATE woof crypto atomic fmt::fmt)
+	else()
+		target_link_libraries(woofc-namespace-platform woof)
+	endif()
+endif()
+target_include_directories(woofc-namespace-platform PRIVATE include
+	src/include
+	deps/mio
+	deps/euca-cutils
+	deps/fmt/include)
 
 add_executable(woofc-container src/woofc-container.cpp)
 target_link_libraries(woofc-container PRIVATE woof)
@@ -111,10 +274,20 @@ add_library(woofc-shepherd src/woofc-shepherd.cpp)
 target_link_libraries(woofc-shepherd PUBLIC woof)
 target_include_directories(woofc-shepherd PRIVATE src/include)
 
+add_executable(woofc-watermark src/woofc-watermark.cpp)
+if(APPLE)
+target_link_libraries(woofc-watermark PRIVATE woof fmt::fmt)
+else()
+target_link_libraries(woofc-watermark woof)
+endif()
+target_include_directories(woofc-watermark PRIVATE src/include)
+
 #add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.cpp)
+if(NOT APPLE)
 add_executable(woofc-mqtt-gateway src/woofc-mqtt-gateway.c)
 target_link_libraries(woofc-mqtt-gateway woof woof-mqtt)
 target_include_directories(woofc-mqtt-gateway PRIVATE src/include)
+endif()
 
 function (add_handler name)
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${name}_handler_fwd.cpp
@@ -136,6 +309,18 @@ endfunction()
 add_subdirectory(apps)
 
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+if(APPLE)
+install(
+    TARGETS woof mio euca_utils uriparser2 fmt woof_cmq_net woof_zmq_net woof_caplets
+    EXPORT woof
+    DESTINATION lib
+)
+install(
+    TARGETS woofc-shepherd woofc-container woofc-namespace-platform
+    EXPORT woof
+    DESTINATION bin
+)
+else()
 install(
     TARGETS woof mio euca_utils uriparser2 fmt woof_zmq_net woof_cmq_net woof_caplets
     EXPORT woof
@@ -146,6 +331,7 @@ install(
     EXPORT woof
     DESTINATION bin
 )
+endif()
 #install(TARGETS czmq-static EXPORT woof DESTINATION lib)
 
 install(EXPORT woof DESTINATION lib/cmake/woof)
@@ -156,9 +342,9 @@ install(FILES include/woofc.h DESTINATION include)
 install(FILES woof-config.cmake DESTINATION lib/cmake/woof)
 
 set(CPACK_GENERATOR "DEB;RPM;TGZ;STGZ")
-set(CPACK_PACKAGE_VENDOR "Mayhem Lab")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Cspot")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Fatih")
+set(CPACK_PACKAGE_VENDOR "RACELab")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "CSPOT")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Rich")
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})

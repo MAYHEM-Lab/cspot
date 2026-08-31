@@ -2,7 +2,7 @@
 
 
 
-apt-get update && apt-get -y install ninja-build g++-9 cmake g++
+apt-get update && apt-get -y install ninja-build g++-9 cmake g++ mosquitto-clients
 apt-get remove docker docker-engine docker.io containerd runc
 apt -y  install docker.io
 apt-get -y install libssl-dev libyaml-dev
