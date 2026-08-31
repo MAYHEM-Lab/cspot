@@ -1,8 +1,8 @@
 CC=gcc
 CFLAGS=-g -Wformat-truncation=0 -I ../../include
 
-RBINC=/sharedfs/cspot-mqtt/deps/euca-cutils
-RBSRC=/sharedfs/cspot-mqtt/deps/euca-cutils/redblack.c
+RBINC=/home/ubuntu/cspot-daily/deps/euca-cutils
+RBSRC=/home/ubuntu/cspot-daily/deps/euca-cutils/redblack.c
 
 all: cmq-frame-selftest cmq-test-client cmq-test-server cmq-mqtt-test-client cmq-mqtt-test-server cmq-perf
 
