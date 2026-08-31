@@ -2,11 +2,11 @@
 #
 
 mkdir -p ./build
-mkdir -p ./install
+mkdir -p ./_install
 
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release\
   -DCMAKE_BUILD_TYPE=Debug\
-  -DCMAKE_INSTALL_PREFIX=$PWD/install
+  -DCMAKE_INSTALL_PREFIX=$PWD/_install
 
 
