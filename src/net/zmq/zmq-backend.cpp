@@ -555,7 +555,7 @@ void WooFProcessGet(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     auto& [woof_name, seq_no_str/*, name_id_str, log_seq_no_str*/] = *res;
-    auto seq_no = std::stoul(seq_no_str);
+    auto seq_no = std::stoull(seq_no_str);
     // auto cause_host = std::stoul(name_id_str);
     // auto cause_seq_no = std::stoul(log_seq_no_str);
     auto cause_host = 0;
@@ -642,7 +642,7 @@ void WooFProcessGetRange(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     auto& [woof_name, seq_no_str, count_str/*, name_id_str, log_seq_no_str*/] = *res;
-    auto seq_no = std::stoul(seq_no_str);
+    auto seq_no = std::stoull(seq_no_str);
     auto count = std::stoi(count_str);
     // auto cause_host = std::stoul(name_id_str);
     // auto cause_seq_no = std::stoul(log_seq_no_str);
@@ -1516,7 +1516,7 @@ void WooFProcessGetTail(ZMsgPtr req_msg, zsock_t* resp_sock, int no_cap) {
     }
 
     auto& [woof_name, el_count_str] = *res;
-    auto el_count = std::stoul(el_count_str);
+    auto el_count = std::stoull(el_count_str);
 
     // disallow remote access to CAP woofs
     auto err = WooFIsCAPName(woof_name.c_str());

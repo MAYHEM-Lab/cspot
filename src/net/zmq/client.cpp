@@ -28,9 +28,9 @@ int32_t backend::remote_get(std::string_view woof_name, void* elem, uint32_t ele
         return (-1);
     }
 
-    unsigned long my_log_seq_no;
+    unsigned long long my_log_seq_no;
     if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
+        my_log_seq_no = strtoull(namelog_seq_no, nullptr, 10);
     } else {
         my_log_seq_no = 0;
     }
@@ -136,9 +136,9 @@ int32_t backend::remote_get_range(std::string_view woof_name, void* elem,
         return (-1);
     }
 
-    unsigned long my_log_seq_no;
+    unsigned long long my_log_seq_no;
     if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
+        my_log_seq_no = strtoull(namelog_seq_no, nullptr, 10);
     } else {
         my_log_seq_no = 0;
     }
@@ -254,9 +254,9 @@ int32_t backend::remote_create(std::string_view woof_name, uint32_t elem_size, u
         return (-1);
     }
 
-    unsigned long my_log_seq_no;
+    unsigned long long my_log_seq_no;
     if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
+        my_log_seq_no = strtoull(namelog_seq_no, nullptr, 10);
     } else {
         my_log_seq_no = 0;
     }
@@ -435,9 +435,9 @@ backend::remote_put(std::string_view woof_name, const char* handler_name, const 
     has_cap = WooFCapFile(cap_file,sizeof(cap_file));
 
 
-    unsigned long my_log_seq_no;
+    unsigned long long my_log_seq_no;
     if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
+        my_log_seq_no = strtoull(namelog_seq_no, nullptr, 10);
     } else {
         my_log_seq_no = 0;
     }
@@ -741,9 +741,9 @@ int32_t backend::remote_get_latest_seq_no(std::string_view woof_name,
 
     auto& endpoint = *endpoint_opt;
 
-    unsigned long my_log_seq_no;
+    unsigned long long my_log_seq_no;
     if (auto namelog_seq_no = getenv("WOOF_NAMELOG_SEQNO")) {
-        my_log_seq_no = strtoul(namelog_seq_no, nullptr, 10);
+        my_log_seq_no = strtoull(namelog_seq_no, nullptr, 10);
     } else {
         my_log_seq_no = 0;
     }

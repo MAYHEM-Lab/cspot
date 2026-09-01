@@ -20,7 +20,7 @@ namespace {
 int safe_stoul_to_int(const std::string& str) {
     try {
         size_t pos;
-        unsigned long value = std::stoul(str, &pos);
+        unsigned long long value = std::stoull(str, &pos);
 
         // Ensure no extra characters exist
 //        if (pos != str.size()) {
@@ -28,7 +28,7 @@ int safe_stoul_to_int(const std::string& str) {
 //        }
 
         // Check for overflow
-        if (value > static_cast<unsigned long>(std::numeric_limits<int>::max())) {
+        if (value > static_cast<unsigned long long>(std::numeric_limits<int>::max())) {
             throw std::out_of_range("Value out of int range");
         }
 
